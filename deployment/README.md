@@ -1,0 +1,64 @@
+# Marauders — Neon + Cloudflare
+
+สแต็ก: **Neon (Postgres)** เก็บ metadata ฟีด · **Cloudflare Workers** เป็น API · **R2** (ถ้าต้องการ) เก็บไฟล์วิดีโอ
+
+## 1. Neon
+
+1. เปิด [Neon Console](https://console.neon.tech/app/org-dawn-glade-96157792/projects) → เลือกโปรเจกต์ (หรือสร้างใหม่)
+2. **SQL Editor** → รันตามลำดับ:
+   - `backend/sql/001_schema.sql`
+   - `backend/sql/002_seed.sql`
+3. **Connect** → copy **connection string** (แนะนำ **pooled** สำหรับ Workers)
+
+## 2. Cloudflare
+
+1. เปิด [Cloudflare Dashboard](https://dash.cloudflare.com/b131b12456fbb5e37718f5cdba8f36ec/home)
+2. ติดตั้ง CLI: `npm install` ใน `backend/`
+3. Login: `npx wrangler login`
+4. ตั้ง secret (ไม่ commit ลง git):
+
+   ```bash
+   cd backend
+   npx wrangler secret put DATABASE_URL
+   ```
+
+5. Deploy:
+
+   ```bash
+   npm run deploy
+   ```
+
+6. ทดสอบ:
+
+   ```bash
+   curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
+   ```
+
+### วิดีโอบน R2 (ทางเลือก)
+
+1. **R2** → Create bucket `marauders-videos`
+2. อัปโหลด `.mp4` → เปิด public access ผ่าน custom domain หรือ `r2.dev` (ตามนโยบายบัญชี)
+3. อัปเดต `feed_videos.stream_url` ใน Neon ให้เป็น URL `https://...` ของไฟล์ใน R2
+4. Uncomment `[[r2_buckets]]` ใน `backend/wrangler.toml` ถ้าจะเพิ่ม endpoint อัปโหลดภายหลัง
+
+## 3. iOS
+
+ใน Xcode → Target **Marauders** → Build Settings → User-Defined หรือแก้ `INFOPLIST_KEY_MARAUDERS_API_BASE_URL`:
+
+```text
+https://<your-worker>.workers.dev
+```
+
+(ไม่มี slash ท้าย URL)
+
+รันแอป — หน้าแรกจะเรียก `GET /v1/feed`
+
+## Local API
+
+```bash
+cd backend
+cp .env.example .env   # ใส่ DATABASE_URL จริง
+npx wrangler dev
+```
+
+สำหรับ Simulator ต้องใช้ HTTPS หรือเพิ่ม ATS exception — แนะนำ deploy Workers แล้วชี้แอปไปที่ `*.workers.dev`

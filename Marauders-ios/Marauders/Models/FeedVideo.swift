@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct FeedVideo: Identifiable, Hashable, Sendable {
+struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     let id: UUID
     let streamURL: URL
     let authorName: String

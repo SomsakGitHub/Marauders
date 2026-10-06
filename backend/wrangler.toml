@@ -1,0 +1,12 @@
+name = "marauders-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Neon: wrangler secret put DATABASE_URL
+# Paste the pooled connection string from Neon Console → Connect.
+
+# Optional — store MP4/HLS in R2 and save public HTTPS URLs in feed_videos.stream_url
+# [[r2_buckets]]
+# binding = "VIDEOS"
+# bucket_name = "marauders-videos"

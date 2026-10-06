@@ -1,0 +1,8 @@
+.DS_Store
+.env
+.env.local
+*.xcuserstate
+
+backend/node_modules/
+backend/.wrangler/
+backend/dist/

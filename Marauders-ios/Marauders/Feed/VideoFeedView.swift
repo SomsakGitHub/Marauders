@@ -6,16 +6,74 @@
 import SwiftUI
 
 struct VideoFeedView: View {
-    private let videos: [FeedVideo]
-
+    @State private var store = FeedStore()
     @State private var currentVideoID: FeedVideo.ID?
 
-    init(videos: [FeedVideo] = FeedSampleData.videos) {
-        self.videos = videos
-        _currentVideoID = State(initialValue: videos.first?.id)
+    private let previewVideos: [FeedVideo]?
+
+    init(previewVideos: [FeedVideo]? = nil) {
+        self.previewVideos = previewVideos
+    }
+
+    private var activeVideos: [FeedVideo] {
+        previewVideos ?? store.videos
     }
 
     var body: some View {
+        Group {
+            if let previewVideos {
+                feedScroll(videos: previewVideos)
+            } else {
+                switch store.loadState {
+                case .idle, .loading:
+                    loadingView
+                case .failed(let message):
+                    errorView(message: message)
+                case .loaded:
+                    feedScroll(videos: store.videos)
+                }
+            }
+        }
+        .task {
+            if previewVideos == nil {
+                await store.loadIfNeeded()
+                syncCurrentVideoID()
+            }
+        }
+        .onChange(of: store.videos) { _, _ in
+            syncCurrentVideoID()
+        }
+    }
+
+    private var loadingView: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            ProgressView()
+                .tint(.white)
+        }
+    }
+
+    private func errorView(message: String) -> some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.largeTitle)
+                    .foregroundStyle(.white)
+                Text(message)
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 24)
+                Button("ลองอีกครั้ง") {
+                    Task { await store.reload() }
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+    }
+
+    private func feedScroll(videos: [FeedVideo]) -> some View {
         GeometryReader { geometry in
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
@@ -37,8 +95,20 @@ struct VideoFeedView: View {
         .ignoresSafeArea()
         .background(Color.black)
     }
+
+    private func syncCurrentVideoID() {
+        let videos = activeVideos
+        guard !videos.isEmpty else {
+            currentVideoID = nil
+            return
+        }
+        if let currentVideoID, videos.contains(where: { $0.id == currentVideoID }) {
+            return
+        }
+        currentVideoID = videos.first?.id
+    }
 }
 
 #Preview {
-    VideoFeedView()
+    VideoFeedView(previewVideos: FeedSampleData.videos)
 }
