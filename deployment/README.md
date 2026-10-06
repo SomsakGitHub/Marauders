@@ -51,7 +51,7 @@ https://<your-worker>.workers.dev
 
 (ไม่มี slash ท้าย URL)
 
-รันแอป — หน้าแรกจะเรียก `GET /v1/feed`
+รันแอป — แท็บ **ฟีด** เรียก `GET /v1/feed` · แท็บ **อัปโหลด** ส่ง `POST /v1/videos` (เก็บไฟล์ใน R2 bucket `marauders-videos`)
 
 ## Local API
 

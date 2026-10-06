@@ -46,6 +46,14 @@ enum APIConfiguration {
         }
         return url
     }
+
+    static func videoUploadURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/videos", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
 }
 
 enum APIConfigurationError: LocalizedError {

@@ -3,8 +3,16 @@ const UUID_RE =
 
 const HTTPS_URL_RE = /^https:\/\/[^\s/$.?#][^\s]*$/i;
 
+const AUTHOR_NAME_RE = /^@[A-Za-z0-9._]{1,63}$/;
+
 export const FEED_LIMIT_DEFAULT = 20;
 export const FEED_LIMIT_MAX = 50;
+
+export const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
+
+const ALLOWED_VIDEO_MIME = new Set(["video/mp4", "video/quicktime"]);
+
+const MEDIA_OBJECT_KEY_RE = /^videos\/[0-9a-f-]{36}\.(mp4|mov)$/;
 
 export function parseFeedLimit(raw: string | null): number {
   if (raw === null || raw === "") {
@@ -33,6 +41,71 @@ export function parseFeedCursor(raw: string | null): string | null {
   }
 
   return raw;
+}
+
+type MultipartField = string | File | null;
+
+export function parseAuthorName(raw: MultipartField): string {
+  if (typeof raw !== "string") {
+    throw new FeedValidationError("authorName is required");
+  }
+  const trimmed = raw.trim();
+  if (!AUTHOR_NAME_RE.test(trimmed)) {
+    throw new FeedValidationError("authorName must look like @handle");
+  }
+  return trimmed;
+}
+
+export function parseCaption(raw: MultipartField): string {
+  if (typeof raw !== "string") {
+    throw new FeedValidationError("caption is required");
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length < 1 || trimmed.length > 500) {
+    throw new FeedValidationError("caption must be 1–500 characters");
+  }
+  return trimmed;
+}
+
+export function parseMusicTitle(raw: MultipartField): string {
+  if (typeof raw !== "string") {
+    throw new FeedValidationError("musicTitle is required");
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length < 1 || trimmed.length > 200) {
+    throw new FeedValidationError("musicTitle must be 1–200 characters");
+  }
+  return trimmed;
+}
+
+export function parseUploadFile(raw: MultipartField): File {
+  if (!(raw instanceof File)) {
+    throw new FeedValidationError("file is required");
+  }
+  if (raw.size < 1 || raw.size > UPLOAD_MAX_BYTES) {
+    throw new FeedValidationError("file exceeds allowed size (max 100 MB)");
+  }
+  const mime = raw.type.toLowerCase();
+  if (!ALLOWED_VIDEO_MIME.has(mime)) {
+    throw new FeedValidationError("file must be MP4 or QuickTime video");
+  }
+  return raw;
+}
+
+export function extensionForVideoMime(mime: string): "mp4" | "mov" {
+  if (mime === "video/mp4") {
+    return "mp4";
+  }
+  if (mime === "video/quicktime") {
+    return "mov";
+  }
+  throw new FeedValidationError("unsupported video type");
+}
+
+export function assertMediaObjectKey(key: string): void {
+  if (!MEDIA_OBJECT_KEY_RE.test(key)) {
+    throw new FeedValidationError("invalid media path");
+  }
 }
 
 export function assertHttpsStreamUrl(url: string): void {

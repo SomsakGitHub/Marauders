@@ -1,0 +1,134 @@
+//
+//  UploadVideoView.swift
+//  Marauders
+//
+
+import PhotosUI
+import SwiftUI
+
+struct UploadVideoView: View {
+    var onUploaded: () async -> Void
+
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var pickedVideo: PickedVideoFile?
+    @State private var authorName = "@marauders"
+    @State private var caption = ""
+    @State private var musicTitle = "Original Sound — Marauders"
+    @State private var isUploading = false
+    @State private var statusMessage: String?
+    @State private var isSuccess = false
+
+    private let client = VideoUploadAPIClient()
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("วิดีโอ") {
+                    PhotosPicker(selection: $pickerItem, matching: .videos) {
+                        Label(
+                            pickedVideo == nil ? "เลือกวิดีโอจากคลัง" : "เปลี่ยนวิดีโอ",
+                            systemImage: "film"
+                        )
+                    }
+                    .disabled(isUploading)
+
+                    if let pickedVideo {
+                        Text(pickedVideo.url.lastPathComponent)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("รายละเอียด") {
+                    TextField("ชื่อผู้โพสต์ (@handle)", text: $authorName)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("คำบรรยาย", text: $caption, axis: .vertical)
+                        .lineLimit(2 ... 4)
+                    TextField("ชื่อเพลง / เสียง", text: $musicTitle)
+                }
+
+                Section {
+                    Button {
+                        Task { await upload() }
+                    } label: {
+                        if isUploading {
+                            HStack {
+                                ProgressView()
+                                Text("กำลังอัปโหลด…")
+                            }
+                        } else {
+                            Text("อัปโหลดไปฟีด")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .disabled(!canUpload)
+                }
+
+                if let statusMessage {
+                    Section {
+                        Text(statusMessage)
+                            .foregroundStyle(isSuccess ? .green : .red)
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .navigationTitle("อัปโหลด")
+            .onChange(of: pickerItem) { _, newItem in
+                Task { await loadPickedVideo(from: newItem) }
+            }
+        }
+    }
+
+    private var canUpload: Bool {
+        !isUploading && pickedVideo != nil && !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func loadPickedVideo(from item: PhotosPickerItem?) async {
+        guard let item else {
+            pickedVideo = nil
+            return
+        }
+        do {
+            if let video = try await item.loadTransferable(type: PickedVideoFile.self) {
+                pickedVideo = video
+                statusMessage = nil
+                isSuccess = false
+            }
+        } catch {
+            pickedVideo = nil
+            statusMessage = "เลือกวิดีโอไม่สำเร็จ"
+            isSuccess = false
+        }
+    }
+
+    private func upload() async {
+        guard let pickedVideo else { return }
+        isUploading = true
+        statusMessage = nil
+        isSuccess = false
+        defer { isUploading = false }
+
+        do {
+            _ = try await client.upload(
+                fileURL: pickedVideo.url,
+                mimeType: pickedVideo.mimeType,
+                authorName: authorName,
+                caption: caption,
+                musicTitle: musicTitle
+            )
+            isSuccess = true
+            statusMessage = "อัปโหลดสำเร็จ — ดูได้ในแท็บฟีด"
+            caption = ""
+            pickerItem = nil
+            self.pickedVideo = nil
+            await onUploaded()
+        } catch {
+            statusMessage = error.localizedDescription
+        }
+    }
+}
+
+#Preview {
+    UploadVideoView(onUploaded: {})
+}

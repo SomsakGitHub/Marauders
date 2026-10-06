@@ -6,24 +6,30 @@
 import SwiftUI
 
 struct VideoFeedView: View {
-    @State private var store = FeedStore()
     @State private var currentVideoID: FeedVideo.ID?
 
+    private let store: FeedStore?
     private let previewVideos: [FeedVideo]?
 
-    init(previewVideos: [FeedVideo]? = nil) {
+    init(store: FeedStore) {
+        self.store = store
+        self.previewVideos = nil
+    }
+
+    init(previewVideos: [FeedVideo]) {
+        self.store = nil
         self.previewVideos = previewVideos
     }
 
     private var activeVideos: [FeedVideo] {
-        previewVideos ?? store.videos
+        previewVideos ?? store?.videos ?? []
     }
 
     var body: some View {
         Group {
             if let previewVideos {
                 feedScroll(videos: previewVideos)
-            } else {
+            } else if let store {
                 switch store.loadState {
                 case .idle, .loading:
                     loadingView
@@ -35,12 +41,12 @@ struct VideoFeedView: View {
             }
         }
         .task {
-            if previewVideos == nil {
+            if let store, previewVideos == nil {
                 await store.loadIfNeeded()
                 syncCurrentVideoID()
             }
         }
-        .onChange(of: store.videos) { _, _ in
+        .onChange(of: store?.videos ?? []) { _, _ in
             syncCurrentVideoID()
         }
     }
@@ -66,7 +72,11 @@ struct VideoFeedView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 24)
                 Button("ลองอีกครั้ง") {
-                    Task { await store.reload() }
+                    Task {
+                        if let store {
+                            await store.reload()
+                        }
+                    }
                 }
                 .buttonStyle(.borderedProminent)
             }

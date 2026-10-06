@@ -1,4 +1,6 @@
 import { listFeedVideos } from "./db/feed";
+import { handleMediaGet } from "./routes/media";
+import { handleVideoUpload } from "./routes/upload";
 import {
   FeedValidationError,
   parseFeedCursor,
@@ -7,6 +9,7 @@ import {
 
 export interface Env {
   DATABASE_URL: string;
+  VIDEOS: R2Bucket;
 }
 
 const JSON_HEADERS: Record<string, string> = {
@@ -30,7 +33,7 @@ function withCors(response: Response, request: Request): Response {
     headers.set("access-control-allow-origin", origin);
     headers.set("vary", "Origin");
   }
-  headers.set("access-control-allow-methods", "GET, OPTIONS");
+  headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
   headers.set("access-control-allow-headers", "Content-Type");
   return new Response(response.body, {
     status: response.status,
@@ -72,18 +75,30 @@ export default {
       return withCors(new Response(null, { status: 204 }), request);
     }
 
-    if (request.method !== "GET") {
-      return withCors(errorResponse(405, "method not allowed"), request);
-    }
-
     const url = new URL(request.url);
 
-    if (url.pathname === "/health") {
+    if (url.pathname === "/health" && request.method === "GET") {
       return withCors(jsonResponse({ status: "ok" }), request);
     }
 
-    if (url.pathname === "/v1/feed") {
+    if (url.pathname === "/v1/feed" && request.method === "GET") {
       return withCors(await handleFeed(request, env), request);
+    }
+
+    if (url.pathname === "/v1/videos" && request.method === "POST") {
+      return withCors(await handleVideoUpload(request, env), request);
+    }
+
+    if (url.pathname.startsWith("/v1/media/") && request.method === "GET") {
+      const objectKey = decodeURIComponent(url.pathname.slice("/v1/media/".length));
+      if (objectKey.includes("..") || objectKey.includes("\\")) {
+        return withCors(errorResponse(400, "invalid path"), request);
+      }
+      return withCors(await handleMediaGet(request, env, objectKey), request);
+    }
+
+    if (request.method !== "GET") {
+      return withCors(errorResponse(405, "method not allowed"), request);
     }
 
     return withCors(errorResponse(404, "not found"), request);
