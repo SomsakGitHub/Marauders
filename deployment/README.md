@@ -31,7 +31,7 @@
 6. ทดสอบ:
 
    ```bash
-   curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
+   curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=5"
    ```
 
 ### วิดีโอบน R2 (ทางเลือก)
