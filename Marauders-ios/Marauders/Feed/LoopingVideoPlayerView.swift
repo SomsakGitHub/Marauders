@@ -8,31 +8,33 @@ import SwiftUI
 
 struct LoopingVideoPlayerView: UIViewRepresentable {
     let url: URL
-    let isPlaying: Bool
+    let isActive: Bool
 
     func makeUIView(context: Context) -> PlayerContainerView {
-        let view = PlayerContainerView()
-        view.configure(url: url)
-        return view
+        PlayerContainerView()
     }
 
     func updateUIView(_ uiView: PlayerContainerView, context: Context) {
-        uiView.setPlaying(isPlaying)
+        uiView.setPlaybackIntent(active: isActive, url: url)
     }
 
     static func dismantleUIView(_ uiView: PlayerContainerView, coordinator: ()) {
-        uiView.teardown()
+        uiView.teardownImmediately()
     }
 }
 
 // MARK: - UIKit player
 
+@MainActor
 final class PlayerContainerView: UIView {
     private var playerLayer = AVPlayerLayer()
-    private var queuePlayer: AVQueuePlayer?
-    private var playerLooper: AVPlayerLooper?
+    private var player: AVPlayer?
     private var statusObservation: NSKeyValueObservation?
+    private var endObserver: NSObjectProtocol?
     private var currentURL: URL?
+    private var inactiveTeardownTask: Task<Void, Never>?
+
+    private static let inactiveTeardownDelayNs: UInt64 = 450_000_000
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -51,48 +53,85 @@ final class PlayerContainerView: UIView {
         playerLayer.frame = bounds
     }
 
-    func configure(url: URL) {
-        guard url.scheme?.lowercased() == "https" else { return }
-        if currentURL == url, queuePlayer != nil {
+    func setPlaybackIntent(active: Bool, url: URL) {
+        inactiveTeardownTask?.cancel()
+        inactiveTeardownTask = nil
+
+        guard active else {
+            player?.pause()
+            inactiveTeardownTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: Self.inactiveTeardownDelayNs)
+                guard !Task.isCancelled else { return }
+                self?.teardownImmediately()
+            }
             return
         }
 
-        teardown()
+        if currentURL == url, player != nil {
+            player?.play()
+            return
+        }
+
+        configure(url: url)
+        player?.play()
+    }
+
+    private func configure(url: URL) {
+        guard url.scheme?.lowercased() == "https" else { return }
+
+        teardownImmediately()
         currentURL = url
 
-        let item = AVPlayerItem(url: url)
-        statusObservation = item.observe(\.status, options: [.new]) { item, _ in
-            if item.status == .failed {
-                let description = item.error?.localizedDescription ?? "unknown"
-                AppLog.error("player", "failed urlHost=\(url.host ?? "?") error=\(description)")
+        let asset = AVURLAsset(url: url)
+        let item = AVPlayerItem(asset: asset)
+        item.preferredForwardBufferDuration = 2
+
+        statusObservation = item.observe(\.status, options: [.new]) { [url] item, _ in
+            Task { @MainActor in
+                if item.status == .readyToPlay {
+                    AppLog.info("player", "ready host=\(url.host ?? "?")")
+                } else if item.status == .failed {
+                    let description = item.error?.localizedDescription ?? "unknown"
+                    let code = (item.error as NSError?)?.code ?? 0
+                    AppLog.error("player", "failed host=\(url.host ?? "?") code=\(code) error=\(description)")
+                }
             }
         }
 
-        let player = AVQueuePlayer(playerItem: item)
-        player.automaticallyWaitsToMinimizeStalling = true
-        player.actionAtItemEnd = .none
+        let avPlayer = AVPlayer(playerItem: item)
+        avPlayer.automaticallyWaitsToMinimizeStalling = true
+        avPlayer.actionAtItemEnd = .pause
 
-        playerLooper = AVPlayerLooper(player: player, templateItem: item)
-        queuePlayer = player
-        playerLayer.player = player
-    }
-
-    func setPlaying(_ isPlaying: Bool) {
-        guard let player = queuePlayer else { return }
-        if isPlaying {
-            player.play()
-        } else {
-            player.pause()
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak avPlayer] _ in
+            avPlayer?.seek(to: .zero)
+            avPlayer?.play()
         }
+
+        player = avPlayer
+        playerLayer.player = avPlayer
+        AppLog.debug("player", "configured host=\(url.host ?? "?")")
     }
 
-    func teardown() {
+    func teardownImmediately() {
+        inactiveTeardownTask?.cancel()
+        inactiveTeardownTask = nil
+
+        if currentURL != nil {
+            AppLog.debug("player", "teardown host=\(currentURL?.host ?? "?")")
+        }
         statusObservation?.invalidate()
         statusObservation = nil
-        queuePlayer?.pause()
-        playerLooper?.disableLooping()
-        playerLooper = nil
-        queuePlayer = nil
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
+        endObserver = nil
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        player = nil
         playerLayer.player = nil
         currentURL = nil
     }

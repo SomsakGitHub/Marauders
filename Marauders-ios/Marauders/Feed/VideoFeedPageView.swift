@@ -11,7 +11,7 @@ struct VideoFeedPageView: View {
 
     var body: some View {
         ZStack {
-            LoopingVideoPlayerView(url: video.streamURL, isPlaying: isActive)
+            LoopingVideoPlayerView(url: video.streamURL, isActive: isActive)
                 .ignoresSafeArea()
 
             LinearGradient(

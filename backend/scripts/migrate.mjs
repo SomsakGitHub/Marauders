@@ -26,7 +26,11 @@ function statementsFromFile(relativePath) {
 
 const pool = new Pool({ connectionString: loadDatabaseUrl() });
 
-for (const file of ["../sql/001_schema.sql", "../sql/002_seed.sql"]) {
+for (const file of [
+  "../sql/001_schema.sql",
+  "../sql/002_seed.sql",
+  "../sql/003_remove_google_seeds.sql",
+]) {
   for (const statement of statementsFromFile(file)) {
     await pool.query(statement);
     console.log(`ok: ${statement.slice(0, 60).replace(/\s+/g, " ")}...`);
