@@ -81,10 +81,8 @@ struct UploadVideoView: View {
                 }
 
                 if let statusMessage {
-                    Section {
-                        Text(statusMessage)
-                            .foregroundStyle(isSuccess ? .green : .red)
-                            .font(.subheadline)
+                    Section("สถานะ") {
+                        CopyableStatusBanner(message: statusMessage, isSuccess: isSuccess)
                     }
                 }
             }
@@ -117,30 +115,42 @@ struct UploadVideoView: View {
         pickedVideo = nil
         statusMessage = nil
         isSuccess = false
+        AppLog.info("upload", "picker item selected — loading transferable")
 
         do {
             guard let video = try await item.loadTransferable(type: PickedVideoFile.self) else {
-                statusMessage = "อ่านวิดีโอไม่ได้ — ลองคลิปสั้นกว่า หรือบันทึกเป็น MP4"
+                let msg = "อ่านวิดีโอไม่ได้ — ลองคลิปสั้นกว่า หรือบันทึกเป็น MP4"
+                statusMessage = msg
                 isSuccess = false
+                AppLog.error("upload", "loadTransferable returned nil")
                 return
             }
             pickedVideo = video
+            let size = (try? FileManager.default.attributesOfItem(atPath: video.url.path)[.size] as? NSNumber)?
+                .int64Value ?? -1
+            AppLog.info("upload", "video ready ext=\(video.url.pathExtension) mime=\(video.mimeType) bytes=\(size)")
         } catch {
             pickedVideo = nil
             statusMessage = "เลือกวิดีโอไม่สำเร็จ: \(error.localizedDescription)"
             isSuccess = false
+            AppLog.error("upload", "loadTransferable failed: \(error.localizedDescription)")
         }
     }
 
     private func upload() async {
-        guard let pickedVideo else { return }
+        guard let pickedVideo else {
+            AppLog.warning("upload", "upload tapped but no picked file")
+            return
+        }
         isUploading = true
         statusMessage = nil
         isSuccess = false
         defer { isUploading = false }
 
+        AppLog.info("upload", "upload started")
+
         do {
-            _ = try await client.upload(
+            let item = try await client.upload(
                 fileURL: pickedVideo.url,
                 mimeType: pickedVideo.mimeType,
                 authorName: authorName,
@@ -149,13 +159,16 @@ struct UploadVideoView: View {
             )
             isSuccess = true
             statusMessage = "อัปโหลดสำเร็จ — กำลังเปิดฟีด"
+            AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
             caption = ""
             pickerItem = nil
             self.pickedVideo = nil
             await onUploaded()
+            AppLog.info("upload", "feed reload requested after upload")
         } catch {
             statusMessage = error.localizedDescription
             isSuccess = false
+            AppLog.error("upload", "upload failed: \(error.localizedDescription)")
         }
     }
 }

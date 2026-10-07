@@ -15,20 +15,26 @@
 1. เปิด [Cloudflare Dashboard](https://dash.cloudflare.com/b131b12456fbb5e37718f5cdba8f36ec/home)
 2. ติดตั้ง CLI: `npm install` ใน `backend/`
 3. Login: `npx wrangler login`
-4. ตั้ง secret (ไม่ commit ลง git):
+4. สร้าง R2 bucket (จำเป็นสำหรับอัปโหลดวิดีโอ):
 
    ```bash
    cd backend
+   npx wrangler r2 bucket create marauders-videos
+   ```
+
+5. ตั้ง secret (ไม่ commit ลง git):
+
+   ```bash
    npx wrangler secret put DATABASE_URL
    ```
 
-5. Deploy:
+6. Deploy:
 
    ```bash
    npm run deploy
    ```
 
-6. ทดสอบ:
+7. ทดสอบ:
 
    ```bash
    curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=5"
@@ -43,7 +49,9 @@
 
 ## 3. iOS
 
-ใน Xcode → Target **Marauders** → Build Settings → User-Defined หรือแก้ `INFOPLIST_KEY_MARAUDERS_API_BASE_URL`:
+แก้ `Marauders-ios/Marauders/APIConfiguration.plist` → key `MARAUDERS_API_BASE_URL` (แนะนำ — อ่านจาก bundle ได้เสมอ)
+
+หรือใน Xcode → Build Settings → `INFOPLIST_KEY_MARAUDERS_API_BASE_URL`:
 
 ```text
 https://<your-worker>.workers.dev

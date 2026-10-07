@@ -31,6 +31,8 @@ final class PlayerContainerView: UIView {
     private var playerLayer = AVPlayerLayer()
     private var queuePlayer: AVQueuePlayer?
     private var playerLooper: AVPlayerLooper?
+    private var statusObservation: NSKeyValueObservation?
+    private var currentURL: URL?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -51,10 +53,21 @@ final class PlayerContainerView: UIView {
 
     func configure(url: URL) {
         guard url.scheme?.lowercased() == "https" else { return }
+        if currentURL == url, queuePlayer != nil {
+            return
+        }
 
         teardown()
+        currentURL = url
 
         let item = AVPlayerItem(url: url)
+        statusObservation = item.observe(\.status, options: [.new]) { item, _ in
+            if item.status == .failed {
+                let description = item.error?.localizedDescription ?? "unknown"
+                AppLog.error("player", "failed urlHost=\(url.host ?? "?") error=\(description)")
+            }
+        }
+
         let player = AVQueuePlayer(playerItem: item)
         player.automaticallyWaitsToMinimizeStalling = true
         player.actionAtItemEnd = .none
@@ -74,10 +87,13 @@ final class PlayerContainerView: UIView {
     }
 
     func teardown() {
+        statusObservation?.invalidate()
+        statusObservation = nil
         queuePlayer?.pause()
         playerLooper?.disableLooping()
         playerLooper = nil
         queuePlayer = nil
         playerLayer.player = nil
+        currentURL = nil
     }
 }

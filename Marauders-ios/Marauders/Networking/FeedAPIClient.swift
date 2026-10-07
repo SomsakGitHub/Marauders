@@ -35,6 +35,8 @@ struct FeedAPIClient: Sendable {
 
     func fetchFeed(limit: Int = 20) async throws -> [FeedVideo] {
         let requestURL = try APIConfiguration.feedRequestURL(limit: limit)
+        AppLog.info("api.feed", "GET \(requestURL.absoluteString)")
+
         var request = URLRequest(url: requestURL)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -42,21 +44,30 @@ struct FeedAPIClient: Sendable {
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
+            AppLog.error("api.feed", "no HTTPURLResponse")
             throw FeedAPIError.invalidResponse
         }
 
+        AppLog.info("api.feed", "status=\(http.statusCode) bytes=\(data.count)")
+
         guard (200 ... 299).contains(http.statusCode) else {
+            AppLog.error("api.feed", "server error status=\(http.statusCode)")
             throw FeedAPIError.serverError(http.statusCode)
         }
 
-        let decoded = try JSONDecoder().decode(FeedAPIResponse.self, from: data)
-
-        for item in decoded.items {
-            guard item.streamURL.scheme?.lowercased() == "https" else {
-                throw FeedAPIError.invalidResponse
+        do {
+            let decoded = try JSONDecoder().decode(FeedAPIResponse.self, from: data)
+            for item in decoded.items {
+                guard item.streamURL.scheme?.lowercased() == "https" else {
+                    AppLog.error("api.feed", "non-HTTPS stream URL in item \(item.id.uuidString)")
+                    throw FeedAPIError.invalidResponse
+                }
             }
+            AppLog.info("api.feed", "items=\(decoded.items.count)")
+            return decoded.items
+        } catch {
+            AppLog.error("api.feed", "decode failed: \(error.localizedDescription)")
+            throw FeedAPIError.invalidResponse
         }
-
-        return decoded.items
     }
 }

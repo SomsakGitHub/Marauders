@@ -35,6 +35,7 @@ final class FeedStore {
     }
 
     func reload() async {
+        AppLog.info("feed", "reload started (currentCount=\(videos.count))")
         loadState = .loading
 
         do {
@@ -42,11 +43,14 @@ final class FeedStore {
             guard !items.isEmpty else {
                 videos = []
                 loadState = .failed("ฟีดว่าง — ลองอัปโหลดคลิปใหม่")
+                AppLog.warning("feed", "reload returned empty list")
                 return
             }
             videos = items
             loadState = .loaded
+            AppLog.info("feed", "reload OK count=\(items.count) topId=\(items.first?.id.uuidString ?? "-")")
         } catch {
+            AppLog.error("feed", "reload failed: \(error.localizedDescription)")
             if videos.isEmpty {
                 loadState = .failed(error.localizedDescription)
             } else {

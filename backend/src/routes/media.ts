@@ -6,6 +6,11 @@ const CONTENT_TYPE_BY_EXT: Record<string, string> = {
   mov: "video/quicktime",
 };
 
+type ByteRange = {
+  offset: number;
+  length: number;
+};
+
 export async function handleMediaGet(
   request: Request,
   env: Env,
@@ -24,21 +29,106 @@ export async function handleMediaGet(
     return new Response("bad request", { status: 400 });
   }
 
+  const head = await env.VIDEOS.head(objectKey);
+  if (!head) {
+    return new Response("not found", { status: 404 });
+  }
+
+  const size = head.size;
+  const extension = objectKey.split(".").pop() ?? "mp4";
+  const contentType =
+    head.httpMetadata?.contentType ??
+    CONTENT_TYPE_BY_EXT[extension] ??
+    "application/octet-stream";
+
+  const baseHeaders = new Headers();
+  baseHeaders.set("content-type", contentType);
+  baseHeaders.set("cache-control", "public, max-age=31536000, immutable");
+  baseHeaders.set("x-content-type-options", "nosniff");
+  baseHeaders.set("accept-ranges", "bytes");
+
+  if (request.method === "HEAD") {
+    baseHeaders.set("content-length", String(size));
+    return new Response(null, { status: 200, headers: baseHeaders });
+  }
+
+  const rangeHeader = request.headers.get("Range");
+  const range = parseByteRange(rangeHeader, size);
+
+  if (range === "invalid") {
+    return new Response("invalid range", {
+      status: 416,
+      headers: { "content-range": `bytes */${size}` },
+    });
+  }
+
+  if (range) {
+    const object = await env.VIDEOS.get(objectKey, {
+      range: { offset: range.offset, length: range.length },
+    });
+    if (!object) {
+      return new Response("not found", { status: 404 });
+    }
+
+    const end = range.offset + range.length - 1;
+    baseHeaders.set("content-range", `bytes ${range.offset}-${end}/${size}`);
+    baseHeaders.set("content-length", String(range.length));
+
+    return new Response(object.body, { status: 206, headers: baseHeaders });
+  }
+
   const object = await env.VIDEOS.get(objectKey);
   if (!object) {
     return new Response("not found", { status: 404 });
   }
 
-  const extension = objectKey.split(".").pop() ?? "mp4";
-  const contentType =
-    object.httpMetadata?.contentType ??
-    CONTENT_TYPE_BY_EXT[extension] ??
-    "application/octet-stream";
+  baseHeaders.set("content-length", String(size));
+  return new Response(object.body, { status: 200, headers: baseHeaders });
+}
 
-  const headers = new Headers();
-  headers.set("content-type", contentType);
-  headers.set("cache-control", "public, max-age=31536000, immutable");
-  headers.set("x-content-type-options", "nosniff");
+function parseByteRange(
+  header: string | null,
+  size: number,
+): ByteRange | null | "invalid" {
+  if (!header) {
+    return null;
+  }
 
-  return new Response(object.body, { status: 200, headers });
+  const match = /^bytes=(\d*)-(\d*)$/u.exec(header.trim());
+  if (!match || size < 1) {
+    return "invalid";
+  }
+
+  const startPart = match[1];
+  const endPart = match[2];
+
+  let start = 0;
+  let end = size - 1;
+
+  if (startPart !== "") {
+    start = Number.parseInt(startPart, 10);
+  }
+  if (endPart !== "") {
+    end = Number.parseInt(endPart, 10);
+  }
+
+  if (startPart === "" && endPart !== "") {
+    const suffixLength = Number.parseInt(endPart, 10);
+    if (!Number.isFinite(suffixLength) || suffixLength < 1) {
+      return "invalid";
+    }
+    start = Math.max(size - suffixLength, 0);
+    end = size - 1;
+  }
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) {
+    return "invalid";
+  }
+
+  if (start >= size) {
+    return "invalid";
+  }
+
+  end = Math.min(end, size - 1);
+  return { offset: start, length: end - start + 1 };
 }

@@ -8,17 +8,19 @@ import Foundation
 enum APIConfiguration {
     private static let feedLimitDefault = 20
     private static let feedLimitMax = 50
+    private static let configKey = "MARAUDERS_API_BASE_URL"
 
-    /// HTTPS origin of the Worker (no trailing slash). Set via Info.plist `MARAUDERS_API_BASE_URL`.
+    /// HTTPS origin of the Worker (no trailing slash).
+    /// Sources: `APIConfiguration.plist` in bundle → Info.plist → Build Settings `INFOPLIST_KEY_MARAUDERS_API_BASE_URL`.
     static func apiBaseURL() throws -> URL {
-        guard
-            let raw = Bundle.main.object(forInfoDictionaryKey: "MARAUDERS_API_BASE_URL") as? String
-        else {
+        guard let raw = resolveBaseURLString(), !raw.isEmpty else {
+            AppLog.error("config", "\(configKey) missing (plist + Info.plist)")
             throw APIConfigurationError.missingBaseURL
         }
 
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let url = URL(string: trimmed) else {
+        guard let url = URL(string: trimmed) else {
+            AppLog.error("config", "invalid URL string")
             throw APIConfigurationError.invalidBaseURL
         }
 
@@ -30,6 +32,7 @@ enum APIConfiguration {
             throw APIConfigurationError.invalidBaseURL
         }
 
+        AppLog.info("config", "api base host=\(host)")
         return url
     }
 
@@ -54,6 +57,30 @@ enum APIConfiguration {
         }
         return url
     }
+
+    private static func resolveBaseURLString() -> String? {
+        if let fromPlist = bundledConfigValue() {
+            AppLog.info("config", "loaded base URL from APIConfiguration.plist")
+            return fromPlist
+        }
+        if let fromInfo = Bundle.main.object(forInfoDictionaryKey: configKey) as? String {
+            AppLog.info("config", "loaded base URL from Info.plist")
+            return fromInfo
+        }
+        return nil
+    }
+
+    private static func bundledConfigValue() -> String? {
+        guard
+            let url = Bundle.main.url(forResource: "APIConfiguration", withExtension: "plist"),
+            let data = try? Data(contentsOf: url),
+            let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+            let value = plist[configKey] as? String
+        else {
+            return nil
+        }
+        return value
+    }
 }
 
 enum APIConfigurationError: LocalizedError {
@@ -63,9 +90,9 @@ enum APIConfigurationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingBaseURL:
-            return "ตั้งค่า MARAUDERS_API_BASE_URL ใน Info.plist (URL ของ Cloudflare Worker)"
+            return "ไม่พบ URL API — ตรวจไฟล์ APIConfiguration.plist ในโปรเจกต์"
         case .invalidBaseURL:
-            return "MARAUDERS_API_BASE_URL ต้องเป็น https:// โดยไม่มี path"
+            return "URL API ต้องเป็น https:// โดยไม่มี path"
         }
     }
 }

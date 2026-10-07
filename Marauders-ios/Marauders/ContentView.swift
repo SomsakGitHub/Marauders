@@ -8,6 +8,7 @@ import SwiftUI
 private enum MainTab: Hashable {
     case feed
     case upload
+    case log
 }
 
 struct ContentView: View {
@@ -30,6 +31,17 @@ struct ContentView: View {
                 Label("อัปโหลด", systemImage: "plus.circle.fill")
             }
             .tag(MainTab.upload)
+
+            NavigationStack {
+                DebugLogView()
+            }
+            .tabItem {
+                Label("Log", systemImage: "ladybug.fill")
+            }
+            .tag(MainTab.log)
+        }
+        .onAppear {
+            AppLog.info("app", "Marauders launched")
         }
     }
 }

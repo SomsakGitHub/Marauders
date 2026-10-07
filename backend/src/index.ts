@@ -89,7 +89,10 @@ export default {
       return withCors(await handleVideoUpload(request, env), request);
     }
 
-    if (url.pathname.startsWith("/v1/media/") && request.method === "GET") {
+    if (
+      url.pathname.startsWith("/v1/media/") &&
+      (request.method === "GET" || request.method === "HEAD")
+    ) {
       const objectKey = decodeURIComponent(url.pathname.slice("/v1/media/".length));
       if (objectKey.includes("..") || objectKey.includes("\\")) {
         return withCors(errorResponse(400, "invalid path"), request);

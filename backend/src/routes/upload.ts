@@ -49,27 +49,48 @@ export async function handleVideoUpload(
     const extension = extensionForVideoMime(mime);
     const objectKey = `videos/${videoId}.${extension}`;
 
-    await env.VIDEOS.put(objectKey, file.stream(), {
-      httpMetadata: {
-        contentType: mime,
-        cacheControl: "public, max-age=31536000, immutable",
-      },
-    });
+    const bytes = await file.arrayBuffer();
+    try {
+      await env.VIDEOS.put(objectKey, bytes, {
+        httpMetadata: {
+          contentType: mime,
+          cacheControl: "public, max-age=31536000, immutable",
+        },
+      });
+    } catch (storageError) {
+      console.error("r2 put failed", storageError);
+      return jsonError(500, "storage write failed");
+    }
 
     const streamUrl = publicStreamUrl(request, objectKey);
-    const item = await insertFeedVideo(env.DATABASE_URL, {
-      streamUrl,
-      authorName,
-      caption,
-      musicTitle,
-    });
+    let item;
+    try {
+      item = await insertFeedVideo(env.DATABASE_URL, {
+        streamUrl,
+        authorName,
+        caption,
+        musicTitle,
+      });
+    } catch (databaseError) {
+      console.error("database insert failed", databaseError);
+      try {
+        await env.VIDEOS.delete(objectKey);
+      } catch {
+        // best-effort rollback
+      }
+      const detail =
+        databaseError instanceof Error ? databaseError.message : "unknown";
+      return jsonError(500, `database write failed: ${detail.slice(0, 160)}`);
+    }
 
     return jsonOk({ item }, 201);
   } catch (error) {
     if (error instanceof FeedValidationError) {
       return jsonError(error.status, error.message);
     }
-    return jsonError(500, "upload failed");
+    console.error("upload failed", error);
+    const detail = error instanceof Error ? error.message : "unknown";
+    return jsonError(500, `upload failed: ${detail.slice(0, 160)}`);
   }
 }
 
