@@ -6,30 +6,13 @@
 import SwiftUI
 
 struct VideoFeedView: View {
+    @Bindable var store: FeedStore
+
     @State private var currentVideoID: FeedVideo.ID?
-
-    private let store: FeedStore?
-    private let previewVideos: [FeedVideo]?
-
-    init(store: FeedStore) {
-        self.store = store
-        self.previewVideos = nil
-    }
-
-    init(previewVideos: [FeedVideo]) {
-        self.store = nil
-        self.previewVideos = previewVideos
-    }
-
-    private var activeVideos: [FeedVideo] {
-        previewVideos ?? store?.videos ?? []
-    }
 
     var body: some View {
         Group {
-            if let previewVideos {
-                feedScroll(videos: previewVideos)
-            } else if let store {
+            if store.videos.isEmpty {
                 switch store.loadState {
                 case .idle, .loading:
                     loadingView
@@ -38,15 +21,23 @@ struct VideoFeedView: View {
                 case .loaded:
                     feedScroll(videos: store.videos)
                 }
+            } else {
+                feedScroll(videos: store.videos)
+                    .overlay {
+                        if store.loadState == .loading {
+                            ProgressView()
+                                .tint(.white)
+                                .padding(12)
+                                .background(.black.opacity(0.45), in: Capsule())
+                        }
+                    }
             }
         }
         .task {
-            if let store, previewVideos == nil {
-                await store.loadIfNeeded()
-                syncCurrentVideoID()
-            }
+            await store.loadIfNeeded()
+            syncCurrentVideoID()
         }
-        .onChange(of: store?.videos ?? []) { _, _ in
+        .onChange(of: store.videos) { _, _ in
             syncCurrentVideoID()
         }
     }
@@ -72,11 +63,7 @@ struct VideoFeedView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 24)
                 Button("ลองอีกครั้ง") {
-                    Task {
-                        if let store {
-                            await store.reload()
-                        }
-                    }
+                    Task { await store.reload() }
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -107,7 +94,7 @@ struct VideoFeedView: View {
     }
 
     private func syncCurrentVideoID() {
-        let videos = activeVideos
+        let videos = store.videos
         guard !videos.isEmpty else {
             currentVideoID = nil
             return
@@ -119,6 +106,35 @@ struct VideoFeedView: View {
     }
 }
 
+/// Preview-only feed without API.
+struct VideoFeedPreviewView: View {
+    @State private var currentVideoID: FeedVideo.ID?
+    let videos: [FeedVideo]
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 0) {
+                    ForEach(videos) { video in
+                        VideoFeedPageView(video: video, isActive: currentVideoID == video.id)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .id(video.id)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollIndicators(.hidden)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $currentVideoID)
+        }
+        .ignoresSafeArea()
+        .background(Color.black)
+        .onAppear {
+            currentVideoID = videos.first?.id
+        }
+    }
+}
+
 #Preview {
-    VideoFeedView(previewVideos: FeedSampleData.videos)
+    VideoFeedPreviewView(videos: FeedSampleData.videos)
 }

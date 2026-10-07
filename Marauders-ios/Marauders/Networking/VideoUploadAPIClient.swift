@@ -94,6 +94,9 @@ struct VideoUploadAPIClient: Sendable {
         }
 
         guard (200 ... 299).contains(http.statusCode) else {
+            if let serverMessage = parseServerErrorMessage(from: data) {
+                throw UploadErrorMessage(message: serverMessage)
+            }
             throw VideoUploadAPIError.serverError(http.statusCode)
         }
 
@@ -141,6 +144,18 @@ struct VideoUploadAPIClient: Sendable {
         try body.write(to: tempURL, options: .atomic)
         return tempURL
     }
+
+    private func parseServerErrorMessage(from data: Data) -> String? {
+        struct ErrorBody: Decodable {
+            let error: String
+        }
+        return (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
+    }
+}
+
+private struct UploadErrorMessage: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
 
 private extension Data {

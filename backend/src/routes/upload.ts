@@ -7,6 +7,7 @@ import {
   parseCaption,
   parseMusicTitle,
   parseUploadFile,
+  resolveVideoMime,
 } from "../validation";
 
 function publicStreamUrl(request: Request, objectKey: string): string {
@@ -44,12 +45,13 @@ export async function handleVideoUpload(
     const musicTitle = parseMusicTitle(formData.get("musicTitle"));
 
     const videoId = crypto.randomUUID();
-    const extension = extensionForVideoMime(file.type.toLowerCase());
+    const mime = resolveVideoMime(file);
+    const extension = extensionForVideoMime(mime);
     const objectKey = `videos/${videoId}.${extension}`;
 
     await env.VIDEOS.put(objectKey, file.stream(), {
       httpMetadata: {
-        contentType: file.type,
+        contentType: mime,
         cacheControl: "public, max-age=31536000, immutable",
       },
     });

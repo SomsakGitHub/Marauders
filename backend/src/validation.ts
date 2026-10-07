@@ -78,6 +78,23 @@ export function parseMusicTitle(raw: MultipartField): string {
   return trimmed;
 }
 
+export function resolveVideoMime(file: File): string {
+  const declaredMime = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  const mime = ALLOWED_VIDEO_MIME.has(declaredMime)
+    ? declaredMime
+    : name.endsWith(".mov")
+      ? "video/quicktime"
+      : name.endsWith(".mp4") || name.endsWith(".m4v")
+        ? "video/mp4"
+        : declaredMime;
+
+  if (!ALLOWED_VIDEO_MIME.has(mime)) {
+    throw new FeedValidationError("file must be MP4 or QuickTime video");
+  }
+  return mime;
+}
+
 export function parseUploadFile(raw: MultipartField): File {
   if (!(raw instanceof File)) {
     throw new FeedValidationError("file is required");
@@ -85,10 +102,7 @@ export function parseUploadFile(raw: MultipartField): File {
   if (raw.size < 1 || raw.size > UPLOAD_MAX_BYTES) {
     throw new FeedValidationError("file exceeds allowed size (max 100 MB)");
   }
-  const mime = raw.type.toLowerCase();
-  if (!ALLOWED_VIDEO_MIME.has(mime)) {
-    throw new FeedValidationError("file must be MP4 or QuickTime video");
-  }
+  resolveVideoMime(raw);
   return raw;
 }
 

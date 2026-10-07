@@ -36,6 +36,13 @@ struct UploadVideoView: View {
                         Text(pickedVideo.url.lastPathComponent)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    } else if pickerItem != nil {
+                        HStack {
+                            ProgressView()
+                            Text("กำลังเตรียมไฟล์…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
@@ -46,6 +53,14 @@ struct UploadVideoView: View {
                     TextField("คำบรรยาย", text: $caption, axis: .vertical)
                         .lineLimit(2 ... 4)
                     TextField("ชื่อเพลง / เสียง", text: $musicTitle)
+                }
+
+                if !canUpload, !isUploading {
+                    Section {
+                        Text(uploadHint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section {
@@ -84,20 +99,35 @@ struct UploadVideoView: View {
         !isUploading && pickedVideo != nil && !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var uploadHint: String {
+        if pickedVideo == nil {
+            return "เลือกวิดีโอจากคลังก่อน"
+        }
+        if caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "กรอกคำบรรยายก่อนกดอัปโหลด"
+        }
+        return ""
+    }
+
     private func loadPickedVideo(from item: PhotosPickerItem?) async {
         guard let item else {
             pickedVideo = nil
             return
         }
+        pickedVideo = nil
+        statusMessage = nil
+        isSuccess = false
+
         do {
-            if let video = try await item.loadTransferable(type: PickedVideoFile.self) {
-                pickedVideo = video
-                statusMessage = nil
+            guard let video = try await item.loadTransferable(type: PickedVideoFile.self) else {
+                statusMessage = "อ่านวิดีโอไม่ได้ — ลองคลิปสั้นกว่า หรือบันทึกเป็น MP4"
                 isSuccess = false
+                return
             }
+            pickedVideo = video
         } catch {
             pickedVideo = nil
-            statusMessage = "เลือกวิดีโอไม่สำเร็จ"
+            statusMessage = "เลือกวิดีโอไม่สำเร็จ: \(error.localizedDescription)"
             isSuccess = false
         }
     }
@@ -118,13 +148,14 @@ struct UploadVideoView: View {
                 musicTitle: musicTitle
             )
             isSuccess = true
-            statusMessage = "อัปโหลดสำเร็จ — ดูได้ในแท็บฟีด"
+            statusMessage = "อัปโหลดสำเร็จ — กำลังเปิดฟีด"
             caption = ""
             pickerItem = nil
             self.pickedVideo = nil
             await onUploaded()
         } catch {
             statusMessage = error.localizedDescription
+            isSuccess = false
         }
     }
 }

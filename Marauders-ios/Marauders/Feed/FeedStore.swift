@@ -36,18 +36,22 @@ final class FeedStore {
 
     func reload() async {
         loadState = .loading
+
         do {
             let items = try await client.fetchFeed()
             guard !items.isEmpty else {
                 videos = []
-                loadState = .failed("ฟีดว่าง — รัน seed SQL ใน Neon")
+                loadState = .failed("ฟีดว่าง — ลองอัปโหลดคลิปใหม่")
                 return
             }
             videos = items
             loadState = .loaded
         } catch {
-            videos = []
-            loadState = .failed(error.localizedDescription)
+            if videos.isEmpty {
+                loadState = .failed(error.localizedDescription)
+            } else {
+                loadState = .loaded
+            }
         }
     }
 }
