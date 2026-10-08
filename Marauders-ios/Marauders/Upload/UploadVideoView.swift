@@ -11,9 +11,6 @@ struct UploadVideoView: View {
 
     @State private var pickerItem: PhotosPickerItem?
     @State private var pickedVideo: PickedVideoFile?
-    @State private var authorName = "@marauders"
-    @State private var caption = ""
-    @State private var musicTitle = "Original Sound — Marauders"
     @State private var isUploading = false
     @State private var statusMessage: String?
     @State private var isSuccess = false
@@ -43,23 +40,6 @@ struct UploadVideoView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                    }
-                }
-
-                Section("รายละเอียด") {
-                    TextField("ชื่อผู้โพสต์ (@handle)", text: $authorName)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    TextField("คำบรรยาย", text: $caption, axis: .vertical)
-                        .lineLimit(2 ... 4)
-                    TextField("ชื่อเพลง / เสียง", text: $musicTitle)
-                }
-
-                if !canUpload, !isUploading {
-                    Section {
-                        Text(uploadHint)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -94,17 +74,7 @@ struct UploadVideoView: View {
     }
 
     private var canUpload: Bool {
-        !isUploading && pickedVideo != nil && !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var uploadHint: String {
-        if pickedVideo == nil {
-            return "เลือกวิดีโอจากคลังก่อน"
-        }
-        if caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "กรอกคำบรรยายก่อนกดอัปโหลด"
-        }
-        return ""
+        !isUploading && pickedVideo != nil
     }
 
     private func loadPickedVideo(from item: PhotosPickerItem?) async {
@@ -152,15 +122,11 @@ struct UploadVideoView: View {
         do {
             let item = try await client.upload(
                 fileURL: pickedVideo.url,
-                mimeType: pickedVideo.mimeType,
-                authorName: authorName,
-                caption: caption,
-                musicTitle: musicTitle
+                mimeType: pickedVideo.mimeType
             )
             isSuccess = true
             statusMessage = "อัปโหลดสำเร็จ — กำลังเปิดฟีด"
             AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
-            caption = ""
             pickerItem = nil
             self.pickedVideo = nil
             await onUploaded()

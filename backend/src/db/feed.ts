@@ -1,21 +1,19 @@
 import { neon } from "@neondatabase/serverless";
 import { assertHttpsStreamUrl } from "../validation";
 
-export type FeedRow = {
+type FeedRow = {
   id: string;
   stream_url: string;
-  author_name: string;
-  caption: string;
-  music_title: string;
 };
 
 export type FeedItemJson = {
   id: string;
   streamURL: string;
-  authorName: string;
-  caption: string;
-  musicTitle: string;
 };
+
+const UPLOAD_AUTHOR_NAME = "@marauders";
+const UPLOAD_CAPTION = " ";
+const UPLOAD_MUSIC_TITLE = "—";
 
 export async function listFeedVideos(
   databaseUrl: string,
@@ -26,7 +24,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT id, stream_url, author_name, caption, music_title
+        SELECT id, stream_url
         FROM feed_videos
         WHERE (sort_order, created_at, id) < (
           SELECT sort_order, created_at, id FROM feed_videos WHERE id = ${cursor}::uuid
@@ -35,7 +33,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT id, stream_url, author_name, caption, music_title
+        SELECT id, stream_url
         FROM feed_videos
         ORDER BY sort_order DESC, created_at DESC, id DESC
         LIMIT ${limit}
@@ -46,35 +44,27 @@ export async function listFeedVideos(
     return {
       id: row.id,
       streamURL: row.stream_url,
-      authorName: row.author_name,
-      caption: row.caption,
-      musicTitle: row.music_title,
     };
   });
 }
 
 export async function insertFeedVideo(
   databaseUrl: string,
-  input: {
-    streamUrl: string;
-    authorName: string;
-    caption: string;
-    musicTitle: string;
-  },
+  streamUrl: string,
 ): Promise<FeedItemJson> {
-  assertHttpsStreamUrl(input.streamUrl);
+  assertHttpsStreamUrl(streamUrl);
 
   const sql = neon(databaseUrl);
   const rows = (await sql`
     INSERT INTO feed_videos (stream_url, author_name, caption, music_title, sort_order)
     VALUES (
-      ${input.streamUrl},
-      ${input.authorName},
-      ${input.caption},
-      ${input.musicTitle},
+      ${streamUrl},
+      ${UPLOAD_AUTHOR_NAME},
+      ${UPLOAD_CAPTION},
+      ${UPLOAD_MUSIC_TITLE},
       (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos)
     )
-    RETURNING id, stream_url, author_name, caption, music_title
+    RETURNING id, stream_url
   `) as FeedRow[];
 
   const row = rows[0];
@@ -85,8 +75,5 @@ export async function insertFeedVideo(
   return {
     id: row.id,
     streamURL: row.stream_url,
-    authorName: row.author_name,
-    caption: row.caption,
-    musicTitle: row.music_title,
   };
 }

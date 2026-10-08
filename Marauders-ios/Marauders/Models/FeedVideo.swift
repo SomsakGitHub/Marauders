@@ -8,21 +8,9 @@ import Foundation
 struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     let id: UUID
     let streamURL: URL
-    let authorName: String
-    let caption: String
-    let musicTitle: String
 
-    init(
-        id: UUID = UUID(),
-        streamURL: URL,
-        authorName: String,
-        caption: String,
-        musicTitle: String
-    ) {
+    init(id: UUID = UUID(), streamURL: URL) {
         self.id = id
         self.streamURL = streamURL
-        self.authorName = authorName
-        self.caption = caption
-        self.musicTitle = musicTitle
     }
 }

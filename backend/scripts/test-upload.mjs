@@ -6,9 +6,6 @@ form.append(
   new Blob([new Uint8Array(4096).fill(0)], { type: "video/mp4" }),
   "tiny.mp4",
 );
-form.append("authorName", "@tester");
-form.append("caption", "api test");
-form.append("musicTitle", "test");
 
 const response = await fetch(endpoint, { method: "POST", body: form });
 const text = await response.text();

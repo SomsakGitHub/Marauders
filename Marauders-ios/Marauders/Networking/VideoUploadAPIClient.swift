@@ -12,7 +12,6 @@ struct VideoUploadAPIResponse: Decodable, Sendable {
 enum VideoUploadAPIError: LocalizedError {
     case fileTooLarge
     case unsupportedFormat
-    case invalidMetadata
     case serverError(Int)
     case invalidResponse
 
@@ -22,8 +21,6 @@ enum VideoUploadAPIError: LocalizedError {
             return "วิดีโอต้องไม่เกิน 100 MB"
         case .unsupportedFormat:
             return "รองรับเฉพาะ MP4 / MOV"
-        case .invalidMetadata:
-            return "กรอกข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง"
         case .serverError(let code):
             return "อัปโหลดไม่สำเร็จ (รหัส \(code))"
         case .invalidResponse:
@@ -41,13 +38,7 @@ struct VideoUploadAPIClient: Sendable {
         self.session = session
     }
 
-    func upload(
-        fileURL: URL,
-        mimeType: String,
-        authorName: String,
-        caption: String,
-        musicTitle: String
-    ) async throws -> FeedVideo {
+    func upload(fileURL: URL, mimeType: String) async throws -> FeedVideo {
         guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
             throw VideoUploadAPIError.unsupportedFormat
@@ -58,19 +49,6 @@ struct VideoUploadAPIClient: Sendable {
         guard fileSize > 0, fileSize <= Self.maxUploadBytes else {
             AppLog.error("api.upload", "file size invalid bytes=\(fileSize)")
             throw VideoUploadAPIError.fileTooLarge
-        }
-
-        let trimmedAuthor = authorName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedMusic = musicTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard
-            trimmedAuthor.range(of: #"^@[A-Za-z0-9._]{1,63}$"#, options: .regularExpression) != nil,
-            (1 ... 500).contains(trimmedCaption.count),
-            (1 ... 200).contains(trimmedMusic.count)
-        else {
-            AppLog.error("api.upload", "metadata validation failed")
-            throw VideoUploadAPIError.invalidMetadata
         }
 
         let requestURL = try APIConfiguration.videoUploadURL()
@@ -84,9 +62,6 @@ struct VideoUploadAPIClient: Sendable {
 
         let bodyURL = try writeMultipartBody(
             boundary: boundary,
-            authorName: trimmedAuthor,
-            caption: trimmedCaption,
-            musicTitle: trimmedMusic,
             fileURL: fileURL,
             mimeType: mimeType
         )
@@ -136,25 +111,12 @@ struct VideoUploadAPIClient: Sendable {
 
     private func writeMultipartBody(
         boundary: String,
-        authorName: String,
-        caption: String,
-        musicTitle: String,
         fileURL: URL,
         mimeType: String
     ) throws -> URL {
         let fileData = try Data(contentsOf: fileURL)
         let fileName = fileURL.lastPathComponent
         var body = Data()
-
-        func appendField(name: String, value: String) {
-            body.appendString("--\(boundary)\r\n")
-            body.appendString("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-            body.appendString("\(value)\r\n")
-        }
-
-        appendField(name: "authorName", value: authorName)
-        appendField(name: "caption", value: caption)
-        appendField(name: "musicTitle", value: musicTitle)
 
         body.appendString("--\(boundary)\r\n")
         body.appendString(

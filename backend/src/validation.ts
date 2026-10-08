@@ -3,8 +3,6 @@ const UUID_RE =
 
 const HTTPS_URL_RE = /^https:\/\/[^\s/$.?#][^\s]*$/i;
 
-const AUTHOR_NAME_RE = /^@[A-Za-z0-9._]{1,63}$/;
-
 export const FEED_LIMIT_DEFAULT = 20;
 export const FEED_LIMIT_MAX = 50;
 
@@ -44,39 +42,6 @@ export function parseFeedCursor(raw: string | null): string | null {
 }
 
 type MultipartField = string | File | null;
-
-export function parseAuthorName(raw: MultipartField): string {
-  if (typeof raw !== "string") {
-    throw new FeedValidationError("authorName is required");
-  }
-  const trimmed = raw.trim();
-  if (!AUTHOR_NAME_RE.test(trimmed)) {
-    throw new FeedValidationError("authorName must look like @handle");
-  }
-  return trimmed;
-}
-
-export function parseCaption(raw: MultipartField): string {
-  if (typeof raw !== "string") {
-    throw new FeedValidationError("caption is required");
-  }
-  const trimmed = raw.trim();
-  if (trimmed.length < 1 || trimmed.length > 500) {
-    throw new FeedValidationError("caption must be 1–500 characters");
-  }
-  return trimmed;
-}
-
-export function parseMusicTitle(raw: MultipartField): string {
-  if (typeof raw !== "string") {
-    throw new FeedValidationError("musicTitle is required");
-  }
-  const trimmed = raw.trim();
-  if (trimmed.length < 1 || trimmed.length > 200) {
-    throw new FeedValidationError("musicTitle must be 1–200 characters");
-  }
-  return trimmed;
-}
 
 export function resolveVideoMime(file: File): string {
   const declaredMime = file.type.toLowerCase();

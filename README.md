@@ -114,10 +114,10 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 |--------|------|----------|
 | `GET` | `/health` | health check |
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>` | รายการฟีด (JSON) |
-| `POST` | `/v1/videos` | `multipart/form-data`: `file`, `authorName`, `caption`, `musicTitle` |
+| `POST` | `/v1/videos` | `multipart/form-data`: `file` เท่านั้น |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์จาก R2 |
 
-**ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB, `authorName` รูปแบบ `@handle`
+**ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB
 
 ตัวอย่าง response ฟีด:
 
@@ -126,10 +126,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
   "items": [
     {
       "id": "uuid",
-      "streamURL": "https://.../v1/media/videos/....mp4",
-      "authorName": "@marauders",
-      "caption": "...",
-      "musicTitle": "..."
+      "streamURL": "https://.../v1/media/videos/....mp4"
     }
   ]
 }

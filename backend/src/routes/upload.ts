@@ -3,9 +3,6 @@ import type { Env } from "../index";
 import {
   extensionForVideoMime,
   FeedValidationError,
-  parseAuthorName,
-  parseCaption,
-  parseMusicTitle,
   parseUploadFile,
   resolveVideoMime,
 } from "../validation";
@@ -40,9 +37,6 @@ export async function handleVideoUpload(
 
   try {
     const file = parseUploadFile(formData.get("file"));
-    const authorName = parseAuthorName(formData.get("authorName"));
-    const caption = parseCaption(formData.get("caption"));
-    const musicTitle = parseMusicTitle(formData.get("musicTitle"));
 
     const videoId = crypto.randomUUID();
     const mime = resolveVideoMime(file);
@@ -65,12 +59,7 @@ export async function handleVideoUpload(
     const streamUrl = publicStreamUrl(request, objectKey);
     let item;
     try {
-      item = await insertFeedVideo(env.DATABASE_URL, {
-        streamUrl,
-        authorName,
-        caption,
-        musicTitle,
-      });
+      item = await insertFeedVideo(env.DATABASE_URL, streamUrl);
     } catch (databaseError) {
       console.error("database insert failed", databaseError);
       try {
