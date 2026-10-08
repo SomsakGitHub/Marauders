@@ -12,6 +12,9 @@ struct MaraudersApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    VideoPlaybackConfigurator.activateAudioSessionIfNeeded()
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {

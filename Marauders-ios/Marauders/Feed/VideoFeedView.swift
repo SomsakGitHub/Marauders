@@ -6,9 +6,12 @@
 import SwiftUI
 
 struct VideoFeedView: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     @Bindable var store: FeedStore
 
     @State private var currentVideoID: FeedVideo.ID?
+    @State private var playerEngine = FeedPlayerEngine()
 
     var body: some View {
         Group {
@@ -36,9 +39,29 @@ struct VideoFeedView: View {
         .task {
             await store.loadIfNeeded()
             syncCurrentVideoID()
+            applyPlayback(for: store.videos)
         }
         .onChange(of: store.videos) { _, _ in
             syncCurrentVideoID()
+            applyPlayback(for: store.videos)
+        }
+        .onChange(of: currentVideoID) { _, _ in
+            applyPlayback(for: store.videos)
+        }
+        .onDisappear {
+            playerEngine.pause()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                applyPlayback(for: store.videos)
+            case .background:
+                playerEngine.pause()
+            case .inactive:
+                playerEngine.pause()
+            @unknown default:
+                break
+            }
         }
     }
 
@@ -72,25 +95,60 @@ struct VideoFeedView: View {
 
     private func feedScroll(videos: [FeedVideo]) -> some View {
         GeometryReader { geometry in
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(videos) { video in
-                        VideoFeedPageView(
-                            video: video,
-                            isActive: currentVideoID == video.id
-                        )
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .id(video.id)
+            ZStack {
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(videos) { video in
+                            VideoFeedPageView()
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .id(video.id)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
+                .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $currentVideoID)
+
+                FeedPlayerSurface(engine: playerEngine)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .allowsHitTesting(false)
+
+                playbackOverlay
             }
-            .scrollIndicators(.hidden)
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $currentVideoID)
         }
         .ignoresSafeArea()
         .background(Color.black)
+    }
+
+    @ViewBuilder
+    private var playbackOverlay: some View {
+        switch playerEngine.phase {
+        case .idle, .playing:
+            EmptyView()
+        case .buffering:
+            ProgressView()
+                .tint(.white)
+                .scaleEffect(1.2)
+                .allowsHitTesting(false)
+        case .failed(let message):
+            VStack(spacing: 12) {
+                Image(systemName: "play.slash")
+                    .font(.title)
+                    .foregroundStyle(.white)
+                Text(message)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 32)
+                Button("เล่นอีกครั้ง") {
+                    playerEngine.retry()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+        }
     }
 
     private func syncCurrentVideoID() {
@@ -104,33 +162,63 @@ struct VideoFeedView: View {
         }
         currentVideoID = videos.first?.id
     }
+
+    private func applyPlayback(for videos: [FeedVideo]) {
+        guard let currentVideoID,
+              let index = videos.firstIndex(where: { $0.id == currentVideoID })
+        else {
+            playerEngine.pause()
+            return
+        }
+
+        let current = videos[index]
+        playerEngine.play(url: current.streamURL)
+
+        if index + 1 < videos.count {
+            playerEngine.prefetch(url: videos[index + 1].streamURL)
+        }
+    }
 }
 
 /// Preview-only feed without API.
 struct VideoFeedPreviewView: View {
     @State private var currentVideoID: FeedVideo.ID?
+    @State private var playerEngine = FeedPlayerEngine()
     let videos: [FeedVideo]
 
     var body: some View {
         GeometryReader { geometry in
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(videos) { video in
-                        VideoFeedPageView(video: video, isActive: currentVideoID == video.id)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .id(video.id)
+            ZStack {
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(videos) { video in
+                            VideoFeedPageView()
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .id(video.id)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
+                .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $currentVideoID)
+
+                FeedPlayerSurface(engine: playerEngine)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .allowsHitTesting(false)
             }
-            .scrollIndicators(.hidden)
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $currentVideoID)
         }
         .ignoresSafeArea()
         .background(Color.black)
         .onAppear {
             currentVideoID = videos.first?.id
+            if let first = videos.first {
+                playerEngine.play(url: first.streamURL)
+            }
+        }
+        .onChange(of: currentVideoID) { _, id in
+            guard let id, let video = videos.first(where: { $0.id == id }) else { return }
+            playerEngine.play(url: video.streamURL)
         }
     }
 }

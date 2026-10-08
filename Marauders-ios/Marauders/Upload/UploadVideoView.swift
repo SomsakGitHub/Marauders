@@ -10,7 +10,8 @@ struct UploadVideoView: View {
     var onUploaded: () async -> Void
 
     @State private var pickerItem: PhotosPickerItem?
-    @State private var pickedVideo: PickedVideoFile?
+    @State private var uploadFileURL: URL?
+    @State private var isPreparing = false
     @State private var isUploading = false
     @State private var statusMessage: String?
     @State private var isSuccess = false
@@ -23,14 +24,21 @@ struct UploadVideoView: View {
                 Section("วิดีโอ") {
                     PhotosPicker(selection: $pickerItem, matching: .videos) {
                         Label(
-                            pickedVideo == nil ? "เลือกวิดีโอจากคลัง" : "เปลี่ยนวิดีโอ",
+                            uploadFileURL == nil ? "เลือกวิดีโอจากคลัง" : "เปลี่ยนวิดีโอ",
                             systemImage: "film"
                         )
                     }
-                    .disabled(isUploading)
+                    .disabled(isUploading || isPreparing)
 
-                    if let pickedVideo {
-                        Text(pickedVideo.url.lastPathComponent)
+                    if isPreparing {
+                        HStack {
+                            ProgressView()
+                            Text("กำลังแปลงเป็น MP4…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else if let uploadFileURL {
+                        Text(uploadFileURL.lastPathComponent)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else if pickerItem != nil {
@@ -68,48 +76,50 @@ struct UploadVideoView: View {
             }
             .navigationTitle("อัปโหลด")
             .onChange(of: pickerItem) { _, newItem in
-                Task { await loadPickedVideo(from: newItem) }
+                Task { await prepareVideo(from: newItem) }
             }
         }
     }
 
     private var canUpload: Bool {
-        !isUploading && pickedVideo != nil
+        !isUploading && !isPreparing && uploadFileURL != nil
     }
 
-    private func loadPickedVideo(from item: PhotosPickerItem?) async {
+    private func prepareVideo(from item: PhotosPickerItem?) async {
         guard let item else {
-            pickedVideo = nil
+            uploadFileURL = nil
             return
         }
-        pickedVideo = nil
+        uploadFileURL = nil
         statusMessage = nil
         isSuccess = false
+        isPreparing = false
         AppLog.info("upload", "picker item selected — loading transferable")
 
         do {
             guard let video = try await item.loadTransferable(type: PickedVideoFile.self) else {
-                let msg = "อ่านวิดีโอไม่ได้ — ลองคลิปสั้นกว่า หรือบันทึกเป็น MP4"
-                statusMessage = msg
-                isSuccess = false
+                statusMessage = "อ่านวิดีโอไม่ได้ — ลองคลิปสั้นกว่า"
                 AppLog.error("upload", "loadTransferable returned nil")
                 return
             }
-            pickedVideo = video
-            let size = (try? FileManager.default.attributesOfItem(atPath: video.url.path)[.size] as? NSNumber)?
-                .int64Value ?? -1
-            AppLog.info("upload", "video ready ext=\(video.url.pathExtension) mime=\(video.mimeType) bytes=\(size)")
+
+            isPreparing = true
+            defer { isPreparing = false }
+
+            let mp4URL = try await VideoExportService.mp4URLForUpload(from: video.url)
+            uploadFileURL = mp4URL
+            AppLog.info("upload", "ready for upload mp4")
         } catch {
-            pickedVideo = nil
-            statusMessage = "เลือกวิดีโอไม่สำเร็จ: \(error.localizedDescription)"
+            uploadFileURL = nil
+            statusMessage = error.localizedDescription
             isSuccess = false
-            AppLog.error("upload", "loadTransferable failed: \(error.localizedDescription)")
+            AppLog.error("upload", "prepare failed: \(error.localizedDescription)")
         }
     }
 
     private func upload() async {
-        guard let pickedVideo else {
-            AppLog.warning("upload", "upload tapped but no picked file")
+        guard let uploadFileURL else {
+            AppLog.warning("upload", "upload tapped but no file")
             return
         }
         isUploading = true
@@ -121,14 +131,14 @@ struct UploadVideoView: View {
 
         do {
             let item = try await client.upload(
-                fileURL: pickedVideo.url,
-                mimeType: pickedVideo.mimeType
+                fileURL: uploadFileURL,
+                mimeType: "video/mp4"
             )
             isSuccess = true
             statusMessage = "อัปโหลดสำเร็จ — กำลังเปิดฟีด"
             AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
             pickerItem = nil
-            self.pickedVideo = nil
+            self.uploadFileURL = nil
             await onUploaded()
             AppLog.info("upload", "feed reload requested after upload")
         } catch {
