@@ -6,15 +6,18 @@
 import SwiftUI
 
 struct AppRootView: View {
-    @State private var feedStore = FeedStore()
+    @State private var container = AppDependencyContainer()
     @State private var isShowingSplash = true
 
     private static let minimumSplashDurationNs: UInt64 = 650_000_000
 
     var body: some View {
         ZStack {
-            ContentView(feedStore: feedStore)
-                .opacity(isShowingSplash ? 0 : 1)
+            ContentView(
+                feedViewModel: container.feedViewModel,
+                uploadViewModel: container.uploadViewModel
+            )
+            .opacity(isShowingSplash ? 0 : 1)
 
             if isShowingSplash {
                 SplashView()
@@ -32,7 +35,7 @@ struct AppRootView: View {
     }
 
     private func presentSplash() async {
-        async let feedLoad: Void = feedStore.loadIfNeeded()
+        async let feedLoad: Void = container.feedViewModel.loadIfNeeded()
         async let minimumDelay: Void = {
             try? await Task.sleep(nanoseconds: Self.minimumSplashDurationNs)
         }()

@@ -1,33 +1,22 @@
 //
-//  FeedStore.swift
+//  VideoFeedViewModel.swift
 //  Marauders
 //
 
 import Foundation
 import Observation
 
-enum FeedLoadState: Equatable, Sendable {
-    case idle
-    case loading
-    case loaded
-    case failed(String)
-}
-
 @MainActor
 @Observable
-final class FeedStore {
+final class VideoFeedViewModel {
     var videos: [FeedVideo] = []
     var loadState: FeedLoadState = .idle
 
-    private let client: FeedAPIClient
+    private let fetchFeed: FetchFeedUseCase
     private var reloadGeneration = 0
 
-    init() {
-        client = FeedAPIClient()
-    }
-
-    init(client: FeedAPIClient) {
-        self.client = client
+    init(fetchFeed: FetchFeedUseCase) {
+        self.fetchFeed = fetchFeed
     }
 
     func loadIfNeeded() async {
@@ -43,7 +32,7 @@ final class FeedStore {
         loadState = .loading
 
         do {
-            let items = try await client.fetchFeed()
+            let items = try await fetchFeed.execute()
             guard generation == reloadGeneration else { return }
             guard !items.isEmpty else {
                 videos = []

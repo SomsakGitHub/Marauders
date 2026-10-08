@@ -12,22 +12,20 @@ private enum MainTab: Hashable {
 }
 
 struct ContentView: View {
-    @Bindable var feedStore: FeedStore
+    @Bindable var feedViewModel: VideoFeedViewModel
+    @Bindable var uploadViewModel: UploadVideoViewModel
 
     @State private var selectedTab: MainTab = .feed
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            VideoFeedView(store: feedStore)
+            VideoFeedView(viewModel: feedViewModel)
                 .tabItem {
                     Label("ฟีด", systemImage: "play.rectangle.fill")
                 }
                 .tag(MainTab.feed)
 
-            UploadVideoView {
-                await feedStore.reload()
-                selectedTab = .feed
-            }
+            UploadVideoView(viewModel: uploadViewModel)
             .tabItem {
                 Label("อัปโหลด", systemImage: "plus.circle.fill")
             }
@@ -45,10 +43,18 @@ struct ContentView: View {
         }
         .onAppear {
             AppLog.info("app", "Marauders launched")
+            uploadViewModel.onUploaded = {
+                await feedViewModel.reload()
+                selectedTab = .feed
+            }
         }
     }
 }
 
 #Preview {
-    ContentView(feedStore: FeedStore())
+    let container = AppDependencyContainer()
+    ContentView(
+        feedViewModel: container.feedViewModel,
+        uploadViewModel: container.uploadViewModel
+    )
 }

@@ -124,7 +124,7 @@ sequenceDiagram
 
 ### Upload path (client)
 
-`PhotosPicker` → `VideoExportService` (H.264 720p MP4) → `POST /v1/videos`.
+`PhotosPicker` → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos`.
 
 ### Swift 6 concurrency
 
@@ -136,27 +136,41 @@ sequenceDiagram
 
 **Isolation model (intentional split):**
 
-- **MainActor:** `FeedPlayerEngine`, `FeedStore`, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only.
+- **MainActor:** `FeedPlayerEngine`, ViewModels, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only.
 - **`FeedMediaPreparationService` (actor):** `AVURLAsset` cache, prefetch until `readyToPlay`, `beginPlaybackItem` for visible-slot loads — runs off the main actor between `await` points.
 - **Sendable value types:** `FeedVideo`, `FeedPlayerPhase`, `FeedLoadState`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` — safe across `Task` boundaries.
 - **UIKit bridge:** `VerticalPagingFeedScrollView` settle callbacks use `Task { @MainActor in … }` before updating bindings / engine.
-- **Feed reload:** `FeedStore` ignores stale API results when a newer `reload()` started while the previous request was in flight.
+- **Feed reload:** `VideoFeedViewModel` ignores stale API results when a newer `reload()` started while the previous request was in flight.
 - **Tests:** engine tests `@MainActor`; `FeedMediaPreparationServiceTests` cover HTTPS rules on the actor.
 
 See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.
+
+### MVVM + Clean Architecture
+
+See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**.
+
+| Layer | Folder | Role |
+|-------|--------|------|
+| Composition | `Composition/` | `AppDependencyContainer` wires use cases |
+| Domain | `Domain/` | `FeedVideo`, repository protocols, use cases |
+| Data | `Data/` | API clients, `Default*Repository`, export |
+| Presentation | `Presentation/` | SwiftUI Views + ViewModels; `Feed/Playback/` for AVFoundation |
 
 ### Module map
 
 ```text
 Marauders-ios/Marauders/
-  Splash/         AppRootView, SplashView
-  Feed/           VideoFeedView, VerticalPagingFeedScrollView,
-                  FeedPlayerEngine, FeedMediaPreparationService,
-                  FeedPlayerCompositorView, FeedPlayerLayerHost,
-                  FeedPlaybackChrome
-  Upload/         UploadVideoView, VideoExportService
-  Networking/     FeedAPIClient, VideoUploadAPIClient
-  Logging/        AppLog, DebugLogView (#if DEBUG tab only)
+  App/              MaraudersApp
+  Composition/      AppDependencyContainer
+  Domain/           Entities, Repositories (protocols), UseCases
+  Data/             API/, Repositories/, Services/, Photos/
+  Presentation/
+    Main/           ContentView
+    Splash/         AppRootView, SplashView
+    Feed/           VideoFeedView, VideoFeedViewModel
+    Feed/Playback/  FeedPlayerEngine, VerticalPagingFeedScrollView, …
+    Upload/         UploadVideoView, UploadVideoViewModel
+    Debug/          AppLog, DebugLogView (#if DEBUG)
 ```
 
 ---

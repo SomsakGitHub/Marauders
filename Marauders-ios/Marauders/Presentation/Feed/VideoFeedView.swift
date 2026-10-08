@@ -8,26 +8,26 @@ import SwiftUI
 struct VideoFeedView: View {
     @Environment(\.scenePhase) private var scenePhase
 
-    @Bindable var store: FeedStore
+    @Bindable var viewModel: VideoFeedViewModel
 
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
 
     var body: some View {
         Group {
-            if store.videos.isEmpty {
-                switch store.loadState {
+            if viewModel.videos.isEmpty {
+                switch viewModel.loadState {
                 case .idle, .loading:
                     loadingView
                 case .failed(let message):
                     errorView(message: message)
                 case .loaded:
-                    feedScroll(videos: store.videos)
+                    feedScroll(videos: viewModel.videos)
                 }
             } else {
-                feedScroll(videos: store.videos)
+                feedScroll(videos: viewModel.videos)
                     .overlay {
-                        if store.loadState == .loading {
+                        if viewModel.loadState == .loading {
                             ProgressView()
                                 .tint(.white)
                                 .padding(12)
@@ -37,14 +37,14 @@ struct VideoFeedView: View {
             }
         }
         .task {
-            await store.loadIfNeeded()
+            await viewModel.loadIfNeeded()
             syncPageIndex()
             warmInitialVideos()
-            applyPlayback(for: store.videos, pageIndex: currentPageIndex)
+            applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
-        .onChange(of: store.videos) { _, _ in
+        .onChange(of: viewModel.videos) { _, _ in
             syncPageIndex()
-            applyPlayback(for: store.videos, pageIndex: currentPageIndex)
+            applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
         .onDisappear {
             playerEngine.pause()
@@ -52,7 +52,7 @@ struct VideoFeedView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                applyPlayback(for: store.videos, pageIndex: currentPageIndex)
+                applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
             case .background:
                 playerEngine.pause()
             case .inactive:
@@ -84,7 +84,7 @@ struct VideoFeedView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 24)
                 Button("ลองอีกครั้ง") {
-                    Task { await store.reload() }
+                    Task { await viewModel.reload() }
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -151,7 +151,7 @@ struct VideoFeedView: View {
     }
 
     private func syncPageIndex() {
-        let count = store.videos.count
+        let count = viewModel.videos.count
         guard count > 0 else {
             currentPageIndex = 0
             return
@@ -162,7 +162,7 @@ struct VideoFeedView: View {
     }
 
     private func warmInitialVideos() {
-        let urls = store.videos.prefix(3).map(\.streamURL)
+        let urls = viewModel.videos.prefix(3).map(\.streamURL)
         playerEngine.warmURLs(urls)
     }
 
