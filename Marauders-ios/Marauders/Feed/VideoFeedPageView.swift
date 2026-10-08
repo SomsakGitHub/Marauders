@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// Paging slot — video renders on the shared `FeedPlayerEngine` overlay.
+/// Full-screen paging slot (video is composited in `VideoFeedView` and tracks scroll offset).
 struct VideoFeedPageView: View {
     var body: some View {
         Color.black
