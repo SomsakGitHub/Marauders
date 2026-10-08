@@ -7,3 +7,4 @@ backend/node_modules/
 backend/.wrangler/
 backend/dist/
 backend/.dev.vars
+backend/.test-clip.mp4

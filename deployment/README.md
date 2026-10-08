@@ -1,6 +1,8 @@
-# Marauders — Neon + Cloudflare
+# Marauders — Deploy (Neon + Cloudflare)
 
-สแต็ก: **Neon (Postgres)** เก็บ metadata ฟีด · **Cloudflare Workers** เป็น API · **R2** (ถ้าต้องการ) เก็บไฟล์วิดีโอ
+ภาพรวมโปรเจกต์และสถาปัตยกรรม: [README.md](../README.md)
+
+สแต็ก: **Neon (Postgres)** เก็บ metadata ฟีด · **Cloudflare Workers** เป็น API · **R2** เก็บไฟล์วิดีโอ
 
 ## 1. Neon
 
