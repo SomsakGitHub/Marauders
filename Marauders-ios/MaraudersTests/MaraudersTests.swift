@@ -8,6 +8,7 @@
 import Testing
 @testable import Marauders
 
+@MainActor
 struct MaraudersTests {
     @Test func feedPlayerPhaseEquatable() {
         #expect(FeedPlayerPhase.playing == FeedPlayerPhase.playing)

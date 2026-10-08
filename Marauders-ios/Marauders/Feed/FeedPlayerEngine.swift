@@ -6,7 +6,7 @@
 import AVFoundation
 import Observation
 
-enum FeedPlayerPhase: Equatable {
+enum FeedPlayerPhase: Equatable, Sendable {
     case idle
     case buffering
     case playing

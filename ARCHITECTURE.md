@@ -126,6 +126,23 @@ sequenceDiagram
 
 `PhotosPicker` → `VideoExportService` (H.264 720p MP4) → `POST /v1/videos`.
 
+### Swift 6 concurrency
+
+| Setting | Value |
+|---------|--------|
+| Language | **Swift 6** (`SWIFT_VERSION = 6`) |
+| Default isolation | **MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION`) |
+| Strictness | Approachable concurrency (`SWIFT_APPROACHABLE_CONCURRENCY`) |
+
+**Isolation model (intentional split):**
+
+- **MainActor:** `FeedPlayerEngine`, `FeedStore`, `AppLogStore`, SwiftUI views — all AVFoundation / UI mutation stays on the main actor.
+- **Sendable value types:** `FeedVideo`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` (`nonisolated` `URLSession` work) — safe to pass across `Task` boundaries after decode.
+- **UIKit bridge:** `VerticalPagingFeedScrollView` callbacks hop to MainActor before touching the engine.
+- **Tests:** engine tests and phase assertions run `@MainActor` to match default-isolated playback types.
+
+`FeedPlayerPhase` is `Sendable` so failure reasons can be compared in tests without widening engine API surface.
+
 ### Module map
 
 ```text
