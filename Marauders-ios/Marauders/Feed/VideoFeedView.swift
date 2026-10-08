@@ -109,10 +109,18 @@ struct VideoFeedView: View {
                 .scrollIndicators(.hidden)
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $currentVideoID)
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        playerEngine.togglePlayPause()
+                    }
+                )
 
                 FeedPlayerSurface(engine: playerEngine)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(false)
+
+                FeedPlaybackChrome(engine: playerEngine)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
 
                 playbackOverlay
             }
@@ -124,7 +132,7 @@ struct VideoFeedView: View {
     @ViewBuilder
     private var playbackOverlay: some View {
         switch playerEngine.phase {
-        case .idle, .playing:
+        case .idle, .playing, .paused:
             EmptyView()
         case .buffering:
             ProgressView()
@@ -174,6 +182,9 @@ struct VideoFeedView: View {
         let current = videos[index]
         playerEngine.play(url: current.streamURL)
 
+        if index > 0 {
+            playerEngine.prefetch(url: videos[index - 1].streamURL)
+        }
         if index + 1 < videos.count {
             playerEngine.prefetch(url: videos[index + 1].streamURL)
         }

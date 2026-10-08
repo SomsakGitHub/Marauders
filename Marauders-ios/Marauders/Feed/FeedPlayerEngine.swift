@@ -10,6 +10,7 @@ enum FeedPlayerPhase: Equatable {
     case idle
     case buffering
     case playing
+    case paused
     case failed(String)
 }
 
@@ -26,6 +27,8 @@ final class FeedPlayerEngine {
     private var timeControlObservation: NSKeyValueObservation?
     private var endObserver: NSObjectProtocol?
     private var loadGeneration = 0
+    private var pausedByUser = false
+    private var prefetchAssets: [URL: AVURLAsset] = [:]
 
     init() {
         playerLayer.player = player
@@ -33,11 +36,24 @@ final class FeedPlayerEngine {
         player.automaticallyWaitsToMinimizeStalling = true
     }
 
+    func togglePlayPause() {
+        switch player.timeControlStatus {
+        case .playing:
+            pause(byUser: true)
+        default:
+            pausedByUser = false
+            player.play()
+            updatePhaseFromPlayer()
+        }
+    }
+
     func play(url: URL) {
         guard url.scheme?.lowercased() == "https" else {
             phase = .failed("URL ไม่ปลอดภัย")
             return
         }
+
+        pausedByUser = false
 
         if currentURL == url, player.currentItem != nil {
             player.play()
@@ -52,39 +68,57 @@ final class FeedPlayerEngine {
 
         clearObservers()
 
-        let asset = AVURLAsset(url: url)
-        let keys = ["playable"]
-        asset.loadValuesAsynchronously(forKeys: keys) { [weak self] in
-            Task { @MainActor in
-                guard let self, generation == self.loadGeneration else { return }
+        if let cached = prefetchAssets[url] {
+            startItem(asset: cached, url: url, generation: generation)
+            return
+        }
 
-                for key in keys {
-                    var error: NSError?
-                    let status = asset.statusOfValue(forKey: key, error: &error)
-                    if status != .loaded {
-                        let message = error?.localizedDescription ?? "โหลดวิดีโอไม่สำเร็จ"
-                        self.phase = .failed(message)
-                        AppLog.error("player", "asset load failed: \(message)")
+        let asset = AVURLAsset(url: url)
+        Task { [weak self] in
+            do {
+                let playable = try await asset.load(.isPlayable)
+                await MainActor.run {
+                    guard let self, generation == self.loadGeneration else { return }
+                    guard playable else {
+                        self.phase = .failed("โหลดวิดีโอไม่สำเร็จ")
                         return
                     }
+                    self.startItem(asset: asset, url: url, generation: generation)
                 }
-
-                self.startItem(asset: asset, url: url, generation: generation)
+            } catch {
+                await MainActor.run {
+                    guard let self, generation == self.loadGeneration else { return }
+                    let message = error.localizedDescription
+                    self.phase = .failed(message)
+                    AppLog.error("player", "asset load failed: \(message)")
+                }
             }
         }
     }
 
     func prefetch(url: URL) {
         guard url.scheme?.lowercased() == "https" else { return }
+        guard prefetchAssets[url] == nil else { return }
+
         let asset = AVURLAsset(url: url)
-        asset.loadValuesAsynchronously(forKeys: ["playable"]) { }
-        AppLog.debug("player", "prefetch host=\(url.host ?? "?")")
+        prefetchAssets[url] = asset
+        trimPrefetchCache(keeping: url)
+
+        Task {
+            _ = try? await asset.load(.isPlayable)
+            await MainActor.run {
+                AppLog.debug("player", "prefetch ready host=\(url.host ?? "?")")
+            }
+        }
     }
 
-    func pause() {
+    func pause(byUser: Bool = false) {
         player.pause()
-        if case .playing = phase {
-            phase = .buffering
+        if byUser {
+            pausedByUser = true
+            phase = .paused
+        } else {
+            updatePhaseFromPlayer()
         }
     }
 
@@ -101,7 +135,8 @@ final class FeedPlayerEngine {
 
     private func startItem(asset: AVURLAsset, url: URL, generation: Int) {
         let item = AVPlayerItem(asset: asset)
-        item.preferredForwardBufferDuration = 5
+        item.preferredForwardBufferDuration = 8
+        item.canUseNetworkResourcesForLiveStreamingWhilePaused = true
 
         statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor in
@@ -156,11 +191,22 @@ final class FeedPlayerEngine {
         case .waitingToPlayAtSpecifiedRate:
             phase = .buffering
         case .paused:
-            if player.currentItem?.status == .readyToPlay {
+            if pausedByUser {
+                phase = .paused
+            } else if player.currentItem?.status == .readyToPlay {
                 phase = .buffering
             }
         @unknown default:
             phase = .buffering
+        }
+    }
+
+    private func trimPrefetchCache(keeping url: URL) {
+        let maxEntries = 4
+        guard prefetchAssets.count > maxEntries else { return }
+        for key in prefetchAssets.keys where key != url && key != currentURL {
+            prefetchAssets.removeValue(forKey: key)
+            if prefetchAssets.count <= maxEntries { break }
         }
     }
 
