@@ -39,6 +39,8 @@ struct VideoFeedView: View {
         .task {
             await store.loadIfNeeded()
             syncCurrentVideoID()
+            let initialWarm = store.videos.prefix(3).map(\.streamURL)
+            playerEngine.warmURLs(initialWarm)
             applyPlayback(for: store.videos)
         }
         .onChange(of: store.videos) { _, _ in
@@ -135,10 +137,13 @@ struct VideoFeedView: View {
         case .idle, .playing, .paused:
             EmptyView()
         case .buffering:
-            ProgressView()
-                .tint(.white)
-                .scaleEffect(1.2)
-                .allowsHitTesting(false)
+            if playerEngine.showsBufferingIndicator {
+                ProgressView()
+                    .tint(.white)
+                    .scaleEffect(1.2)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         case .failed(let message):
             VStack(spacing: 12) {
                 Image(systemName: "play.slash")
@@ -182,12 +187,17 @@ struct VideoFeedView: View {
         let current = videos[index]
         playerEngine.play(url: current.streamURL)
 
+        var neighbors: [URL] = []
         if index > 0 {
-            playerEngine.prefetch(url: videos[index - 1].streamURL)
+            neighbors.append(videos[index - 1].streamURL)
         }
         if index + 1 < videos.count {
-            playerEngine.prefetch(url: videos[index + 1].streamURL)
+            neighbors.append(videos[index + 1].streamURL)
         }
+        if index + 2 < videos.count {
+            neighbors.append(videos[index + 2].streamURL)
+        }
+        playerEngine.warmURLs(neighbors)
     }
 }
 

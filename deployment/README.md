@@ -4,6 +4,8 @@
 
 สแต็ก: **Neon (Postgres)** เก็บ metadata ฟีด · **Cloudflare Workers** เป็น API · **R2** เก็บไฟล์วิดีโอ
 
+การปรับวิดีโอฝั่งเซิร์ฟเวอร์ (faststart, HLS): [video-pipeline.md](./video-pipeline.md)
+
 ## 1. Neon
 
 1. เปิด [Neon Console](https://console.neon.tech/app/org-dawn-glade-96157792/projects) → เลือกโปรเจกต์ (หรือสร้างใหม่)

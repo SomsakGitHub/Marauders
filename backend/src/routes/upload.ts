@@ -1,4 +1,8 @@
 import { insertFeedVideo } from "../db/feed";
+import {
+  MP4_FASTSTART_MAX_BYTES,
+  mp4ApplyFastStart,
+} from "../media/mp4FastStart";
 import type { Env } from "../index";
 import {
   extensionForVideoMime,
@@ -43,9 +47,17 @@ export async function handleVideoUpload(
     const extension = extensionForVideoMime(mime);
     const objectKey = `videos/${videoId}.${extension}`;
 
-    const bytes = await file.arrayBuffer();
+    let body = new Uint8Array(await file.arrayBuffer());
+    if (
+      mime === "video/mp4" &&
+      body.byteLength > 0 &&
+      body.byteLength <= MP4_FASTSTART_MAX_BYTES
+    ) {
+      body = new Uint8Array(mp4ApplyFastStart(body));
+    }
+
     try {
-      await env.VIDEOS.put(objectKey, bytes, {
+      await env.VIDEOS.put(objectKey, body, {
         httpMetadata: {
           contentType: mime,
           cacheControl: "public, max-age=31536000, immutable",

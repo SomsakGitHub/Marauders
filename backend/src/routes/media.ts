@@ -1,10 +1,9 @@
 import type { Env } from "../index";
-import { assertMediaObjectKey, FeedValidationError } from "../validation";
-
-const CONTENT_TYPE_BY_EXT: Record<string, string> = {
-  mp4: "video/mp4",
-  mov: "video/quicktime",
-};
+import {
+  assertMediaObjectKey,
+  contentTypeForMediaKey,
+  FeedValidationError,
+} from "../validation";
 
 type ByteRange = {
   offset: number;
@@ -35,17 +34,28 @@ export async function handleMediaGet(
   }
 
   const size = head.size;
-  const extension = objectKey.split(".").pop() ?? "mp4";
   const contentType =
-    head.httpMetadata?.contentType ??
-    CONTENT_TYPE_BY_EXT[extension] ??
-    "application/octet-stream";
+    head.httpMetadata?.contentType ?? contentTypeForMediaKey(objectKey);
 
   const baseHeaders = new Headers();
   baseHeaders.set("content-type", contentType);
   baseHeaders.set("cache-control", "public, max-age=31536000, immutable");
   baseHeaders.set("x-content-type-options", "nosniff");
   baseHeaders.set("accept-ranges", "bytes");
+  baseHeaders.set("content-disposition", "inline");
+  if (head.etag) {
+    baseHeaders.set("etag", head.etag);
+  }
+
+  const ifNoneMatch = request.headers.get("If-None-Match");
+  if (
+    request.method === "GET" &&
+    ifNoneMatch &&
+    head.etag &&
+    ifNoneMatch === head.etag
+  ) {
+    return new Response(null, { status: 304, headers: baseHeaders });
+  }
 
   if (request.method === "HEAD") {
     baseHeaders.set("content-length", String(size));

@@ -10,7 +10,10 @@ export const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 
 const ALLOWED_VIDEO_MIME = new Set(["video/mp4", "video/quicktime"]);
 
-const MEDIA_OBJECT_KEY_RE = /^videos\/[0-9a-f-]{36}\.(mp4|mov)$/;
+const MEDIA_OBJECT_KEY_RE =
+  /^videos\/[0-9a-f-]{36}\.(mp4|mov)$/;
+const MEDIA_HLS_OBJECT_KEY_RE =
+  /^videos\/[0-9a-f-]{36}\/(master\.m3u8|seg\d{3}\.ts)$/;
 
 export function parseFeedLimit(raw: string | null): number {
   if (raw === null || raw === "") {
@@ -82,9 +85,23 @@ export function extensionForVideoMime(mime: string): "mp4" | "mov" {
 }
 
 export function assertMediaObjectKey(key: string): void {
-  if (!MEDIA_OBJECT_KEY_RE.test(key)) {
+  if (!MEDIA_OBJECT_KEY_RE.test(key) && !MEDIA_HLS_OBJECT_KEY_RE.test(key)) {
     throw new FeedValidationError("invalid media path");
   }
+}
+
+export function contentTypeForMediaKey(objectKey: string): string {
+  if (objectKey.endsWith(".m3u8")) {
+    return "application/vnd.apple.mpegurl";
+  }
+  if (objectKey.endsWith(".ts")) {
+    return "video/mp2t";
+  }
+  const extension = objectKey.split(".").pop()?.toLowerCase() ?? "mp4";
+  if (extension === "mov") {
+    return "video/quicktime";
+  }
+  return "video/mp4";
 }
 
 export function assertHttpsStreamUrl(url: string): void {
