@@ -12,7 +12,8 @@ private enum MainTab: Hashable {
 }
 
 struct ContentView: View {
-    @State private var feedStore = FeedStore()
+    @Bindable var feedStore: FeedStore
+
     @State private var selectedTab: MainTab = .feed
 
     var body: some View {
@@ -49,5 +50,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(feedStore: FeedStore())
 }
