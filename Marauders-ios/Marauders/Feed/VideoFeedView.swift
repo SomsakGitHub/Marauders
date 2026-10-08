@@ -10,9 +10,7 @@ struct VideoFeedView: View {
 
     @Bindable var store: FeedStore
 
-    @State private var currentVideoID: FeedVideo.ID?
-    @State private var playbackVideoID: FeedVideo.ID?
-    @State private var scrollOffsetY: CGFloat = 0
+    @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
 
     var body: some View {
@@ -40,20 +38,13 @@ struct VideoFeedView: View {
         }
         .task {
             await store.loadIfNeeded()
-            syncCurrentVideoID()
-            let initialWarm = store.videos.prefix(3).map(\.streamURL)
-            playerEngine.warmURLs(initialWarm)
-            applyPlayback(for: store.videos)
+            syncPageIndex()
+            warmInitialVideos()
+            applyPlayback(for: store.videos, pageIndex: currentPageIndex)
         }
         .onChange(of: store.videos) { _, _ in
-            syncCurrentVideoID()
-            applyPlayback(for: store.videos)
-        }
-        .onChange(of: currentVideoID) { _, newID in
-            if let newID {
-                playbackVideoID = newID
-            }
-            applyPlayback(for: store.videos)
+            syncPageIndex()
+            applyPlayback(for: store.videos, pageIndex: currentPageIndex)
         }
         .onDisappear {
             playerEngine.pause()
@@ -61,7 +52,7 @@ struct VideoFeedView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                applyPlayback(for: store.videos)
+                applyPlayback(for: store.videos, pageIndex: currentPageIndex)
             case .background:
                 playerEngine.pause()
             case .inactive:
@@ -102,49 +93,21 @@ struct VideoFeedView: View {
 
     private func feedScroll(videos: [FeedVideo]) -> some View {
         GeometryReader { geometry in
-            let pageHeight = geometry.size.height
-
-            ZStack(alignment: .top) {
-                ScrollView(.vertical) {
-                    VStack(spacing: 0) {
-                        ForEach(videos) { video in
-                            VideoFeedPageView()
-                                .frame(width: geometry.size.width, height: pageHeight)
-                                .id(video.id)
-                        }
-                    }
-                    .scrollTargetLayout()
-                }
-                .scrollIndicators(.hidden)
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $currentVideoID)
-                .scrollClipDisabled()
-                .onScrollGeometryChange(for: CGFloat.self) { scrollGeometry in
-                    scrollGeometry.contentOffset.y
-                } action: { _, offsetY in
-                    scrollOffsetY = offsetY
-                    updatePlaybackWhileScrolling(
-                        videos: videos,
-                        offsetY: offsetY,
-                        pageHeight: pageHeight
-                    )
-                }
-                .simultaneousGesture(
-                    TapGesture().onEnded {
+            ZStack {
+                VerticalPagingFeedScrollView(
+                    pageCount: videos.count,
+                    currentPageIndex: $currentPageIndex,
+                    engine: playerEngine,
+                    onPageSettled: { index in
+                        applyPlayback(for: videos, pageIndex: index)
+                    },
+                    onTap: {
                         playerEngine.togglePlayPause()
                     }
                 )
 
-                if let playbackVideoID,
-                   let index = videos.firstIndex(where: { $0.id == playbackVideoID }) {
-                    FeedPlayerSurface(engine: playerEngine)
-                        .frame(width: geometry.size.width, height: pageHeight)
-                        .offset(y: CGFloat(index) * pageHeight - scrollOffsetY)
-                        .allowsHitTesting(false)
-                }
-
                 FeedPlaybackChrome(engine: playerEngine)
-                    .frame(width: geometry.size.width, height: pageHeight)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(false)
 
                 playbackOverlay
@@ -187,116 +150,74 @@ struct VideoFeedView: View {
         }
     }
 
-    private func syncCurrentVideoID() {
-        let videos = store.videos
+    private func syncPageIndex() {
+        let count = store.videos.count
+        guard count > 0 else {
+            currentPageIndex = 0
+            return
+        }
+        if currentPageIndex >= count {
+            currentPageIndex = count - 1
+        }
+    }
+
+    private func warmInitialVideos() {
+        let urls = store.videos.prefix(3).map(\.streamURL)
+        playerEngine.warmURLs(urls)
+    }
+
+    private func applyPlayback(for videos: [FeedVideo], pageIndex: Int) {
         guard !videos.isEmpty else {
-            currentVideoID = nil
-            playbackVideoID = nil
-            return
-        }
-        if let currentVideoID, videos.contains(where: { $0.id == currentVideoID }) {
-            if playbackVideoID == nil {
-                playbackVideoID = currentVideoID
-            }
-            return
-        }
-        currentVideoID = videos.first?.id
-        playbackVideoID = videos.first?.id
-    }
-
-    private func updatePlaybackWhileScrolling(
-        videos: [FeedVideo],
-        offsetY: CGFloat,
-        pageHeight: CGFloat
-    ) {
-        guard pageHeight > 0, !videos.isEmpty else { return }
-
-        let index = min(
-            max(Int((offsetY + pageHeight * 0.5) / pageHeight), 0),
-            videos.count - 1
-        )
-        let id = videos[index].id
-
-        guard playbackVideoID != id else { return }
-        playbackVideoID = id
-        applyPlayback(for: videos, focusedID: id)
-    }
-
-    private func applyPlayback(for videos: [FeedVideo], focusedID: FeedVideo.ID? = nil) {
-        let targetID = focusedID ?? playbackVideoID ?? currentVideoID
-        guard let targetID,
-              let index = videos.firstIndex(where: { $0.id == targetID })
-        else {
             playerEngine.pause()
             return
         }
-
+        let index = min(max(pageIndex, 0), videos.count - 1)
         let current = videos[index]
-        playerEngine.play(url: current.streamURL)
 
         var neighbors: [URL] = []
-        if index > 0 {
-            neighbors.append(videos[index - 1].streamURL)
-        }
         if index + 1 < videos.count {
             neighbors.append(videos[index + 1].streamURL)
+        }
+        if index > 0 {
+            neighbors.append(videos[index - 1].streamURL)
         }
         if index + 2 < videos.count {
             neighbors.append(videos[index + 2].streamURL)
         }
         playerEngine.warmURLs(neighbors)
+        playerEngine.settle(on: current.streamURL, prefetchNeighbors: neighbors)
     }
 }
 
 /// Preview-only feed without API.
 struct VideoFeedPreviewView: View {
-    @State private var currentVideoID: FeedVideo.ID?
-    @State private var scrollOffsetY: CGFloat = 0
+    @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
     let videos: [FeedVideo]
 
     var body: some View {
         GeometryReader { geometry in
-            let pageHeight = geometry.size.height
-
-            ZStack(alignment: .top) {
-                ScrollView(.vertical) {
-                    VStack(spacing: 0) {
-                        ForEach(videos) { video in
-                            VideoFeedPageView()
-                                .frame(width: geometry.size.width, height: pageHeight)
-                                .id(video.id)
-                        }
+            ZStack {
+                VerticalPagingFeedScrollView(
+                    pageCount: videos.count,
+                    currentPageIndex: $currentPageIndex,
+                    engine: playerEngine,
+                    onPageSettled: { index in
+                        guard videos.indices.contains(index) else { return }
+                        playerEngine.settle(on: videos[index].streamURL, prefetchNeighbors: [])
+                    },
+                    onTap: {
+                        playerEngine.togglePlayPause()
                     }
-                    .scrollTargetLayout()
-                }
-                .scrollIndicators(.hidden)
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $currentVideoID)
-                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, y in
-                    scrollOffsetY = y
-                }
-
-                if let currentVideoID,
-                   let index = videos.firstIndex(where: { $0.id == currentVideoID }) {
-                    FeedPlayerSurface(engine: playerEngine)
-                        .frame(width: geometry.size.width, height: pageHeight)
-                        .offset(y: CGFloat(index) * pageHeight - scrollOffsetY)
-                        .allowsHitTesting(false)
-                }
+                )
             }
         }
         .ignoresSafeArea()
         .background(Color.black)
         .onAppear {
-            currentVideoID = videos.first?.id
             if let first = videos.first {
                 playerEngine.play(url: first.streamURL)
             }
-        }
-        .onChange(of: currentVideoID) { _, id in
-            guard let id, let video = videos.first(where: { $0.id == id }) else { return }
-            playerEngine.play(url: video.streamURL)
         }
     }
 }

@@ -18,16 +18,21 @@ enum FeedPlayerPhase: Equatable {
 @Observable
 final class FeedPlayerEngine {
     private(set) var phase: FeedPlayerPhase = .idle
-    /// Shown only after buffering lasts longer than a brief threshold (TikTok-style).
     private(set) var showsBufferingIndicator = false
+    private(set) var visibleSlotIsA = true
 
-    let playerLayer = AVPlayerLayer()
+    let layerA = AVPlayerLayer()
+    let layerB = AVPlayerLayer()
 
-    private var player = AVPlayer()
+    /// Visible slot layer (for single-layer call sites).
+    var playerLayer: AVPlayerLayer {
+        visibleSlotIsA ? layerA : layerB
+    }
+
+    private let slotA: PlayerSlot
+    private let slotB: PlayerSlot
+
     private var currentURL: URL?
-    private var statusObservation: NSKeyValueObservation?
-    private var timeControlObservation: NSKeyValueObservation?
-    private var endObserver: NSObjectProtocol?
     private var loadGeneration = 0
     private var pausedByUser = false
 
@@ -40,73 +45,53 @@ final class FeedPlayerEngine {
     private static let maxPreparedItems = 5
 
     init() {
-        playerLayer.player = player
-        playerLayer.videoGravity = .resizeAspectFill
-        player.automaticallyWaitsToMinimizeStalling = true
+        layerA.videoGravity = .resizeAspectFill
+        layerB.videoGravity = .resizeAspectFill
+        slotA = PlayerSlot(layer: layerA)
+        slotB = PlayerSlot(layer: layerB)
+        slotA.player.automaticallyWaitsToMinimizeStalling = true
+        slotB.player.automaticallyWaitsToMinimizeStalling = true
     }
 
     func togglePlayPause() {
+        let player = visibleSlot.player
         switch player.timeControlStatus {
         case .playing:
             pause(byUser: true)
         default:
             pausedByUser = false
             player.play()
-            updatePhaseFromPlayer()
+            updatePhaseFromVisiblePlayer()
         }
     }
 
-    func play(url: URL) {
-        guard url.scheme?.lowercased() == "https" else {
-            phase = .failed("URL ไม่ปลอดภัย")
-            return
-        }
-
+    /// Settles on a page after paging — swaps to preloaded hidden slot when possible.
+    func settle(on url: URL, prefetchNeighbors: [URL]) {
+        guard validateHTTPS(url) else { return }
         pausedByUser = false
 
-        if currentURL == url, player.currentItem != nil {
-            player.play()
-            updatePhaseFromPlayer()
+        if currentURL == url, visibleSlot.player.currentItem != nil {
+            visibleSlot.player.play()
+            updatePhaseFromVisiblePlayer()
+            preloadHidden(urls: prefetchNeighbors)
             return
         }
 
-        loadGeneration += 1
-        let generation = loadGeneration
+        if swapToHiddenIfReady(url: url) {
+            currentURL = url
+            updatePhaseFromVisiblePlayer()
+            preloadHidden(urls: prefetchNeighbors)
+            AppLog.debug("player", "swap host=\(url.host ?? "?")")
+            return
+        }
+
         currentURL = url
+        playOnVisible(url: url)
+        preloadHidden(urls: prefetchNeighbors)
+    }
 
-        clearObservers()
-
-        if let item = takePreparedItem(for: url) {
-            attach(item: item, url: url, generation: generation, itemAlreadyBuffered: true)
-            return
-        }
-
-        phase = .buffering
-        scheduleBufferingIndicatorIfNeeded()
-
-        Task { [weak self] in
-            guard let self else { return }
-            let asset = await self.asset(for: url)
-            do {
-                let playable = try await asset.load(.isPlayable)
-                await MainActor.run {
-                    guard generation == self.loadGeneration else { return }
-                    guard playable else {
-                        self.failPlayback(message: "โหลดวิดีโอไม่สำเร็จ")
-                        return
-                    }
-                    let item = self.makePlayerItem(asset: asset)
-                    self.attach(item: item, url: url, generation: generation, itemAlreadyBuffered: false)
-                }
-            } catch {
-                await MainActor.run {
-                    guard generation == self.loadGeneration else { return }
-                    let message = error.localizedDescription
-                    self.failPlayback(message: message)
-                    AppLog.error("player", "asset load failed: \(message)")
-                }
-            }
-        }
+    func play(url: URL) {
+        settle(on: url, prefetchNeighbors: [])
     }
 
     func prefetch(url: URL) {
@@ -119,10 +104,8 @@ final class FeedPlayerEngine {
         Task { [weak self] in
             guard let self else { return }
             let asset = await self.asset(for: url)
-            guard let ready = await self.prepareItem(asset: asset, url: url) else {
-                await MainActor.run {
-                    self.preparingURLs.remove(url)
-                }
+            guard let ready = await self.prepareItem(asset: asset) else {
+                await MainActor.run { self.preparingURLs.remove(url) }
                 return
             }
             await MainActor.run {
@@ -142,91 +125,163 @@ final class FeedPlayerEngine {
     }
 
     func pause(byUser: Bool = false) {
-        player.pause()
+        visibleSlot.player.pause()
+        hiddenSlot.player.pause()
         if byUser {
             pausedByUser = true
             phase = .paused
             hideBufferingIndicator()
         } else {
-            updatePhaseFromPlayer()
+            updatePhaseFromVisiblePlayer()
         }
     }
 
     func resume() {
-        player.play()
-        updatePhaseFromPlayer()
+        visibleSlot.player.play()
+        updatePhaseFromVisiblePlayer()
     }
 
     func retry() {
         guard let url = currentURL else { return }
         preparedItems.removeValue(forKey: url)
         currentURL = nil
-        play(url: url)
+        playOnVisible(url: url)
     }
 
-    private func attach(
-        item: AVPlayerItem,
-        url: URL,
-        generation: Int,
-        itemAlreadyBuffered: Bool
-    ) {
-        player.automaticallyWaitsToMinimizeStalling = !itemAlreadyBuffered
+    // MARK: - Slots
 
-        if itemAlreadyBuffered, item.status == .readyToPlay {
-            phase = .playing
-            hideBufferingIndicator()
-        } else {
+    private var visibleSlot: PlayerSlot {
+        visibleSlotIsA ? slotA : slotB
+    }
+
+    private var hiddenSlot: PlayerSlot {
+        visibleSlotIsA ? slotB : slotA
+    }
+
+    private func swapToHiddenIfReady(url: URL) -> Bool {
+        let hidden = hiddenSlot
+        guard hidden.loadedURL == url,
+              hidden.player.currentItem?.status == .readyToPlay
+        else {
+            return false
+        }
+
+        visibleSlot.player.pause()
+        hidden.player.playImmediately(atRate: 1.0)
+        visibleSlotIsA.toggle()
+        phase = .playing
+        hideBufferingIndicator()
+        return true
+    }
+
+    private func preloadHidden(urls: [URL]) {
+        guard let next = urls.first(where: { $0 != currentURL && $0 != hiddenSlot.loadedURL }) else {
+            return
+        }
+        load(into: hiddenSlot, url: next, autoplay: false, generation: loadGeneration)
+    }
+
+    private func playOnVisible(url: URL) {
+        loadGeneration += 1
+        let generation = loadGeneration
+        load(into: visibleSlot, url: url, autoplay: true, generation: generation)
+    }
+
+    private func load(
+        into slot: PlayerSlot,
+        url: URL,
+        autoplay: Bool,
+        generation: Int
+    ) {
+        slot.clearObservers()
+
+        if let item = takePreparedItem(for: url) {
+            slot.assign(
+                item: item,
+                url: url,
+                autoplay: autoplay,
+                itemAlreadyBuffered: true,
+                generation: generation,
+                engine: self
+            )
+            return
+        }
+
+        if autoplay {
             phase = .buffering
             scheduleBufferingIndicatorIfNeeded()
         }
 
-        statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
-            Task { @MainActor in
-                guard let self, generation == self.loadGeneration else { return }
-                switch item.status {
-                case .readyToPlay:
-                    AppLog.info("player", "ready host=\(url.host ?? "?")")
-                    self.updatePhaseFromPlayer()
-                case .failed:
-                    let nsError = item.error as NSError?
-                    let message = item.error?.localizedDescription ?? "เล่นไม่ได้"
-                    self.failPlayback(message: message)
-                    AppLog.error(
-                        "player",
-                        "failed host=\(url.host ?? "?") code=\(nsError?.code ?? 0) error=\(message)"
+        Task { [weak self] in
+            guard let self else { return }
+            let asset = await self.asset(for: url)
+            do {
+                let playable = try await asset.load(.isPlayable)
+                await MainActor.run {
+                    guard generation == self.loadGeneration else { return }
+                    guard playable else {
+                        if autoplay { self.failPlayback(message: "โหลดวิดีโอไม่สำเร็จ") }
+                        return
+                    }
+                    let item = self.makePlayerItem(asset: asset)
+                    slot.assign(
+                        item: item,
+                        url: url,
+                        autoplay: autoplay,
+                        itemAlreadyBuffered: false,
+                        generation: generation,
+                        engine: self
                     )
-                default:
-                    break
+                }
+            } catch {
+                await MainActor.run {
+                    guard generation == self.loadGeneration, autoplay else { return }
+                    self.failPlayback(message: error.localizedDescription)
                 }
             }
         }
+    }
 
-        timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
-            Task { @MainActor in
-                guard let self, generation == self.loadGeneration else { return }
-                self.updatePhaseFromPlayer()
-            }
+    private func validateHTTPS(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https" else {
+            phase = .failed("URL ไม่ปลอดภัย")
+            return false
         }
+        return true
+    }
 
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.player.seek(to: .zero)
-                self?.player.play()
+    fileprivate func updatePhaseFromVisiblePlayer() {
+        let player = visibleSlot.player
+        guard player.currentItem?.status != .failed else { return }
+
+        switch player.timeControlStatus {
+        case .playing:
+            phase = .playing
+            hideBufferingIndicator()
+        case .waitingToPlayAtSpecifiedRate:
+            phase = .buffering
+            scheduleBufferingIndicatorIfNeeded()
+        case .paused:
+            if pausedByUser {
+                phase = .paused
+                hideBufferingIndicator()
+            } else if player.currentItem?.status == .readyToPlay {
+                phase = .buffering
+                scheduleBufferingIndicatorIfNeeded()
             }
+        @unknown default:
+            phase = .buffering
+            scheduleBufferingIndicatorIfNeeded()
         }
+    }
 
-        player.replaceCurrentItem(with: item)
-        player.play()
-        AppLog.debug("player", "configured host=\(url.host ?? "?") buffered=\(itemAlreadyBuffered)")
+    private func failPlayback(message: String) {
+        phase = .failed(message)
+        hideBufferingIndicator()
     }
 
     private func takePreparedItem(for url: URL) -> AVPlayerItem? {
-        guard let item = preparedItems.removeValue(forKey: url) else { return nil }
-        return item
+        return preparedItems.removeValue(forKey: url)
     }
 
     private func asset(for url: URL) async -> AVURLAsset {
@@ -248,14 +303,13 @@ final class FeedPlayerEngine {
         return item
     }
 
-    private func prepareItem(asset: AVURLAsset, url: URL) async -> AVPlayerItem? {
+    private func prepareItem(asset: AVURLAsset) async -> AVPlayerItem? {
         do {
             let playable = try await asset.load(.isPlayable)
             guard playable else { return nil }
         } catch {
             return nil
         }
-
         let item = makePlayerItem(asset: asset)
         let ready = await waitUntilReadyToPlay(item)
         return ready ? item : nil
@@ -295,35 +349,6 @@ final class FeedPlayerEngine {
         }
     }
 
-    private func updatePhaseFromPlayer() {
-        guard player.currentItem?.status != .failed else { return }
-
-        switch player.timeControlStatus {
-        case .playing:
-            phase = .playing
-            hideBufferingIndicator()
-        case .waitingToPlayAtSpecifiedRate:
-            phase = .buffering
-            scheduleBufferingIndicatorIfNeeded()
-        case .paused:
-            if pausedByUser {
-                phase = .paused
-                hideBufferingIndicator()
-            } else if player.currentItem?.status == .readyToPlay {
-                phase = .buffering
-                scheduleBufferingIndicatorIfNeeded()
-            }
-        @unknown default:
-            phase = .buffering
-            scheduleBufferingIndicatorIfNeeded()
-        }
-    }
-
-    private func failPlayback(message: String) {
-        phase = .failed(message)
-        hideBufferingIndicator()
-    }
-
     private func scheduleBufferingIndicatorIfNeeded() {
         bufferingIndicatorTask?.cancel()
         bufferingIndicatorTask = Task { [weak self] in
@@ -345,9 +370,7 @@ final class FeedPlayerEngine {
     }
 
     private func trimCaches(keeping url: URL) {
-        let protected = Set(
-            [url, currentURL].compactMap { $0 }
-        )
+        let protected = Set([url, currentURL, hiddenSlot.loadedURL].compactMap { $0 })
 
         if assetsByURL.count > Self.maxPreparedItems + 2 {
             for key in assetsByURL.keys where !protected.contains(key) && preparedItems[key] == nil {
@@ -363,8 +386,89 @@ final class FeedPlayerEngine {
             }
         }
     }
+}
 
-    private func clearObservers() {
+// MARK: - Player slot
+
+@MainActor
+private final class PlayerSlot {
+    let player: AVPlayer
+    let layer: AVPlayerLayer
+    private(set) var loadedURL: URL?
+
+    private var statusObservation: NSKeyValueObservation?
+    private var timeControlObservation: NSKeyValueObservation?
+    private var endObserver: NSObjectProtocol?
+
+    init(layer: AVPlayerLayer) {
+        self.layer = layer
+        player = AVPlayer()
+        layer.player = player
+    }
+
+    func assign(
+        item: AVPlayerItem,
+        url: URL,
+        autoplay: Bool,
+        itemAlreadyBuffered: Bool,
+        generation: Int,
+        engine: FeedPlayerEngine
+    ) {
+        loadedURL = url
+        player.automaticallyWaitsToMinimizeStalling = !itemAlreadyBuffered
+
+        statusObservation = item.observe(\.status, options: [.new]) { item, _ in
+            Task { @MainActor in
+                guard autoplay, generation == engine.loadGenerationForObservers else { return }
+                switch item.status {
+                case .readyToPlay:
+                    AppLog.info("player", "ready host=\(url.host ?? "?")")
+                    engine.updatePhaseFromVisiblePlayer()
+                case .failed:
+                    let message = item.error?.localizedDescription ?? "เล่นไม่ได้"
+                    engine.failPlaybackFromSlot(message: message)
+                default:
+                    break
+                }
+            }
+        }
+
+        if autoplay {
+            timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { _, _ in
+                Task { @MainActor in
+                    guard generation == engine.loadGenerationForObservers else { return }
+                    engine.updatePhaseFromVisiblePlayer()
+                }
+            }
+        }
+
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.player.seek(to: .zero)
+                self?.player.play()
+            }
+        }
+
+        player.replaceCurrentItem(with: item)
+
+        if autoplay {
+            if itemAlreadyBuffered, item.status == .readyToPlay {
+                engine.markPlayingFromSlot()
+                player.playImmediately(atRate: 1.0)
+            } else {
+                player.play()
+            }
+        } else {
+            player.seek(to: .zero)
+            player.pause()
+        }
+    }
+
+    func clearObservers() {
         statusObservation?.invalidate()
         statusObservation = nil
         timeControlObservation?.invalidate()
@@ -373,5 +477,20 @@ final class FeedPlayerEngine {
             NotificationCenter.default.removeObserver(endObserver)
         }
         endObserver = nil
+    }
+}
+
+extension FeedPlayerEngine {
+    fileprivate var loadGenerationForObservers: Int {
+        loadGeneration
+    }
+
+    fileprivate func failPlaybackFromSlot(message: String) {
+        failPlayback(message: message)
+    }
+
+    fileprivate func markPlayingFromSlot() {
+        phase = .playing
+        hideBufferingIndicator()
     }
 }
