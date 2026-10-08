@@ -44,6 +44,8 @@ npm run video:hls -- <feed_videos.id>
 
 แอป iOS ใช้ `streamURL` เดิม — AVPlayer เล่น HLS ได้โดยไม่ต้องเปลี่ยน API
 
+การตัดสินใจฝั่งเล่นวิดีโอ: [docs/adr/001-feed-playback-dual-player.md](../docs/adr/001-feed-playback-dual-player.md)
+
 ### ติดตั้ง ffmpeg
 
 - macOS: `brew install ffmpeg`  

@@ -13,7 +13,7 @@
 | **API** | REST บน Workers, validate input ฝั่งเซิร์ฟเวอร์ |
 | **Debug** | แท็บ Log ในแอป (เฉพาะ **Debug** build) + `os.Logger` |
 
-เอกสารสถาปัตยกรรมและ tradeoffs: [ARCHITECTURE.md](ARCHITECTURE.md)
+เอกสารสถาปัตยกรรม: [ARCHITECTURE.md](ARCHITECTURE.md) · บันทึกการตัดสินใจ (ADR): [docs/adr/](docs/adr/)
 
 ## Architecture
 
