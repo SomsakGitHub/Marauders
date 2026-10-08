@@ -136,12 +136,14 @@ sequenceDiagram
 
 **Isolation model (intentional split):**
 
-- **MainActor:** `FeedPlayerEngine`, `FeedStore`, `AppLogStore`, SwiftUI views — all AVFoundation / UI mutation stays on the main actor.
-- **Sendable value types:** `FeedVideo`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` (`nonisolated` `URLSession` work) — safe to pass across `Task` boundaries after decode.
-- **UIKit bridge:** `VerticalPagingFeedScrollView` callbacks hop to MainActor before touching the engine.
-- **Tests:** engine tests and phase assertions run `@MainActor` to match default-isolated playback types.
+- **MainActor:** `FeedPlayerEngine`, `FeedStore`, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only.
+- **`FeedMediaPreparationService` (actor):** `AVURLAsset` cache, prefetch until `readyToPlay`, `beginPlaybackItem` for visible-slot loads — runs off the main actor between `await` points.
+- **Sendable value types:** `FeedVideo`, `FeedPlayerPhase`, `FeedLoadState`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` — safe across `Task` boundaries.
+- **UIKit bridge:** `VerticalPagingFeedScrollView` settle callbacks use `Task { @MainActor in … }` before updating bindings / engine.
+- **Feed reload:** `FeedStore` ignores stale API results when a newer `reload()` started while the previous request was in flight.
+- **Tests:** engine tests `@MainActor`; `FeedMediaPreparationServiceTests` cover HTTPS rules on the actor.
 
-`FeedPlayerPhase` is `Sendable` so failure reasons can be compared in tests without widening engine API surface.
+See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.
 
 ### Module map
 
@@ -149,8 +151,9 @@ sequenceDiagram
 Marauders-ios/Marauders/
   Splash/         AppRootView, SplashView
   Feed/           VideoFeedView, VerticalPagingFeedScrollView,
-                  FeedPlayerEngine, FeedPlayerCompositorView,
-                  FeedPlayerLayerHost, FeedPlaybackChrome
+                  FeedPlayerEngine, FeedMediaPreparationService,
+                  FeedPlayerCompositorView, FeedPlayerLayerHost,
+                  FeedPlaybackChrome
   Upload/         UploadVideoView, VideoExportService
   Networking/     FeedAPIClient, VideoUploadAPIClient
   Logging/        AppLog, DebugLogView (#if DEBUG tab only)

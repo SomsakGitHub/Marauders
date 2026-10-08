@@ -6,7 +6,7 @@
 import Foundation
 import Observation
 
-enum FeedLoadState: Equatable {
+enum FeedLoadState: Equatable, Sendable {
     case idle
     case loading
     case loaded
@@ -20,6 +20,7 @@ final class FeedStore {
     var loadState: FeedLoadState = .idle
 
     private let client: FeedAPIClient
+    private var reloadGeneration = 0
 
     init() {
         client = FeedAPIClient()
@@ -35,11 +36,15 @@ final class FeedStore {
     }
 
     func reload() async {
+        reloadGeneration += 1
+        let generation = reloadGeneration
+
         AppLog.info("feed", "reload started (currentCount=\(videos.count))")
         loadState = .loading
 
         do {
             let items = try await client.fetchFeed()
+            guard generation == reloadGeneration else { return }
             guard !items.isEmpty else {
                 videos = []
                 loadState = .failed("ฟีดว่าง — ลองอัปโหลดคลิปใหม่")
@@ -50,6 +55,7 @@ final class FeedStore {
             loadState = .loaded
             AppLog.info("feed", "reload OK count=\(items.count) topId=\(items.first?.id.uuidString ?? "-")")
         } catch {
+            guard generation == reloadGeneration else { return }
             AppLog.error("feed", "reload failed: \(error.localizedDescription)")
             if videos.isEmpty {
                 loadState = .failed(error.localizedDescription)

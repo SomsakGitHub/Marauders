@@ -42,8 +42,10 @@ struct VerticalPagingFeedScrollView: UIViewRepresentable {
         }
 
         func pagingViewDidSettle(on pageIndex: Int) {
-            parent.currentPageIndex = pageIndex
-            parent.onPageSettled(pageIndex)
+            Task { @MainActor in
+                self.parent.currentPageIndex = pageIndex
+                self.parent.onPageSettled(pageIndex)
+            }
         }
     }
 }
