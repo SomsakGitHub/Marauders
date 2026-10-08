@@ -32,6 +32,7 @@ struct ContentView: View {
             }
             .tag(MainTab.upload)
 
+            #if DEBUG
             NavigationStack {
                 DebugLogView()
             }
@@ -39,6 +40,7 @@ struct ContentView: View {
                 Label("Log", systemImage: "ladybug.fill")
             }
             .tag(MainTab.log)
+            #endif
         }
         .onAppear {
             AppLog.info("app", "Marauders launched")

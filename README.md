@@ -11,7 +11,9 @@
 | **ฟีด** | เลื่อนแนวตั้งเต็มจอ (paging), เล่นเฉพาะคลิปที่อยู่กลางจอ |
 | **อัปโหลด** | เลือกวิดีโอจากคลัง → ส่ง multipart ไป API → โผล่บนฟีด |
 | **API** | REST บน Workers, validate input ฝั่งเซิร์ฟเวอร์ |
-| **Debug** | แท็บ Log ในแอป + `os.Logger` (ช่วยไล่ปัญหาเครือข่าย/เล่นวิดีโอ) |
+| **Debug** | แท็บ Log ในแอป (เฉพาะ **Debug** build) + `os.Logger` |
+
+เอกสารสถาปัตยกรรมและ tradeoffs: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Architecture
 

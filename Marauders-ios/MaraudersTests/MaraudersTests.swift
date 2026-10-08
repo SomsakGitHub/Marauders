@@ -9,11 +9,9 @@ import Testing
 @testable import Marauders
 
 struct MaraudersTests {
-
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+    @Test func feedPlayerPhaseEquatable() {
+        #expect(FeedPlayerPhase.playing == FeedPlayerPhase.playing)
+        #expect(FeedPlayerPhase.failed("a") == FeedPlayerPhase.failed("a"))
+        #expect(FeedPlayerPhase.failed("a") != FeedPlayerPhase.failed("b"))
     }
-
 }
