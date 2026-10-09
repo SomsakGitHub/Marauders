@@ -41,3 +41,4 @@ Marauders/
 
 - [ARCHITECTURE.md](../../ARCHITECTURE.md)
 - [ADR-002](002-ios-concurrency.md)
+- [ADR-004](004-single-app-target.md) — why layers are folders, not SPM modules yet

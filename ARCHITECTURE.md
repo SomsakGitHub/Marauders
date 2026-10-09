@@ -147,7 +147,7 @@ See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.
 
 ### MVVM + Clean Architecture
 
-See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**.
+See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-004](docs/adr/004-single-app-target.md)** (single Xcode target, folder boundaries; SPM deferred).
 
 | Layer | Folder | Role |
 |-------|--------|------|
