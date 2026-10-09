@@ -49,18 +49,76 @@ struct FeedAPIClientTests {
         }
     }
 
-    @Test func fetchFeedMapsServerErrorStatus() async {
+    @Test func fetchFeedMapsServerErrorStatusAfterRetriesExhausted() async {
+        nonisolated(unsafe) var attemptCount = 0
         let session = StubURLSessionFactory.make { request in
+            attemptCount += 1
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 503)
             return (response, Data("{}".utf8))
         }
         defer { StubURLSessionFactory.reset() }
 
-        let client = FeedAPIClient(session: session)
+        let client = FeedAPIClient(
+            session: session,
+            maxAttempts: FeedAPIClient.defaultMaxAttempts,
+            retryDelayNs: { _ in 0 }
+        )
 
         await #expect(throws: FeedAPIError.serverError(503)) {
             try await client.fetchFeed()
         }
+        #expect(attemptCount == FeedAPIClient.defaultMaxAttempts)
+    }
+
+    @Test func fetchFeedRetriesTransient503ThenSucceeds() async throws {
+        let videoID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let successBody = FeedAPIClientTests.feedResponseJSON(
+            items: [(id: videoID, streamURL: "https://cdn.example.com/v/ok.mp4")]
+        )
+
+        nonisolated(unsafe) var attemptCount = 0
+        let session = StubURLSessionFactory.make { request in
+            attemptCount += 1
+            if attemptCount < 2 {
+                let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 503)
+                return (response, Data())
+            }
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, successBody)
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(
+            session: session,
+            maxAttempts: FeedAPIClient.defaultMaxAttempts,
+            retryDelayNs: { _ in 0 }
+        )
+        let items = try await client.fetchFeed()
+
+        #expect(attemptCount == 2)
+        #expect(items.count == 1)
+        #expect(items[0].id == videoID)
+    }
+
+    @Test func fetchFeedDoesNotRetryClientError() async {
+        nonisolated(unsafe) var attemptCount = 0
+        let session = StubURLSessionFactory.make { request in
+            attemptCount += 1
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 400)
+            return (response, Data())
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(
+            session: session,
+            maxAttempts: FeedAPIClient.defaultMaxAttempts,
+            retryDelayNs: { _ in 0 }
+        )
+
+        await #expect(throws: FeedAPIError.serverError(400)) {
+            try await client.fetchFeed()
+        }
+        #expect(attemptCount == 1)
     }
 
     @Test func fetchFeedRejectsMalformedJSON() async {

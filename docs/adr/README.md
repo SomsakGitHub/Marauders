@@ -9,5 +9,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [003](003-mvvm-clean-architecture.md) | MVVM + Clean Architecture folder layers |
 | [004](004-single-app-target.md) | Single app target (no SPM split yet) |
 | [005](005-coordinator-router.md) | Coordinator + Router for tab flows |
+| [006](006-feed-get-retry.md) | Retry transient failures on GET feed only |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)

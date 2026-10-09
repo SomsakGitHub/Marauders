@@ -27,13 +27,59 @@ enum FeedAPIError: LocalizedError, Equatable {
 }
 
 struct FeedAPIClient: Sendable {
-    private let session: URLSession
+    static let defaultMaxAttempts = 3
 
-    nonisolated init(session: URLSession = .shared) {
+    private let session: URLSession
+    private let maxAttempts: Int
+    private let retryDelayNs: @Sendable (Int) -> UInt64
+
+    init(
+        session: URLSession = .shared,
+        maxAttempts: Int = FeedAPIClient.defaultMaxAttempts
+    ) {
         self.session = session
+        self.maxAttempts = max(1, maxAttempts)
+        self.retryDelayNs = feedAPIProductionRetryDelayNanoseconds
+    }
+
+    init(
+        session: URLSession,
+        maxAttempts: Int,
+        retryDelayNs: @escaping @Sendable (Int) -> UInt64
+    ) {
+        self.session = session
+        self.maxAttempts = max(1, maxAttempts)
+        self.retryDelayNs = retryDelayNs
     }
 
     func fetchFeed(limit: Int = 20) async throws -> [FeedVideo] {
+        var lastError: Error?
+
+        for attempt in 0 ..< maxAttempts {
+            do {
+                return try await performFetchFeed(limit: limit)
+            } catch {
+                lastError = error
+                guard attempt < maxAttempts - 1, FeedAPIRetryPolicy.isRetryable(error) else {
+                    throw error
+                }
+                let delay = retryDelayNs(attempt)
+                if delay > 0 {
+                    AppLog.warning(
+                        "api.feed",
+                        "transient failure attempt=\(attempt + 1)/\(maxAttempts) retryInMs=\(delay / 1_000_000)"
+                    )
+                    try await Task.sleep(nanoseconds: delay)
+                } else {
+                    AppLog.warning("api.feed", "transient failure attempt=\(attempt + 1)/\(maxAttempts) retry")
+                }
+            }
+        }
+
+        throw lastError ?? FeedAPIError.invalidResponse
+    }
+
+    private func performFetchFeed(limit: Int) async throws -> [FeedVideo] {
         let requestURL = try APIConfiguration.feedRequestURL(limit: limit)
         AppLog.info("api.feed", "GET \(requestURL.absoluteString)")
 
@@ -65,6 +111,8 @@ struct FeedAPIClient: Sendable {
             }
             AppLog.info("api.feed", "items=\(decoded.items.count)")
             return decoded.items
+        } catch let error as FeedAPIError {
+            throw error
         } catch {
             AppLog.error("api.feed", "decode failed: \(error.localizedDescription)")
             throw FeedAPIError.invalidResponse

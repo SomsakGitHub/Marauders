@@ -310,12 +310,12 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 
 | Endpoint | Client | Method | Timeout | Client-side validation | Success | Error mapping |
 |----------|--------|--------|---------|------------------------|---------|----------------|
-| `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)` |
+| `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
 | `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB | `FeedVideo` | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
 
 **Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests` use `StubURLProtocol` (no live network in CI).
 
-**Not in MVP:** auth headers, automatic retry on upload, certificate pinning (ATS + HTTPS validation only).
+**Not in MVP:** auth headers, automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only).
 
 ---
 
