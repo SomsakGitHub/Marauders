@@ -395,4 +395,18 @@ flowchart LR
 ## Tests
 
 - `MaraudersTests/FeedPlayerEngineTests.swift` — HTTPS policy, pause semantics, retry (no network).
+- `MaraudersUITests/MaraudersUITests.swift` — smoke tests (feed tab, upload tab, empty-feed error) with deterministic mock data.
 - Run: Xcode **Product → Test** or `xcodebuild test -scheme Marauders`.
+
+### UI test launch flags (`UITEST`)
+
+Pass these via `XCUIApplication.launchArguments` (and matching `launchEnvironment` keys where noted) so UI tests do not hit the network or wait on splash.
+
+| Flag / env | Effect |
+|------------|--------|
+| `UITEST` (`UITEST=1` in env) | Composition root uses `UITestFeedRepository` instead of `DefaultFeedRepository`; splash skips the 650 ms minimum delay after the first feed load completes. |
+| `UITEST_EMPTY_FEED` (`UITEST_EMPTY_FEED=1` in env) | Mock repository returns an empty list → feed shows the empty-state error UI (message contains `ฟีดว่าง`). Requires `UITEST`. |
+
+Resolution lives in `UITestFeedMode` / `AppRuntimeConfiguration` and is applied when `AppDependencyContainer` wires the feed repository. Splash awaits `VideoFeedViewModel.awaitInitialLoad()` so smoke tests assert against a settled feed state.
+
+Key accessibility identifiers used by smoke tests: `feed.root`, `feed.error`, `upload.root`, `upload.pickVideo`.

@@ -13,7 +13,6 @@ final class AppDependencyContainer {
 
     let feedViewModel: VideoFeedViewModel
     let uploadViewModel: UploadVideoViewModel
-
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -23,7 +22,14 @@ final class AppDependencyContainer {
         uploadRepository: VideoUploadRepository? = nil,
         videoExporter: VideoExporting? = nil
     ) {
-        self.feedRepository = feedRepository ?? DefaultFeedRepository(apiClient: FeedAPIClient())
+        let uiTestFeedMode = Self.uiTestFeedMode()
+        if let feedRepository {
+            self.feedRepository = feedRepository
+        } else if AppRuntimeConfiguration.isUITesting {
+            self.feedRepository = UITestFeedRepository(mode: uiTestFeedMode)
+        } else {
+            self.feedRepository = DefaultFeedRepository(apiClient: FeedAPIClient())
+        }
         self.uploadRepository = uploadRepository ?? DefaultVideoUploadRepository(apiClient: VideoUploadAPIClient())
         self.videoExporter = videoExporter ?? DefaultVideoExporter()
 
@@ -39,5 +45,14 @@ final class AppDependencyContainer {
             feedViewModel: feedViewModel,
             uploadViewModel: uploadViewModel
         )
+    }
+
+    private static func uiTestFeedMode() -> UITestFeedMode {
+        let arguments = ProcessInfo.processInfo.arguments
+        let environment = ProcessInfo.processInfo.environment
+        if arguments.contains("UITEST_EMPTY_FEED") || environment["UITEST_EMPTY_FEED"] == "1" {
+            return .mockEmpty
+        }
+        return .mockPopulated
     }
 }

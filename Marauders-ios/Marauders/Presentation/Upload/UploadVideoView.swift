@@ -21,6 +21,7 @@ struct UploadVideoView: View {
                             systemImage: "film"
                         )
                     }
+                    .accessibilityIdentifier("upload.pickVideo")
                     .disabled(viewModel.isUploading || viewModel.isPreparing)
 
                     if viewModel.isPreparing {
@@ -67,6 +68,7 @@ struct UploadVideoView: View {
                     }
                 }
             }
+            .accessibilityIdentifier("upload.root")
             .navigationTitle("อัปโหลด")
             .onChange(of: pickerItem) { _, newItem in
                 Task { await loadPickerItem(newItem) }

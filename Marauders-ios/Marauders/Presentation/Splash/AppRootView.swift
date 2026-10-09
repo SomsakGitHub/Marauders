@@ -26,7 +26,7 @@ struct AppRootView: View {
                     .zIndex(1)
             }
         }
-        .animation(.easeOut(duration: 0.32), value: isShowingSplash)
+        .animation(AppRuntimeConfiguration.isUITesting ? nil : .easeOut(duration: 0.32), value: isShowingSplash)
         .task {
             await presentSplash()
         }
@@ -36,13 +36,14 @@ struct AppRootView: View {
     }
 
     private func presentSplash() async {
-        async let feedLoad: Void = container.coordinator.loadFeedIfNeeded()
-        async let minimumDelay: Void = {
-            try? await Task.sleep(nanoseconds: Self.minimumSplashDurationNs)
-        }()
+        await container.feedViewModel.awaitInitialLoad()
 
-        _ = await (feedLoad, minimumDelay)
+        if AppRuntimeConfiguration.isUITesting {
+            isShowingSplash = false
+            return
+        }
 
+        try? await Task.sleep(nanoseconds: Self.minimumSplashDurationNs)
         isShowingSplash = false
     }
 }

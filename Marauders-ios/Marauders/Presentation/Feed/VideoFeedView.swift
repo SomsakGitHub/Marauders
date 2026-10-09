@@ -36,6 +36,7 @@ struct VideoFeedView: View {
                     }
             }
         }
+        .accessibilityIdentifier("feed.root")
         .task {
             await viewModel.loadIfNeeded()
             syncPageIndex()
@@ -69,6 +70,7 @@ struct VideoFeedView: View {
             ProgressView()
                 .tint(.white)
         }
+        .accessibilityIdentifier("feed.loading")
     }
 
     private func errorView(message: String) -> some View {
@@ -83,11 +85,15 @@ struct VideoFeedView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 24)
+                    .accessibilityIdentifier("feed.error.message")
                 Button("ลองอีกครั้ง") {
                     Task { await viewModel.reload() }
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("feed.retry")
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("feed.error")
         }
     }
 

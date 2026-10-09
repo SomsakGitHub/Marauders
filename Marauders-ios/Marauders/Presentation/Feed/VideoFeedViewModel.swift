@@ -14,14 +14,34 @@ final class VideoFeedViewModel {
 
     private let fetchFeed: FetchFeedUseCase
     private var reloadGeneration = 0
+    private var initialLoadTask: Task<Void, Never>?
 
     init(fetchFeed: FetchFeedUseCase) {
         self.fetchFeed = fetchFeed
     }
 
+    /// Waits until the first feed load finishes (splash / cold start).
+    func awaitInitialLoad() async {
+        if let initialLoadTask {
+            await initialLoadTask.value
+            return
+        }
+        await loadIfNeeded()
+        if let initialLoadTask {
+            await initialLoadTask.value
+        }
+    }
+
     func loadIfNeeded() async {
-        guard loadState == .idle else { return }
-        await reload()
+        if loadState != .idle {
+            await initialLoadTask?.value
+            return
+        }
+        let task = Task { @MainActor in
+            await reload()
+        }
+        initialLoadTask = task
+        await task.value
     }
 
     func reload() async {
