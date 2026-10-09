@@ -207,6 +207,24 @@ flowchart LR
 
 **Playback exception:** `FeedPlayerEngine` is presentation infrastructure. `VideoFeedView` drives it for scroll/settle; it is not a domain use case.
 
+#### Navigation (Coordinator / Router)
+
+See **[ADR-005](docs/adr/005-coordinator-router.md)**.
+
+| Type | Role |
+|------|------|
+| `AppRouter` | Observable tab state (`MainTab`); views bind `TabView(selection:)` |
+| `AppCoordinator` | Cross-tab flows: splash feed load, upload finished → reload feed + show feed tab |
+| ViewModels | Feature logic only; no direct tab switching |
+
+```mermaid
+flowchart LR
+  ContentView --> Router[AppRouter]
+  UploadVM[UploadVideoViewModel] -->|onUploaded| Coord[AppCoordinator]
+  Coord --> FeedVM[VideoFeedViewModel]
+  Coord --> Router
+```
+
 #### MVVM flow (feed reload)
 
 ```mermaid
@@ -245,6 +263,9 @@ sequenceDiagram
   participant Repo as VideoUploadRepository
   participant API as VideoUploadAPIClient
   participant Worker as Cloudflare Worker
+  participant Coord as AppCoordinator
+  participant FeedVM as VideoFeedViewModel
+  participant Router as AppRouter
 
   View->>View: PhotosPicker → PickedVideoFile URL
   View->>VM: prepare(sourceURL:)
@@ -257,8 +278,13 @@ sequenceDiagram
   Repo->>API: multipart POST
   API->>Worker: POST /v1/videos
   Worker-->>API: FeedVideo item
-  API-->>VM: onUploaded → feed ViewModel.reload()
+  API-->>VM: success
+  VM-->>Coord: onUploaded
+  Coord->>FeedVM: reload()
+  Coord->>Router: showFeed()
 ```
+
+(`AppCoordinator` performs reload + tab change; see ADR-005.)
 
 ### Module map
 
@@ -269,6 +295,7 @@ Marauders-ios/Marauders/
   Domain/           Entities, Repositories (protocols), UseCases
   Data/             API/, Repositories/, Services/, Photos/
   Presentation/
+    Navigation/     AppRouter, AppCoordinator, MainTab
     Main/           ContentView
     Splash/         AppRootView, SplashView
     Feed/           VideoFeedView, VideoFeedViewModel

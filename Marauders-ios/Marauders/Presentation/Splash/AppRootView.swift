@@ -14,6 +14,7 @@ struct AppRootView: View {
     var body: some View {
         ZStack {
             ContentView(
+                router: container.router,
                 feedViewModel: container.feedViewModel,
                 uploadViewModel: container.uploadViewModel
             )
@@ -35,7 +36,7 @@ struct AppRootView: View {
     }
 
     private func presentSplash() async {
-        async let feedLoad: Void = container.feedViewModel.loadIfNeeded()
+        async let feedLoad: Void = container.coordinator.loadFeedIfNeeded()
         async let minimumDelay: Void = {
             try? await Task.sleep(nanoseconds: Self.minimumSplashDurationNs)
         }()

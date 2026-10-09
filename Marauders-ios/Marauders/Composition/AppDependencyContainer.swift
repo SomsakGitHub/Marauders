@@ -8,6 +8,9 @@ import Foundation
 /// Composition root — wires Domain use cases to Data implementations (Clean Architecture).
 @MainActor
 final class AppDependencyContainer {
+    let router = AppRouter()
+    let coordinator: AppCoordinator
+
     let feedViewModel: VideoFeedViewModel
     let uploadViewModel: UploadVideoViewModel
 
@@ -30,5 +33,11 @@ final class AppDependencyContainer {
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
         let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)
         uploadViewModel = UploadVideoViewModel(prepareVideo: prepare, uploadVideo: upload)
+
+        coordinator = AppCoordinator(
+            router: router,
+            feedViewModel: feedViewModel,
+            uploadViewModel: uploadViewModel
+        )
     }
 }

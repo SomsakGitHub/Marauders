@@ -5,20 +5,13 @@
 
 import SwiftUI
 
-private enum MainTab: Hashable {
-    case feed
-    case upload
-    case log
-}
-
 struct ContentView: View {
+    @Bindable var router: AppRouter
     @Bindable var feedViewModel: VideoFeedViewModel
     @Bindable var uploadViewModel: UploadVideoViewModel
 
-    @State private var selectedTab: MainTab = .feed
-
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $router.selectedTab) {
             VideoFeedView(viewModel: feedViewModel)
                 .tabItem {
                     Label("ฟีด", systemImage: "play.rectangle.fill")
@@ -26,10 +19,10 @@ struct ContentView: View {
                 .tag(MainTab.feed)
 
             UploadVideoView(viewModel: uploadViewModel)
-            .tabItem {
-                Label("อัปโหลด", systemImage: "plus.circle.fill")
-            }
-            .tag(MainTab.upload)
+                .tabItem {
+                    Label("อัปโหลด", systemImage: "plus.circle.fill")
+                }
+                .tag(MainTab.upload)
 
             #if DEBUG
             NavigationStack {
@@ -43,10 +36,6 @@ struct ContentView: View {
         }
         .onAppear {
             AppLog.info("app", "Marauders launched")
-            uploadViewModel.onUploaded = {
-                await feedViewModel.reload()
-                selectedTab = .feed
-            }
         }
     }
 }
@@ -54,6 +43,7 @@ struct ContentView: View {
 #Preview {
     let container = AppDependencyContainer()
     ContentView(
+        router: container.router,
         feedViewModel: container.feedViewModel,
         uploadViewModel: container.uploadViewModel
     )

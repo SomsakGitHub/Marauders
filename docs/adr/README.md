@@ -8,5 +8,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [002](002-ios-concurrency.md) | Swift 6: MainActor UI, `actor` media prep, `Sendable` API |
 | [003](003-mvvm-clean-architecture.md) | MVVM + Clean Architecture folder layers |
 | [004](004-single-app-target.md) | Single app target (no SPM split yet) |
+| [005](005-coordinator-router.md) | Coordinator + Router for tab flows |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)
