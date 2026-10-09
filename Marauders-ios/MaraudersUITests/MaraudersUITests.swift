@@ -14,7 +14,7 @@ final class MaraudersUITests: XCTestCase {
     func testSmokeFeedTabVisibleWithMockData() throws {
         let app = launchApp()
 
-        let feedTab = app.tabBars.buttons["ฟีด"]
+        let feedTab = app.tabBars.buttons["Feed"]
         XCTAssertTrue(feedTab.waitForExistence(timeout: 15))
         XCTAssertTrue(feedTab.isSelected)
 
@@ -25,11 +25,11 @@ final class MaraudersUITests: XCTestCase {
     func testSmokeCanOpenUploadTab() throws {
         let app = launchApp()
 
-        let uploadTab = app.tabBars.buttons["อัปโหลด"]
+        let uploadTab = app.tabBars.buttons["Upload"]
         XCTAssertTrue(uploadTab.waitForExistence(timeout: 15))
         uploadTab.tap()
 
-        XCTAssertTrue(app.navigationBars["อัปโหลด"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Upload"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["upload.root"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["upload.pickVideo"].waitForExistence(timeout: 10))
     }
@@ -38,11 +38,11 @@ final class MaraudersUITests: XCTestCase {
     func testSmokeEmptyFeedShowsErrorState() throws {
         let app = launchApp(extraArguments: ["UITEST_EMPTY_FEED"])
 
-        XCTAssertTrue(app.tabBars.buttons["ฟีด"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.tabBars.buttons["Feed"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 10))
 
         let emptyFeedBanner = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "ฟีดว่าง")
+            NSPredicate(format: "label CONTAINS %@", "Feed is empty")
         ).firstMatch
         XCTAssertTrue(emptyFeedBanner.waitForExistence(timeout: 15))
     }

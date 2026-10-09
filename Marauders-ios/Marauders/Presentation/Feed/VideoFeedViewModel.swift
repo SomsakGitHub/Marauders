@@ -56,7 +56,7 @@ final class VideoFeedViewModel {
             guard generation == reloadGeneration else { return }
             guard !items.isEmpty else {
                 videos = []
-                loadState = .failed("ฟีดว่าง — ลองอัปโหลดคลิปใหม่")
+                loadState = .failed("Feed is empty — try uploading a clip")
                 AppLog.warning("feed", "reload returned empty list")
                 return
             }

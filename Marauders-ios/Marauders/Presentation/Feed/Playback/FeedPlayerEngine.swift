@@ -202,7 +202,7 @@ final class FeedPlayerEngine {
 
             do {
                 guard let item = try await self.mediaPreparation.beginPlaybackItem(for: url) else {
-                    if autoplay { self.failPlayback(message: "โหลดวิดีโอไม่สำเร็จ") }
+                    if autoplay { self.failPlayback(message: "Couldn’t load video") }
                     return
                 }
                 guard generation == self.loadGeneration else { return }
@@ -223,7 +223,7 @@ final class FeedPlayerEngine {
 
     private func validateHTTPS(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https" else {
-            phase = .failed("URL ไม่ปลอดภัย")
+            phase = .failed("URL is not secure")
             return false
         }
         return true
@@ -320,7 +320,7 @@ private final class PlayerSlot {
                     AppLog.info("player", "ready host=\(url.host ?? "?")")
                     engine.updatePhaseFromVisiblePlayer()
                 case .failed:
-                    let message = item.error?.localizedDescription ?? "เล่นไม่ได้"
+                    let message = item.error?.localizedDescription ?? "Playback failed"
                     engine.failPlaybackFromSlot(message: message)
                 default:
                     break

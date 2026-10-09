@@ -14,13 +14,19 @@ struct ContentView: View {
         TabView(selection: $router.selectedTab) {
             VideoFeedView(viewModel: feedViewModel)
                 .tabItem {
-                    Label("ฟีด", systemImage: "play.rectangle.fill")
+                    Label("Feed", systemImage: "play.rectangle.fill")
                 }
                 .tag(MainTab.feed)
 
+            MapView()
+                .tabItem {
+                    Label("Map", systemImage: "map.fill")
+                }
+                .tag(MainTab.map)
+
             UploadVideoView(viewModel: uploadViewModel)
                 .tabItem {
-                    Label("อัปโหลด", systemImage: "plus.circle.fill")
+                    Label("Upload", systemImage: "plus.circle.fill")
                 }
                 .tag(MainTab.upload)
 

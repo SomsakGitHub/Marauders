@@ -14,7 +14,7 @@ struct FeedPlayerEngineTests {
         let engine = FeedPlayerEngine()
         engine.play(url: URL(string: "http://cdn.example.com/video.mp4")!)
 
-        #expect(engine.phase == .failed("URL ไม่ปลอดภัย"))
+        #expect(engine.phase == .failed("URL is not secure"))
         #expect(engine.showsBufferingIndicator == false)
     }
 
@@ -22,7 +22,7 @@ struct FeedPlayerEngineTests {
         let engine = FeedPlayerEngine()
         engine.play(url: URL(fileURLWithPath: "/tmp/video.mp4"))
 
-        #expect(engine.phase == .failed("URL ไม่ปลอดภัย"))
+        #expect(engine.phase == .failed("URL is not secure"))
     }
 
     @Test func prefetchIgnoresNonHTTPSURL() {
@@ -78,6 +78,6 @@ struct FeedPlayerEngineTests {
         engine.play(url: url)
 
         #expect(phaseAfterFirst == .buffering)
-        #expect(engine.phase != .failed("URL ไม่ปลอดภัย"))
+        #expect(engine.phase != .failed("URL is not secure"))
     }
 }

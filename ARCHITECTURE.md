@@ -9,7 +9,7 @@ Portfolio vertical-video app: **SwiftUI + AVFoundation** on iOS, **Cloudflare Wo
 ```mermaid
 flowchart TB
   subgraph ios [iOS]
-    UI[SwiftUI tabs Feed Upload]
+    UI[SwiftUI tabs Feed Map Upload]
     Paging[VerticalPagingFeedScrollView UIKit]
     Engine[FeedPlayerEngine dual slot]
     UI --> Paging
@@ -405,7 +405,7 @@ Pass these via `XCUIApplication.launchArguments` (and matching `launchEnvironmen
 | Flag / env | Effect |
 |------------|--------|
 | `UITEST` (`UITEST=1` in env) | Composition root uses `UITestFeedRepository` instead of `DefaultFeedRepository`; splash skips the 650 ms minimum delay after the first feed load completes. |
-| `UITEST_EMPTY_FEED` (`UITEST_EMPTY_FEED=1` in env) | Mock repository returns an empty list → feed shows the empty-state error UI (message contains `ฟีดว่าง`). Requires `UITEST`. |
+| `UITEST_EMPTY_FEED` (`UITEST_EMPTY_FEED=1` in env) | Mock repository returns an empty list → feed shows the empty-state error UI (message contains `Feed is empty`). Requires `UITEST`. |
 
 Resolution lives in `UITestFeedMode` / `AppRuntimeConfiguration` and is applied when `AppDependencyContainer` wires the feed repository. Splash awaits `VideoFeedViewModel.awaitInitialLoad()` so smoke tests assert against a settled feed state.
 

@@ -72,7 +72,7 @@ struct VideoUploadAPIClientTests {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        let message = "ไฟล์ใหญ่เกินที่อนุญาต"
+        let message = "File exceeds allowed size"
         let body = Data("{\"error\":\"\(message)\"}".utf8)
         let session = StubURLSessionFactory.make { request in
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 413)

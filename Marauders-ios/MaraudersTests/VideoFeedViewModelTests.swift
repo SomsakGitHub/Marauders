@@ -24,7 +24,7 @@ struct VideoFeedViewModelTests {
         await viewModel.reload()
 
         #expect(viewModel.videos.isEmpty)
-        #expect(viewModel.loadState == .failed("ฟีดว่าง — ลองอัปโหลดคลิปใหม่"))
+        #expect(viewModel.loadState == .failed("Feed is empty — try uploading a clip"))
     }
 
     @Test func staleReloadResponseIsIgnored() async {

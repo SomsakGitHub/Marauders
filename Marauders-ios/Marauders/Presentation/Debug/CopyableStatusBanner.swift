@@ -25,7 +25,7 @@ struct CopyableStatusBanner: View {
                     didCopy = true
                     AppLog.info("ui", "copied status banner to clipboard")
                 } label: {
-                    Label("คัดลอกข้อความ", systemImage: "doc.on.doc")
+                    Label("Copy Message", systemImage: "doc.on.doc")
                 }
                 .buttonStyle(.bordered)
 
@@ -34,12 +34,12 @@ struct CopyableStatusBanner: View {
                 NavigationLink {
                     DebugLogView()
                 } label: {
-                    Label("ดู log", systemImage: "list.bullet.rectangle")
+                    Label("View Log", systemImage: "list.bullet.rectangle")
                 }
                 .buttonStyle(.bordered)
             }
         }
-        .alert("คัดลอกแล้ว", isPresented: $didCopy) {
+        .alert("Copied", isPresented: $didCopy) {
             Button("OK", role: .cancel) {}
         }
     }

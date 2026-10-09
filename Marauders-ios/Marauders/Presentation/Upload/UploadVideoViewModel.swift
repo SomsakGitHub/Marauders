@@ -77,7 +77,7 @@ final class UploadVideoViewModel {
         do {
             let item = try await uploadVideo.execute(fileURL: uploadFileURL)
             isSuccess = true
-            statusMessage = "อัปโหลดสำเร็จ — กำลังเปิดฟีด"
+            statusMessage = "Upload complete — opening feed"
             AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
             discardExportStagingFile()
             await onUploaded?()

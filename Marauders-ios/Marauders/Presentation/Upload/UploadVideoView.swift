@@ -14,10 +14,10 @@ struct UploadVideoView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("วิดีโอ") {
+                Section("Video") {
                     PhotosPicker(selection: $pickerItem, matching: .videos) {
                         Label(
-                            viewModel.uploadFileURL == nil ? "เลือกวิดีโอจากคลัง" : "เปลี่ยนวิดีโอ",
+                            viewModel.uploadFileURL == nil ? "Choose from Library" : "Change Video",
                             systemImage: "film"
                         )
                     }
@@ -27,7 +27,7 @@ struct UploadVideoView: View {
                     if viewModel.isPreparing {
                         HStack {
                             ProgressView()
-                            Text("กำลังแปลงเป็น MP4…")
+                            Text("Converting to MP4…")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -38,7 +38,7 @@ struct UploadVideoView: View {
                     } else if pickerItem != nil {
                         HStack {
                             ProgressView()
-                            Text("กำลังเตรียมไฟล์…")
+                            Text("Preparing file…")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -52,10 +52,10 @@ struct UploadVideoView: View {
                         if viewModel.isUploading {
                             HStack {
                                 ProgressView()
-                                Text("กำลังอัปโหลด…")
+                                Text("Uploading…")
                             }
                         } else {
-                            Text("อัปโหลดไปฟีด")
+                            Text("Upload to Feed")
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -63,13 +63,13 @@ struct UploadVideoView: View {
                 }
 
                 if let statusMessage = viewModel.statusMessage {
-                    Section("สถานะ") {
+                    Section("Status") {
                         CopyableStatusBanner(message: statusMessage, isSuccess: viewModel.isSuccess)
                     }
                 }
             }
             .accessibilityIdentifier("upload.root")
-            .navigationTitle("อัปโหลด")
+            .navigationTitle("Upload")
             .onChange(of: pickerItem) { _, newItem in
                 Task { await loadPickerItem(newItem) }
             }
@@ -89,7 +89,7 @@ struct UploadVideoView: View {
         AppLog.info("upload", "picker item selected — loading transferable")
         do {
             guard let video = try await item.loadTransferable(type: PickedVideoFile.self) else {
-                viewModel.statusMessage = "อ่านวิดีโอไม่ได้ — ลองคลิปสั้นกว่า"
+                viewModel.statusMessage = "Couldn’t read video — try a shorter clip"
                 AppLog.error("upload", "loadTransferable returned nil")
                 return
             }

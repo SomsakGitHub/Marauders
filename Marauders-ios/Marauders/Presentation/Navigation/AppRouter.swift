@@ -16,6 +16,10 @@ final class AppRouter {
         selectedTab = .feed
     }
 
+    func showMap() {
+        selectedTab = .map
+    }
+
     func showUpload() {
         selectedTab = .upload
     }

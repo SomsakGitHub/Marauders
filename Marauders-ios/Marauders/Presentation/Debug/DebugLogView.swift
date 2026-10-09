@@ -14,9 +14,9 @@ struct DebugLogView: View {
         List {
             if store.entries.isEmpty {
                 ContentUnavailableView(
-                    "ยังไม่มีบันทึก",
+                    "No logs yet",
                     systemImage: "doc.text",
-                    description: Text("ลองอัปโหลดหรือเปิดฟีด — เหตุการณ์จะแสดงที่นี่")
+                    description: Text("Upload or open the feed — events appear here")
                 )
             } else {
                 ForEach(store.entries) { entry in
@@ -29,22 +29,22 @@ struct DebugLogView: View {
                 }
             }
         }
-        .navigationTitle("บันทึก")
+        .navigationTitle("Log")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button("ล้าง") {
+                Button("Clear") {
                     store.clear()
                 }
-                Button("คัดลอกทั้งหมด") {
+                Button("Copy All") {
                     UIPasteboard.general.string = store.exportText
                     copyConfirmed = true
                 }
             }
         }
-        .alert("คัดลอกแล้ว", isPresented: $copyConfirmed) {
+        .alert("Copied", isPresented: $copyConfirmed) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("วางในแชทหรือ Notes ได้เลย")
+            Text("Paste into chat or Notes")
         }
     }
 }

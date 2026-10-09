@@ -66,7 +66,7 @@ final class AppLogStore {
 
     var exportText: String {
         if entries.isEmpty {
-            return "(ไม่มีบันทึก)"
+            return "(no logs)"
         }
         return entries.map(\.formatted).joined(separator: "\n")
     }

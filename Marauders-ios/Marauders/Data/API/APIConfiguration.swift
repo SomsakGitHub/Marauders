@@ -90,9 +90,9 @@ enum APIConfigurationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingBaseURL:
-            return "ไม่พบ URL API — ตรวจไฟล์ APIConfiguration.plist ในโปรเจกต์"
+            return "API URL not found — check APIConfiguration.plist in the project"
         case .invalidBaseURL:
-            return "URL API ต้องเป็น https:// โดยไม่มี path"
+            return "API URL must be https:// with no path"
         }
     }
 }

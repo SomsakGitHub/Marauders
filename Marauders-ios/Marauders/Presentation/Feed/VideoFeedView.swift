@@ -86,7 +86,7 @@ struct VideoFeedView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 24)
                     .accessibilityIdentifier("feed.error.message")
-                Button("ลองอีกครั้ง") {
+                Button("Try Again") {
                     Task { await viewModel.reload() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -146,7 +146,7 @@ struct VideoFeedView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 32)
-                Button("เล่นอีกครั้ง") {
+                Button("Play Again") {
                     playerEngine.retry()
                 }
                 .buttonStyle(.borderedProminent)

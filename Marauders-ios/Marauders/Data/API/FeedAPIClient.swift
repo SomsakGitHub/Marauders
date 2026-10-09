@@ -17,11 +17,11 @@ enum FeedAPIError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidLimit:
-            return "จำนวนคลิปที่ขอไม่ถูกต้อง"
+            return "Invalid number of clips requested"
         case .invalidResponse:
-            return "รูปแบบข้อมูลจาก API ไม่ถูกต้อง"
+            return "Invalid API response format"
         case .serverError(let code):
-            return "เซิร์ฟเวอร์ตอบกลับด้วยรหัส \(code)"
+            return "Server responded with status \(code)"
         }
     }
 }

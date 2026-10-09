@@ -18,13 +18,13 @@ enum VideoUploadAPIError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .fileTooLarge:
-            return "วิดีโอต้องไม่เกิน 100 MB"
+            return "Video must be 100 MB or smaller"
         case .unsupportedFormat:
-            return "รองรับเฉพาะ MP4 / MOV"
+            return "Only MP4 / MOV is supported"
         case .serverError(let code):
-            return "อัปโหลดไม่สำเร็จ (รหัส \(code))"
+            return "Upload failed (status \(code))"
         case .invalidResponse:
-            return "ตอบกลับจากเซิร์ฟเวอร์ไม่ถูกต้อง"
+            return "Invalid server response"
         }
     }
 }
