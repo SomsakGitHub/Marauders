@@ -22,6 +22,17 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testSmokeCanOpenMapTab() throws {
+        let app = launchApp()
+
+        let mapTab = app.tabBars.buttons["Map"]
+        XCTAssertTrue(mapTab.waitForExistence(timeout: 15))
+        mapTab.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["map.root"].waitForExistence(timeout: 15))
+    }
+
+    @MainActor
     func testSmokeCanOpenUploadTab() throws {
         let app = launchApp()
 

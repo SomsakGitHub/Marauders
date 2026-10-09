@@ -9,6 +9,7 @@ struct ContentView: View {
     @Bindable var router: AppRouter
     @Bindable var feedViewModel: VideoFeedViewModel
     @Bindable var uploadViewModel: UploadVideoViewModel
+    @Bindable var authViewModel: AuthViewModel
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -18,7 +19,7 @@ struct ContentView: View {
                 }
                 .tag(MainTab.feed)
 
-            MapView()
+            MapTabView(authViewModel: authViewModel)
                 .tabItem {
                     Label("Map", systemImage: "map.fill")
                 }
@@ -51,6 +52,7 @@ struct ContentView: View {
     ContentView(
         router: container.router,
         feedViewModel: container.feedViewModel,
-        uploadViewModel: container.uploadViewModel
+        uploadViewModel: container.uploadViewModel,
+        authViewModel: container.authViewModel
     )
 }

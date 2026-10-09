@@ -13,6 +13,7 @@ final class AppDependencyContainer {
 
     let feedViewModel: VideoFeedViewModel
     let uploadViewModel: UploadVideoViewModel
+    let authViewModel: AuthViewModel
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -39,6 +40,7 @@ final class AppDependencyContainer {
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
         let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)
         uploadViewModel = UploadVideoViewModel(prepareVideo: prepare, uploadVideo: upload)
+        authViewModel = AuthViewModel()
 
         coordinator = AppCoordinator(
             router: router,

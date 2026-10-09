@@ -16,7 +16,8 @@ struct AppRootView: View {
             ContentView(
                 router: container.router,
                 feedViewModel: container.feedViewModel,
-                uploadViewModel: container.uploadViewModel
+                uploadViewModel: container.uploadViewModel,
+                authViewModel: container.authViewModel
             )
             .opacity(isShowingSplash ? 0 : 1)
 

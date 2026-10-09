@@ -384,7 +384,7 @@ flowchart LR
 ## Future (not implemented)
 
 - Empty-state feed UI when `items.length === 0`
-- Auth + per-user upload quotas
+- Backend verification of Apple identity tokens + per-user upload quotas (map tab gates on **Sign in with Apple** client-side today; user ID in Keychain only)
 - Automatic HLS transcode queue (Worker Queue + ffmpeg worker)
 - Metrics: time-to-first-frame after settle, rebuffer count
 - Adaptive HLS ladder (multi-bitrate `master.m3u8`)
