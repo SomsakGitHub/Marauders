@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MapTabView: View {
     @Bindable var authViewModel: AuthViewModel
+    @State private var mapViewModel = MapViewModel()
 
     var body: some View {
         Group {
@@ -14,7 +15,10 @@ struct MapTabView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if authViewModel.isSignedIn {
-                MapView(onSignOut: { authViewModel.signOut() })
+                MapView(
+                    viewModel: mapViewModel,
+                    onSignOut: { authViewModel.signOut() }
+                )
             } else {
                 MapSignInRequiredView(authViewModel: authViewModel)
             }
