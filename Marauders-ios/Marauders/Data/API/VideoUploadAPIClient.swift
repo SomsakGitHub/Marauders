@@ -9,7 +9,7 @@ struct VideoUploadAPIResponse: Decodable, Sendable {
     let item: FeedVideo
 }
 
-enum VideoUploadAPIError: LocalizedError {
+enum VideoUploadAPIError: LocalizedError, Equatable {
     case fileTooLarge
     case unsupportedFormat
     case serverError(Int)

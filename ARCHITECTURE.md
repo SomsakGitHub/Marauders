@@ -304,6 +304,19 @@ Marauders-ios/Marauders/
     Debug/          AppLog, DebugLogView (#if DEBUG)
 ```
 
+### iOS — HTTP API contract
+
+Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs/adr/003-mvvm-clean-architecture.md)). Base URL: `APIConfiguration.plist` → Info.plist (`https` origin only).
+
+| Endpoint | Client | Method | Timeout | Client-side validation | Success | Error mapping |
+|----------|--------|--------|---------|------------------------|---------|----------------|
+| `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)` |
+| `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB | `FeedVideo` | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
+
+**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests` use `StubURLProtocol` (no live network in CI).
+
+**Not in MVP:** auth headers, automatic retry on upload, certificate pinning (ATS + HTTPS validation only).
+
 ---
 
 ## Backend — video on write and read
