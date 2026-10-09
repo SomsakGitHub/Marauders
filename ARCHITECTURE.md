@@ -156,6 +156,110 @@ See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-00
 | Data | `Data/` | API clients, `Default*Repository`, export |
 | Presentation | `Presentation/` | SwiftUI Views + ViewModels; `Feed/Playback/` for AVFoundation |
 
+#### Dependency rules
+
+Single app target — boundaries are **folder + convention** ([ADR-004](docs/adr/004-single-app-target.md)). Arrows show allowed compile-time dependency direction.
+
+```mermaid
+flowchart LR
+  subgraph presentation [Presentation]
+    Views[SwiftUI Views]
+    VMs[ViewModels]
+    Playback[Feed Playback AV/UIKit]
+  end
+
+  subgraph domain [Domain]
+    UC[Use Cases]
+    RepoProto[Repository protocols]
+    Entities[Entities]
+  end
+
+  subgraph data [Data]
+    RepoImpl[Default repositories]
+    API[API clients and export]
+  end
+
+  subgraph composition [Composition]
+    DI[AppDependencyContainer]
+  end
+
+  Views --> VMs
+  VMs --> UC
+  UC --> RepoProto
+  UC --> Entities
+  RepoImpl --> RepoProto
+  RepoImpl --> API
+  RepoImpl --> Entities
+  DI --> VMs
+  DI --> RepoImpl
+  DI --> UC
+  Views --> Playback
+  VMs --> Playback
+```
+
+| Layer | May import / call | Must not |
+|-------|-------------------|----------|
+| **Domain** | `Foundation` only | SwiftUI, UIKit, AVFoundation, PhotosUI, `URLSession` in use cases |
+| **Data** | Domain (+ Apple frameworks needed for I/O) | SwiftUI; Presentation types |
+| **Presentation (ViewModel)** | Domain use cases and entities | `FeedAPIClient`, `VideoUploadAPIClient`, concrete `Default*Repository` |
+| **Presentation (View)** | ViewModels; playback types in `Feed/Playback/` | Use cases or repositories directly (except wiring in previews) |
+| **Composition** | Domain, Data, Presentation ViewModels | UI layout |
+
+**Playback exception:** `FeedPlayerEngine` is presentation infrastructure. `VideoFeedView` drives it for scroll/settle; it is not a domain use case.
+
+#### MVVM flow (feed reload)
+
+```mermaid
+sequenceDiagram
+  participant View as VideoFeedView
+  participant VM as VideoFeedViewModel
+  participant UC as FetchFeedUseCase
+  participant Repo as FeedRepository
+  participant API as FeedAPIClient
+  participant Worker as Cloudflare Worker
+
+  View->>VM: .task / reload / pull-to-refresh
+  VM->>VM: loadState = .loading
+  VM->>UC: execute()
+  UC->>Repo: fetchFeed(limit:)
+  Repo->>API: fetchFeed()
+  API->>Worker: GET /v1/feed
+  Worker-->>API: JSON items
+  API-->>Repo: [FeedVideo] HTTPS validated
+  Repo-->>UC: [FeedVideo]
+  UC-->>VM: [FeedVideo]
+  VM->>VM: videos, loadState (drop stale generation)
+  VM-->>View: @Observable update
+  View->>View: applyPlayback → FeedPlayerEngine.settle
+```
+
+#### MVVM flow (upload)
+
+```mermaid
+sequenceDiagram
+  participant View as UploadVideoView
+  participant VM as UploadVideoViewModel
+  participant Prep as PrepareVideoForUploadUseCase
+  participant Export as VideoExporting
+  participant Up as UploadFeedVideoUseCase
+  participant Repo as VideoUploadRepository
+  participant API as VideoUploadAPIClient
+  participant Worker as Cloudflare Worker
+
+  View->>View: PhotosPicker → PickedVideoFile URL
+  View->>VM: prepare(sourceURL:)
+  VM->>Prep: execute(sourceURL:)
+  Prep->>Export: mp4URLForUpload (H.264 720p)
+  Export-->>VM: temp .mp4 URL
+  View->>VM: upload()
+  VM->>Up: execute(fileURL:)
+  Up->>Repo: upload(fileURL:mimeType:)
+  Repo->>API: multipart POST
+  API->>Worker: POST /v1/videos
+  Worker-->>API: FeedVideo item
+  API-->>VM: onUploaded → feed ViewModel.reload()
+```
+
 ### Module map
 
 ```text
