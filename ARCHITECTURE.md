@@ -317,6 +317,28 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 
 **Not in MVP:** auth headers, automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only).
 
+### iOS — upload file lifecycle (staging)
+
+User videos are **never** written to Documents or the photo library. All client-side bytes stay in **`NSTemporaryDirectory()`** until deleted.
+
+```mermaid
+flowchart LR
+  Picker[PhotosPicker] --> Copy[PickedVideoFile copy to tmp]
+  Copy --> Export[VideoExportService MP4 in tmp]
+  Export --> Multipart[VideoUploadAPIClient multipart tmp]
+  Multipart -->|after POST| DeleteM[delete multipart tmp]
+  Export -->|after export OK| DeleteP[delete picker copy]
+  Export -->|after upload OK or new pick| DeleteE[delete export MP4]
+```
+
+| Stage | Location | Removed when |
+|-------|----------|----------------|
+| Library import | `PickedVideoFile` → tmp | After successful export, or when user picks another clip / clears |
+| H.264 export | tmp `.mp4` (`uploadFileURL`) | After successful upload, failed prepare, new pick, or reset |
+| Multipart body | tmp (upload client) | Immediately after `URLSession.upload` completes |
+
+`TemporaryFileCleanup` only deletes URLs under the system temp directory (defense in depth). Logs record byte counts and outcomes, not file paths or video content.
+
 ---
 
 ## Backend — video on write and read
