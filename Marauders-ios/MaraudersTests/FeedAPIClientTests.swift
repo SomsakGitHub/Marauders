@@ -1,0 +1,107 @@
+//
+//  FeedAPIClientTests.swift
+//  MaraudersTests
+//
+
+import Foundation
+import Testing
+@testable import Marauders
+
+@Suite(.serialized)
+@MainActor
+struct FeedAPIClientTests {
+    @Test func fetchFeedSuccessDecodesHTTPSItems() async throws {
+        let videoID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let body = FeedAPIClientTests.feedResponseJSON(
+            items: [(id: videoID, streamURL: "https://cdn.example.com/v/1.mp4")]
+        )
+
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, body)
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(session: session)
+        let items = try await client.fetchFeed(limit: 20)
+
+        #expect(items.count == 1)
+        #expect(items[0].id == videoID)
+        #expect(items[0].streamURL.absoluteString == "https://cdn.example.com/v/1.mp4")
+
+        #expect(capturedRequest?.httpMethod == "GET")
+        #expect(capturedRequest?.value(forHTTPHeaderField: "Accept") == "application/json")
+        #expect(capturedRequest?.url?.path().hasSuffix("/v1/feed") == true)
+        let limit = URLComponents(url: capturedRequest!.url!, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name == "limit" })?
+            .value
+        #expect(limit == "20")
+    }
+
+    @Test func fetchFeedRejectsInvalidLimitBeforeNetwork() async {
+        let client = FeedAPIClient(session: URLSession(configuration: .ephemeral))
+
+        await #expect(throws: FeedAPIError.invalidLimit) {
+            try await client.fetchFeed(limit: 0)
+        }
+    }
+
+    @Test func fetchFeedMapsServerErrorStatus() async {
+        let session = StubURLSessionFactory.make { request in
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 503)
+            return (response, Data("{}".utf8))
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(session: session)
+
+        await #expect(throws: FeedAPIError.serverError(503)) {
+            try await client.fetchFeed()
+        }
+    }
+
+    @Test func fetchFeedRejectsMalformedJSON() async {
+        let session = StubURLSessionFactory.make { request in
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, Data("{not-json".utf8))
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(session: session)
+
+        await #expect(throws: FeedAPIError.invalidResponse) {
+            try await client.fetchFeed()
+        }
+    }
+
+    @Test func fetchFeedRejectsNonHTTPSStreamURLInPayload() async {
+        let body = FeedAPIClientTests.feedResponseJSON(
+            items: [(id: UUID(), streamURL: "http://insecure.example.com/v.mp4")]
+        )
+        let session = StubURLSessionFactory.make { request in
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, body)
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(session: session)
+
+        await #expect(throws: FeedAPIError.invalidResponse) {
+            try await client.fetchFeed()
+        }
+    }
+}
+
+private extension FeedAPIClientTests {
+    static func feedResponseJSON(items: [(id: UUID, streamURL: String)]) -> Data {
+        let payload: [String: Any] = [
+            "items": items.map { item in
+                ["id": item.id.uuidString, "streamURL": item.streamURL]
+            },
+        ]
+        return try! JSONSerialization.data(withJSONObject: payload)
+    }
+}

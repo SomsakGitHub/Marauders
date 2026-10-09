@@ -9,7 +9,7 @@ struct FeedAPIResponse: Decodable, Sendable {
     let items: [FeedVideo]
 }
 
-enum FeedAPIError: LocalizedError {
+enum FeedAPIError: LocalizedError, Equatable {
     case invalidLimit
     case invalidResponse
     case serverError(Int)
