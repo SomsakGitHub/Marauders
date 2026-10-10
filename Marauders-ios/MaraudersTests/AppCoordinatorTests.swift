@@ -14,9 +14,12 @@ struct AppCoordinatorTests {
         router.showUpload()
 
         let repo = MockFeedRepositoryForCoordinator()
-        repo.nextResult = .success([
-            FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!),
-        ])
+        repo.nextResult = .success(
+            FeedPage(
+                items: [FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)],
+                hasMore: false
+            )
+        )
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
         let uploadVM = UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
@@ -40,14 +43,19 @@ struct AppCoordinatorTests {
         let router = AppRouter()
         let videoID = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
         let repo = MockFeedRepositoryForCoordinator()
-        repo.nextResult = .success([
-            FeedVideo(
-                id: videoID,
-                streamURL: URL(string: "https://example.com/a.mp4")!,
-                latitude: 13.7,
-                longitude: 100.5
-            ),
-        ])
+        repo.nextResult = .success(
+            FeedPage(
+                items: [
+                    FeedVideo(
+                        id: videoID,
+                        streamURL: URL(string: "https://example.com/a.mp4")!,
+                        latitude: 13.7,
+                        longitude: 100.5
+                    ),
+                ],
+                hasMore: false
+            )
+        )
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
         let uploadVM = UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
@@ -69,9 +77,9 @@ struct AppCoordinatorTests {
 }
 
 private final class MockFeedRepositoryForCoordinator: FeedRepository, @unchecked Sendable {
-    var nextResult: Result<[FeedVideo], Error> = .success([])
+    var nextResult: Result<FeedPage, Error> = .success(FeedPage(items: [], hasMore: false))
 
-    func fetchFeed(limit: Int) async throws -> [FeedVideo] {
+    func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
         try nextResult.get()
     }
 }

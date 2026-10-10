@@ -36,14 +36,18 @@ enum APIConfiguration {
         return url
     }
 
-    static func feedRequestURL(limit: Int = feedLimitDefault) throws -> URL {
+    static func feedRequestURL(limit: Int = feedLimitDefault, cursor: UUID? = nil) throws -> URL {
         guard limit >= 1, limit <= feedLimitMax else {
             throw FeedAPIError.invalidLimit
         }
 
         let base = try apiBaseURL()
         var components = URLComponents(url: base.appending(path: "v1/feed"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        if let cursor {
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor.uuidString))
+        }
+        components?.queryItems = queryItems
         guard let url = components?.url else {
             throw APIConfigurationError.invalidBaseURL
         }

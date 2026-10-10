@@ -52,12 +52,12 @@ struct FeedAPIClient: Sendable {
         self.retryDelayNs = retryDelayNs
     }
 
-    func fetchFeed(limit: Int = 20) async throws -> [FeedVideo] {
+    func fetchFeed(limit: Int = 20, cursor: UUID? = nil) async throws -> FeedPage {
         var lastError: Error?
 
         for attempt in 0 ..< maxAttempts {
             do {
-                return try await performFetchFeed(limit: limit)
+                return try await performFetchFeed(limit: limit, cursor: cursor)
             } catch {
                 lastError = error
                 guard attempt < maxAttempts - 1, FeedAPIRetryPolicy.isRetryable(error) else {
@@ -79,8 +79,8 @@ struct FeedAPIClient: Sendable {
         throw lastError ?? FeedAPIError.invalidResponse
     }
 
-    private func performFetchFeed(limit: Int) async throws -> [FeedVideo] {
-        let requestURL = try APIConfiguration.feedRequestURL(limit: limit)
+    private func performFetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
+        let requestURL = try APIConfiguration.feedRequestURL(limit: limit, cursor: cursor)
         AppLog.info("api.feed", "GET \(requestURL.absoluteString)")
 
         var request = URLRequest(url: requestURL)
@@ -110,7 +110,8 @@ struct FeedAPIClient: Sendable {
                 }
             }
             AppLog.info("api.feed", "items=\(decoded.items.count)")
-            return decoded.items
+            let hasMore = decoded.items.count >= limit
+            return FeedPage(items: decoded.items, hasMore: hasMore)
         } catch let error as FeedAPIError {
             throw error
         } catch {

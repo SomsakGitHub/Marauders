@@ -12,7 +12,7 @@ struct DefaultFeedRepository: FeedRepository {
         self.apiClient = apiClient
     }
 
-    func fetchFeed(limit: Int) async throws -> [FeedVideo] {
-        try await apiClient.fetchFeed(limit: limit)
+    func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
+        try await apiClient.fetchFeed(limit: limit, cursor: cursor)
     }
 }

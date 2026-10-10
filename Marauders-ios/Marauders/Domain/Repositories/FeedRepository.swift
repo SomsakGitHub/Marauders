@@ -6,5 +6,5 @@
 import Foundation
 
 protocol FeedRepository: Sendable {
-    func fetchFeed(limit: Int) async throws -> [FeedVideo]
+    func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage
 }

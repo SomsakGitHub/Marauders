@@ -25,11 +25,12 @@ struct FeedAPIClientTests {
         defer { StubURLSessionFactory.reset() }
 
         let client = FeedAPIClient(session: session)
-        let items = try await client.fetchFeed(limit: 20)
+        let page = try await client.fetchFeed(limit: 20)
 
-        #expect(items.count == 1)
-        #expect(items[0].id == videoID)
-        #expect(items[0].streamURL.absoluteString == "https://cdn.example.com/v/1.mp4")
+        #expect(page.items.count == 1)
+        #expect(page.items[0].id == videoID)
+        #expect(page.items[0].streamURL.absoluteString == "https://cdn.example.com/v/1.mp4")
+        #expect(page.hasMore == false)
 
         #expect(capturedRequest?.httpMethod == "GET")
         #expect(capturedRequest?.value(forHTTPHeaderField: "Accept") == "application/json")
@@ -39,6 +40,28 @@ struct FeedAPIClientTests {
             .first(where: { $0.name == "limit" })?
             .value
         #expect(limit == "20")
+    }
+
+    @Test func fetchFeedPassesCursorQueryParam() async throws {
+        let cursor = UUID(uuidString: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")!
+        let body = FeedAPIClientTests.feedResponseJSON(items: [])
+
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, body)
+        }
+        defer { StubURLSessionFactory.reset() }
+
+        let client = FeedAPIClient(session: session)
+        _ = try await client.fetchFeed(limit: 10, cursor: cursor)
+
+        let cursorValue = URLComponents(url: capturedRequest!.url!, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name == "cursor" })?
+            .value
+        #expect(cursorValue?.lowercased() == cursor.uuidString.lowercased())
     }
 
     @Test func fetchFeedRejectsInvalidLimitBeforeNetwork() async {
@@ -93,11 +116,11 @@ struct FeedAPIClientTests {
             maxAttempts: FeedAPIClient.defaultMaxAttempts,
             retryDelayNs: { _ in 0 }
         )
-        let items = try await client.fetchFeed()
+        let page = try await client.fetchFeed()
 
         #expect(attemptCount == 2)
-        #expect(items.count == 1)
-        #expect(items[0].id == videoID)
+        #expect(page.items.count == 1)
+        #expect(page.items[0].id == videoID)
     }
 
     @Test func fetchFeedDoesNotRetryClientError() async {

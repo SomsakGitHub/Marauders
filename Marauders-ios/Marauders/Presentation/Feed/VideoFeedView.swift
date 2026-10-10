@@ -111,7 +111,8 @@ struct VideoFeedView: View {
                     currentPageIndex: $currentPageIndex,
                     engine: playerEngine,
                     onPageSettled: { index in
-                        applyPlayback(for: videos, pageIndex: index)
+                        applyPlayback(for: viewModel.videos, pageIndex: index)
+                        Task { await viewModel.loadMoreIfNearEnd(currentIndex: index) }
                     },
                     onTap: {
                         playerEngine.togglePlayPause()

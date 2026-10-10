@@ -34,7 +34,7 @@ flowchart TB
 
 | Surface | Responsibility |
 |---------|----------------|
-| `GET /v1/feed` | Paginated list of `{ id, streamURL }` |
+| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) |
 | `POST /v1/videos` | Multipart `file` + `latitude` + `longitude` → R2 + DB row |
 | `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**) or HLS playlist + `.ts` segments |
 
@@ -149,6 +149,7 @@ sequenceDiagram
 - **Sendable value types:** `FeedVideo`, `FeedPlayerPhase`, `FeedLoadState`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` — safe across `Task` boundaries.
 - **UIKit bridge:** `VerticalPagingFeedScrollView` settle callbacks use `Task { @MainActor in … }` before updating bindings / engine.
 - **Feed reload:** `VideoFeedViewModel` ignores stale API results when a newer `reload()` started while the previous request was in flight.
+- **Feed pagination:** scroll near the end → `loadMoreIfNearEnd` with `cursor` = last loaded id; upload → `reload()`; Map tab → `syncHeadWithServer()` merges new clips into the shared list (pins update).
 - **Tests:** engine tests `@MainActor`; `FeedMediaPreparationServiceTests` cover HTTPS rules on the actor.
 
 See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.

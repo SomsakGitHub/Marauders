@@ -11,15 +11,20 @@ import Observation
 final class VideoFeedViewModel {
     var videos: [FeedVideo] = []
     var loadState: FeedLoadState = .idle
+    private(set) var isLoadingMore = false
     /// Set by coordinator when opening a clip from the map; consumed by `VideoFeedView`.
     var focusVideoID: UUID?
 
     private let fetchFeed: FetchFeedUseCase
+    private let pageSize: Int
     private var reloadGeneration = 0
     private var initialLoadTask: Task<Void, Never>?
+    private var hasMorePages = false
+    private var isLoadingMoreInFlight = false
 
-    init(fetchFeed: FetchFeedUseCase) {
+    init(fetchFeed: FetchFeedUseCase, pageSize: Int = 20) {
         self.fetchFeed = fetchFeed
+        self.pageSize = pageSize
     }
 
     /// Waits until the first feed load finishes (splash / cold start).
@@ -66,19 +71,26 @@ final class VideoFeedViewModel {
 
         AppLog.info("feed", "reload started (currentCount=\(videos.count))")
         loadState = .loading
+        isLoadingMore = false
+        isLoadingMoreInFlight = false
 
         do {
-            let items = try await fetchFeed.execute()
+            let page = try await fetchFeed.execute(limit: pageSize, cursor: nil)
             guard generation == reloadGeneration else { return }
-            guard !items.isEmpty else {
+            guard !page.items.isEmpty else {
                 videos = []
+                hasMorePages = false
                 loadState = .failed("Feed is empty — try uploading a clip")
                 AppLog.warning("feed", "reload returned empty list")
                 return
             }
-            videos = items
+            videos = page.items
+            hasMorePages = page.hasMore
             loadState = .loaded
-            AppLog.info("feed", "reload OK count=\(items.count) topId=\(items.first?.id.uuidString ?? "-")")
+            AppLog.info(
+                "feed",
+                "reload OK count=\(page.items.count) hasMore=\(page.hasMore) topId=\(page.items.first?.id.uuidString ?? "-")"
+            )
         } catch {
             guard generation == reloadGeneration else { return }
             AppLog.error("feed", "reload failed: \(error.localizedDescription)")
@@ -88,5 +100,66 @@ final class VideoFeedViewModel {
                 loadState = .loaded
             }
         }
+    }
+
+    /// Fetches the latest page from the server and merges new clips at the top (map pins / after upload).
+    func syncHeadWithServer() async {
+        guard loadState == .loaded else {
+            await loadIfNeeded()
+            return
+        }
+
+        do {
+            let page = try await fetchFeed.execute(limit: pageSize, cursor: nil)
+            mergeHead(page.items)
+            hasMorePages = page.hasMore || videos.count > page.items.count
+            AppLog.info("feed", "syncHead merged count=\(videos.count) mapPins=\(videosWithMapCoordinates.count)")
+        } catch {
+            AppLog.warning("feed", "syncHead failed: \(error.localizedDescription)")
+        }
+    }
+
+    func loadMoreIfNearEnd(currentIndex: Int) async {
+        guard loadState == .loaded, hasMorePages, !isLoadingMoreInFlight else { return }
+        let triggerIndex = max(0, videos.count - 3)
+        guard currentIndex >= triggerIndex else { return }
+        await loadNextPage()
+    }
+
+    private func loadNextPage() async {
+        guard let cursor = videos.last?.id else { return }
+
+        isLoadingMoreInFlight = true
+        isLoadingMore = true
+        defer {
+            isLoadingMoreInFlight = false
+            isLoadingMore = false
+        }
+
+        do {
+            let page = try await fetchFeed.execute(limit: pageSize, cursor: cursor)
+            appendUnique(page.items)
+            hasMorePages = page.hasMore
+            AppLog.info("feed", "loadMore +\(page.items.count) total=\(videos.count) hasMore=\(page.hasMore)")
+        } catch {
+            AppLog.warning("feed", "loadMore failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func mergeHead(_ headItems: [FeedVideo]) {
+        guard !headItems.isEmpty else { return }
+        let headIDs = Set(headItems.map(\.id))
+        let tail = videos.filter { !headIDs.contains($0.id) }
+        videos = headItems + tail
+    }
+
+    private func appendUnique(_ newItems: [FeedVideo]) {
+        guard !newItems.isEmpty else {
+            hasMorePages = false
+            return
+        }
+        let existing = Set(videos.map(\.id))
+        let toAppend = newItems.filter { !existing.contains($0.id) }
+        videos.append(contentsOf: toAppend)
     }
 }
