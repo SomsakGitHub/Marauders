@@ -29,7 +29,7 @@ struct MapView: View {
                             Button {
                                 selectedClip = clip
                             } label: {
-                                MapClipPinView()
+                                MapClipPinView(clip: clip)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Clip on map")
@@ -143,10 +143,11 @@ private struct MapClipPreviewSheet: View {
     let clip: FeedVideo
     let onPlayInFeed: () -> Void
 
+    @State private var thumbnail: UIImage?
+
     var body: some View {
         VStack(spacing: 16) {
-            Text("Clip")
-                .font(.headline)
+            clipThumbnail
             if let latitude = clip.latitude, let longitude = clip.longitude {
                 Text(String(format: "%.5f, %.5f", latitude, longitude))
                     .font(.caption.monospaced())
@@ -157,7 +158,34 @@ private struct MapClipPreviewSheet: View {
                 .accessibilityIdentifier("map.playClipInFeed")
         }
         .padding(24)
-        .presentationDetents([.height(160)])
+        .presentationDetents([.height(280)])
+        .task(id: clip.streamURL) {
+            thumbnail = await VideoThumbnailLoader.shared.thumbnail(
+                for: clip.streamURL,
+                maxPixelSize: 320
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var clipThumbnail: some View {
+        Group {
+            if let thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color(white: 0.2)
+                    .overlay { ProgressView() }
+            }
+        }
+        .frame(width: 120, height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.quaternary, lineWidth: 1)
+        }
+        .accessibilityLabel("Clip preview")
     }
 }
 
