@@ -4,7 +4,8 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 # Neon: wrangler secret put DATABASE_URL
-# Paste the pooled connection string from Neon Console → Connect.
+# Auth: wrangler secret put JWT_SIGNING_SECRET  (>= 32 random bytes, e.g. openssl rand -base64 48)
+# Apple: wrangler secret put APPLE_CLIENT_ID  (iOS bundle id, e.g. com.somsak.Marauders)
 
 [[r2_buckets]]
 binding = "VIDEOS"

@@ -140,6 +140,22 @@ export function assertHttpsStreamUrl(url: string): void {
   }
 }
 
+export function parseAppleIdentityTokenBody(body: unknown): string {
+  if (!body || typeof body !== "object") {
+    throw new FeedValidationError("invalid request body");
+  }
+  const record = body as Record<string, unknown>;
+  const token = record.identityToken;
+  if (typeof token !== "string") {
+    throw new FeedValidationError("identityToken is required");
+  }
+  const trimmed = token.trim();
+  if (trimmed.length < 20 || trimmed.length > 8192) {
+    throw new FeedValidationError("identityToken length is invalid");
+  }
+  return trimmed;
+}
+
 export class FeedValidationError extends Error {
   readonly status = 400;
 

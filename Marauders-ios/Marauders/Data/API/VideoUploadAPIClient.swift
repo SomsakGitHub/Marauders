@@ -12,6 +12,7 @@ struct VideoUploadAPIResponse: Decodable, Sendable {
 enum VideoUploadAPIError: LocalizedError, Equatable {
     case fileTooLarge
     case unsupportedFormat
+    case notAuthenticated
     case serverError(Int)
     case invalidResponse
 
@@ -21,6 +22,8 @@ enum VideoUploadAPIError: LocalizedError, Equatable {
             return "Video must be 100 MB or smaller"
         case .unsupportedFormat:
             return "Only MP4 / MOV is supported"
+        case .notAuthenticated:
+            return "Sign in required to upload"
         case .serverError(let code):
             return "Upload failed (status \(code))"
         case .invalidResponse:
@@ -33,9 +36,11 @@ struct VideoUploadAPIClient: Sendable {
     static let maxUploadBytes: Int64 = 100 * 1024 * 1024
 
     private let session: URLSession
+    private let authorization: APIAuthorization?
 
-    nonisolated init(session: URLSession = .shared) {
+    nonisolated init(session: URLSession = .shared, authorization: APIAuthorization? = nil) {
         self.session = session
+        self.authorization = authorization
     }
 
     func upload(
@@ -55,6 +60,11 @@ struct VideoUploadAPIClient: Sendable {
             throw VideoUploadAPIError.fileTooLarge
         }
 
+        guard let authHeader = authorization?.bearerAuthorizationHeader() else {
+            AppLog.warning("api.upload", "missing bearer token")
+            throw VideoUploadAPIError.notAuthenticated
+        }
+
         let requestURL = try APIConfiguration.videoUploadURL()
         AppLog.info("api.upload", "POST \(requestURL.host ?? "?")/v1/videos bytes=\(fileSize)")
 
@@ -62,6 +72,7 @@ struct VideoUploadAPIClient: Sendable {
         var request = URLRequest(url: requestURL)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 300
 
         let bodyURL = try writeMultipartBody(

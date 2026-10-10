@@ -34,8 +34,9 @@ flowchart TB
 
 | Surface | Responsibility |
 |---------|----------------|
-| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) |
-| `POST /v1/videos` | Multipart `file` + `latitude` + `longitude` → R2 + DB row |
+| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID); public read |
+| `POST /v1/auth/apple` | `{ identityToken }` → verify with Apple JWKS → `{ accessToken }` (HS256, 30d) |
+| `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` → R2 + `feed_videos.owner_user_id` |
 | `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**) or HLS playlist + `.ts` segments |
 
 ---
@@ -51,7 +52,7 @@ flowchart TB
 └───────────────────────────┬─────────────────────────────┘
                             │ TLS
 ┌───────────────────────────▼─────────────────────────────┐
-│  Cloudflare Worker (validation, authz: public read)     │
+│  Cloudflare Worker (validation, upload authz)           │
 │  · Reject invalid paths, MIME, size                     │
 │  · DATABASE_URL via wrangler secret                     │
 └───────────────┬─────────────────────┬───────────────────┘
@@ -132,7 +133,7 @@ sequenceDiagram
 - **Pins:** `MapView` annotates `feedViewModel.videosWithMapCoordinates`; camera fits pin bounds when the clip count changes.
 - **Near Me:** toolbar filter with 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
-- **Auth:** Map tab uses Sign in with Apple (same gate pattern as Upload).
+- **Auth:** Map/Upload gate on Sign in with Apple; `identityToken` → `POST /v1/auth/apple` → access token in Keychain; upload sends `Authorization: Bearer`.
 - **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted.
 
 ### Swift 6 concurrency
@@ -394,7 +395,7 @@ flowchart LR
 ## Future (not implemented)
 
 - Empty-state feed UI when `items.length === 0`
-- Backend verification of Apple identity tokens + per-user upload quotas (**Map** and **Upload** tabs gate on **Sign in with Apple** client-side today; user ID in Keychain only)
+- Per-user upload quotas and feed visibility policies (global feed today; `owner_user_id` stored on upload)
 - Automatic HLS transcode queue (Worker Queue + ffmpeg worker)
 - Metrics: time-to-first-frame after settle, rebuffer count
 - Adaptive HLS ladder (multi-bitrate `master.m3u8`)

@@ -62,6 +62,14 @@ enum APIConfiguration {
         return url
     }
 
+    static func appleAuthURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/auth/apple", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     private static func resolveBaseURLString() -> String? {
         if let fromPlist = bundledConfigValue() {
             AppLog.info("config", "loaded base URL from APIConfiguration.plist")

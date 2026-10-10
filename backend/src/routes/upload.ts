@@ -20,6 +20,7 @@ function publicStreamUrl(request: Request, objectKey: string): string {
 export async function handleVideoUpload(
   request: Request,
   env: Env,
+  ownerUserId: string,
 ): Promise<Response> {
   if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
     return jsonError(503, "service configuration incomplete");
@@ -81,6 +82,7 @@ export async function handleVideoUpload(
         streamUrl,
         coordinates.latitude,
         coordinates.longitude,
+        ownerUserId,
       );
     } catch (databaseError) {
       console.error("database insert failed", databaseError);

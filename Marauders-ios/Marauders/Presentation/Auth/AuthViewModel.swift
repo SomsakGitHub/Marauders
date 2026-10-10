@@ -15,9 +15,17 @@ final class AuthViewModel {
     var errorMessage: String?
 
     private let sessionStore: AuthSessionStore
+    private let tokenStore: APIAccessTokenStore
+    private let authAPI: AuthAPIClientProtocol
 
-    init(sessionStore: AuthSessionStore = KeychainAuthSessionStore()) {
+    init(
+        sessionStore: AuthSessionStore = KeychainAuthSessionStore(),
+        tokenStore: APIAccessTokenStore = KeychainAPIAccessTokenStore(),
+        authAPI: AuthAPIClientProtocol = AuthAPIClient()
+    ) {
         self.sessionStore = sessionStore
+        self.tokenStore = tokenStore
+        self.authAPI = authAPI
         if AppRuntimeConfiguration.isUITesting {
             isSignedIn = true
             isCheckingCredential = false
@@ -33,8 +41,12 @@ final class AuthViewModel {
         defer { isCheckingCredential = false }
 
         guard let userID = sessionStore.loadUserID(),
-              KeychainAuthSessionStore.isValidUserID(userID)
+              KeychainAuthSessionStore.isValidUserID(userID),
+              let accessToken = tokenStore.loadAccessToken(),
+              APIAccessTokenFormat.isValid(accessToken)
         else {
+            try? sessionStore.clear()
+            try? tokenStore.clearAccessToken()
             isSignedIn = false
             return
         }
@@ -45,6 +57,7 @@ final class AuthViewModel {
             isSignedIn = true
         case .revoked, .notFound:
             try? sessionStore.clear()
+            try? tokenStore.clearAccessToken()
             isSignedIn = false
         case .transferred:
             isSignedIn = false
@@ -60,7 +73,15 @@ final class AuthViewModel {
                 errorMessage = "Sign in failed"
                 return
             }
-            completeSignIn(userID: credential.user)
+            guard let identityTokenData = credential.identityToken,
+                  let identityToken = String(data: identityTokenData, encoding: .utf8)
+            else {
+                errorMessage = "Sign in failed"
+                return
+            }
+            Task {
+                await completeSignIn(userID: credential.user, identityToken: identityToken)
+            }
         case .failure(let error):
             let nsError = error as NSError
             if nsError.domain == ASAuthorizationError.errorDomain,
@@ -73,24 +94,28 @@ final class AuthViewModel {
         }
     }
 
-    func completeSignIn(userID: String) {
+    func completeSignIn(userID: String, identityToken: String) async {
         guard KeychainAuthSessionStore.isValidUserID(userID) else {
             errorMessage = "Invalid account"
             return
         }
+
         do {
+            let accessToken = try await authAPI.exchangeAppleIdentityToken(identityToken)
             try sessionStore.saveUserID(userID)
+            try tokenStore.saveAccessToken(accessToken)
             isSignedIn = true
             errorMessage = nil
-            AppLog.info("auth", "signed in with Apple")
+            AppLog.info("auth", "signed in with Apple (API session established)")
         } catch {
-            errorMessage = "Couldn’t save sign-in state"
-            AppLog.error("auth", "failed to persist sign-in state")
+            errorMessage = error.localizedDescription
+            AppLog.error("auth", "API session exchange failed")
         }
     }
 
     func signOut() {
         try? sessionStore.clear()
+        try? tokenStore.clearAccessToken()
         isSignedIn = false
         errorMessage = nil
         AppLog.info("auth", "signed out")

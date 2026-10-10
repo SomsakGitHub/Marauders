@@ -59,6 +59,7 @@ export async function insertFeedVideo(
   streamUrl: string,
   latitude: number,
   longitude: number,
+  ownerUserId: string,
 ): Promise<FeedItemJson> {
   assertHttpsStreamUrl(streamUrl);
 
@@ -71,7 +72,8 @@ export async function insertFeedVideo(
       music_title,
       sort_order,
       latitude,
-      longitude
+      longitude,
+      owner_user_id
     )
     VALUES (
       ${streamUrl},
@@ -80,7 +82,8 @@ export async function insertFeedVideo(
       ${UPLOAD_MUSIC_TITLE},
       (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),
       ${latitude},
-      ${longitude}
+      ${longitude},
+      ${ownerUserId}::uuid
     )
     RETURNING id, stream_url, latitude, longitude
   `) as FeedRow[];

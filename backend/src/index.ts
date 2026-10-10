@@ -47,7 +47,7 @@ function withCors(response: Response, request: Request): Response {
 }
 
 async function handleFeed(request: Request, env: Env): Promise<Response> {
-  if (!env.DATABASE_URL || env.DATABASE_URL.trim().length === 0) {
+  if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
     return errorResponse(503, "service configuration incomplete");
   }
 

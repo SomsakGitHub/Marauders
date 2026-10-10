@@ -11,6 +11,11 @@ import Testing
 @MainActor
 struct VideoUploadAPIClientTests {
     private static let sampleClipLocation = ClipLocation(latitude: 13.7563, longitude: 100.5018)!
+    private static let testAuthorization = StubTestAPIAuthorization()
+
+    private static func authorizedClient(session: URLSession) -> VideoUploadAPIClient {
+        VideoUploadAPIClient(session: session, authorization: testAuthorization)
+    }
     @Test func uploadRejectsUnsupportedMimeBeforeNetwork() async throws {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
@@ -22,7 +27,7 @@ struct VideoUploadAPIClientTests {
         }
         defer { StubURLSessionFactory.reset() }
 
-        let client = VideoUploadAPIClient(session: session)
+        let client = Self.authorizedClient(session: session)
 
         await #expect(throws: VideoUploadAPIError.unsupportedFormat) {
             try await client.upload(
@@ -37,7 +42,7 @@ struct VideoUploadAPIClientTests {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 0)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
-        let client = VideoUploadAPIClient(session: URLSession(configuration: .ephemeral))
+        let client = Self.authorizedClient(session: URLSession(configuration: .ephemeral))
 
         await #expect(throws: VideoUploadAPIError.fileTooLarge) {
             try await client.upload(
@@ -66,7 +71,7 @@ struct VideoUploadAPIClientTests {
         }
         defer { StubURLSessionFactory.reset() }
 
-        let client = VideoUploadAPIClient(session: session)
+        let client = Self.authorizedClient(session: session)
         let item = try await client.upload(
             fileURL: fileURL,
             mimeType: "video/mp4",
@@ -93,7 +98,7 @@ struct VideoUploadAPIClientTests {
         }
         defer { StubURLSessionFactory.reset() }
 
-        let client = VideoUploadAPIClient(session: session)
+        let client = Self.authorizedClient(session: session)
 
         do {
             _ = try await client.upload(
@@ -117,7 +122,7 @@ struct VideoUploadAPIClientTests {
         }
         defer { StubURLSessionFactory.reset() }
 
-        let client = VideoUploadAPIClient(session: session)
+        let client = Self.authorizedClient(session: session)
 
         await #expect(throws: VideoUploadAPIError.serverError(503)) {
             try await client.upload(
@@ -142,7 +147,7 @@ struct VideoUploadAPIClientTests {
         }
         defer { StubURLSessionFactory.reset() }
 
-        let client = VideoUploadAPIClient(session: session)
+        let client = Self.authorizedClient(session: session)
 
         await #expect(throws: VideoUploadAPIError.invalidResponse) {
             try await client.upload(
@@ -151,6 +156,12 @@ struct VideoUploadAPIClientTests {
                 clipLocation: Self.sampleClipLocation
             )
         }
+    }
+}
+
+private struct StubTestAPIAuthorization: APIAuthorization {
+    func bearerAuthorizationHeader() -> String? {
+        "Bearer \(String(repeating: "t", count: 40))"
     }
 }
 

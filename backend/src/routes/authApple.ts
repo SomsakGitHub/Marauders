@@ -8,13 +8,13 @@ export async function handleAppleAuth(
   request: Request,
   env: Env,
 ): Promise<Response> {
-  if (!env.DATABASE_URL || env.DATABASE_URL.trim().length === 0) {
+  if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
     return jsonError(503, "service configuration incomplete");
   }
-  if (!env.JWT_SIGNING_SECRET || env.JWT_SIGNING_SECRET.trim().length === 0) {
+  if (!env.JWT_SIGNING_SECRET || env.JWT_SIGNING_SECRET.length < 32) {
     return jsonError(503, "service configuration incomplete");
   }
-  if (!env.APPLE_CLIENT_ID || env.APPLE_CLIENT_ID.trim().length === 0) {
+  if (!env.APPLE_CLIENT_ID || env.APPLE_CLIENT_ID.length > 256) {
     return jsonError(503, "service configuration incomplete");
   }
 

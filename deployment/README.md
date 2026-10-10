@@ -30,6 +30,14 @@
 
    ```bash
    npx wrangler secret put DATABASE_URL
+   npx wrangler secret put JWT_SIGNING_SECRET   # openssl rand -base64 48
+   npx wrangler secret put APPLE_CLIENT_ID      # com.somsak.Marauders
+   ```
+
+   รัน migration (รวม `006_app_users_and_ownership.sql`):
+
+   ```bash
+   npm run db:migrate
    ```
 
 6. Deploy:

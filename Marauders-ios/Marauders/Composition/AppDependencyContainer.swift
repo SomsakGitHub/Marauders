@@ -31,7 +31,13 @@ final class AppDependencyContainer {
         } else {
             self.feedRepository = DefaultFeedRepository(apiClient: FeedAPIClient())
         }
-        self.uploadRepository = uploadRepository ?? DefaultVideoUploadRepository(apiClient: VideoUploadAPIClient())
+        let sessionStore = KeychainAuthSessionStore()
+        let tokenStore = KeychainAPIAccessTokenStore()
+        let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
+
+        self.uploadRepository = uploadRepository ?? DefaultVideoUploadRepository(
+            apiClient: VideoUploadAPIClient(authorization: apiAuthorization)
+        )
         self.videoExporter = videoExporter ?? DefaultVideoExporter()
 
         let fetchFeed = FetchFeedUseCase(repository: self.feedRepository)
@@ -40,7 +46,7 @@ final class AppDependencyContainer {
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
         let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)
         uploadViewModel = UploadVideoViewModel(prepareVideo: prepare, uploadVideo: upload)
-        authViewModel = AuthViewModel()
+        authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore)
 
         coordinator = AppCoordinator(
             router: router,
