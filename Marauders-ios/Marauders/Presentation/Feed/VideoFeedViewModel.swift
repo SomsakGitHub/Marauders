@@ -21,6 +21,7 @@ final class VideoFeedViewModel {
     private var initialLoadTask: Task<Void, Never>?
     private var hasMorePages = false
     private var isLoadingMoreInFlight = false
+    private let maxPagesWhenResolvingVideo = 50
 
     init(fetchFeed: FetchFeedUseCase, pageSize: Int = 20) {
         self.fetchFeed = fetchFeed
@@ -124,6 +125,34 @@ final class VideoFeedViewModel {
         let triggerIndex = max(0, videos.count - 3)
         guard currentIndex >= triggerIndex else { return }
         await loadNextPage()
+    }
+
+    /// Loads additional feed pages until `videoID` appears (e.g. opening a map pin deep in the feed).
+    @discardableResult
+    func ensureVideoLoaded(videoID: UUID) async -> Bool {
+        if videos.contains(where: { $0.id == videoID }) { return true }
+
+        await loadIfNeeded()
+        if videos.contains(where: { $0.id == videoID }) { return true }
+
+        if await paginateUntilFound(videoID: videoID) { return true }
+
+        await reload()
+        if videos.contains(where: { $0.id == videoID }) { return true }
+        if await paginateUntilFound(videoID: videoID) { return true }
+
+        AppLog.warning("feed", "ensureVideoLoaded missed id=\(videoID.uuidString)")
+        return false
+    }
+
+    private func paginateUntilFound(videoID: UUID) async -> Bool {
+        var pagesFetched = 0
+        while hasMorePages, pagesFetched < maxPagesWhenResolvingVideo {
+            pagesFetched += 1
+            await loadNextPage()
+            if videos.contains(where: { $0.id == videoID }) { return true }
+        }
+        return false
     }
 
     private func loadNextPage() async {

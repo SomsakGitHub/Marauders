@@ -123,6 +123,51 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.videos.last?.id == id2)
     }
 
+    @Test func ensureVideoLoadedPaginatesPastFirstPage() async {
+        let id1 = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let targetID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+        final class DeepClipRepository: FeedRepository, @unchecked Sendable {
+            let firstID: UUID
+            let targetID: UUID
+
+            init(firstID: UUID, targetID: UUID) {
+                self.firstID = firstID
+                self.targetID = targetID
+            }
+
+            func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
+                if cursor == nil {
+                    return FeedPage(
+                        items: [
+                            FeedVideo(id: firstID, streamURL: URL(string: "https://example.com/1.mp4")!),
+                        ],
+                        hasMore: true
+                    )
+                }
+                return FeedPage(
+                    items: [
+                        FeedVideo(id: targetID, streamURL: URL(string: "https://example.com/2.mp4")!),
+                    ],
+                    hasMore: false
+                )
+            }
+        }
+
+        let viewModel = VideoFeedViewModel(
+            fetchFeed: FetchFeedUseCase(
+                repository: DeepClipRepository(firstID: id1, targetID: targetID),
+                defaultLimit: 1
+            )
+        )
+        await viewModel.reload()
+        #expect(viewModel.videos.count == 1)
+
+        let found = await viewModel.ensureVideoLoaded(videoID: targetID)
+        #expect(found)
+        #expect(viewModel.videos.contains(where: { $0.id == targetID }))
+    }
+
     @Test func syncHeadPrependsNewClipWithoutDroppingTail() async {
         let id1 = UUID(uuidString: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")!
         let id2 = UUID(uuidString: "cccccccc-cccc-cccc-cccc-cccccccccccc")!

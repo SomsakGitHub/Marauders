@@ -37,12 +37,13 @@ final class AppCoordinator {
     }
 
     func openClipInFeed(videoID: UUID) async {
-        await feedViewModel.loadIfNeeded()
-        if !feedViewModel.videos.contains(where: { $0.id == videoID }) {
-            await feedViewModel.reload()
+        let found = await feedViewModel.ensureVideoLoaded(videoID: videoID)
+        if found {
+            feedViewModel.requestFocus(on: videoID)
+            AppLog.info("app", "coordinator: map clip → feed id=\(videoID.uuidString)")
+        } else {
+            AppLog.warning("app", "coordinator: map clip not in feed id=\(videoID.uuidString)")
         }
-        feedViewModel.requestFocus(on: videoID)
         router.showFeed()
-        AppLog.info("app", "coordinator: map clip → feed id=\(videoID.uuidString)")
     }
 }
