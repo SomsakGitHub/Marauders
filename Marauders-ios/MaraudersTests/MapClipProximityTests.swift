@@ -44,4 +44,21 @@ struct MapClipProximityTests {
         #expect(region.center.latitude < 13.02)
         #expect(region.span.latitudeDelta >= 0.02)
     }
+
+    @Test func formattedDistanceUsesMetersOrKilometers() {
+        #expect(MapClipProximity.formattedDistance(450) == "450 m away")
+        #expect(MapClipProximity.formattedDistance(2_500) == "2.5 km away")
+    }
+
+    @Test func distanceMetersFromUserToClip() {
+        let user = CLLocationCoordinate2D(latitude: 13.7563, longitude: 100.5018)
+        let clip = FeedVideo(
+            streamURL: URL(string: "https://example.com/a.mp4")!,
+            latitude: 13.7563,
+            longitude: 100.5018
+        )
+        let meters = MapClipProximity.distanceMeters(from: user, to: clip)
+        #expect(meters != nil)
+        #expect(meters! < 1)
+    }
 }

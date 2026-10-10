@@ -17,13 +17,12 @@ struct MapView: View {
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
     @State private var selectedClip: FeedVideo?
     @State private var isNearMeActive = false
-
-    private let nearMeRadiusMeters = MapClipProximity.defaultNearMeRadiusMeters
+    @State private var nearMeRadius = NearMeRadius.default
 
     private var clipsOnMap: [FeedVideo] {
         let all = feedViewModel.videosWithMapCoordinates
         guard isNearMeActive, let user = viewModel.userCoordinate else { return all }
-        return MapClipProximity.clips(within: nearMeRadiusMeters, of: user, from: all)
+        return MapClipProximity.clips(within: nearMeRadius.meters, of: user, from: all)
     }
 
     var body: some View {
@@ -73,15 +72,27 @@ struct MapView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if isNearMeActive, clipsOnMap.isEmpty, viewModel.userCoordinate != nil {
-                    Text("No clips within 25 km")
-                        .font(.subheadline.weight(.medium))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .padding(.bottom, 24)
-                        .accessibilityIdentifier("map.nearMeEmpty")
+                VStack(spacing: 12) {
+                    if isNearMeActive {
+                        Picker("Radius", selection: $nearMeRadius) {
+                            ForEach(NearMeRadius.allCases) { radius in
+                                Text(radius.label).tag(radius)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal, 20)
+                        .accessibilityIdentifier("map.nearMeRadius")
+                    }
+                    if isNearMeActive, clipsOnMap.isEmpty, viewModel.userCoordinate != nil {
+                        Text(nearMeRadius.emptyClipsMessage)
+                            .font(.subheadline.weight(.medium))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .accessibilityIdentifier("map.nearMeEmpty")
+                    }
                 }
+                .padding(.bottom, 24)
             }
         }
         .accessibilityIdentifier("map.root")
@@ -95,8 +106,12 @@ struct MapView: View {
                 position = .region(region)
             }
         }
+        .onChange(of: nearMeRadius) { _, _ in
+            guard isNearMeActive else { return }
+            applyNearMeCamera()
+        }
         .sheet(item: $selectedClip) { clip in
-            MapClipPreviewSheet(clip: clip) {
+            MapClipPreviewSheet(clip: clip, userCoordinate: viewModel.userCoordinate) {
                 onOpenClipInFeed(clip.id)
                 selectedClip = nil
             }
@@ -179,6 +194,7 @@ struct MapView: View {
 
 private struct MapClipPreviewSheet: View {
     let clip: FeedVideo
+    let userCoordinate: CLLocationCoordinate2D?
     let onPlayInFeed: () -> Void
 
     @State private var thumbnail: UIImage?
@@ -186,6 +202,12 @@ private struct MapClipPreviewSheet: View {
     var body: some View {
         VStack(spacing: 16) {
             clipThumbnail
+            if let userCoordinate,
+               let meters = MapClipProximity.distanceMeters(from: userCoordinate, to: clip) {
+                Text(MapClipProximity.formattedDistance(meters))
+                    .font(.subheadline.weight(.medium))
+                    .accessibilityIdentifier("map.clipDistance")
+            }
             if let latitude = clip.latitude, let longitude = clip.longitude {
                 Text(String(format: "%.5f, %.5f", latitude, longitude))
                     .font(.caption.monospaced())
