@@ -1,4 +1,6 @@
+import { authenticateBearerRequest } from "./auth/authenticateRequest";
 import { listFeedVideos } from "./db/feed";
+import { handleAppleAuth } from "./routes/authApple";
 import { handleMediaGet } from "./routes/media";
 import { handleVideoUpload } from "./routes/upload";
 import {
@@ -10,6 +12,8 @@ import {
 export interface Env {
   DATABASE_URL: string;
   VIDEOS: R2Bucket;
+  JWT_SIGNING_SECRET: string;
+  APPLE_CLIENT_ID: string;
 }
 
 const JSON_HEADERS: Record<string, string> = {
@@ -34,7 +38,7 @@ function withCors(response: Response, request: Request): Response {
     headers.set("vary", "Origin");
   }
   headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
-  headers.set("access-control-allow-headers", "Content-Type");
+  headers.set("access-control-allow-headers", "Content-Type, Authorization");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -43,7 +47,7 @@ function withCors(response: Response, request: Request): Response {
 }
 
 async function handleFeed(request: Request, env: Env): Promise<Response> {
-  if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
+  if (!env.DATABASE_URL || env.DATABASE_URL.trim().length === 0) {
     return errorResponse(503, "service configuration incomplete");
   }
 
@@ -81,12 +85,26 @@ export default {
       return withCors(jsonResponse({ status: "ok" }), request);
     }
 
+    if (url.pathname === "/v1/auth/apple" && request.method === "POST") {
+      return withCors(await handleAppleAuth(request, env), request);
+    }
+
     if (url.pathname === "/v1/feed" && request.method === "GET") {
       return withCors(await handleFeed(request, env), request);
     }
 
     if (url.pathname === "/v1/videos" && request.method === "POST") {
-      return withCors(await handleVideoUpload(request, env), request);
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      return withCors(
+        await handleVideoUpload(request, env, auth.userId),
+        request,
+      );
     }
 
     if (
