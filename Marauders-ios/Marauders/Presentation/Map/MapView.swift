@@ -60,6 +60,9 @@ struct MapView: View {
             }
         }
         .accessibilityIdentifier("map.root")
+        .onAppear {
+            viewModel.onMapTabBecameActive()
+        }
         .onChange(of: feedViewModel.videosWithMapCoordinates.count) { _, _ in
             guard let region = Self.regionFitting(feedViewModel.videosWithMapCoordinates) else { return }
             position = .region(region)
@@ -73,20 +76,6 @@ struct MapView: View {
         .onChange(of: viewModel.cameraCenterGeneration) { _, _ in
             guard let region = viewModel.regionForCameraCenter() else { return }
             position = .region(region)
-        }
-        .confirmationDialog(
-            "Use your location?",
-            isPresented: $viewModel.showLocationPrePrompt,
-            titleVisibility: .visible
-        ) {
-            Button("Continue") {
-                viewModel.confirmLocationPermissionRequest()
-            }
-            Button("Not Now", role: .cancel) {
-                viewModel.cancelLocationPermissionRequest()
-            }
-        } message: {
-            Text("We use your location to show your position on the map.")
         }
         .alert("Location Access Off", isPresented: $viewModel.showLocationDeniedAlert) {
             Button("Open Settings") {

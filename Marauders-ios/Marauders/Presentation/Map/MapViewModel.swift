@@ -20,6 +20,8 @@ final class MapViewModel {
 
     private let locationManager: CLLocationManager
     private let delegateBridge = LocationManagerDelegateBridge()
+    private var isLocationServicesAttached = false
+    private var wantsUserLocationUpdate = false
 
     init(locationManager: CLLocationManager = CLLocationManager()) {
         self.locationManager = locationManager
@@ -28,7 +30,11 @@ final class MapViewModel {
         } else {
             authorizationStatus = locationManager.authorizationStatus
         }
-        configureLocationManagerIfNeeded()
+    }
+
+    /// Map tab is shown only when location is authorized.
+    var canAccessMap: Bool {
+        canShowUserOnMap
     }
 
     var canShowUserOnMap: Bool {
@@ -40,7 +46,22 @@ final class MapViewModel {
         }
     }
 
-    func currentLocationButtonTapped() {
+    var isLocationAccessDeniedOrRestricted: Bool {
+        switch authorizationStatus {
+        case .denied, .restricted:
+            return true
+        default:
+            return false
+        }
+    }
+
+    func syncAuthorizationStatusFromSystem() {
+        guard !AppRuntimeConfiguration.isUITesting else { return }
+        authorizationStatus = locationManager.authorizationStatus
+    }
+
+    /// Gate screen: start the permission flow.
+    func beginLocationAccessRequest() {
         if AppRuntimeConfiguration.isUITesting {
             applyUserCoordinate(Self.uiTestCoordinate)
             return
@@ -50,7 +71,7 @@ final class MapViewModel {
         case .notDetermined:
             showLocationPrePrompt = true
         case .authorizedAlways, .authorizedWhenInUse:
-            locationManager.requestLocation()
+            onMapTabBecameActive()
         case .denied, .restricted:
             showLocationDeniedAlert = true
         @unknown default:
@@ -60,11 +81,49 @@ final class MapViewModel {
 
     func confirmLocationPermissionRequest() {
         showLocationPrePrompt = false
+        wantsUserLocationUpdate = true
+        attachLocationServicesIfNeeded()
         locationManager.requestWhenInUseAuthorization()
     }
 
     func cancelLocationPermissionRequest() {
         showLocationPrePrompt = false
+        wantsUserLocationUpdate = false
+    }
+
+    /// Called when the Map tab is visible and location is already granted.
+    func onMapTabBecameActive() {
+        syncAuthorizationStatusFromSystem()
+        guard canShowUserOnMap else { return }
+
+        if AppRuntimeConfiguration.isUITesting {
+            applyUserCoordinate(Self.uiTestCoordinate)
+            return
+        }
+
+        wantsUserLocationUpdate = true
+        attachLocationServicesIfNeeded()
+        locationManager.requestLocation()
+    }
+
+    func currentLocationButtonTapped() {
+        if AppRuntimeConfiguration.isUITesting {
+            applyUserCoordinate(Self.uiTestCoordinate)
+            return
+        }
+
+        switch authorizationStatus {
+        case .notDetermined:
+            beginLocationAccessRequest()
+        case .authorizedAlways, .authorizedWhenInUse:
+            wantsUserLocationUpdate = true
+            attachLocationServicesIfNeeded()
+            locationManager.requestLocation()
+        case .denied, .restricted:
+            showLocationDeniedAlert = true
+        @unknown default:
+            break
+        }
     }
 
     func regionForCameraCenter() -> MKCoordinateRegion? {
@@ -75,8 +134,9 @@ final class MapViewModel {
         )
     }
 
-    private func configureLocationManagerIfNeeded() {
-        guard !AppRuntimeConfiguration.isUITesting else { return }
+    private func attachLocationServicesIfNeeded() {
+        guard !isLocationServicesAttached, !AppRuntimeConfiguration.isUITesting else { return }
+        isLocationServicesAttached = true
 
         delegateBridge.onAuthorizationChange = { [weak self] manager in
             Task { @MainActor in
@@ -100,9 +160,9 @@ final class MapViewModel {
 
     private func handleAuthorizationChange(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
-        if canShowUserOnMap {
-            manager.requestLocation()
-        }
+        guard wantsUserLocationUpdate, canShowUserOnMap else { return }
+        wantsUserLocationUpdate = false
+        manager.requestLocation()
     }
 
     private func handleLocations(_ locations: [CLLocation]) {

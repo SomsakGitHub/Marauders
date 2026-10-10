@@ -18,14 +18,18 @@ struct MapTabView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if authViewModel.isSignedIn {
-                MapView(
-                    viewModel: mapViewModel,
-                    feedViewModel: feedViewModel,
-                    onSignOut: { authViewModel.signOut() },
-                    onOpenClipInFeed: { videoID in
-                        Task { await onOpenClipInFeed(videoID) }
-                    }
-                )
+                if mapViewModel.canAccessMap {
+                    MapView(
+                        viewModel: mapViewModel,
+                        feedViewModel: feedViewModel,
+                        onSignOut: { authViewModel.signOut() },
+                        onOpenClipInFeed: { videoID in
+                            Task { await onOpenClipInFeed(videoID) }
+                        }
+                    )
+                } else {
+                    MapLocationRequiredView(viewModel: mapViewModel)
+                }
             } else {
                 MapSignInRequiredView(authViewModel: authViewModel)
             }
@@ -36,6 +40,13 @@ struct MapTabView: View {
         .task(id: authViewModel.isSignedIn) {
             guard authViewModel.isSignedIn else { return }
             await feedViewModel.loadIfNeeded()
+        }
+        .onAppear {
+            mapViewModel.syncAuthorizationStatusFromSystem()
+        }
+        .onChange(of: mapViewModel.canAccessMap) { _, canAccess in
+            guard canAccess else { return }
+            mapViewModel.onMapTabBecameActive()
         }
     }
 }

@@ -14,9 +14,16 @@ struct MapViewModelTests {
         guard manager.authorizationStatus == .notDetermined else { return }
 
         let viewModel = MapViewModel(locationManager: manager)
-        viewModel.currentLocationButtonTapped()
+        viewModel.beginLocationAccessRequest()
 
         #expect(viewModel.showLocationPrePrompt)
+    }
+
+    @Test func deniedCannotAccessMap() {
+        let viewModel = MapViewModel()
+        viewModel.syncAuthorizationStatusFromSystem()
+        guard viewModel.isLocationAccessDeniedOrRestricted else { return }
+        #expect(!viewModel.canAccessMap)
     }
 
     @Test func confirmDismissesPrePrompt() {

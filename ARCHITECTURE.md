@@ -132,6 +132,7 @@ sequenceDiagram
 - **Pins:** `MapView` annotates `feedViewModel.videosWithMapCoordinates`; camera fits pin bounds when the clip count changes.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `AppCoordinator.openClipInFeed` reloads if needed, `requestFocus(on:)`, `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
 - **Auth:** Map tab uses Sign in with Apple (same gate pattern as Upload).
+- **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted.
 
 ### Swift 6 concurrency
 
