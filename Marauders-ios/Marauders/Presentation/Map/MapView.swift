@@ -16,6 +16,15 @@ struct MapView: View {
     @Environment(\.openURL) private var openURL
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
     @State private var selectedClip: FeedVideo?
+    @State private var isNearMeActive = false
+
+    private let nearMeRadiusMeters = MapClipProximity.defaultNearMeRadiusMeters
+
+    private var clipsOnMap: [FeedVideo] {
+        let all = feedViewModel.videosWithMapCoordinates
+        guard isNearMeActive, let user = viewModel.userCoordinate else { return all }
+        return MapClipProximity.clips(within: nearMeRadiusMeters, of: user, from: all)
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,7 +32,7 @@ struct MapView: View {
                 if viewModel.canShowUserOnMap {
                     UserAnnotation()
                 }
-                ForEach(feedViewModel.videosWithMapCoordinates) { clip in
+                ForEach(clipsOnMap) { clip in
                     if let coordinate = clip.mapCoordinate {
                         Annotation("", coordinate: coordinate) {
                             Button {
@@ -52,10 +61,26 @@ struct MapView: View {
                     .accessibilityLabel("Current Location")
                     .accessibilityIdentifier("map.currentLocation")
                 }
-                if let onSignOut {
-                    ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button("Near Me") {
+                        toggleNearMe()
+                    }
+                    .fontWeight(isNearMeActive ? .semibold : .regular)
+                    .accessibilityIdentifier("map.nearMe")
+                    if let onSignOut {
                         Button("Sign Out", action: onSignOut)
                     }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if isNearMeActive, clipsOnMap.isEmpty, viewModel.userCoordinate != nil {
+                    Text("No clips within 25 km")
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(.bottom, 24)
+                        .accessibilityIdentifier("map.nearMeEmpty")
                 }
             }
         }
@@ -64,8 +89,11 @@ struct MapView: View {
             viewModel.onMapTabBecameActive()
         }
         .onChange(of: feedViewModel.videosWithMapCoordinates.count) { _, _ in
-            guard let region = Self.regionFitting(feedViewModel.videosWithMapCoordinates) else { return }
-            position = .region(region)
+            if isNearMeActive {
+                applyNearMeCamera()
+            } else if let region = Self.regionFitting(feedViewModel.videosWithMapCoordinates) {
+                position = .region(region)
+            }
         }
         .sheet(item: $selectedClip) { clip in
             MapClipPreviewSheet(clip: clip) {
@@ -74,8 +102,11 @@ struct MapView: View {
             }
         }
         .onChange(of: viewModel.cameraCenterGeneration) { _, _ in
-            guard let region = viewModel.regionForCameraCenter() else { return }
-            position = .region(region)
+            if isNearMeActive {
+                applyNearMeCamera()
+            } else if let region = viewModel.regionForCameraCenter() {
+                position = .region(region)
+            }
         }
         .alert("Location Access Off", isPresented: $viewModel.showLocationDeniedAlert) {
             Button("Open Settings") {
@@ -87,6 +118,24 @@ struct MapView: View {
         } message: {
             Text("Turn on location for Marauders in Settings to center the map on you.")
         }
+    }
+
+    private func toggleNearMe() {
+        isNearMeActive.toggle()
+        if isNearMeActive {
+            if viewModel.userCoordinate == nil {
+                viewModel.currentLocationButtonTapped()
+            }
+            applyNearMeCamera()
+        } else if let region = Self.regionFitting(feedViewModel.videosWithMapCoordinates) {
+            position = .region(region)
+        }
+    }
+
+    private func applyNearMeCamera() {
+        guard let user = viewModel.userCoordinate else { return }
+        let region = MapClipProximity.regionFitting(user: user, clips: clipsOnMap)
+        position = .region(region)
     }
 
     private static let defaultRegion = MKCoordinateRegion(
