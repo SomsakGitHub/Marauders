@@ -74,6 +74,36 @@ export function parseUploadFile(raw: MultipartField): File {
   return raw;
 }
 
+export function parseUploadCoordinates(
+  latitudeField: MultipartField,
+  longitudeField: MultipartField,
+): { latitude: number; longitude: number } {
+  if (typeof latitudeField !== "string" || typeof longitudeField !== "string") {
+    throw new FeedValidationError("latitude and longitude are required");
+  }
+  const latitudeText = latitudeField.trim();
+  const longitudeText = longitudeField.trim();
+  if (
+    latitudeText.length === 0 ||
+    longitudeText.length === 0 ||
+    latitudeText.length > 32 ||
+    longitudeText.length > 32
+  ) {
+    throw new FeedValidationError("invalid coordinates");
+  }
+
+  const latitude = Number(latitudeText);
+  const longitude = Number(longitudeText);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new FeedValidationError("latitude and longitude must be numbers");
+  }
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    throw new FeedValidationError("coordinates out of range");
+  }
+
+  return { latitude, longitude };
+}
+
 export function extensionForVideoMime(mime: string): "mp4" | "mov" {
   if (mime === "video/mp4") {
     return "mp4";

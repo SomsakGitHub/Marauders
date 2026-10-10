@@ -10,6 +10,7 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct VideoUploadAPIClientTests {
+    private static let sampleClipLocation = ClipLocation(latitude: 13.7563, longitude: 100.5018)!
     @Test func uploadRejectsUnsupportedMimeBeforeNetwork() async throws {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
@@ -24,7 +25,11 @@ struct VideoUploadAPIClientTests {
         let client = VideoUploadAPIClient(session: session)
 
         await #expect(throws: VideoUploadAPIError.unsupportedFormat) {
-            try await client.upload(fileURL: fileURL, mimeType: "image/jpeg")
+            try await client.upload(
+                fileURL: fileURL,
+                mimeType: "image/jpeg",
+                clipLocation: sampleClipLocation
+            )
         }
     }
 
@@ -35,7 +40,11 @@ struct VideoUploadAPIClientTests {
         let client = VideoUploadAPIClient(session: URLSession(configuration: .ephemeral))
 
         await #expect(throws: VideoUploadAPIError.fileTooLarge) {
-            try await client.upload(fileURL: fileURL, mimeType: "video/mp4")
+            try await client.upload(
+                fileURL: fileURL,
+                mimeType: "video/mp4",
+                clipLocation: sampleClipLocation
+            )
         }
     }
 
@@ -58,7 +67,11 @@ struct VideoUploadAPIClientTests {
         defer { StubURLSessionFactory.reset() }
 
         let client = VideoUploadAPIClient(session: session)
-        let item = try await client.upload(fileURL: fileURL, mimeType: "video/mp4")
+        let item = try await client.upload(
+            fileURL: fileURL,
+            mimeType: "video/mp4",
+            clipLocation: sampleClipLocation
+        )
 
         #expect(item.id == videoID)
         #expect(item.streamURL.absoluteString == "https://cdn.example.com/v/new.mp4")
@@ -83,7 +96,11 @@ struct VideoUploadAPIClientTests {
         let client = VideoUploadAPIClient(session: session)
 
         do {
-            _ = try await client.upload(fileURL: fileURL, mimeType: "video/mp4")
+            _ = try await client.upload(
+                fileURL: fileURL,
+                mimeType: "video/mp4",
+                clipLocation: sampleClipLocation
+            )
             Issue.record("Expected upload to fail")
         } catch {
             #expect(error.localizedDescription == message)
@@ -103,7 +120,11 @@ struct VideoUploadAPIClientTests {
         let client = VideoUploadAPIClient(session: session)
 
         await #expect(throws: VideoUploadAPIError.serverError(503)) {
-            try await client.upload(fileURL: fileURL, mimeType: "video/mp4")
+            try await client.upload(
+                fileURL: fileURL,
+                mimeType: "video/mp4",
+                clipLocation: sampleClipLocation
+            )
         }
     }
 
@@ -124,7 +145,11 @@ struct VideoUploadAPIClientTests {
         let client = VideoUploadAPIClient(session: session)
 
         await #expect(throws: VideoUploadAPIError.invalidResponse) {
-            try await client.upload(fileURL: fileURL, mimeType: "video/mp4")
+            try await client.upload(
+                fileURL: fileURL,
+                mimeType: "video/mp4",
+                clipLocation: sampleClipLocation
+            )
         }
     }
 }

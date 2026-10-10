@@ -12,7 +12,11 @@ struct UploadFeedVideoUseCase: Sendable {
         self.repository = repository
     }
 
-    func execute(fileURL: URL, mimeType: String = "video/mp4") async throws -> FeedVideo {
-        try await repository.upload(fileURL: fileURL, mimeType: mimeType)
+    func execute(
+        fileURL: URL,
+        clipLocation: ClipLocation,
+        mimeType: String = "video/mp4"
+    ) async throws -> FeedVideo {
+        try await repository.upload(fileURL: fileURL, mimeType: mimeType, clipLocation: clipLocation)
     }
 }

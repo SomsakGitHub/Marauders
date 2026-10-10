@@ -5,11 +5,14 @@
 
 import PhotosUI
 import SwiftUI
+import UIKit
 
 struct UploadVideoView: View {
     @Bindable var viewModel: UploadVideoViewModel
 
+    @Environment(\.openURL) private var openURL
     @State private var pickerItem: PhotosPickerItem?
+    @State private var isShowingClipLocationPicker = false
 
     var body: some View {
         NavigationStack {
@@ -45,6 +48,47 @@ struct UploadVideoView: View {
                     }
                 }
 
+                Section("Clip location") {
+                    if let clipLocation = viewModel.clipLocation {
+                        Text(
+                            String(
+                                format: "%.5f, %.5f",
+                                clipLocation.latitude,
+                                clipLocation.longitude
+                            )
+                        )
+                        .font(.caption.monospaced())
+                        .accessibilityIdentifier("upload.clipLocation.value")
+                    } else {
+                        Text("Required before you can upload")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        isShowingClipLocationPicker = true
+                    } label: {
+                        Label("Search or Drop Pin", systemImage: "mappin.and.ellipse")
+                    }
+                    .disabled(viewModel.isUploading || viewModel.isPreparing)
+                    .accessibilityIdentifier("upload.chooseClipLocation")
+
+                    Button {
+                        viewModel.setClipLocationFromCurrentPositionTapped()
+                    } label: {
+                        if viewModel.isResolvingClipLocation {
+                            HStack {
+                                ProgressView()
+                                Text("Getting location…")
+                            }
+                        } else {
+                            Label("Use Current Location", systemImage: "location.fill")
+                        }
+                    }
+                    .disabled(viewModel.isUploading || viewModel.isPreparing)
+                    .accessibilityIdentifier("upload.useCurrentClipLocation")
+                }
+
                 Section {
                     Button {
                         Task { await viewModel.upload() }
@@ -77,6 +121,35 @@ struct UploadVideoView: View {
                 if url == nil, viewModel.isSuccess {
                     pickerItem = nil
                 }
+            }
+            .confirmationDialog(
+                "Use your location?",
+                isPresented: $viewModel.showClipLocationPrePrompt,
+                titleVisibility: .visible
+            ) {
+                Button("Continue") {
+                    viewModel.confirmClipLocationPermissionRequest()
+                }
+                Button("Not Now", role: .cancel) {
+                    viewModel.cancelClipLocationPermissionRequest()
+                }
+            } message: {
+                Text("We use your location to tag where this clip was recorded.")
+            }
+            .sheet(isPresented: $isShowingClipLocationPicker) {
+                ClipLocationPickerView(initialLocation: viewModel.clipLocation) { location in
+                    viewModel.applyClipLocation(location)
+                }
+            }
+            .alert("Location Access Off", isPresented: $viewModel.showClipLocationDeniedAlert) {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        openURL(url)
+                    }
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Turn on location for Marauders in Settings to tag your clip.")
             }
         }
     }

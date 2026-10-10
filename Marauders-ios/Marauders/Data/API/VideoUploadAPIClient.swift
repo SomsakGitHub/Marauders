@@ -38,7 +38,11 @@ struct VideoUploadAPIClient: Sendable {
         self.session = session
     }
 
-    func upload(fileURL: URL, mimeType: String) async throws -> FeedVideo {
+    func upload(
+        fileURL: URL,
+        mimeType: String,
+        clipLocation: ClipLocation
+    ) async throws -> FeedVideo {
         guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
             throw VideoUploadAPIError.unsupportedFormat
@@ -63,7 +67,8 @@ struct VideoUploadAPIClient: Sendable {
         let bodyURL = try writeMultipartBody(
             boundary: boundary,
             fileURL: fileURL,
-            mimeType: mimeType
+            mimeType: mimeType,
+            clipLocation: clipLocation
         )
 
         let bodySize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? NSNumber)?
@@ -112,11 +117,23 @@ struct VideoUploadAPIClient: Sendable {
     private func writeMultipartBody(
         boundary: String,
         fileURL: URL,
-        mimeType: String
+        mimeType: String,
+        clipLocation: ClipLocation
     ) throws -> URL {
         let fileData = try Data(contentsOf: fileURL)
         let fileName = fileURL.lastPathComponent
         var body = Data()
+
+        body.appendFormField(
+            boundary: boundary,
+            name: "latitude",
+            value: String(clipLocation.latitude)
+        )
+        body.appendFormField(
+            boundary: boundary,
+            name: "longitude",
+            value: String(clipLocation.longitude)
+        )
 
         body.appendString("--\(boundary)\r\n")
         body.appendString(
@@ -152,5 +169,11 @@ private extension Data {
         if let data = string.data(using: .utf8) {
             append(data)
         }
+    }
+
+    mutating func appendFormField(boundary: String, name: String, value: String) {
+        appendString("--\(boundary)\r\n")
+        appendString("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
+        appendString("\(value)\r\n")
     }
 }

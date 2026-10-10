@@ -4,11 +4,15 @@ import { assertHttpsStreamUrl } from "../validation";
 type FeedRow = {
   id: string;
   stream_url: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type FeedItemJson = {
   id: string;
   streamURL: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 const UPLOAD_AUTHOR_NAME = "@marauders";
@@ -24,7 +28,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT id, stream_url
+        SELECT id, stream_url, latitude, longitude
         FROM feed_videos
         WHERE (sort_order, created_at, id) < (
           SELECT sort_order, created_at, id FROM feed_videos WHERE id = ${cursor}::uuid
@@ -33,7 +37,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT id, stream_url
+        SELECT id, stream_url, latitude, longitude
         FROM feed_videos
         ORDER BY sort_order DESC, created_at DESC, id DESC
         LIMIT ${limit}
@@ -44,6 +48,8 @@ export async function listFeedVideos(
     return {
       id: row.id,
       streamURL: row.stream_url,
+      latitude: row.latitude,
+      longitude: row.longitude,
     };
   });
 }
@@ -51,20 +57,32 @@ export async function listFeedVideos(
 export async function insertFeedVideo(
   databaseUrl: string,
   streamUrl: string,
+  latitude: number,
+  longitude: number,
 ): Promise<FeedItemJson> {
   assertHttpsStreamUrl(streamUrl);
 
   const sql = neon(databaseUrl);
   const rows = (await sql`
-    INSERT INTO feed_videos (stream_url, author_name, caption, music_title, sort_order)
+    INSERT INTO feed_videos (
+      stream_url,
+      author_name,
+      caption,
+      music_title,
+      sort_order,
+      latitude,
+      longitude
+    )
     VALUES (
       ${streamUrl},
       ${UPLOAD_AUTHOR_NAME},
       ${UPLOAD_CAPTION},
       ${UPLOAD_MUSIC_TITLE},
-      (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos)
+      (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),
+      ${latitude},
+      ${longitude}
     )
-    RETURNING id, stream_url
+    RETURNING id, stream_url, latitude, longitude
   `) as FeedRow[];
 
   const row = rows[0];
@@ -75,5 +93,7 @@ export async function insertFeedVideo(
   return {
     id: row.id,
     streamURL: row.stream_url,
+    latitude: row.latitude,
+    longitude: row.longitude,
   };
 }

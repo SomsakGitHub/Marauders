@@ -7,6 +7,7 @@ import type { Env } from "../index";
 import {
   extensionForVideoMime,
   FeedValidationError,
+  parseUploadCoordinates,
   parseUploadFile,
   resolveVideoMime,
 } from "../validation";
@@ -41,6 +42,10 @@ export async function handleVideoUpload(
 
   try {
     const file = parseUploadFile(formData.get("file"));
+    const coordinates = parseUploadCoordinates(
+      formData.get("latitude"),
+      formData.get("longitude"),
+    );
 
     const videoId = crypto.randomUUID();
     const mime = resolveVideoMime(file);
@@ -71,7 +76,12 @@ export async function handleVideoUpload(
     const streamUrl = publicStreamUrl(request, objectKey);
     let item;
     try {
-      item = await insertFeedVideo(env.DATABASE_URL, streamUrl);
+      item = await insertFeedVideo(
+        env.DATABASE_URL,
+        streamUrl,
+        coordinates.latitude,
+        coordinates.longitude,
+      );
     } catch (databaseError) {
       console.error("database insert failed", databaseError);
       try {

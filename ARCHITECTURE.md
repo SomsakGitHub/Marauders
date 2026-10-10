@@ -35,7 +35,7 @@ flowchart TB
 | Surface | Responsibility |
 |---------|----------------|
 | `GET /v1/feed` | Paginated list of `{ id, streamURL }` |
-| `POST /v1/videos` | Multipart `file` → R2 + DB row |
+| `POST /v1/videos` | Multipart `file` + `latitude` + `longitude` → R2 + DB row |
 | `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**) or HLS playlist + `.ts` segments |
 
 ---
@@ -311,7 +311,7 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 | Endpoint | Client | Method | Timeout | Client-side validation | Success | Error mapping |
 |----------|--------|--------|---------|------------------------|---------|----------------|
 | `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
-| `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB | `FeedVideo` | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
+| `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
 
 **Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests` use `StubURLProtocol` (no live network in CI).
 
