@@ -25,7 +25,10 @@ struct ContentView: View {
                 }
                 .tag(MainTab.map)
 
-            UploadVideoView(viewModel: uploadViewModel)
+            UploadTabView(
+                authViewModel: authViewModel,
+                uploadViewModel: uploadViewModel
+            )
                 .tabItem {
                     Label("Upload", systemImage: "plus.circle.fill")
                 }
