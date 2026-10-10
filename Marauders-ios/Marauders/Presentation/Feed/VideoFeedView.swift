@@ -40,11 +40,17 @@ struct VideoFeedView: View {
         .task {
             await viewModel.loadIfNeeded()
             syncPageIndex()
+            applyFocusRequestIfNeeded()
             warmInitialVideos()
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
         .onChange(of: viewModel.videos) { _, _ in
             syncPageIndex()
+            applyFocusRequestIfNeeded()
+            applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+        }
+        .onChange(of: viewModel.focusVideoID) { _, _ in
+            applyFocusRequestIfNeeded()
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
         .onDisappear {
@@ -165,6 +171,12 @@ struct VideoFeedView: View {
         if currentPageIndex >= count {
             currentPageIndex = count - 1
         }
+    }
+
+    private func applyFocusRequestIfNeeded() {
+        guard let videoID = viewModel.consumeFocusRequest() else { return }
+        guard let index = viewModel.videos.firstIndex(where: { $0.id == videoID }) else { return }
+        currentPageIndex = index
     }
 
     private func warmInitialVideos() {

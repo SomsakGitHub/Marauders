@@ -9,7 +9,7 @@ Portfolio vertical-video app: **SwiftUI + AVFoundation** on iOS, **Cloudflare Wo
 ```mermaid
 flowchart TB
   subgraph ios [iOS]
-    UI[SwiftUI tabs Feed Map Upload]
+    UI[SwiftUI tabs Feed Map clips Upload]
     Paging[VerticalPagingFeedScrollView UIKit]
     Engine[FeedPlayerEngine dual slot]
     UI --> Paging
@@ -124,7 +124,14 @@ sequenceDiagram
 
 ### Upload path (client)
 
-`PhotosPicker` → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos`.
+`PhotosPicker` → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`).
+
+### Map tab (clip pins)
+
+- **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present.
+- **Pins:** `MapView` annotates `feedViewModel.videosWithMapCoordinates`; camera fits pin bounds when the clip count changes.
+- **Open in feed:** tap pin → sheet → **Play in Feed** → `AppCoordinator.openClipInFeed` reloads if needed, `requestFocus(on:)`, `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
+- **Auth:** Map tab uses Sign in with Apple (same gate pattern as Upload).
 
 ### Swift 6 concurrency
 

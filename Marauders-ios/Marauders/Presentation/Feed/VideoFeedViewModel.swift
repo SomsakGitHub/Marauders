@@ -11,6 +11,8 @@ import Observation
 final class VideoFeedViewModel {
     var videos: [FeedVideo] = []
     var loadState: FeedLoadState = .idle
+    /// Set by coordinator when opening a clip from the map; consumed by `VideoFeedView`.
+    var focusVideoID: UUID?
 
     private let fetchFeed: FetchFeedUseCase
     private var reloadGeneration = 0
@@ -42,6 +44,20 @@ final class VideoFeedViewModel {
         }
         initialLoadTask = task
         await task.value
+    }
+
+    func requestFocus(on videoID: UUID) {
+        focusVideoID = videoID
+    }
+
+    func consumeFocusRequest() -> UUID? {
+        let id = focusVideoID
+        focusVideoID = nil
+        return id
+    }
+
+    var videosWithMapCoordinates: [FeedVideo] {
+        videos.filter { $0.mapCoordinate != nil }
     }
 
     func reload() async {

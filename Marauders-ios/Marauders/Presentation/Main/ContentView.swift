@@ -7,6 +7,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var router: AppRouter
+    let coordinator: AppCoordinator
     @Bindable var feedViewModel: VideoFeedViewModel
     @Bindable var uploadViewModel: UploadVideoViewModel
     @Bindable var authViewModel: AuthViewModel
@@ -19,7 +20,13 @@ struct ContentView: View {
                 }
                 .tag(MainTab.feed)
 
-            MapTabView(authViewModel: authViewModel)
+            MapTabView(
+                authViewModel: authViewModel,
+                feedViewModel: feedViewModel,
+                onOpenClipInFeed: { videoID in
+                    await coordinator.openClipInFeed(videoID: videoID)
+                }
+            )
                 .tabItem {
                     Label("Map", systemImage: "map.fill")
                 }
@@ -54,6 +61,7 @@ struct ContentView: View {
     let container = AppDependencyContainer()
     ContentView(
         router: container.router,
+        coordinator: container.coordinator,
         feedViewModel: container.feedViewModel,
         uploadViewModel: container.uploadViewModel,
         authViewModel: container.authViewModel

@@ -35,4 +35,14 @@ final class AppCoordinator {
         router.showFeed()
         AppLog.info("app", "coordinator: upload complete → feed tab")
     }
+
+    func openClipInFeed(videoID: UUID) async {
+        await feedViewModel.loadIfNeeded()
+        if !feedViewModel.videos.contains(where: { $0.id == videoID }) {
+            await feedViewModel.reload()
+        }
+        feedViewModel.requestFocus(on: videoID)
+        router.showFeed()
+        AppLog.info("app", "coordinator: map clip → feed id=\(videoID.uuidString)")
+    }
 }

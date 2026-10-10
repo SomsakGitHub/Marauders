@@ -15,6 +15,7 @@ struct AppRootView: View {
         ZStack {
             ContentView(
                 router: container.router,
+                coordinator: container.coordinator,
                 feedViewModel: container.feedViewModel,
                 uploadViewModel: container.uploadViewModel,
                 authViewModel: container.authViewModel

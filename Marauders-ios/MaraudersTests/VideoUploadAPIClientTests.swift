@@ -28,7 +28,7 @@ struct VideoUploadAPIClientTests {
             try await client.upload(
                 fileURL: fileURL,
                 mimeType: "image/jpeg",
-                clipLocation: sampleClipLocation
+                clipLocation: Self.sampleClipLocation
             )
         }
     }
@@ -43,7 +43,7 @@ struct VideoUploadAPIClientTests {
             try await client.upload(
                 fileURL: fileURL,
                 mimeType: "video/mp4",
-                clipLocation: sampleClipLocation
+                clipLocation: Self.sampleClipLocation
             )
         }
     }
@@ -70,7 +70,7 @@ struct VideoUploadAPIClientTests {
         let item = try await client.upload(
             fileURL: fileURL,
             mimeType: "video/mp4",
-            clipLocation: sampleClipLocation
+            clipLocation: Self.sampleClipLocation
         )
 
         #expect(item.id == videoID)
@@ -99,7 +99,7 @@ struct VideoUploadAPIClientTests {
             _ = try await client.upload(
                 fileURL: fileURL,
                 mimeType: "video/mp4",
-                clipLocation: sampleClipLocation
+                clipLocation: Self.sampleClipLocation
             )
             Issue.record("Expected upload to fail")
         } catch {
@@ -123,7 +123,7 @@ struct VideoUploadAPIClientTests {
             try await client.upload(
                 fileURL: fileURL,
                 mimeType: "video/mp4",
-                clipLocation: sampleClipLocation
+                clipLocation: Self.sampleClipLocation
             )
         }
     }
@@ -148,7 +148,7 @@ struct VideoUploadAPIClientTests {
             try await client.upload(
                 fileURL: fileURL,
                 mimeType: "video/mp4",
-                clipLocation: sampleClipLocation
+                clipLocation: Self.sampleClipLocation
             )
         }
     }

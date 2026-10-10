@@ -7,6 +7,9 @@ import SwiftUI
 
 struct MapTabView: View {
     @Bindable var authViewModel: AuthViewModel
+    @Bindable var feedViewModel: VideoFeedViewModel
+    let onOpenClipInFeed: (UUID) async -> Void
+
     @State private var mapViewModel = MapViewModel()
 
     var body: some View {
@@ -17,7 +20,11 @@ struct MapTabView: View {
             } else if authViewModel.isSignedIn {
                 MapView(
                     viewModel: mapViewModel,
-                    onSignOut: { authViewModel.signOut() }
+                    feedViewModel: feedViewModel,
+                    onSignOut: { authViewModel.signOut() },
+                    onOpenClipInFeed: { videoID in
+                        Task { await onOpenClipInFeed(videoID) }
+                    }
                 )
             } else {
                 MapSignInRequiredView(authViewModel: authViewModel)
@@ -26,15 +33,18 @@ struct MapTabView: View {
         .task {
             await authViewModel.restoreSession()
         }
+        .task(id: authViewModel.isSignedIn) {
+            guard authViewModel.isSignedIn else { return }
+            await feedViewModel.loadIfNeeded()
+        }
     }
 }
 
 #Preview {
-    MapTabView(authViewModel: AuthViewModel(sessionStore: PreviewAuthSessionStore()))
-}
-
-private final class PreviewAuthSessionStore: AuthSessionStore, @unchecked Sendable {
-    func loadUserID() -> String? { nil }
-    func saveUserID(_ userID: String) throws {}
-    func clear() throws {}
+    let container = AppDependencyContainer()
+    MapTabView(
+        authViewModel: container.authViewModel,
+        feedViewModel: container.feedViewModel,
+        onOpenClipInFeed: { _ in }
+    )
 }

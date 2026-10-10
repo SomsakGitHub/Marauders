@@ -21,7 +21,9 @@ struct UITestFeedRepository: FeedRepository {
         return [
             FeedVideo(
                 id: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
-                streamURL: URL(string: "https://example.com/ui-test-clip.mp4")!
+                streamURL: URL(string: "https://example.com/ui-test-clip.mp4")!,
+                latitude: 13.7563,
+                longitude: 100.5018
             ),
         ]
     }

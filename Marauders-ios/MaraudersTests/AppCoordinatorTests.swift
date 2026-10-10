@@ -35,6 +35,37 @@ struct AppCoordinatorTests {
         #expect(router.selectedTab == .feed)
         #expect(feedVM.videos.count == 1)
     }
+
+    @Test func openClipInFeedFocusesVideoAndShowsFeedTab() async {
+        let router = AppRouter()
+        let videoID = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
+        let repo = MockFeedRepositoryForCoordinator()
+        repo.nextResult = .success([
+            FeedVideo(
+                id: videoID,
+                streamURL: URL(string: "https://example.com/a.mp4")!,
+                latitude: 13.7,
+                longitude: 100.5
+            ),
+        ])
+        let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        let uploadVM = UploadVideoViewModel(
+            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
+            uploadVideo: UploadFeedVideoUseCase(
+                repository: MockUploadRepository(result: .failure(URLError(.cancelled)))
+            )
+        )
+        let coordinator = AppCoordinator(
+            router: router,
+            feedViewModel: feedVM,
+            uploadViewModel: uploadVM
+        )
+
+        await coordinator.openClipInFeed(videoID: videoID)
+
+        #expect(router.selectedTab == .feed)
+        #expect(feedVM.focusVideoID == videoID)
+    }
 }
 
 private final class MockFeedRepositoryForCoordinator: FeedRepository, @unchecked Sendable {
@@ -48,7 +79,11 @@ private final class MockFeedRepositoryForCoordinator: FeedRepository, @unchecked
 private struct MockUploadRepository: VideoUploadRepository {
     let result: Result<FeedVideo, Error>
 
-    func upload(fileURL: URL, mimeType: String) async throws -> FeedVideo {
+    func upload(
+        fileURL: URL,
+        mimeType: String,
+        clipLocation: ClipLocation
+    ) async throws -> FeedVideo {
         try result.get()
     }
 }
