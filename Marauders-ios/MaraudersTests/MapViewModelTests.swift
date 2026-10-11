@@ -9,14 +9,14 @@ import Testing
 
 @MainActor
 struct MapViewModelTests {
-    @Test func notDeterminedShowsPrePrompt() {
+    @Test func notDeterminedRequestsSystemPermissionDirectly() {
         let manager = CLLocationManager()
         guard manager.authorizationStatus == .notDetermined else { return }
 
         let viewModel = MapViewModel(locationManager: manager)
         viewModel.beginLocationAccessRequest()
 
-        #expect(viewModel.showLocationPrePrompt)
+        #expect(!viewModel.showLocationDeniedAlert)
     }
 
     @Test func deniedCannotAccessMap() {
@@ -24,24 +24,6 @@ struct MapViewModelTests {
         viewModel.syncAuthorizationStatusFromSystem()
         guard viewModel.isLocationAccessDeniedOrRestricted else { return }
         #expect(!viewModel.canAccessMap)
-    }
-
-    @Test func confirmDismissesPrePrompt() {
-        let viewModel = MapViewModel()
-        viewModel.showLocationPrePrompt = true
-
-        viewModel.confirmLocationPermissionRequest()
-
-        #expect(!viewModel.showLocationPrePrompt)
-    }
-
-    @Test func cancelDismissesPrePrompt() {
-        let viewModel = MapViewModel()
-        viewModel.showLocationPrePrompt = true
-
-        viewModel.cancelLocationPermissionRequest()
-
-        #expect(!viewModel.showLocationPrePrompt)
     }
 
     @Test func countryFilterDefaultsToAll() {

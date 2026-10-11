@@ -49,20 +49,6 @@ struct MapLocationRequiredView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .accessibilityIdentifier("map.locationRequired")
-        .confirmationDialog(
-            "Use your location?",
-            isPresented: $viewModel.showLocationPrePrompt,
-            titleVisibility: .visible
-        ) {
-            Button("Continue") {
-                viewModel.confirmLocationPermissionRequest()
-            }
-            Button("Not Now", role: .cancel) {
-                viewModel.cancelLocationPermissionRequest()
-            }
-        } message: {
-            Text("Marauders needs your location to show the map and clip pins.")
-        }
         .alert("Location Access Off", isPresented: $viewModel.showLocationDeniedAlert) {
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {

@@ -18,7 +18,6 @@ final class MapViewModel {
     /// Selected country filter for map pins (`nil` shows every country).
     var countryFilter: String?
 
-    var showLocationPrePrompt = false
     var showLocationDeniedAlert = false
 
     private let locationManager: CLLocationManager
@@ -72,7 +71,7 @@ final class MapViewModel {
 
         switch authorizationStatus {
         case .notDetermined:
-            showLocationPrePrompt = true
+            requestSystemLocationPermission()
         case .authorizedAlways, .authorizedWhenInUse:
             onMapTabBecameActive()
         case .denied, .restricted:
@@ -82,16 +81,10 @@ final class MapViewModel {
         }
     }
 
-    func confirmLocationPermissionRequest() {
-        showLocationPrePrompt = false
+    private func requestSystemLocationPermission() {
         wantsUserLocationUpdate = true
         attachLocationServicesIfNeeded()
         locationManager.requestWhenInUseAuthorization()
-    }
-
-    func cancelLocationPermissionRequest() {
-        showLocationPrePrompt = false
-        wantsUserLocationUpdate = false
     }
 
     /// Called when the Map tab is visible and location is already granted.
