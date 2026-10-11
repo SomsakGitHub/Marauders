@@ -140,7 +140,10 @@ export function assertHttpsStreamUrl(url: string): void {
   }
 }
 
-export function parseAppleIdentityTokenBody(body: unknown): string {
+export function parseAppleAuthBody(body: unknown): {
+  identityToken: string;
+  country: string | null;
+} {
   if (!body || typeof body !== "object") {
     throw new FeedValidationError("invalid request body");
   }
@@ -153,7 +156,16 @@ export function parseAppleIdentityTokenBody(body: unknown): string {
   if (trimmed.length < 20 || trimmed.length > 8192) {
     throw new FeedValidationError("identityToken length is invalid");
   }
-  return trimmed;
+
+  const rawCountry = record.country;
+  if (rawCountry === undefined || rawCountry === null) {
+    return { identityToken: trimmed, country: null };
+  }
+  if (typeof rawCountry !== "string" || !/^[A-Za-z]{2}$/.test(rawCountry.trim())) {
+    throw new FeedValidationError("country must be a 2-letter ISO code");
+  }
+
+  return { identityToken: trimmed, country: rawCountry.trim().toUpperCase() };
 }
 
 export class FeedValidationError extends Error {

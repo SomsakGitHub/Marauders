@@ -2,7 +2,7 @@ import { verifyAppleIdentityToken } from "../auth/appleIdentityToken";
 import { signAccessToken } from "../auth/accessToken";
 import { upsertUserByAppleSub } from "../db/users";
 import type { Env } from "../index";
-import { FeedValidationError, parseAppleIdentityTokenBody } from "../validation";
+import { FeedValidationError, parseAppleAuthBody } from "../validation";
 
 export async function handleAppleAuth(
   request: Request,
@@ -26,8 +26,9 @@ export async function handleAppleAuth(
   }
 
   let identityToken: string;
+  let country: string | null;
   try {
-    identityToken = parseAppleIdentityTokenBody(body);
+    ({ identityToken, country } = parseAppleAuthBody(body));
   } catch (error) {
     if (error instanceof FeedValidationError) {
       return jsonError(error.status, error.message);
@@ -40,7 +41,11 @@ export async function handleAppleAuth(
       identityToken,
       env.APPLE_CLIENT_ID,
     );
-    const userId = await upsertUserByAppleSub(env.DATABASE_URL, appleSub);
+    const userId = await upsertUserByAppleSub(
+      env.DATABASE_URL,
+      appleSub,
+      country,
+    );
     const accessToken = await signAccessToken(userId, env.JWT_SIGNING_SECRET);
     return jsonResponse({ accessToken });
   } catch {

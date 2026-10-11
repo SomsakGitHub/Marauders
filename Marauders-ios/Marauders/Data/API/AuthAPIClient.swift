@@ -41,7 +41,7 @@ enum AuthAPIError: LocalizedError, Equatable {
 }
 
 protocol AuthAPIClientProtocol: Sendable {
-    func exchangeAppleIdentityToken(_ identityToken: String) async throws -> String
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String
 }
 
 struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
@@ -51,7 +51,7 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
         self.session = session
     }
 
-    func exchangeAppleIdentityToken(_ identityToken: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
         let trimmed = identityToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 20, trimmed.count <= 8192 else {
             throw AuthAPIError.invalidIdentityToken
@@ -63,7 +63,10 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
-        request.httpBody = try JSONEncoder().encode(["identityToken": trimmed])
+        request.httpBody = try JSONEncoder().encode([
+            "identityToken": trimmed,
+            "country": countryCode.uppercased()
+        ])
 
         AppLog.info("api.auth", "POST /v1/auth/apple")
 

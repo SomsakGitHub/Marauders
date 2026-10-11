@@ -10,6 +10,7 @@
 |------|------------|
 | **ฟีด** | เลื่อนแนวตั้งเต็มจอ (paging), เล่นเฉพาะคลิปที่อยู่กลางจอ |
 | **อัปโหลด** | เลือกวิดีโอจากคลัง → ส่ง multipart ไป API → โผล่บนฟีด |
+| **Auth** | Sign in with Apple → แลก identity token เป็น session; เลือกประเทศตอน login |
 | **API** | REST บน Workers, validate input ฝั่งเซิร์ฟเวอร์ |
 | **Debug** | แท็บ Log ในแอป (เฉพาะ **Debug** build) + `os.Logger` |
 
@@ -115,11 +116,14 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | `GET` | `/health` | health check |
+| `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>` | รายการฟีด (JSON) |
-| `POST` | `/v1/videos` | `multipart/form-data`: `file` เท่านั้น |
+| `POST` | `/v1/videos` | `multipart/form-data`: `file` เท่านั้น — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์จาก R2 |
 
 **ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB
+
+**ประเทศตอน login:** แอปส่ง `country` เป็น ISO 3166-1 alpha-2 (เช่น `TH`) พร้อม identity token; Worker ตรวจรูปแบบแล้วเก็บใน `app_users.country` (ไม่ทับค่าที่มีอยู่)
 
 ตัวอย่าง response ฟีด:
 
@@ -139,7 +143,8 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 - `DATABASE_URL` เก็บใน **Wrangler secret** / `backend/.dev.vars` (gitignore) — ไม่ใส่ใน repo  
 - API validate query/body ฝั่ง Worker; อัปโหลดจำกัดชนิดไฟล์และขนาด  
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
-- **ยังไม่มี auth** — เหมาะสำหรับ demo; production ควรเพิ่ม Sign in + rate limit
+- **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT (เก็บใน Keychain); อัปโหลดต้องมี Bearer token  
+- ยังไม่มี rate limit — production ควรเพิ่ม
 
 ## Troubleshooting
 
@@ -152,7 +157,8 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 
 ## Roadmap (ideas)
 
-- [ ] Sign in with Apple + จำกัดอัปโหลดต่อ user  
+- [x] Sign in with Apple + จำกัดอัปโหลดต่อ user  
+- [x] เลือกประเทศตอน login  
 - [ ] Rate limiting ที่ Worker  
 - [ ] Like / โปรไฟล์ต่อ `@handle`  
 - [ ] ซ่อนแท็บ Log ใน Release build  

@@ -71,6 +71,24 @@ struct AuthViewModelTests {
         #expect(AuthAPIError.invalidResponse.httpStatusCode == nil)
     }
 
+    @Test func completeSignInForwardsSelectedCountry() async {
+        let client = RecordingAuthAPIClient()
+        let viewModel = AuthViewModel(
+            sessionStore: InMemoryAuthSessionStore(),
+            tokenStore: InMemoryAPIAccessTokenStore(),
+            authAPI: client
+        )
+        viewModel.selectedCountryCode = "JP"
+
+        await viewModel.completeSignIn(
+            userID: "user-1",
+            identityToken: String(repeating: "a", count: 32)
+        )
+
+        #expect(client.receivedCountryCode == "JP")
+        #expect(viewModel.isSignedIn)
+    }
+
     @Test func signOutClearsSessionAndToken() async {
         let store = InMemoryAuthSessionStore()
         let tokenStore = InMemoryAPIAccessTokenStore()
@@ -92,7 +110,7 @@ struct AuthViewModelTests {
 private struct StubAuthAPIClient: AuthAPIClientProtocol {
     static let stubToken = String(repeating: "x", count: 40)
 
-    func exchangeAppleIdentityToken(_ identityToken: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
         Self.stubToken
     }
 }
@@ -100,8 +118,17 @@ private struct StubAuthAPIClient: AuthAPIClientProtocol {
 private struct FailingAuthAPIClient: AuthAPIClientProtocol {
     let error: AuthAPIError
 
-    func exchangeAppleIdentityToken(_ identityToken: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
         throw error
+    }
+}
+
+private final class RecordingAuthAPIClient: AuthAPIClientProtocol, @unchecked Sendable {
+    private(set) var receivedCountryCode: String?
+
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
+        receivedCountryCode = countryCode
+        return String(repeating: "x", count: 40)
     }
 }
 

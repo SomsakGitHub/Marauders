@@ -14,6 +14,10 @@ final class AuthViewModel {
     private(set) var isCheckingCredential = true
     var errorMessage: String?
 
+    /// Country the user identifies with, chosen on the sign-in gate. Defaults to
+    /// the device region. Sent to the API with the Apple identity token.
+    var selectedCountryCode: String = CountryCatalog.defaultCode()
+
     private let sessionStore: AuthSessionStore
     private let tokenStore: APIAccessTokenStore
     private let authAPI: AuthAPIClientProtocol
@@ -101,7 +105,10 @@ final class AuthViewModel {
         }
 
         do {
-            let accessToken = try await authAPI.exchangeAppleIdentityToken(identityToken)
+            let accessToken = try await authAPI.exchangeAppleIdentityToken(
+                identityToken,
+                countryCode: selectedCountryCode
+            )
             try sessionStore.saveUserID(userID)
             try tokenStore.saveAccessToken(accessToken)
             isSignedIn = true

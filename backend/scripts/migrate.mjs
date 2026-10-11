@@ -32,6 +32,7 @@ for (const file of [
   "../sql/003_remove_google_seeds.sql",
   "../sql/005_feed_video_coordinates.sql",
   "../sql/006_app_users_and_ownership.sql",
+  "../sql/007_app_users_country.sql",
 ]) {
   for (const statement of statementsFromFile(file)) {
     await pool.query(statement);

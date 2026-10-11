@@ -31,6 +31,28 @@ struct SignInWithAppleGateView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
+                NavigationLink {
+                    CountryPickerView(selection: $authViewModel.selectedCountryCode)
+                } label: {
+                    HStack {
+                        Text("Country")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(Country.flagEmoji(for: authViewModel.selectedCountryCode))
+                        Text(CountryCatalog.name(for: authViewModel.selectedCountryCode))
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+                }
+                .accessibilityIdentifier("signin.country")
+                .frame(maxWidth: 320)
+                .padding(.top, 4)
+
                 SignInWithAppleButton(.signIn) { request in
                     request.requestedScopes = [.fullName, .email]
                 } onCompletion: { result in
