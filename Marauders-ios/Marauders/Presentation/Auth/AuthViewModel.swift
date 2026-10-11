@@ -108,8 +108,12 @@ final class AuthViewModel {
             errorMessage = nil
             AppLog.info("auth", "signed in with Apple (API session established)")
         } catch {
-            errorMessage = error.localizedDescription
-            AppLog.error("auth", "API session exchange failed")
+            errorMessage = Self.userFacingMessage(for: error)
+            if let statusCode = (error as? AuthAPIError)?.httpStatusCode {
+                AppLog.error("auth", "API session exchange failed (status \(statusCode))")
+            } else {
+                AppLog.error("auth", "API session exchange failed")
+            }
         }
     }
 
@@ -119,6 +123,13 @@ final class AuthViewModel {
         isSignedIn = false
         errorMessage = nil
         AppLog.info("auth", "signed out")
+    }
+
+    private static func userFacingMessage(for error: Error) -> String {
+        if let localized = error as? LocalizedError, let description = localized.errorDescription {
+            return description
+        }
+        return "Sign in failed. Please try again."
     }
 
     private static func credentialState(for userID: String) async -> ASAuthorizationAppleIDProvider.CredentialState {

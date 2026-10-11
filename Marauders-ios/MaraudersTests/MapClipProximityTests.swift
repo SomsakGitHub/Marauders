@@ -4,9 +4,11 @@
 //
 
 import CoreLocation
+import MapKit
 import Testing
 @testable import Marauders
 
+@MainActor
 struct MapClipProximityTests {
     @Test func clipsWithinRadiusFiltersByDistance() {
         let user = CLLocationCoordinate2D(latitude: 13.7563, longitude: 100.5018)
