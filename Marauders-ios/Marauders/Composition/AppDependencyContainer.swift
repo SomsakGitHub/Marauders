@@ -45,7 +45,11 @@ final class AppDependencyContainer {
 
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
         let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)
-        uploadViewModel = UploadVideoViewModel(prepareVideo: prepare, uploadVideo: upload)
+        uploadViewModel = UploadVideoViewModel(
+            prepareVideo: prepare,
+            uploadVideo: upload,
+            videoLocationReader: AVAssetVideoLocationReader()
+        )
         authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore)
 
         coordinator = AppCoordinator(

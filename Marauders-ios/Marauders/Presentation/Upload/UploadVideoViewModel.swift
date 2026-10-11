@@ -23,6 +23,7 @@ final class UploadVideoViewModel {
 
     private let prepareVideo: PrepareVideoForUploadUseCase
     private let uploadVideo: UploadFeedVideoUseCase
+    private let videoLocationReader: VideoLocationReading
     private var pickerStagingURL: URL?
     var onUploaded: (() async -> Void)?
 
@@ -33,11 +34,13 @@ final class UploadVideoViewModel {
     init(
         prepareVideo: PrepareVideoForUploadUseCase,
         uploadVideo: UploadFeedVideoUseCase,
-        locationManager: CLLocationManager = CLLocationManager()
+        locationManager: CLLocationManager = CLLocationManager(),
+        videoLocationReader: VideoLocationReading = NoopVideoLocationReader()
     ) {
         self.prepareVideo = prepareVideo
         self.uploadVideo = uploadVideo
         self.locationManager = locationManager
+        self.videoLocationReader = videoLocationReader
 
         if AppRuntimeConfiguration.isUITesting {
             clipLocation = ClipLocation(latitude: 13.7563, longitude: 100.5018)
@@ -73,6 +76,8 @@ final class UploadVideoViewModel {
 
         AppLog.info("upload", "prepare export from picker file")
 
+        await suggestClipLocationFromVideoMetadata(sourceURL: sourceURL)
+
         do {
             let mp4URL = try await prepareVideo.execute(sourceURL: sourceURL)
             TemporaryFileCleanup.deleteIfTemporary(pickerStagingURL)
@@ -91,6 +96,17 @@ final class UploadVideoViewModel {
         clipLocation = location
         statusMessage = nil
         AppLog.info("upload", "clip location chosen manually")
+    }
+
+    /// Pre-fills the clip location from the picked video's own metadata, so the
+    /// user doesn't have to pick it manually. No-op when the video has no location.
+    private func suggestClipLocationFromVideoMetadata(sourceURL: URL) async {
+        guard let location = await videoLocationReader.location(fromVideoAt: sourceURL) else {
+            return
+        }
+        clipLocation = location
+        statusMessage = nil
+        AppLog.info("upload", "clip location suggested from video metadata")
     }
 
     func setClipLocationFromCurrentPositionTapped() {

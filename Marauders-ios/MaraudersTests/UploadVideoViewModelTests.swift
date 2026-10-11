@@ -14,12 +14,14 @@ struct UploadVideoViewModelTests {
 
     private func makeViewModel(
         exporter: VideoExporting = StubVideoExporter(result: .failure(StubError.exportFailed)),
-        uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed))
+        uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed)),
+        videoLocationReader: VideoLocationReading = NoopVideoLocationReader()
     ) -> UploadVideoViewModel {
         UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: exporter),
             uploadVideo: UploadFeedVideoUseCase(repository: uploadRepository),
-            locationManager: CLLocationManager()
+            locationManager: CLLocationManager(),
+            videoLocationReader: videoLocationReader
         )
     }
 
@@ -69,6 +71,34 @@ struct UploadVideoViewModelTests {
         #expect(viewModel.statusMessage == "export failed")
         #expect(viewModel.isSuccess == false)
         #expect(viewModel.isPreparing == false)
+    }
+
+    @Test func prepareSuggestsClipLocationFromVideoMetadata() async throws {
+        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
+        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
+        let viewModel = makeViewModel(
+            exporter: RecordingVideoExporter(result: .success(mp4)),
+            videoLocationReader: StubVideoLocationReader(location: Self.bangkok)
+        )
+
+        await viewModel.prepare(sourceURL: source)
+
+        #expect(viewModel.clipLocation == Self.bangkok)
+    }
+
+    @Test func prepareKeepsManualLocationWhenVideoHasNoMetadata() async throws {
+        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
+        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
+        let manual = ClipLocation(latitude: 1.5, longitude: 2.5)!
+        let viewModel = makeViewModel(
+            exporter: RecordingVideoExporter(result: .success(mp4)),
+            videoLocationReader: StubVideoLocationReader(location: nil)
+        )
+        viewModel.applyClipLocation(manual)
+
+        await viewModel.prepare(sourceURL: source)
+
+        #expect(viewModel.clipLocation == manual)
     }
 
     @Test func uploadWithoutFileIsIgnored() async {

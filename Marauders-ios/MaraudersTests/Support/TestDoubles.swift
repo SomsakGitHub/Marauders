@@ -30,6 +30,12 @@ struct StubVideoExporter: VideoExporting {
     }
 }
 
+struct StubVideoLocationReader: VideoLocationReading {
+    let location: ClipLocation?
+
+    func location(fromVideoAt url: URL) async -> ClipLocation? { location }
+}
+
 final class RecordingVideoExporter: VideoExporting, @unchecked Sendable {
     var result: Result<URL, Error>
     private(set) var lastSourceURL: URL?

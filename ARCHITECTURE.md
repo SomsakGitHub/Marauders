@@ -125,12 +125,13 @@ sequenceDiagram
 
 ### Upload path (client)
 
-`PhotosPicker` → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`).
+`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`).
 
 ### Map tab (clip pins)
 
 - **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present.
-- **Pins:** `MapView` annotates `feedViewModel.videosWithMapCoordinates`; camera fits pin bounds when the clip count changes.
+- **Pins:** `MapView` annotates `allClips` (from `feedViewModel.videosWithMapCoordinates`, or `mapFilteredClips` when a country filter is active); camera fits pin bounds when the clip count changes.
+- **Country filter:** toolbar globe → `MapCountryFilterSheet`; selection fetches `/v1/feed?country=<ISO2>` via `VideoFeedViewModel.loadMapClips(country:)`.
 - **Near Me:** toolbar filter with 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
 - **Auth:** Map/Upload gate on Sign in with Apple; `identityToken` → `POST /v1/auth/apple` → access token in Keychain; upload sends `Authorization: Bearer`.
