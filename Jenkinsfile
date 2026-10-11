@@ -15,6 +15,9 @@ pipeline {
     FASTLANE_DISABLE_COLLECTION = '1'
     FASTLANE_HIDE_CHANGELOG     = '1'
     SIMULATOR_DESTINATION  = 'platform=iOS Simulator,name=iPhone 17'
+    // Jenkins runs with a bare PATH (system Ruby 2.6). Prepend Homebrew so we
+    // use a modern Ruby + xcbeautify + xcresultparser.
+    PATH                   = '/opt/homebrew/opt/ruby/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
   }
 
   stages {
