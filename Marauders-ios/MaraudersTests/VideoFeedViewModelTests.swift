@@ -29,22 +29,32 @@ struct VideoFeedViewModelTests {
 
     @Test func staleReloadResponseIsIgnored() async {
         final class DelayedRepository: FeedRepository, @unchecked Sendable {
-            var firstContinuation: CheckedContinuation<FeedPage, Error>?
+            private var firstContinuation: CheckedContinuation<FeedPage, Error>?
+            private var firstRequestSignal: CheckedContinuation<Void, Never>?
 
             func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
-                if firstContinuation == nil {
-                    return try await withCheckedThrowingContinuation { continuation in
-                        firstContinuation = continuation
-                    }
+                if let continuation = firstContinuation {
+                    return FeedPage(
+                        items: [
+                            FeedVideo(
+                                streamURL: URL(string: "https://example.com/new.mp4")!
+                            ),
+                        ],
+                        hasMore: false
+                    )
                 }
-                return FeedPage(
-                    items: [
-                        FeedVideo(
-                            streamURL: URL(string: "https://example.com/new.mp4")!
-                        ),
-                    ],
-                    hasMore: false
-                )
+                return try await withCheckedThrowingContinuation { continuation in
+                    firstContinuation = continuation
+                    firstRequestSignal?.resume()
+                    firstRequestSignal = nil
+                }
+            }
+
+            func waitForFirstRequest() async {
+                if firstContinuation != nil { return }
+                await withCheckedContinuation { continuation in
+                    firstRequestSignal = continuation
+                }
             }
 
             func completeFirst(with page: FeedPage) {
@@ -57,8 +67,9 @@ struct VideoFeedViewModelTests {
         let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
 
         async let first: Void = viewModel.reload()
-        await Task.yield()
+        await repo.waitForFirstRequest()
         async let second: Void = viewModel.reload()
+        await second
         repo.completeFirst(
             with: FeedPage(
                 items: [FeedVideo(streamURL: URL(string: "https://example.com/stale.mp4")!)],
@@ -66,9 +77,9 @@ struct VideoFeedViewModelTests {
             )
         )
         await first
-        await second
 
         #expect(viewModel.videos.first?.streamURL.absoluteString.contains("new.mp4") == true)
+        #expect(viewModel.videos.first?.streamURL.absoluteString.contains("stale.mp4") == false)
     }
 
     @Test func loadMoreAppendsNextPage() async {

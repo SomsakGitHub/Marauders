@@ -25,7 +25,7 @@ struct VideoUploadAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, Data())
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = Self.authorizedClient(session: session)
 
@@ -69,7 +69,7 @@ struct VideoUploadAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 201)
             return (response, body)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = Self.authorizedClient(session: session)
         let item = try await client.upload(
@@ -96,7 +96,7 @@ struct VideoUploadAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 413)
             return (response, body)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = Self.authorizedClient(session: session)
 
@@ -120,7 +120,7 @@ struct VideoUploadAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 503)
             return (response, Data())
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = Self.authorizedClient(session: session)
 
@@ -145,7 +145,7 @@ struct VideoUploadAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, body)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = Self.authorizedClient(session: session)
 

@@ -22,7 +22,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, body)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(session: session)
         let page = try await client.fetchFeed(limit: 20)
@@ -52,7 +52,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, body)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(session: session)
         _ = try await client.fetchFeed(limit: 10, cursor: cursor)
@@ -79,7 +79,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 503)
             return (response, Data("{}".utf8))
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(
             session: session,
@@ -109,7 +109,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, successBody)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(
             session: session,
@@ -130,7 +130,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 400)
             return (response, Data())
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(
             session: session,
@@ -149,7 +149,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, Data("{not-json".utf8))
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(session: session)
 
@@ -166,7 +166,7 @@ struct FeedAPIClientTests {
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
             return (response, body)
         }
-        defer { StubURLSessionFactory.reset() }
+        defer { StubURLSessionFactory.reset(session) }
 
         let client = FeedAPIClient(session: session)
 
