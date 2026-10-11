@@ -34,7 +34,7 @@ flowchart TB
 
 | Surface | Responsibility |
 |---------|----------------|
-| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID); public read |
+| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
 | `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` → R2 + `feed_videos.owner_user_id` |
 | `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**) or HLS playlist + `.ts` segments |

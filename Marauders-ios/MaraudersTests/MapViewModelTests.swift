@@ -43,4 +43,9 @@ struct MapViewModelTests {
 
         #expect(!viewModel.showLocationPrePrompt)
     }
+
+    @Test func countryFilterDefaultsToAll() {
+        let viewModel = MapViewModel()
+        #expect(viewModel.countryFilter == nil)
+    }
 }

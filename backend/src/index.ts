@@ -5,6 +5,7 @@ import { handleMediaGet } from "./routes/media";
 import { handleVideoUpload } from "./routes/upload";
 import {
   FeedValidationError,
+  parseFeedCountry,
   parseFeedCursor,
   parseFeedLimit,
 } from "./validation";
@@ -54,10 +55,12 @@ async function handleFeed(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   let limit: number;
   let cursor: string | null;
+  let country: string | null;
 
   try {
     limit = parseFeedLimit(url.searchParams.get("limit"));
     cursor = parseFeedCursor(url.searchParams.get("cursor"));
+    country = parseFeedCountry(url.searchParams.get("country"));
   } catch (error) {
     if (error instanceof FeedValidationError) {
       return errorResponse(error.status, error.message);
@@ -66,7 +69,7 @@ async function handleFeed(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const items = await listFeedVideos(env.DATABASE_URL, limit, cursor);
+    const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country);
     return jsonResponse({ items });
   } catch {
     return errorResponse(500, "failed to load feed");

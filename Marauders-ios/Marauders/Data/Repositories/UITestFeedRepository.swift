@@ -14,6 +14,10 @@ struct UITestFeedRepository: FeedRepository {
     }
 
     func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
+        try await fetchFeed(limit: limit, cursor: cursor, country: nil)
+    }
+
+    func fetchFeed(limit: Int, cursor: UUID?, country: String?) async throws -> FeedPage {
         if mode == .mockEmpty {
             return FeedPage(items: [], hasMore: false)
         }
@@ -27,7 +31,8 @@ struct UITestFeedRepository: FeedRepository {
                 id: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
                 streamURL: URL(string: "https://example.com/ui-test-clip.mp4")!,
                 latitude: 13.7563,
-                longitude: 100.5018
+                longitude: 100.5018,
+                country: "TH"
             ),
         ]
         return FeedPage(items: items, hasMore: false)

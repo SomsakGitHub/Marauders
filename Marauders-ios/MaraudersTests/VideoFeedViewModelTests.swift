@@ -242,4 +242,45 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.videos.count == 3)
         #expect(viewModel.videosWithMapCoordinates.count == 1)
     }
+
+    @Test func loadMapClipsKeepsOnlyClipsWithCoordinates() async {
+        let withCoordinate = FeedVideo(
+            streamURL: URL(string: "https://example.com/a.mp4")!,
+            latitude: 13.7,
+            longitude: 100.5,
+            country: "TH"
+        )
+        let withoutCoordinate = FeedVideo(
+            streamURL: URL(string: "https://example.com/b.mp4")!,
+            country: "TH"
+        )
+        let repo = MockFeedRepository(
+            result: .success(FeedPage(items: [withCoordinate, withoutCoordinate], hasMore: false))
+        )
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+
+        await viewModel.loadMapClips(country: "TH")
+
+        #expect(viewModel.mapFilteredClips.map(\.id) == [withCoordinate.id])
+    }
+
+    @Test func loadMapClipsForwardsCountryAndClearsWhenNil() async {
+        let clip = FeedVideo(
+            streamURL: URL(string: "https://example.com/a.mp4")!,
+            latitude: 1,
+            longitude: 2,
+            country: "TH"
+        )
+        let repo = RecordingFeedRepository(
+            result: .success(FeedPage(items: [clip], hasMore: false))
+        )
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+
+        await viewModel.loadMapClips(country: "TH")
+        #expect(repo.lastCountry == "TH")
+        #expect(viewModel.mapFilteredClips.count == 1)
+
+        await viewModel.loadMapClips(country: nil)
+        #expect(viewModel.mapFilteredClips.isEmpty)
+    }
 }

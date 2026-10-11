@@ -35,6 +35,17 @@ struct FetchFeedUseCaseTests {
         #expect(repository.lastCursor == cursor)
     }
 
+    @Test func executeForwardsCountryFilter() async throws {
+        let repository = RecordingFeedRepository(
+            result: .success(FeedPage(items: [], hasMore: false))
+        )
+        let useCase = FetchFeedUseCase(repository: repository)
+
+        _ = try await useCase.execute(country: "TH")
+
+        #expect(repository.lastCountry == "TH")
+    }
+
     @Test func executeReturnsRepositoryPage() async throws {
         let video = FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!)
         let page = FeedPage(items: [video], hasMore: false)

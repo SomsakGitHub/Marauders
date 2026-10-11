@@ -70,18 +70,28 @@ final class RecordingVideoUploadRepository: VideoUploadRepository, @unchecked Se
 
 final class RecordingFeedRepository: FeedRepository, @unchecked Sendable {
     var result: Result<FeedPage, Error>
+    var resultForCountry: [String: Result<FeedPage, Error>] = [:]
     private(set) var fetchCount = 0
     private(set) var lastLimit: Int?
     private(set) var lastCursor: UUID?
+    private(set) var lastCountry: String?
 
     init(result: Result<FeedPage, Error>) {
         self.result = result
     }
 
     func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
+        try await fetchFeed(limit: limit, cursor: cursor, country: nil)
+    }
+
+    func fetchFeed(limit: Int, cursor: UUID?, country: String?) async throws -> FeedPage {
         fetchCount += 1
         lastLimit = limit
         lastCursor = cursor
+        lastCountry = country
+        if let country, let scoped = resultForCountry[country] {
+            return try scoped.get()
+        }
         return try result.get()
     }
 }

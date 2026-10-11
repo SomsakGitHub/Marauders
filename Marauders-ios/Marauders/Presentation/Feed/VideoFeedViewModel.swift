@@ -12,6 +12,8 @@ final class VideoFeedViewModel {
     var videos: [FeedVideo] = []
     var loadState: FeedLoadState = .idle
     private(set) var isLoadingMore = false
+    /// Clips fetched for a specific country (Map tab). Empty when no filter is active.
+    private(set) var mapFilteredClips: [FeedVideo] = []
     /// Set by coordinator when opening a clip from the map; consumed by `VideoFeedView`.
     var focusVideoID: UUID?
 
@@ -64,6 +66,22 @@ final class VideoFeedViewModel {
 
     var videosWithMapCoordinates: [FeedVideo] {
         videos.filter { $0.mapCoordinate != nil }
+    }
+
+    /// Loads clips posted by people from `country` (Map tab filter). Pass `nil` to clear.
+    func loadMapClips(country: String?) async {
+        guard let country, !country.isEmpty else {
+            mapFilteredClips = []
+            return
+        }
+
+        do {
+            let page = try await fetchFeed.execute(limit: pageSize, cursor: nil, country: country)
+            mapFilteredClips = page.items.filter { $0.mapCoordinate != nil }
+            AppLog.info("feed.map", "country=\(country) clips=\(mapFilteredClips.count)")
+        } catch {
+            AppLog.warning("feed.map", "load failed country=\(country): \(error.localizedDescription)")
+        }
     }
 
     func reload() async {

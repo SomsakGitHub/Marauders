@@ -9,6 +9,7 @@
 | ส่วน | รายละเอียด |
 |------|------------|
 | **ฟีด** | เลื่อนแนวตั้งเต็มจอ (paging), เล่นเฉพาะคลิปที่อยู่กลางจอ |
+| **แผนที่** | หมุดคลิปบนแผนที่ + Near Me; กรองเฉพาะโพสต์ของคนประเทศที่เลือก |
 | **อัปโหลด** | เลือกวิดีโอจากคลัง → ส่ง multipart ไป API → โผล่บนฟีด |
 | **Auth** | Sign in with Apple → แลก identity token เป็น session; เลือกประเทศตอน login |
 | **API** | REST บน Workers, validate input ฝั่งเซิร์ฟเวอร์ |
@@ -76,7 +77,7 @@ Marauders/
 ```bash
 cd backend
 npm install
-npm run db:migrate    # รัน 001_schema, 002_seed, 003_remove_google_seeds
+npm run db:migrate    # รัน migration ทั้งหมดใน backend/sql/ (001–008)
 ```
 
 หรือรัน SQL ใน Neon SQL Editor ตามไฟล์ใน `backend/sql/` ทีละไฟล์
@@ -117,13 +118,15 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 |--------|------|----------|
 | `GET` | `/health` | health check |
 | `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
-| `GET` | `/v1/feed?limit=20&cursor=<uuid>` | รายการฟีด (JSON) |
+| `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | รายการฟีด; `country` กรองเฉพาะคลิปของผู้อัปโหลดประเทศนั้น |
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` เท่านั้น — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์จาก R2 |
 
 **ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB
 
 **ประเทศตอน login:** แอปส่ง `country` เป็น ISO 3166-1 alpha-2 (เช่น `TH`) พร้อม identity token; Worker ตรวจรูปแบบแล้วเก็บใน `app_users.country` (ไม่ทับค่าที่มีอยู่)
+
+**กรองแผนที่ตามประเทศ:** แท็บ Map มีตัวกรองเลือกดูเฉพาะโพสต์ของคนประเทศนั้น โดยส่ง `country` ไปกับ `/v1/feed` (ฝั่ง Worker join `feed_videos.owner_user_id` กับ `app_users.country`)
 
 ตัวอย่าง response ฟีด:
 
@@ -132,7 +135,10 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
   "items": [
     {
       "id": "uuid",
-      "streamURL": "https://.../v1/media/videos/....mp4"
+      "streamURL": "https://.../v1/media/videos/....mp4",
+      "latitude": 13.7563,
+      "longitude": 100.5018,
+      "country": "TH"
     }
   ]
 }

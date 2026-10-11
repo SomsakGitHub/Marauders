@@ -18,11 +18,24 @@ struct MapView: View {
     @State private var selectedClip: FeedVideo?
     @State private var isNearMeActive = false
     @State private var nearMeRadius = NearMeRadius.default
+    @State private var isCountryFilterPresented = false
+
+    /// All clips available on the map, honoring the country filter.
+    private var allClips: [FeedVideo] {
+        guard let country = viewModel.countryFilter else {
+            return feedViewModel.videosWithMapCoordinates
+        }
+        return feedViewModel.mapFilteredClips.filter { $0.country == country }
+    }
 
     private var clipsOnMap: [FeedVideo] {
-        let all = feedViewModel.videosWithMapCoordinates
-        guard isNearMeActive, let user = viewModel.userCoordinate else { return all }
-        return MapClipProximity.clips(within: nearMeRadius.meters, of: user, from: all)
+        guard isNearMeActive, let user = viewModel.userCoordinate else { return allClips }
+        return MapClipProximity.clips(within: nearMeRadius.meters, of: user, from: allClips)
+    }
+
+    private var countryFilterLabel: String {
+        guard let country = viewModel.countryFilter else { return "All" }
+        return Country.flagEmoji(for: country)
     }
 
     var body: some View {
@@ -51,7 +64,7 @@ struct MapView: View {
             .navigationTitle("Map")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
                     Button {
                         viewModel.currentLocationButtonTapped()
                     } label: {
@@ -59,6 +72,17 @@ struct MapView: View {
                     }
                     .accessibilityLabel("Current Location")
                     .accessibilityIdentifier("map.currentLocation")
+
+                    Button {
+                        isCountryFilterPresented = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "globe")
+                            Text(countryFilterLabel)
+                        }
+                    }
+                    .accessibilityLabel("Filter by country")
+                    .accessibilityIdentifier("map.countryFilter")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button("Near Me") {
@@ -99,12 +123,15 @@ struct MapView: View {
         .onAppear {
             viewModel.onMapTabBecameActive()
         }
-        .onChange(of: feedViewModel.videosWithMapCoordinates.count) { _, _ in
+        .onChange(of: allClips.count) { _, _ in
             if isNearMeActive {
                 applyNearMeCamera()
-            } else if let region = Self.regionFitting(feedViewModel.videosWithMapCoordinates) {
+            } else if let region = Self.regionFitting(allClips) {
                 position = .region(region)
             }
+        }
+        .onChange(of: viewModel.countryFilter) { _, newValue in
+            Task { await feedViewModel.loadMapClips(country: newValue) }
         }
         .onChange(of: nearMeRadius) { _, _ in
             guard isNearMeActive else { return }
@@ -115,6 +142,9 @@ struct MapView: View {
                 onOpenClipInFeed(clip.id)
                 selectedClip = nil
             }
+        }
+        .sheet(isPresented: $isCountryFilterPresented) {
+            MapCountryFilterSheet(selection: $viewModel.countryFilter)
         }
         .onChange(of: viewModel.cameraCenterGeneration) { _, _ in
             if isNearMeActive {
@@ -142,7 +172,7 @@ struct MapView: View {
                 viewModel.currentLocationButtonTapped()
             }
             applyNearMeCamera()
-        } else if let region = Self.regionFitting(feedViewModel.videosWithMapCoordinates) {
+        } else if let region = Self.regionFitting(allClips) {
             position = .region(region)
         }
     }

@@ -6,6 +6,7 @@ type FeedRow = {
   stream_url: string;
   latitude: number | null;
   longitude: number | null;
+  country: string | null;
 };
 
 export type FeedItemJson = {
@@ -13,6 +14,7 @@ export type FeedItemJson = {
   streamURL: string;
   latitude: number | null;
   longitude: number | null;
+  country: string | null;
 };
 
 const UPLOAD_AUTHOR_NAME = "@marauders";
@@ -23,23 +25,28 @@ export async function listFeedVideos(
   databaseUrl: string,
   limit: number,
   cursor: string | null,
+  country: string | null = null,
 ): Promise<FeedItemJson[]> {
   const sql = neon(databaseUrl);
 
   const rows = (cursor
     ? await sql`
-        SELECT id, stream_url, latitude, longitude
-        FROM feed_videos
-        WHERE (sort_order, created_at, id) < (
-          SELECT sort_order, created_at, id FROM feed_videos WHERE id = ${cursor}::uuid
-        )
-        ORDER BY sort_order DESC, created_at DESC, id DESC
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, u.country
+        FROM feed_videos v
+        LEFT JOIN app_users u ON u.id = v.owner_user_id
+        WHERE (${country}::text IS NULL OR u.country = ${country})
+          AND (v.sort_order, v.created_at, v.id) < (
+            SELECT sort_order, created_at, id FROM feed_videos WHERE id = ${cursor}::uuid
+          )
+        ORDER BY v.sort_order DESC, v.created_at DESC, v.id DESC
         LIMIT ${limit}
       `
     : await sql`
-        SELECT id, stream_url, latitude, longitude
-        FROM feed_videos
-        ORDER BY sort_order DESC, created_at DESC, id DESC
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, u.country
+        FROM feed_videos v
+        LEFT JOIN app_users u ON u.id = v.owner_user_id
+        WHERE (${country}::text IS NULL OR u.country = ${country})
+        ORDER BY v.sort_order DESC, v.created_at DESC, v.id DESC
         LIMIT ${limit}
       `) as FeedRow[];
 
@@ -50,6 +57,7 @@ export async function listFeedVideos(
       streamURL: row.stream_url,
       latitude: row.latitude,
       longitude: row.longitude,
+      country: row.country,
     };
   });
 }
@@ -98,5 +106,6 @@ export async function insertFeedVideo(
     streamURL: row.stream_url,
     latitude: row.latitude,
     longitude: row.longitude,
+    country: null,
   };
 }

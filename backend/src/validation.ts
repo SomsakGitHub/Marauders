@@ -44,6 +44,20 @@ export function parseFeedCursor(raw: string | null): string | null {
   return raw;
 }
 
+/** Optional ISO 3166-1 alpha-2 filter for the feed, normalized to uppercase. */
+export function parseFeedCountry(raw: string | null): string | null {
+  if (raw === null || raw === "") {
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  if (!/^[A-Za-z]{2}$/.test(trimmed)) {
+    throw new FeedValidationError("country must be a 2-letter ISO code");
+  }
+
+  return trimmed.toUpperCase();
+}
+
 type MultipartField = string | File | null;
 
 export function resolveVideoMime(file: File): string {

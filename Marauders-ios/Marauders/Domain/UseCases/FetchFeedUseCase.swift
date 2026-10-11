@@ -14,7 +14,11 @@ struct FetchFeedUseCase: Sendable {
         self.defaultLimit = defaultLimit
     }
 
-    func execute(limit: Int? = nil, cursor: UUID? = nil) async throws -> FeedPage {
-        try await repository.fetchFeed(limit: limit ?? defaultLimit, cursor: cursor)
+    func execute(limit: Int? = nil, cursor: UUID? = nil, country: String? = nil) async throws -> FeedPage {
+        try await repository.fetchFeed(
+            limit: limit ?? defaultLimit,
+            cursor: cursor,
+            country: country
+        )
     }
 }

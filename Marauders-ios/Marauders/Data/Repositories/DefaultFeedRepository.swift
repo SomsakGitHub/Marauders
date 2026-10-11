@@ -15,4 +15,8 @@ struct DefaultFeedRepository: FeedRepository {
     func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
         try await apiClient.fetchFeed(limit: limit, cursor: cursor)
     }
+
+    func fetchFeed(limit: Int, cursor: UUID?, country: String?) async throws -> FeedPage {
+        try await apiClient.fetchFeed(limit: limit, cursor: cursor, country: country)
+    }
 }

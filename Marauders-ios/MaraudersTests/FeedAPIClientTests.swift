@@ -64,6 +64,52 @@ struct FeedAPIClientTests {
         #expect(cursorValue?.lowercased() == cursor.uuidString.lowercased())
     }
 
+    @Test func fetchFeedPassesUppercasedCountryQueryParam() async throws {
+        let body = FeedAPIClientTests.feedResponseJSON(items: [])
+
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, body)
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = FeedAPIClient(session: session)
+        _ = try await client.fetchFeed(limit: 10, country: "th")
+
+        let countryValue = URLComponents(url: capturedRequest!.url!, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name == "country" })?
+            .value
+        #expect(countryValue == "TH")
+    }
+
+    @Test func fetchFeedDecodesUploaderCountry() async throws {
+        let videoID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let payload: [String: Any] = [
+            "items": [
+                [
+                    "id": videoID.uuidString,
+                    "streamURL": "https://cdn.example.com/v/1.mp4",
+                    "country": "TH",
+                ],
+            ],
+        ]
+        let body = try JSONSerialization.data(withJSONObject: payload)
+
+        let session = StubURLSessionFactory.make { request in
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, body)
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = FeedAPIClient(session: session)
+        let page = try await client.fetchFeed(limit: 20)
+
+        #expect(page.items.first?.country == "TH")
+    }
+
     @Test func fetchFeedRejectsInvalidLimitBeforeNetwork() async {
         let client = FeedAPIClient(session: URLSession(configuration: .ephemeral))
 

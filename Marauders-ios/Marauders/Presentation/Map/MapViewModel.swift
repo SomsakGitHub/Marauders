@@ -15,6 +15,9 @@ final class MapViewModel {
     private(set) var userCoordinate: CLLocationCoordinate2D?
     private(set) var cameraCenterGeneration = 0
 
+    /// Selected country filter for map pins (`nil` shows every country).
+    var countryFilter: String?
+
     var showLocationPrePrompt = false
     var showLocationDeniedAlert = false
 

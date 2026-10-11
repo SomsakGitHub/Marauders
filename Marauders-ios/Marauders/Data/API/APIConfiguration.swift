@@ -36,7 +36,11 @@ enum APIConfiguration {
         return url
     }
 
-    static func feedRequestURL(limit: Int = feedLimitDefault, cursor: UUID? = nil) throws -> URL {
+    static func feedRequestURL(
+        limit: Int = feedLimitDefault,
+        cursor: UUID? = nil,
+        country: String? = nil
+    ) throws -> URL {
         guard limit >= 1, limit <= feedLimitMax else {
             throw FeedAPIError.invalidLimit
         }
@@ -46,6 +50,9 @@ enum APIConfiguration {
         var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor {
             queryItems.append(URLQueryItem(name: "cursor", value: cursor.uuidString))
+        }
+        if let country, !country.isEmpty {
+            queryItems.append(URLQueryItem(name: "country", value: country.uppercased()))
         }
         components?.queryItems = queryItems
         guard let url = components?.url else {
