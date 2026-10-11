@@ -8,3 +8,15 @@ backend/.wrangler/
 backend/dist/
 backend/.dev.vars
 backend/.test-clip.mp4
+
+# iOS build & fastlane artifacts
+Marauders-ios/build/
+Marauders-ios/vendor/bundle/
+Marauders-ios/.bundle/
+Marauders-ios/fastlane/build/
+Marauders-ios/fastlane/report.xml
+Marauders-ios/fastlane/README.md
+Marauders-ios/fastlane/test_output/
+*.xcresult
+*.ipa
+*.dSYM.zip
