@@ -76,6 +76,7 @@ cat ~/.jenkins/secrets/initialAdminPassword
 - **Git**
 - **Credentials Binding**
 - **JUnit**
+- **Coverage** (แสดง tab coverage จาก Cobertura XML ที่ `fastlane test` สร้าง)
 - **GitHub** (ถ้าจะใช้ webhook ให้ push แล้วรันเอง)
 
 ### ขั้นที่ 3 — ตั้ง label `macos` ให้ node
@@ -127,7 +128,7 @@ Obtained Jenkinsfile from git ...
 [Pipeline] stage (Checkout | Install dependencies | Unit tests | ...)
 ```
 
-ถ้าผ่าน จะได้ JUnit trend (70 tests) + coverage ในหน้า build
+ถ้าผ่าน จะได้ JUnit trend (70 tests) + **Coverage** tab (ต้องติดตั้ง plugin ตามขั้นที่ 2) ในหน้า build
 
 ### ขั้นที่ 8 — ให้ push แล้วรันเอง (webhook) — ไม่บังคับ
 

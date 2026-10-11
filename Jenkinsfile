@@ -54,6 +54,15 @@ pipeline {
           sh 'xcrun xccov view --report build/test/Marauders.xcresult || true'
         }
       }
+      post {
+        always {
+          // Requires the Jenkins "Coverage" plugin. Renders a coverage tab
+          // (line/branch drift vs. previous build) from the Cobertura XML that
+          // `fastlane test` emits via xcresultparser.
+          recordCoverage tools: [[parser: 'COBERTURA', pattern: 'Marauders-ios/build/test/coverage.xml']],
+                         sourceCodeRetention: 'LAST_BUILD'
+        }
+      }
     }
 
     stage('Deploy to TestFlight') {

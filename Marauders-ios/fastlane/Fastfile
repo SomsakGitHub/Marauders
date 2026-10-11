@@ -38,6 +38,11 @@ platform :ios do
         # publish results. xcresultparser understands Swift Testing.
         if File.exist?("build/test/Marauders.xcresult")
           sh("xcresultparser -o junit build/test/Marauders.xcresult > build/test/junit.xml")
+          # Cobertura XML feeds the Jenkins "Coverage" plugin so it can render
+          # a dedicated coverage tab (line/branch/method). `--project-root`
+          # rewrites absolute file paths relative to the project for readable
+          # class names and source links.
+          sh("xcresultparser -o cobertura -p \"$(pwd)\" build/test/Marauders.xcresult > build/test/coverage.xml")
         end
       end
     end
