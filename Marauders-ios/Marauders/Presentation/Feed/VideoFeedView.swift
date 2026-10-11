@@ -9,6 +9,10 @@ struct VideoFeedView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @Bindable var viewModel: VideoFeedViewModel
+    /// True while the Feed tab is the visible tab. Playback resumes only then,
+    /// so a Map/Upload visit (or a system permission alert) never starts
+    /// background audio/video.
+    var isFeedTabSelected: Bool
 
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
@@ -42,16 +46,27 @@ struct VideoFeedView: View {
             syncPageIndex()
             applyFocusRequestIfNeeded()
             warmInitialVideos()
-            applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+            if isFeedTabSelected {
+                applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+            }
         }
         .onChange(of: viewModel.videos) { _, _ in
             syncPageIndex()
             applyFocusRequestIfNeeded()
+            guard isFeedTabSelected else { return }
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
         .onChange(of: viewModel.focusVideoID) { _, _ in
             applyFocusRequestIfNeeded()
+            guard isFeedTabSelected else { return }
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+        }
+        .onChange(of: isFeedTabSelected) { _, isSelected in
+            if isSelected {
+                applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+            } else {
+                playerEngine.pause()
+            }
         }
         .onDisappear {
             playerEngine.pause()
@@ -59,6 +74,7 @@ struct VideoFeedView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
+                guard isFeedTabSelected else { return }
                 applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
             case .background:
                 playerEngine.pause()

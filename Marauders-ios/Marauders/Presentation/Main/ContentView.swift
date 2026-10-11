@@ -14,7 +14,7 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
-            VideoFeedView(viewModel: feedViewModel)
+            VideoFeedView(viewModel: feedViewModel, isFeedTabSelected: router.selectedTab == .feed)
                 .tabItem {
                     Label("Feed", systemImage: "play.rectangle.fill")
                 }
