@@ -57,7 +57,15 @@ pipeline {
     }
 
     stage('Deploy to TestFlight') {
-      when { anyOf { branch 'main'; branch 'master' } }
+      when {
+        anyOf {
+          branch 'main'
+          branch 'master'
+          // Plain (non-multibranch) Pipeline jobs don't set BRANCH_NAME, so
+          // fall back to GIT_BRANCH which the Git plugin sets to origin/main.
+          expression { env.GIT_BRANCH in ['origin/main', 'origin/master'] }
+        }
+      }
       steps {
         withCredentials([
           file(credentialsId: 'asc-api-key', variable: 'ASC_KEY_PATH'),
