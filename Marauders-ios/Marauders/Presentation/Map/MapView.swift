@@ -101,11 +101,16 @@ struct MapView: View {
                 position = .region(region)
             }
         }
-        .sheet(item: $selectedClip) { clip in
-            MapClipPreviewSheet(clip: clip, userCoordinate: viewModel.userCoordinate) {
-                onOpenClipInFeed(clip.id)
-                selectedClip = nil
-            }
+        .fullScreenCover(item: $selectedClip) { clip in
+            MapClipPlayerView(
+                clip: clip,
+                userCoordinate: viewModel.userCoordinate,
+                onClose: { selectedClip = nil },
+                onOpenInFeed: {
+                    onOpenClipInFeed(clip.id)
+                    selectedClip = nil
+                }
+            )
         }
         .sheet(isPresented: $isCountryFilterPresented) {
             MapCountryFilterSheet(selection: $viewModel.countryFilter)
@@ -293,70 +298,6 @@ struct MapView: View {
             center: center,
             span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: longitudeDelta)
         )
-    }
-}
-
-private struct MapClipPreviewSheet: View {
-    let clip: FeedVideo
-    let userCoordinate: CLLocationCoordinate2D?
-    let onPlayInFeed: () -> Void
-
-    @State private var thumbnail: UIImage?
-
-    var body: some View {
-        VStack(spacing: 16) {
-            clipThumbnail
-            VStack(spacing: 4) {
-                if let authorName = clip.authorName {
-                    Text(authorName)
-                        .font(.subheadline.weight(.semibold))
-                }
-                if let caption = clip.caption,
-                   !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(caption)
-                        .font(.subheadline)
-                        .multilineTextAlignment(.center)
-                }
-                if let country = clip.country {
-                    Text("\(Country.flagEmoji(for: country)) \(CountryCatalog.name(for: country))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            if let userCoordinate,
-               let meters = MapClipProximity.distanceMeters(from: userCoordinate, to: clip) {
-                Text(MapClipProximity.formattedDistance(meters))
-                    .font(.subheadline.weight(.medium))
-                    .accessibilityIdentifier("map.clipDistance")
-            }
-            Button("Play in Feed", action: onPlayInFeed)
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("map.playClipInFeed")
-        }
-        .padding(24)
-        .presentationDetents([.height(320)])
-        .task(id: clip.streamURL) {
-            thumbnail = await VideoThumbnailLoader.shared.thumbnail(
-                for: clip.streamURL,
-                maxPixelSize: 320
-            )
-        }
-    }
-
-    @ViewBuilder
-    private var clipThumbnail: some View {
-        Group {
-            if let thumbnail {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Color(white: 0.2)
-                    .overlay { ProgressView() }
-            }
-        }
-        .frame(width: 120, height: 120)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
