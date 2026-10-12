@@ -7,12 +7,12 @@ import CoreLocation
 import Foundation
 
 final class LocationManagerDelegateBridge: NSObject, CLLocationManagerDelegate {
-    var onAuthorizationChange: ((CLLocationManager) -> Void)?
+    var onAuthorizationChange: (() -> Void)?
     var onLocations: (([CLLocation]) -> Void)?
     var onFailure: ((Error) -> Void)?
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        onAuthorizationChange?(manager)
+        onAuthorizationChange?()
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {

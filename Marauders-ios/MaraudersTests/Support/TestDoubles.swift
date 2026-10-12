@@ -3,6 +3,7 @@
 //  MaraudersTests
 //
 
+import CoreLocation
 import Foundation
 @testable import Marauders
 
@@ -104,4 +105,33 @@ final class RecordingFeedRepository: FeedRepository, @unchecked Sendable {
 
 final class CallbackFlag: @unchecked Sendable {
     var wasCalled = false
+}
+
+@MainActor
+final class FakeLocationManager: LocationManaging {
+    var authorizationStatus: CLAuthorizationStatus
+    var desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyHundredMeters
+    var delegate: CLLocationManagerDelegate?
+    private(set) var authorizationRequestCount = 0
+    private(set) var locationRequestCount = 0
+
+    init(authorizationStatus: CLAuthorizationStatus = .notDetermined) {
+        self.authorizationStatus = authorizationStatus
+    }
+
+    func requestWhenInUseAuthorization() {
+        authorizationRequestCount += 1
+    }
+
+    func requestLocation() {
+        locationRequestCount += 1
+    }
+
+    func simulateAuthorizationChange() {
+        delegate?.locationManagerDidChangeAuthorization?(CLLocationManager())
+    }
+
+    func simulateLocations(_ locations: [CLLocation]) {
+        delegate?.locationManager?(CLLocationManager(), didUpdateLocations: locations)
+    }
 }

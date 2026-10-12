@@ -15,12 +15,13 @@ struct UploadVideoViewModelTests {
     private func makeViewModel(
         exporter: VideoExporting = StubVideoExporter(result: .failure(StubError.exportFailed)),
         uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed)),
+        locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader()
     ) -> UploadVideoViewModel {
         UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: exporter),
             uploadVideo: UploadFeedVideoUseCase(repository: uploadRepository),
-            locationManager: CLLocationManager(),
+            locationManager: locationManager,
             videoLocationReader: videoLocationReader
         )
     }
@@ -184,5 +185,105 @@ struct UploadVideoViewModelTests {
         #expect(viewModel.clipLocation == nil)
         #expect(viewModel.statusMessage == nil)
         #expect(viewModel.isSuccess == false)
+    }
+
+    @Test func clipLocationWhenAuthorizedRequestsFixImmediately() {
+        let locationManager = FakeLocationManager(authorizationStatus: .authorizedWhenInUse)
+        let viewModel = makeViewModel(locationManager: locationManager)
+
+        viewModel.setClipLocationFromCurrentPositionTapped()
+
+        #expect(viewModel.isResolvingClipLocation)
+        #expect(locationManager.locationRequestCount == 1)
+        #expect(locationManager.authorizationRequestCount == 0)
+        #expect(viewModel.showClipLocationPrePrompt == false)
+        #expect(viewModel.showClipLocationDeniedAlert == false)
+    }
+
+    @Test func clipLocationWhenDeniedShowsAlertWithoutRequesting() {
+        let locationManager = FakeLocationManager(authorizationStatus: .denied)
+        let viewModel = makeViewModel(locationManager: locationManager)
+
+        viewModel.setClipLocationFromCurrentPositionTapped()
+
+        #expect(viewModel.showClipLocationDeniedAlert)
+        #expect(viewModel.isResolvingClipLocation == false)
+        #expect(locationManager.locationRequestCount == 0)
+        #expect(locationManager.authorizationRequestCount == 0)
+    }
+
+    @Test func clipLocationWhenNotDeterminedShowsPrePrompt() {
+        let locationManager = FakeLocationManager(authorizationStatus: .notDetermined)
+        let viewModel = makeViewModel(locationManager: locationManager)
+
+        viewModel.setClipLocationFromCurrentPositionTapped()
+
+        #expect(viewModel.showClipLocationPrePrompt)
+        #expect(locationManager.authorizationRequestCount == 0)
+        #expect(locationManager.locationRequestCount == 0)
+    }
+
+    @Test func confirmingPrePromptRequestsSystemAuthorization() {
+        let locationManager = FakeLocationManager(authorizationStatus: .notDetermined)
+        let viewModel = makeViewModel(locationManager: locationManager)
+        viewModel.setClipLocationFromCurrentPositionTapped()
+
+        viewModel.confirmClipLocationPermissionRequest()
+
+        #expect(viewModel.showClipLocationPrePrompt == false)
+        #expect(locationManager.authorizationRequestCount == 1)
+    }
+
+    @Test func cancellingPrePromptDoesNotRequestAuthorization() {
+        let locationManager = FakeLocationManager(authorizationStatus: .notDetermined)
+        let viewModel = makeViewModel(locationManager: locationManager)
+        viewModel.setClipLocationFromCurrentPositionTapped()
+
+        viewModel.cancelClipLocationPermissionRequest()
+
+        #expect(viewModel.showClipLocationPrePrompt == false)
+        #expect(locationManager.authorizationRequestCount == 0)
+    }
+
+    @Test func authorizationGrantedAfterPromptRequestsFix() async {
+        let locationManager = FakeLocationManager(authorizationStatus: .notDetermined)
+        let viewModel = makeViewModel(locationManager: locationManager)
+        viewModel.setClipLocationFromCurrentPositionTapped()
+        viewModel.confirmClipLocationPermissionRequest()
+
+        locationManager.authorizationStatus = .authorizedWhenInUse
+        locationManager.simulateAuthorizationChange()
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        #expect(locationManager.locationRequestCount == 1)
+        #expect(viewModel.isResolvingClipLocation)
+    }
+
+    @Test func authorizationDeniedAfterPromptShowsAlert() async {
+        let locationManager = FakeLocationManager(authorizationStatus: .notDetermined)
+        let viewModel = makeViewModel(locationManager: locationManager)
+        viewModel.setClipLocationFromCurrentPositionTapped()
+        viewModel.confirmClipLocationPermissionRequest()
+
+        locationManager.authorizationStatus = .denied
+        locationManager.simulateAuthorizationChange()
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        #expect(viewModel.showClipLocationDeniedAlert)
+        #expect(locationManager.locationRequestCount == 0)
+    }
+
+    @Test func receivedLocationSetsClipLocation() async {
+        let locationManager = FakeLocationManager(authorizationStatus: .authorizedWhenInUse)
+        let viewModel = makeViewModel(locationManager: locationManager)
+        viewModel.setClipLocationFromCurrentPositionTapped()
+        #expect(viewModel.isResolvingClipLocation)
+
+        locationManager.simulateLocations([CLLocation(latitude: 13.7563, longitude: 100.5018)])
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        #expect(viewModel.clipLocation == Self.bangkok)
+        #expect(viewModel.isResolvingClipLocation == false)
+        #expect(viewModel.statusMessage == nil)
     }
 }

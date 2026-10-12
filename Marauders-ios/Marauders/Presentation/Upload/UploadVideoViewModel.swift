@@ -27,14 +27,14 @@ final class UploadVideoViewModel {
     private var pickerStagingURL: URL?
     var onUploaded: (() async -> Void)?
 
-    private let locationManager: CLLocationManager
+    private let locationManager: LocationManaging
     private let locationDelegateBridge = LocationManagerDelegateBridge()
     private var pendingClipLocationRequest = false
 
     init(
         prepareVideo: PrepareVideoForUploadUseCase,
         uploadVideo: UploadFeedVideoUseCase,
-        locationManager: CLLocationManager = CLLocationManager(),
+        locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader()
     ) {
         self.prepareVideo = prepareVideo
@@ -174,9 +174,9 @@ final class UploadVideoViewModel {
     private func configureLocationManagerIfNeeded() {
         guard !AppRuntimeConfiguration.isUITesting else { return }
 
-        locationDelegateBridge.onAuthorizationChange = { [weak self] manager in
+        locationDelegateBridge.onAuthorizationChange = { [weak self] in
             Task { @MainActor in
-                self?.handleAuthorizationChange(manager)
+                self?.handleAuthorizationChange()
             }
         }
         locationDelegateBridge.onLocations = { [weak self] locations in
@@ -196,10 +196,10 @@ final class UploadVideoViewModel {
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
 
-    private func handleAuthorizationChange(_ manager: CLLocationManager) {
+    private func handleAuthorizationChange() {
         guard pendingClipLocationRequest else { return }
 
-        switch manager.authorizationStatus {
+        switch locationManager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             pendingClipLocationRequest = false
             requestClipLocationFix()

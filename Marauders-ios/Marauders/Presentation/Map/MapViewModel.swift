@@ -20,12 +20,12 @@ final class MapViewModel {
 
     var showLocationDeniedAlert = false
 
-    private let locationManager: CLLocationManager
+    private let locationManager: LocationManaging
     private let delegateBridge = LocationManagerDelegateBridge()
     private var isLocationServicesAttached = false
     private var wantsUserLocationUpdate = false
 
-    init(locationManager: CLLocationManager = CLLocationManager()) {
+    init(locationManager: LocationManaging = CLLocationManager()) {
         self.locationManager = locationManager
         if AppRuntimeConfiguration.isUITesting {
             authorizationStatus = .authorizedWhenInUse
@@ -134,9 +134,9 @@ final class MapViewModel {
         guard !isLocationServicesAttached, !AppRuntimeConfiguration.isUITesting else { return }
         isLocationServicesAttached = true
 
-        delegateBridge.onAuthorizationChange = { [weak self] manager in
+        delegateBridge.onAuthorizationChange = { [weak self] in
             Task { @MainActor in
-                self?.handleAuthorizationChange(manager)
+                self?.handleAuthorizationChange()
             }
         }
         delegateBridge.onLocations = { [weak self] locations in
@@ -154,11 +154,11 @@ final class MapViewModel {
         locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
 
-    private func handleAuthorizationChange(_ manager: CLLocationManager) {
-        authorizationStatus = manager.authorizationStatus
+    private func handleAuthorizationChange() {
+        authorizationStatus = locationManager.authorizationStatus
         guard wantsUserLocationUpdate, canShowUserOnMap else { return }
         wantsUserLocationUpdate = false
-        manager.requestLocation()
+        locationManager.requestLocation()
     }
 
     private func handleLocations(_ locations: [CLLocation]) {

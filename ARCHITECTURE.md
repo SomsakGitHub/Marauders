@@ -407,6 +407,7 @@ flowchart LR
 ## Tests
 
 - `MaraudersTests/FeedPlayerEngineTests.swift` — HTTPS policy, pause semantics, retry (no network).
+- `MaraudersTests/MapViewModelTests.swift` / `UploadVideoViewModelTests.swift` — location permission flow via `FakeLocationManager` (an in-memory `LocationManaging`): not-determined → pre-prompt, denied → alert, authorized → fix request, granted-after-prompt → fix request, location delivered → coordinate/clip location.
 - `MaraudersUITests/MaraudersUITests.swift` — smoke tests (feed tab, upload tab, empty-feed error) with deterministic mock data.
 - Run: Xcode **Product → Test** or `xcodebuild test -scheme Marauders`.
 
