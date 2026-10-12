@@ -129,9 +129,17 @@ struct MapView: View {
         }
     }
 
+    /// The search pill is currently hidden (kept for later). Flip to `true` to
+    /// bring back client-side clip search.
+    private static let isSearchVisible = false
+
     private var topControls: some View {
         HStack(spacing: 10) {
-            MapSearchBar(text: $searchText)
+            if Self.isSearchVisible {
+                MapSearchBar(text: $searchText)
+            } else {
+                Spacer()
+            }
             filtersMenu
         }
         .padding(.horizontal, 16)

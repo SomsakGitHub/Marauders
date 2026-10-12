@@ -130,9 +130,9 @@ sequenceDiagram
 ### Map tab (Instagram-style map)
 
 - **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present. The response also carries `authorName` / `caption` / `musicTitle`, used by client-side search.
-- **Layout:** full-screen `Map` (no navigation bar) with a floating `MapSearchBar` pill, a filters menu (country / near me / sign out) and a locate FAB. `MapView` tracks the visible region via `.onMapCameraChange(frequency: .onEnd)`.
+- **Layout:** full-screen `Map` (no navigation bar) with a filters menu (country / near me / sign out) and a locate FAB. `MapView` tracks the visible region via `.onMapCameraChange(frequency: .onEnd)`.
 - **Pins & clustering:** `MapClipClustering` collapses nearby clips into `MapClipCluster`s using a grid sized from the visible span, so zooming in breaks clusters apart again; single clips render as circular thumbnail pins (`MapClipPinView`) and clusters as a count bubble (`MapClusterPinView`) — tapping a cluster zooms in, tapping a single pin opens the preview.
-- **Search:** `MapClipSearch` filters the already-loaded clips client-side by author handle, caption, music title and country (no network round-trip); the camera re-fits to the matches.
+- **Search (hidden):** `MapClipSearch` filters already-loaded clips client-side by author handle, caption, music title and country (no network round-trip) and re-fits the camera. `MapView.isSearchVisible` is `false` for now; the `MapSearchBar` pill and logic stay in place to re-enable later.
 - **Country filter:** filters menu → `MapCountryFilterSheet`; selection fetches `/v1/feed?country=<ISO2>` via `VideoFeedViewModel.loadMapClips(country:)`.
 - **Near Me:** filters menu toggles a 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
