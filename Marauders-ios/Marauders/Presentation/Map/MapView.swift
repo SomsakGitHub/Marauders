@@ -21,7 +21,6 @@ struct MapView: View {
     @State private var nearMeRadius = NearMeRadius.default
     @State private var isCountryFilterPresented = false
     @State private var searchText = ""
-    @State private var isShelfExpanded = false
 
     /// All clips available on the map, honoring the country filter.
     private var allClips: [FeedVideo] {
@@ -46,20 +45,6 @@ struct MapView: View {
         MapClipClustering.clusters(from: mapClips, in: visibleRegion)
     }
 
-    /// Clips listed in the shelf. Searching shows every match; otherwise only
-    /// the clips inside the visible region.
-    private var shelfClips: [FeedVideo] {
-        guard !isSearching else { return mapClips }
-        return mapClips.filter { clip in
-            guard let coordinate = clip.mapCoordinate else { return false }
-            return visibleRegion.contains(coordinate)
-        }
-    }
-
-    private var isSearching: Bool {
-        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var body: some View {
         ZStack(alignment: .top) {
             Map(position: $position) {
@@ -80,25 +65,17 @@ struct MapView: View {
                 visibleRegion = context.region
             }
 
-            topControls
-        }
-        .overlay(alignment: .bottom) {
             VStack(spacing: 10) {
+                topControls
                 if isNearMeActive {
                     nearMeBanner
                 }
-                MapClipShelf(
-                    clips: shelfClips,
-                    isSearching: isSearching,
-                    isExpanded: $isShelfExpanded,
-                    onSelect: { selectedClip = $0 }
-                )
             }
         }
         .overlay(alignment: .bottomTrailing) {
             locateButton
                 .padding(.trailing, 16)
-                .padding(.bottom, 190)
+                .padding(.bottom, 24)
         }
         .accessibilityIdentifier("map.root")
         .onAppear {
@@ -117,6 +94,12 @@ struct MapView: View {
         .onChange(of: nearMeRadius) { _, _ in
             guard isNearMeActive else { return }
             applyNearMeCamera()
+        }
+        .onChange(of: searchText) { _, _ in
+            guard let region = Self.regionFitting(mapClips) else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                position = .region(region)
+            }
         }
         .sheet(item: $selectedClip) { clip in
             MapClipPreviewSheet(clip: clip, userCoordinate: viewModel.userCoordinate) {
