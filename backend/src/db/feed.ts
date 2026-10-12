@@ -7,6 +7,9 @@ type FeedRow = {
   latitude: number | null;
   longitude: number | null;
   country: string | null;
+  author_name?: string | null;
+  caption?: string | null;
+  music_title?: string | null;
 };
 
 export type FeedItemJson = {
@@ -15,6 +18,9 @@ export type FeedItemJson = {
   latitude: number | null;
   longitude: number | null;
   country: string | null;
+  authorName: string | null;
+  caption: string | null;
+  musicTitle: string | null;
 };
 
 const UPLOAD_AUTHOR_NAME = "@marauders";
@@ -31,7 +37,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, v.author_name, v.caption, v.music_title, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -42,7 +48,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, v.author_name, v.caption, v.music_title, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -58,6 +64,9 @@ export async function listFeedVideos(
       latitude: row.latitude,
       longitude: row.longitude,
       country: row.country,
+      authorName: row.author_name ?? null,
+      caption: row.caption ?? null,
+      musicTitle: row.music_title ?? null,
     };
   });
 }
@@ -93,7 +102,7 @@ export async function insertFeedVideo(
       ${longitude},
       ${ownerUserId}::uuid
     )
-    RETURNING id, stream_url, latitude, longitude
+    RETURNING id, stream_url, latitude, longitude, author_name, caption, music_title
   `) as FeedRow[];
 
   const row = rows[0];
@@ -107,5 +116,8 @@ export async function insertFeedVideo(
     latitude: row.latitude,
     longitude: row.longitude,
     country: null,
+    authorName: row.author_name ?? null,
+    caption: row.caption ?? null,
+    musicTitle: row.music_title ?? null,
   };
 }

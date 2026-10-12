@@ -15,10 +15,13 @@ struct MapView: View {
 
     @Environment(\.openURL) private var openURL
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
+    @State private var visibleRegion = Self.defaultRegion
     @State private var selectedClip: FeedVideo?
     @State private var isNearMeActive = false
     @State private var nearMeRadius = NearMeRadius.default
     @State private var isCountryFilterPresented = false
+    @State private var searchText = ""
+    @State private var isShelfExpanded = false
 
     /// All clips available on the map, honoring the country filter.
     private var allClips: [FeedVideo] {
@@ -28,96 +31,74 @@ struct MapView: View {
         return feedViewModel.mapFilteredClips.filter { $0.country == country }
     }
 
-    private var clipsOnMap: [FeedVideo] {
+    /// Clips after the near-me radius is applied.
+    private var nearMeClips: [FeedVideo] {
         guard isNearMeActive, let user = viewModel.userCoordinate else { return allClips }
         return MapClipProximity.clips(within: nearMeRadius.meters, of: user, from: allClips)
     }
 
-    private var countryFilterLabel: String {
-        guard let country = viewModel.countryFilter else { return "All" }
-        return Country.flagEmoji(for: country)
+    /// Clips that render as pins: near-me narrowed, then the search query.
+    private var mapClips: [FeedVideo] {
+        MapClipSearch.filter(nearMeClips, query: searchText)
+    }
+
+    private var clusteredClips: [MapClipCluster] {
+        MapClipClustering.clusters(from: mapClips, in: visibleRegion)
+    }
+
+    /// Clips listed in the shelf. Searching shows every match; otherwise only
+    /// the clips inside the visible region.
+    private var shelfClips: [FeedVideo] {
+        guard !isSearching else { return mapClips }
+        return mapClips.filter { clip in
+            guard let coordinate = clip.mapCoordinate else { return false }
+            return visibleRegion.contains(coordinate)
+        }
+    }
+
+    private var isSearching: Bool {
+        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
-        NavigationStack {
+        ZStack(alignment: .top) {
             Map(position: $position) {
                 if viewModel.canShowUserOnMap {
                     UserAnnotation()
                 }
-                ForEach(clipsOnMap) { clip in
-                    if let coordinate = clip.mapCoordinate {
-                        Annotation("", coordinate: coordinate) {
-                            Button {
-                                selectedClip = clip
-                            } label: {
-                                MapClipPinView(clip: clip)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Clip on map")
-                            .accessibilityIdentifier("map.clipPin")
+                ForEach(clusteredClips) { cluster in
+                    Annotation("", coordinate: cluster.coordinate) {
+                        MapClusterPinView(cluster: cluster) {
+                            handleClusterTap(cluster)
                         }
                     }
                 }
             }
             .mapStyle(.standard(elevation: .realistic))
-            .ignoresSafeArea(edges: .bottom)
-            .navigationTitle("Map")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarLeading) {
-                    Button {
-                        viewModel.currentLocationButtonTapped()
-                    } label: {
-                        Image(systemName: "location.fill")
-                    }
-                    .accessibilityLabel("Current Location")
-                    .accessibilityIdentifier("map.currentLocation")
+            .ignoresSafeArea()
+            .onMapCameraChange(frequency: .onEnd) { context in
+                visibleRegion = context.region
+            }
 
-                    Button {
-                        isCountryFilterPresented = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "globe")
-                            Text(countryFilterLabel)
-                        }
-                    }
-                    .accessibilityLabel("Filter by country")
-                    .accessibilityIdentifier("map.countryFilter")
+            topControls
+        }
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 10) {
+                if isNearMeActive {
+                    nearMeBanner
                 }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Near Me") {
-                        toggleNearMe()
-                    }
-                    .fontWeight(isNearMeActive ? .semibold : .regular)
-                    .accessibilityIdentifier("map.nearMe")
-                    if let onSignOut {
-                        Button("Sign Out", action: onSignOut)
-                    }
-                }
+                MapClipShelf(
+                    clips: shelfClips,
+                    isSearching: isSearching,
+                    isExpanded: $isShelfExpanded,
+                    onSelect: { selectedClip = $0 }
+                )
             }
-            .overlay(alignment: .bottom) {
-                VStack(spacing: 12) {
-                    if isNearMeActive {
-                        Picker("Radius", selection: $nearMeRadius) {
-                            ForEach(NearMeRadius.allCases) { radius in
-                                Text(radius.label).tag(radius)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.horizontal, 20)
-                        .accessibilityIdentifier("map.nearMeRadius")
-                    }
-                    if isNearMeActive, clipsOnMap.isEmpty, viewModel.userCoordinate != nil {
-                        Text(nearMeRadius.emptyClipsMessage)
-                            .font(.subheadline.weight(.medium))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .accessibilityIdentifier("map.nearMeEmpty")
-                    }
-                }
-                .padding(.bottom, 24)
-            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            locateButton
+                .padding(.trailing, 16)
+                .padding(.bottom, 190)
         }
         .accessibilityIdentifier("map.root")
         .onAppear {
@@ -165,6 +146,108 @@ struct MapView: View {
         }
     }
 
+    private var topControls: some View {
+        HStack(spacing: 10) {
+            MapSearchBar(text: $searchText)
+            filtersMenu
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+
+    private var filtersMenu: some View {
+        Menu {
+            Button {
+                isCountryFilterPresented = true
+            } label: {
+                Label(countryFilterMenuTitle, systemImage: "globe")
+            }
+            .accessibilityIdentifier("map.countryFilter")
+
+            Button {
+                toggleNearMe()
+            } label: {
+                Label(isNearMeActive ? "Hide clips near me" : "Clips near me",
+                      systemImage: isNearMeActive ? "location.fill" : "location")
+            }
+            .accessibilityIdentifier("map.nearMe")
+
+            if let onSignOut {
+                Divider()
+                Button("Sign Out", role: .destructive, action: onSignOut)
+            }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay { Circle().strokeBorder(.quaternary, lineWidth: 0.5) }
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+        }
+        .accessibilityLabel("Map filters")
+        .accessibilityIdentifier("map.filters")
+    }
+
+    private var countryFilterMenuTitle: String {
+        guard let country = viewModel.countryFilter else { return "All countries" }
+        return CountryCatalog.name(for: country)
+    }
+
+    private var nearMeBanner: some View {
+        VStack(spacing: 10) {
+            Picker("Radius", selection: $nearMeRadius) {
+                ForEach(NearMeRadius.allCases) { radius in
+                    Text(radius.label).tag(radius)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("map.nearMeRadius")
+
+            if nearMeClips.isEmpty, viewModel.userCoordinate != nil {
+                Text(nearMeRadius.emptyClipsMessage)
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .accessibilityIdentifier("map.nearMeEmpty")
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var locateButton: some View {
+        Button {
+            viewModel.currentLocationButtonTapped()
+        } label: {
+            Image(systemName: "location.fill")
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay { Circle().strokeBorder(.quaternary, lineWidth: 0.5) }
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+        }
+        .accessibilityLabel("Current Location")
+        .accessibilityIdentifier("map.currentLocation")
+    }
+
+    private func handleClusterTap(_ cluster: MapClipCluster) {
+        guard cluster.isCluster else {
+            if let clip = cluster.clips.first {
+                selectedClip = clip
+            }
+            return
+        }
+        let span = MKCoordinateSpan(
+            latitudeDelta: max(visibleRegion.span.latitudeDelta * 0.5, 0.004),
+            longitudeDelta: max(visibleRegion.span.longitudeDelta * 0.5, 0.004)
+        )
+        withAnimation(.easeInOut(duration: 0.3)) {
+            position = .region(MKCoordinateRegion(center: cluster.coordinate, span: span))
+        }
+    }
+
     private func toggleNearMe() {
         isNearMeActive.toggle()
         if isNearMeActive {
@@ -179,7 +262,7 @@ struct MapView: View {
 
     private func applyNearMeCamera() {
         guard let user = viewModel.userCoordinate else { return }
-        let region = MapClipProximity.regionFitting(user: user, clips: clipsOnMap)
+        let region = MapClipProximity.regionFitting(user: user, clips: nearMeClips)
         position = .region(region)
     }
 
@@ -232,23 +315,35 @@ private struct MapClipPreviewSheet: View {
     var body: some View {
         VStack(spacing: 16) {
             clipThumbnail
+            VStack(spacing: 4) {
+                if let authorName = clip.authorName {
+                    Text(authorName)
+                        .font(.subheadline.weight(.semibold))
+                }
+                if let caption = clip.caption,
+                   !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(caption)
+                        .font(.subheadline)
+                        .multilineTextAlignment(.center)
+                }
+                if let country = clip.country {
+                    Text("\(Country.flagEmoji(for: country)) \(CountryCatalog.name(for: country))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             if let userCoordinate,
                let meters = MapClipProximity.distanceMeters(from: userCoordinate, to: clip) {
                 Text(MapClipProximity.formattedDistance(meters))
                     .font(.subheadline.weight(.medium))
                     .accessibilityIdentifier("map.clipDistance")
             }
-            if let latitude = clip.latitude, let longitude = clip.longitude {
-                Text(String(format: "%.5f, %.5f", latitude, longitude))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-            }
             Button("Play in Feed", action: onPlayInFeed)
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("map.playClipInFeed")
         }
         .padding(24)
-        .presentationDetents([.height(280)])
+        .presentationDetents([.height(320)])
         .task(id: clip.streamURL) {
             thumbnail = await VideoThumbnailLoader.shared.thumbnail(
                 for: clip.streamURL,
@@ -269,21 +364,17 @@ private struct MapClipPreviewSheet: View {
                     .overlay { ProgressView() }
             }
         }
-        .frame(width: 120, height: 160)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.quaternary, lineWidth: 1)
-        }
-        .accessibilityLabel("Clip preview")
+        .frame(width: 120, height: 120)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
 #Preview {
+    let container = AppDependencyContainer()
     MapView(
         viewModel: MapViewModel(),
-        feedViewModel: VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: UITestFeedRepository())),
-        onSignOut: nil,
+        feedViewModel: container.feedViewModel,
+        onSignOut: {},
         onOpenClipInFeed: { _ in }
     )
 }

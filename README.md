@@ -129,6 +129,8 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 
 **กรองแผนที่ตามประเทศ:** แท็บ Map มีตัวกรองเลือกดูเฉพาะโพสต์ของคนประเทศนั้น โดยส่ง `country` ไปกับ `/v1/feed` (ฝั่ง Worker join `feed_videos.owner_user_id` กับ `app_users.country`)
 
+**แผนที่สไตล์ Instagram:** แท็บ Map เป็นแผนที่เต็มจอ ไม่มี navigation bar — มีแถบค้นหาแบบ pill (กรองคลิปที่โหลดอยู่ด้วย `@author` / แคปชัน / ชื่อประเทศ แบบ client-side), เมนูตัวกรอง (ประเทศ / ใกล้ฉัน / ออกจากระบบ), ปุ่มหาตำแหน่ง และแผงด้านล่างแบบลากขึ้นลงที่โชว์คลิปในพื้นที่ที่มองเห็น หมุดถูกจัดกลุ่มอัตโนมัติ (clustering) ตามระยะ zoom — แตะกลุ่มเพื่อซูมเข้า แตะหมุดเดี่ยวเพื่อเปิดคลิป
+
 **บันทึกตำแหน่งผู้ใช้:** เมื่อผู้ใช้ให้สิทธิ์และแอปได้พิกัดครั้งแรกในเซสชัน หน้า Map จะส่งพิกัดไปที่ `POST /v1/users/me/location` (ครั้งเดียวต่อการเปิดแอป) → เก็บใน `app_users.latitude/longitude`
 
 ตัวอย่าง response ฟีด:
@@ -141,7 +143,10 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
       "streamURL": "https://.../v1/media/videos/....mp4",
       "latitude": 13.7563,
       "longitude": 100.5018,
-      "country": "TH"
+      "country": "TH",
+      "authorName": "@marauders",
+      "caption": "Sunset over the river",
+      "musicTitle": "Golden Hour"
     }
   ]
 }

@@ -127,12 +127,15 @@ sequenceDiagram
 
 `PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`).
 
-### Map tab (clip pins)
+### Map tab (Instagram-style map)
 
-- **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present.
-- **Pins:** `MapView` annotates `allClips` (from `feedViewModel.videosWithMapCoordinates`, or `mapFilteredClips` when a country filter is active); camera fits pin bounds when the clip count changes.
-- **Country filter:** toolbar globe → `MapCountryFilterSheet`; selection fetches `/v1/feed?country=<ISO2>` via `VideoFeedViewModel.loadMapClips(country:)`.
-- **Near Me:** toolbar filter with 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
+- **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present. The response also carries `authorName` / `caption` / `musicTitle`, used by client-side search.
+- **Layout:** full-screen `Map` (no navigation bar) with a floating `MapSearchBar` pill, a filters menu (country / near me / sign out), a locate FAB, and a draggable `MapClipShelf` bottom panel. `MapView` tracks the visible region via `.onMapCameraChange(frequency: .onEnd)`.
+- **Pins & clustering:** `MapClipClustering` collapses nearby clips into `MapClipCluster`s using a grid sized from the visible span, so zooming in breaks clusters apart again; single clips render as circular thumbnail pins (`MapClipPinView`) and clusters as a count bubble (`MapClusterPinView`) — tapping a cluster zooms in, tapping a single pin opens the preview.
+- **Search:** `MapClipSearch` filters the already-loaded clips client-side by author handle, caption, music title and country (no network round-trip).
+- **Bottom shelf:** `MapClipShelf` lists clips in the visible region (or every search match); drag or the chevron expands the peek strip into a grid.
+- **Country filter:** filters menu → `MapCountryFilterSheet`; selection fetches `/v1/feed?country=<ISO2>` via `VideoFeedViewModel.loadMapClips(country:)`.
+- **Near Me:** filters menu toggles a 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
 - **Auth:** Map/Upload gate on Sign in with Apple; `identityToken` → `POST /v1/auth/apple` → access token in Keychain; upload sends `Authorization: Bearer`.
 - **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted. The first fix delivered in a session is reported once to `POST /v1/users/me/location` via `ReportUserLocationUseCase` (composition root), so the account keeps a last-known location.
