@@ -22,11 +22,20 @@ final class MapViewModel {
 
     private let locationManager: LocationManaging
     private let delegateBridge = LocationManagerDelegateBridge()
+    private let reportUserLocation: ReportUserLocationUseCase?
     private var isLocationServicesAttached = false
     private var wantsUserLocationUpdate = false
+    private var hasReportedLocationThisSession = false
 
-    init(locationManager: LocationManaging = CLLocationManager()) {
+    /// In-flight location-report upload (exposed for tests).
+    private(set) var locationReportTask: Task<Void, Never>?
+
+    init(
+        locationManager: LocationManaging = CLLocationManager(),
+        reportUserLocation: ReportUserLocationUseCase? = nil
+    ) {
         self.locationManager = locationManager
+        self.reportUserLocation = reportUserLocation
         if AppRuntimeConfiguration.isUITesting {
             authorizationStatus = .authorizedWhenInUse
         } else {
@@ -135,19 +144,13 @@ final class MapViewModel {
         isLocationServicesAttached = true
 
         delegateBridge.onAuthorizationChange = { [weak self] in
-            Task { @MainActor in
-                self?.handleAuthorizationChange()
-            }
+            self?.handleAuthorizationChange()
         }
         delegateBridge.onLocations = { [weak self] locations in
-            Task { @MainActor in
-                self?.handleLocations(locations)
-            }
+            self?.handleLocations(locations)
         }
-        delegateBridge.onFailure = { [weak self] error in
-            Task { @MainActor in
-                AppLog.warning("map", "location update failed: \(error.localizedDescription)")
-            }
+        delegateBridge.onFailure = { error in
+            AppLog.warning("map", "location update failed: \(error.localizedDescription)")
         }
 
         locationManager.delegate = delegateBridge
@@ -164,6 +167,30 @@ final class MapViewModel {
     private func handleLocations(_ locations: [CLLocation]) {
         guard let location = locations.last else { return }
         applyUserCoordinate(location.coordinate)
+        reportLocationIfNeeded(location.coordinate)
+    }
+
+    /// Persists the user's location to the backend, once per app session.
+    private func reportLocationIfNeeded(_ coordinate: CLLocationCoordinate2D) {
+        guard !hasReportedLocationThisSession,
+              !AppRuntimeConfiguration.isUITesting,
+              let reportUserLocation,
+              let clipLocation = ClipLocation(
+                  latitude: coordinate.latitude,
+                  longitude: coordinate.longitude
+              )
+        else { return }
+
+        hasReportedLocationThisSession = true
+        locationReportTask = Task {
+            do {
+                try await reportUserLocation.execute(location: clipLocation)
+                AppLog.info("map", "user location reported")
+            } catch {
+                self.hasReportedLocationThisSession = false
+                AppLog.warning("map", "user location report failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     private func applyUserCoordinate(_ coordinate: CLLocationCoordinate2D) {

@@ -175,21 +175,15 @@ final class UploadVideoViewModel {
         guard !AppRuntimeConfiguration.isUITesting else { return }
 
         locationDelegateBridge.onAuthorizationChange = { [weak self] in
-            Task { @MainActor in
-                self?.handleAuthorizationChange()
-            }
+            self?.handleAuthorizationChange()
         }
         locationDelegateBridge.onLocations = { [weak self] locations in
-            Task { @MainActor in
-                self?.handleLocations(locations)
-            }
+            self?.handleLocations(locations)
         }
         locationDelegateBridge.onFailure = { [weak self] error in
-            Task { @MainActor in
-                self?.isResolvingClipLocation = false
-                self?.statusMessage = "Couldn’t read location — try again"
-                AppLog.warning("upload", "clip location failed: \(error.localizedDescription)")
-            }
+            self?.isResolvingClipLocation = false
+            self?.statusMessage = "Couldn’t read location — try again"
+            AppLog.warning("upload", "clip location failed: \(error.localizedDescription)")
         }
 
         locationManager.delegate = locationDelegateBridge

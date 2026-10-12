@@ -11,6 +11,7 @@ struct ContentView: View {
     @Bindable var feedViewModel: VideoFeedViewModel
     @Bindable var uploadViewModel: UploadVideoViewModel
     @Bindable var authViewModel: AuthViewModel
+    let reportUserLocation: ReportUserLocationUseCase
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -23,6 +24,7 @@ struct ContentView: View {
             MapTabView(
                 authViewModel: authViewModel,
                 feedViewModel: feedViewModel,
+                reportUserLocation: reportUserLocation,
                 onOpenClipInFeed: { videoID in
                     await coordinator.openClipInFeed(videoID: videoID)
                 }
@@ -64,6 +66,7 @@ struct ContentView: View {
         coordinator: container.coordinator,
         feedViewModel: container.feedViewModel,
         uploadViewModel: container.uploadViewModel,
-        authViewModel: container.authViewModel
+        authViewModel: container.authViewModel,
+        reportUserLocation: container.reportUserLocation
     )
 }

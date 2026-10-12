@@ -120,6 +120,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | รายการฟีด; `country` กรองเฉพาะคลิปของผู้อัปโหลดประเทศนั้น |
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` เท่านั้น — ต้องส่ง `Authorization: Bearer <accessToken>` |
+| `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์จาก R2 |
 
 **ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB
@@ -127,6 +128,8 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 **ประเทศตอน login:** แอปส่ง `country` เป็น ISO 3166-1 alpha-2 (เช่น `TH`) พร้อม identity token; Worker ตรวจรูปแบบแล้วเก็บใน `app_users.country` (ไม่ทับค่าที่มีอยู่)
 
 **กรองแผนที่ตามประเทศ:** แท็บ Map มีตัวกรองเลือกดูเฉพาะโพสต์ของคนประเทศนั้น โดยส่ง `country` ไปกับ `/v1/feed` (ฝั่ง Worker join `feed_videos.owner_user_id` กับ `app_users.country`)
+
+**บันทึกตำแหน่งผู้ใช้:** เมื่อผู้ใช้ให้สิทธิ์และแอปได้พิกัดครั้งแรกในเซสชัน หน้า Map จะส่งพิกัดไปที่ `POST /v1/users/me/location` (ครั้งเดียวต่อการเปิดแอป) → เก็บใน `app_users.latitude/longitude`
 
 ตัวอย่าง response ฟีด:
 

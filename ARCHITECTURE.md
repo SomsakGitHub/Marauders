@@ -135,7 +135,7 @@ sequenceDiagram
 - **Near Me:** toolbar filter with 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
 - **Auth:** Map/Upload gate on Sign in with Apple; `identityToken` → `POST /v1/auth/apple` → access token in Keychain; upload sends `Authorization: Bearer`.
-- **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted.
+- **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted. The first fix delivered in a session is reported once to `POST /v1/users/me/location` via `ReportUserLocationUseCase` (composition root), so the account keeps a last-known location.
 
 ### Swift 6 concurrency
 
@@ -324,8 +324,9 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 |----------|--------|--------|---------|------------------------|---------|----------------|
 | `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
 | `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
+| `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 30s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
 
-**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests` use `StubURLProtocol` (no live network in CI).
+**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests` use `StubURLProtocol` (no live network in CI).
 
 **Not in MVP:** auth headers, automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only).
 

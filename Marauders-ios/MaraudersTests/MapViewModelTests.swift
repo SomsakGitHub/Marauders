@@ -71,4 +71,53 @@ struct MapViewModelTests {
         let viewModel = MapViewModel()
         #expect(viewModel.countryFilter == nil)
     }
+
+    @Test func reportsLocationOncePerSession() async {
+        let locationManager = FakeLocationManager(authorizationStatus: .authorizedWhenInUse)
+        let repository = RecordingUserLocationRepository()
+        let viewModel = MapViewModel(
+            locationManager: locationManager,
+            reportUserLocation: ReportUserLocationUseCase(repository: repository)
+        )
+        viewModel.onMapTabBecameActive()
+
+        locationManager.simulateLocations([CLLocation(latitude: 13.7563, longitude: 100.5018)])
+        await viewModel.locationReportTask?.value
+        locationManager.simulateLocations([CLLocation(latitude: 14.0, longitude: 101.0)])
+        await viewModel.locationReportTask?.value
+
+        #expect(repository.reportCount == 1)
+        #expect(repository.lastReported?.latitude == 13.7563)
+    }
+
+    @Test func reportFailureAllowsRetryOnNextFix() async {
+        let locationManager = FakeLocationManager(authorizationStatus: .authorizedWhenInUse)
+        let repository = RecordingUserLocationRepository(result: .failure(StubError.feedFailed))
+        let viewModel = MapViewModel(
+            locationManager: locationManager,
+            reportUserLocation: ReportUserLocationUseCase(repository: repository)
+        )
+        viewModel.onMapTabBecameActive()
+
+        locationManager.simulateLocations([CLLocation(latitude: 13.7563, longitude: 100.5018)])
+        await viewModel.locationReportTask?.value
+        #expect(repository.reportCount == 1)
+
+        repository.result = .success(())
+        locationManager.simulateLocations([CLLocation(latitude: 14.0, longitude: 101.0)])
+        await viewModel.locationReportTask?.value
+
+        #expect(repository.reportCount == 2)
+    }
+
+    @Test func skipsReportingWithoutReporter() {
+        let locationManager = FakeLocationManager(authorizationStatus: .authorizedWhenInUse)
+        let viewModel = MapViewModel(locationManager: locationManager)
+        viewModel.onMapTabBecameActive()
+
+        locationManager.simulateLocations([CLLocation(latitude: 13.7563, longitude: 100.5018)])
+
+        #expect(viewModel.userCoordinate?.latitude == 13.7563)
+        #expect(viewModel.locationReportTask == nil)
+    }
 }

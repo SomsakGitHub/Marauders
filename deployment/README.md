@@ -34,7 +34,7 @@
    npx wrangler secret put APPLE_CLIENT_ID      # com.somsak.Marauders
    ```
 
-   รัน migration (รวม `006_app_users_and_ownership.sql` … `008_app_users_country_index.sql`):
+   รัน migration (รวม `006_app_users_and_ownership.sql` … `009_app_users_location.sql`):
 
    ```bash
    npm run db:migrate

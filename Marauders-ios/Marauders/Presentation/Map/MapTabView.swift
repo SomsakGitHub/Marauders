@@ -10,7 +10,19 @@ struct MapTabView: View {
     @Bindable var feedViewModel: VideoFeedViewModel
     let onOpenClipInFeed: (UUID) async -> Void
 
-    @State private var mapViewModel = MapViewModel()
+    @State private var mapViewModel: MapViewModel
+
+    init(
+        authViewModel: AuthViewModel,
+        feedViewModel: VideoFeedViewModel,
+        reportUserLocation: ReportUserLocationUseCase? = nil,
+        onOpenClipInFeed: @escaping (UUID) async -> Void
+    ) {
+        self.authViewModel = authViewModel
+        self.feedViewModel = feedViewModel
+        self.onOpenClipInFeed = onOpenClipInFeed
+        _mapViewModel = State(initialValue: MapViewModel(reportUserLocation: reportUserLocation))
+    }
 
     var body: some View {
         Group {
@@ -59,6 +71,7 @@ struct MapTabView: View {
     MapTabView(
         authViewModel: container.authViewModel,
         feedViewModel: container.feedViewModel,
+        reportUserLocation: container.reportUserLocation,
         onOpenClipInFeed: { _ in }
     )
 }

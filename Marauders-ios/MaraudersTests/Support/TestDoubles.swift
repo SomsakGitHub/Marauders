@@ -107,6 +107,23 @@ final class CallbackFlag: @unchecked Sendable {
     var wasCalled = false
 }
 
+final class RecordingUserLocationRepository: UserLocationRepository, @unchecked Sendable {
+    var result: Result<Void, Error>
+    private(set) var reportedLocations: [ClipLocation] = []
+
+    var reportCount: Int { reportedLocations.count }
+    var lastReported: ClipLocation? { reportedLocations.last }
+
+    init(result: Result<Void, Error> = .success(())) {
+        self.result = result
+    }
+
+    func report(location: ClipLocation) async throws {
+        reportedLocations.append(location)
+        try result.get()
+    }
+}
+
 @MainActor
 final class FakeLocationManager: LocationManaging {
     var authorizationStatus: CLAuthorizationStatus

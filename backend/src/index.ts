@@ -2,6 +2,7 @@ import { authenticateBearerRequest } from "./auth/authenticateRequest";
 import { listFeedVideos } from "./db/feed";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleMediaGet } from "./routes/media";
+import { handleUserLocationUpdate } from "./routes/userLocation";
 import { handleVideoUpload } from "./routes/upload";
 import {
   FeedValidationError,
@@ -106,6 +107,20 @@ export default {
       }
       return withCors(
         await handleVideoUpload(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (url.pathname === "/v1/users/me/location" && request.method === "POST") {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      return withCors(
+        await handleUserLocationUpdate(request, env, auth.userId),
         request,
       );
     }

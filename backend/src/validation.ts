@@ -182,6 +182,40 @@ export function parseAppleAuthBody(body: unknown): {
   return { identityToken: trimmed, country: rawCountry.trim().toUpperCase() };
 }
 
+export function parseLocationBody(body: unknown): {
+  latitude: number;
+  longitude: number;
+} {
+  if (!body || typeof body !== "object") {
+    throw new FeedValidationError("invalid request body");
+  }
+  const record = body as Record<string, unknown>;
+  const latitude = parseCoordinate(record.latitude);
+  const longitude = parseCoordinate(record.longitude);
+  if (latitude === null || longitude === null) {
+    throw new FeedValidationError("latitude and longitude must be numbers");
+  }
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    throw new FeedValidationError("coordinates out of range");
+  }
+  return { latitude, longitude };
+}
+
+function parseCoordinate(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0 || trimmed.length > 32) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 export class FeedValidationError extends Error {
   readonly status = 400;
 

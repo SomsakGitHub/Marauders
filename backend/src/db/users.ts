@@ -22,3 +22,24 @@ export async function upsertUserByAppleSub(
   }
   return row.id;
 }
+
+export async function updateUserLocation(
+  databaseUrl: string,
+  userId: string,
+  latitude: number,
+  longitude: number,
+): Promise<void> {
+  const sql = neon(databaseUrl);
+  const rows = (await sql`
+    UPDATE app_users
+    SET latitude = ${latitude},
+        longitude = ${longitude},
+        location_updated_at = now()
+    WHERE id = ${userId}
+    RETURNING id
+  `) as UserRow[];
+
+  if (!rows[0]?.id) {
+    throw new Error("user not found");
+  }
+}

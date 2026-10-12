@@ -14,6 +14,7 @@ final class AppDependencyContainer {
     let feedViewModel: VideoFeedViewModel
     let uploadViewModel: UploadVideoViewModel
     let authViewModel: AuthViewModel
+    let reportUserLocation: ReportUserLocationUseCase
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -39,6 +40,12 @@ final class AppDependencyContainer {
             apiClient: VideoUploadAPIClient(authorization: apiAuthorization)
         )
         self.videoExporter = videoExporter ?? DefaultVideoExporter()
+
+        self.reportUserLocation = ReportUserLocationUseCase(
+            repository: DefaultUserLocationRepository(
+                apiClient: UserLocationAPIClient(authorization: apiAuthorization)
+            )
+        )
 
         let fetchFeed = FetchFeedUseCase(repository: self.feedRepository)
         feedViewModel = VideoFeedViewModel(fetchFeed: fetchFeed)
