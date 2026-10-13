@@ -36,7 +36,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, v.author_name, v.caption, v.music_title, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, v.music_title, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -47,7 +47,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, v.author_name, v.caption, v.music_title, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, v.music_title, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -66,7 +66,7 @@ export async function listUserFeedVideos(
   const sql = neon(databaseUrl);
 
   const rows = (await sql`
-    SELECT v.id, v.stream_url, v.latitude, v.longitude, v.author_name, v.caption, v.music_title, u.country
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, v.music_title, u.country
     FROM feed_videos v
     LEFT JOIN app_users u ON u.id = v.owner_user_id
     WHERE v.owner_user_id = ${userId}::uuid

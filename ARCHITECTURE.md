@@ -34,7 +34,7 @@ flowchart TB
 
 | Surface | Responsibility |
 |---------|----------------|
-| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read |
+| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read. `authorName` is the uploader's **live** `@handle` (`COALESCE(app_users.handle, feed_videos.author_name)`) |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
 | `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` + optional `caption` (≤500) / `musicTitle` (≤200) → R2 + `feed_videos.owner_user_id` |
 | `DELETE /v1/videos/:id` | **Bearer** required; deletes the caller's own video row + its R2 object |
