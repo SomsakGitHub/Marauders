@@ -3,8 +3,9 @@ import { listFeedVideos } from "./db/feed";
 import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleMediaGet } from "./routes/media";
+import { handlePublicProfileGet } from "./routes/publicProfile";
 import { handleUserLocationUpdate } from "./routes/userLocation";
-import { handleUserProfileGet } from "./routes/userProfile";
+import { handleUserProfileGet, handleUserProfileUpdate } from "./routes/userProfile";
 import { handleVideoDelete } from "./routes/deleteVideo";
 import { handleVideoUpload } from "./routes/upload";
 import {
@@ -56,7 +57,7 @@ function withCors(response: Response, request: Request): Response {
     headers.set("access-control-allow-origin", origin);
     headers.set("vary", "Origin");
   }
-  headers.set("access-control-allow-methods", "GET, POST, DELETE, OPTIONS");
+  headers.set("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
   headers.set("access-control-allow-headers", "Content-Type, Authorization");
   return new Response(response.body, {
     status: response.status,
@@ -188,6 +189,28 @@ export default {
         await handleUserProfileGet(request, env, auth.userId),
         request,
       );
+    }
+
+    if (url.pathname === "/v1/users/me" && request.method === "PATCH") {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      return withCors(
+        await handleUserProfileUpdate(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (
+      url.pathname.startsWith("/v1/users/") &&
+      request.method === "GET"
+    ) {
+      const rawHandle = decodeURIComponent(url.pathname.slice("/v1/users/".length));
+      return withCors(await handlePublicProfileGet(request, env, rawHandle), request);
     }
 
     if (

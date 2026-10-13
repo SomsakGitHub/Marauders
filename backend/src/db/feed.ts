@@ -23,6 +23,7 @@ export type FeedItemJson = {
   musicTitle: string | null;
 };
 
+/** Fallback author name when an owner row is missing (should not happen post-auth). */
 const UPLOAD_AUTHOR_NAME = "@marauders";
 
 export async function listFeedVideos(
@@ -132,7 +133,7 @@ export async function insertFeedVideo(
     )
     VALUES (
       ${streamUrl},
-      ${UPLOAD_AUTHOR_NAME},
+      COALESCE((SELECT handle FROM app_users WHERE id = ${ownerUserId}::uuid), ${UPLOAD_AUTHOR_NAME}),
       ${caption},
       ${musicTitle},
       (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),

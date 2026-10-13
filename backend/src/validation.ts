@@ -52,6 +52,44 @@ export function parseVideoId(raw: string): string {
   return raw;
 }
 
+export const HANDLE_MAX_LENGTH = 63;
+
+const HANDLE_BODY_RE = /^[A-Za-z0-9._]{1,63}$/;
+const RESERVED_HANDLES = new Set([
+  "me",
+  "user",
+  "admin",
+  "marauders",
+  "handle",
+  "settings",
+]);
+
+/** Normalizes a user handle to `@lowercase`, validating format and reserved names. */
+export function parseHandle(raw: unknown): string {
+  if (typeof raw !== "string") {
+    throw new FeedValidationError("handle must be a string");
+  }
+
+  const trimmed = raw.trim();
+  const body = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (body.length < 1 || body.length > HANDLE_MAX_LENGTH) {
+    throw new FeedValidationError(
+      `handle must be 1-${HANDLE_MAX_LENGTH} characters`,
+    );
+  }
+  if (!HANDLE_BODY_RE.test(body)) {
+    throw new FeedValidationError(
+      "handle may only contain letters, numbers, dots and underscores",
+    );
+  }
+
+  const normalizedBody = body.toLowerCase();
+  if (RESERVED_HANDLES.has(normalizedBody)) {
+    throw new FeedValidationError("handle is not available");
+  }
+  return `@${normalizedBody}`;
+}
+
 /** Optional ISO 3166-1 alpha-2 filter for the feed, normalized to uppercase. */export function parseFeedCountry(raw: string | null): string | null {
   if (raw === null || raw === "") {
     return null;
