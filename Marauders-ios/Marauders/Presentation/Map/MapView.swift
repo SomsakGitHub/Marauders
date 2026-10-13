@@ -102,7 +102,7 @@ struct MapView: View {
             }
         }
         .fullScreenCover(item: $selectedClip) { clip in
-            MapClipPlayerView(
+            ClipPlayerView(
                 clip: clip,
                 userCoordinate: viewModel.userCoordinate,
                 onClose: { selectedClip = nil },

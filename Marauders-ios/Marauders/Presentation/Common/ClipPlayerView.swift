@@ -1,5 +1,5 @@
 //
-//  MapClipPlayerView.swift
+//  ClipPlayerView.swift
 //  Marauders
 //
 
@@ -7,12 +7,13 @@ import AVKit
 import CoreLocation
 import SwiftUI
 
-/// Plays a clip straight from a map pin, looping until dismissed.
-struct MapClipPlayerView: View {
+/// Plays a single clip full-screen, looping until dismissed. Shared by the map
+/// pins and the profile grid.
+struct ClipPlayerView: View {
     let clip: FeedVideo
-    let userCoordinate: CLLocationCoordinate2D?
+    var userCoordinate: CLLocationCoordinate2D?
     let onClose: () -> Void
-    let onOpenInFeed: () -> Void
+    var onOpenInFeed: (() -> Void)?
 
     @State private var player: AVPlayer?
 
@@ -67,7 +68,7 @@ struct MapClipPlayerView: View {
                     .background(.black.opacity(0.4), in: Circle())
             }
             .accessibilityLabel("Close video")
-            .accessibilityIdentifier("map.closeVideo")
+            .accessibilityIdentifier("clip.closeVideo")
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -86,14 +87,16 @@ struct MapClipPlayerView: View {
                 Text(MapClipProximity.formattedDistance(meters))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.white.opacity(0.8))
-                    .accessibilityIdentifier("map.clipDistance")
+                    .accessibilityIdentifier("clip.distance")
             }
-            Button(action: onOpenInFeed) {
-                Label("Play in Feed", systemImage: "list.bullet.rectangle")
-                    .frame(maxWidth: .infinity)
+            if let onOpenInFeed {
+                Button(action: onOpenInFeed) {
+                    Label("Play in Feed", systemImage: "list.bullet.rectangle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("clip.playInFeed")
             }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("map.playClipInFeed")
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 24)
