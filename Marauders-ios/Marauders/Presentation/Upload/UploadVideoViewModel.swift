@@ -12,6 +12,8 @@ import Observation
 final class UploadVideoViewModel {
     var uploadFileURL: URL?
     var clipLocation: ClipLocation?
+    var caption = ""
+    var musicTitle = ""
     var isPreparing = false
     var isUploading = false
     var isResolvingClipLocation = false
@@ -62,6 +64,8 @@ final class UploadVideoViewModel {
         clipLocation = AppRuntimeConfiguration.isUITesting
             ? ClipLocation(latitude: 13.7563, longitude: 100.5018)
             : nil
+        caption = ""
+        musicTitle = ""
         statusMessage = nil
         isSuccess = false
     }
@@ -157,11 +161,18 @@ final class UploadVideoViewModel {
         AppLog.info("upload", "upload started")
 
         do {
-            let item = try await uploadVideo.execute(fileURL: uploadFileURL, clipLocation: clipLocation)
+            let item = try await uploadVideo.execute(
+                fileURL: uploadFileURL,
+                clipLocation: clipLocation,
+                caption: caption,
+                musicTitle: musicTitle
+            )
             isSuccess = true
             statusMessage = "Upload complete — opening feed"
             AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
             discardExportStagingFile()
+            caption = ""
+            musicTitle = ""
             await onUploaded?()
             AppLog.info("upload", "feed reload requested after upload")
         } catch {

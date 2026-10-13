@@ -86,8 +86,61 @@ struct VideoUploadAPIClientTests {
         #expect(contentType.hasPrefix("multipart/form-data; boundary="))
     }
 
-    @Test func uploadSurfacesServerErrorMessage() async throws {
+    @Test func uploadSendsCaptionAndMusicFields() async throws {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        var capturedBody = Data()
+        let session = StubURLSessionFactory.make { request in
+            capturedBody = Self.bodyData(from: request)
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 201)
+            return (response, Self.uploadResponseJSON(id: UUID(), streamURL: "https://cdn.example.com/v.mp4"))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = Self.authorizedClient(session: session)
+        _ = try await client.upload(
+            fileURL: fileURL,
+            mimeType: "video/mp4",
+            clipLocation: Self.sampleClipLocation,
+            caption: "Sunset over Bangkok",
+            musicTitle: "Golden Hour"
+        )
+
+        let body = String(decoding: capturedBody, as: UTF8.self)
+        #expect(body.contains("name=\"caption\""))
+        #expect(body.contains("Sunset over Bangkok"))
+        #expect(body.contains("name=\"musicTitle\""))
+        #expect(body.contains("Golden Hour"))
+    }
+
+    @Test func uploadOmitsEmptyCaptionAndMusic() async throws {
+        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        var capturedBody = Data()
+        let session = StubURLSessionFactory.make { request in
+            capturedBody = Self.bodyData(from: request)
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 201)
+            return (response, Self.uploadResponseJSON(id: UUID(), streamURL: "https://cdn.example.com/v.mp4"))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = Self.authorizedClient(session: session)
+        _ = try await client.upload(
+            fileURL: fileURL,
+            mimeType: "video/mp4",
+            clipLocation: Self.sampleClipLocation,
+            caption: "   ",
+            musicTitle: ""
+        )
+
+        let body = String(decoding: capturedBody, as: UTF8.self)
+        #expect(!body.contains("name=\"caption\""))
+        #expect(!body.contains("name=\"musicTitle\""))
+    }
+
+    @Test func uploadSurfacesServerErrorMessage() async throws {        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
         let message = "File exceeds allowed size"
@@ -174,5 +227,23 @@ private extension VideoUploadAPIClientTests {
             ],
         ]
         return try! JSONSerialization.data(withJSONObject: payload)
+    }
+
+    static func bodyData(from request: URLRequest) -> Data {
+        if let body = request.httpBody {
+            return body
+        }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let read = stream.read(&buffer, maxLength: buffer.count)
+            if read <= 0 { break }
+            data.append(buffer, count: read)
+        }
+        return data
     }
 }

@@ -94,6 +94,13 @@ struct ClipPlayerView: View {
                     .font(.subheadline)
                     .foregroundStyle(.white)
             }
+            if let musicTitle = clip.musicTitle,
+               !musicTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Label(musicTitle, systemImage: "music.note")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .accessibilityIdentifier("clip.music")
+            }
             if let userCoordinate,
                let meters = MapClipProximity.distanceMeters(from: userCoordinate, to: clip) {
                 Text(MapClipProximity.formattedDistance(meters))

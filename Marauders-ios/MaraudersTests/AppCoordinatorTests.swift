@@ -152,7 +152,9 @@ private struct MockUploadRepository: VideoUploadRepository {
     func upload(
         fileURL: URL,
         mimeType: String,
-        clipLocation: ClipLocation
+        clipLocation: ClipLocation,
+        caption: String,
+        musicTitle: String
     ) async throws -> FeedVideo {
         try result.get()
     }

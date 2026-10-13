@@ -139,6 +139,11 @@ struct VideoFeedView: View {
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(false)
 
+                if let video = currentVideo {
+                    FeedClipCaptionOverlay(clip: video)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                }
+
                 playbackOverlay
             }
         }
@@ -147,8 +152,7 @@ struct VideoFeedView: View {
     }
 
     @ViewBuilder
-    private var playbackOverlay: some View {
-        switch playerEngine.phase {
+    private var playbackOverlay: some View {        switch playerEngine.phase {
         case .idle, .playing, .paused:
             EmptyView()
         case .buffering:
@@ -177,6 +181,11 @@ struct VideoFeedView: View {
             .padding()
             .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
         }
+    }
+
+    private var currentVideo: FeedVideo? {
+        guard viewModel.videos.indices.contains(currentPageIndex) else { return nil }
+        return viewModel.videos[currentPageIndex]
     }
 
     private func syncPageIndex() {

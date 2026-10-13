@@ -36,7 +36,7 @@ flowchart TB
 |---------|----------------|
 | `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
-| `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` → R2 + `feed_videos.owner_user_id` |
+| `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` + optional `caption` (≤500) / `musicTitle` (≤200) → R2 + `feed_videos.owner_user_id` |
 | `DELETE /v1/videos/:id` | **Bearer** required; deletes the caller's own video row + its R2 object |
 | `POST /v1/users/me/location` | **Bearer** required; `{ latitude, longitude }` → `app_users.latitude/longitude` |
 | `GET /v1/users/me` | **Bearer** required; `{ country, latitude, longitude, videoCount, videos[] }` for the signed-in user |
@@ -90,7 +90,7 @@ Per-cell `AVPlayer` instances caused teardown races. A single player in a fixed 
 | `VerticalPagingFeedScrollView` | `UIScrollView` + `isPagingEnabled`; black page placeholders |
 | `FeedPlayerCompositorView` | Two `AVPlayerLayer` hosts (slot A / B); visible slot on top |
 | `FeedPlayerEngine` | Dual `AVPlayer`, prefetch cache, `settle(on:prefetchNeighbors:)` |
-| `VideoFeedView` | SwiftUI chrome, buffering overlay, tap → play/pause |
+| `VideoFeedView` | SwiftUI chrome, buffering overlay, tap → play/pause, `FeedClipCaptionOverlay` (author / caption / music for the current page) |
 
 The compositor is a **subview of the scroll view’s content**, positioned at `y = playbackPageIndex × pageHeight`, so video moves with the user during a drag.
 
@@ -128,7 +128,7 @@ sequenceDiagram
 
 ### Upload path (client)
 
-`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`).
+`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, plus optional `caption` / `musicTitle` typed in the upload form; blank values are omitted).
 
 ### Map tab (Instagram-style map)
 

@@ -15,8 +15,16 @@ struct DefaultVideoUploadRepository: VideoUploadRepository {
     func upload(
         fileURL: URL,
         mimeType: String,
-        clipLocation: ClipLocation
+        clipLocation: ClipLocation,
+        caption: String,
+        musicTitle: String
     ) async throws -> FeedVideo {
-        try await apiClient.upload(fileURL: fileURL, mimeType: mimeType, clipLocation: clipLocation)
+        try await apiClient.upload(
+            fileURL: fileURL,
+            mimeType: mimeType,
+            clipLocation: clipLocation,
+            caption: caption,
+            musicTitle: musicTitle
+        )
     }
 }
