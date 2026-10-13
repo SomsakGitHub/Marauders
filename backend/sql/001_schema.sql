@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS feed_videos (
     stream_url TEXT NOT NULL,
     author_name VARCHAR(64) NOT NULL,
     caption VARCHAR(500) NOT NULL,
-    music_title VARCHAR(200) NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT feed_videos_stream_url_https CHECK (stream_url ~ '^https://'),

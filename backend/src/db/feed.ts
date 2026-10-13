@@ -9,7 +9,6 @@ type FeedRow = {
   country: string | null;
   author_name?: string | null;
   caption?: string | null;
-  music_title?: string | null;
 };
 
 export type FeedItemJson = {
@@ -20,7 +19,6 @@ export type FeedItemJson = {
   country: string | null;
   authorName: string | null;
   caption: string | null;
-  musicTitle: string | null;
 };
 
 /** Fallback author name when an owner row is missing (should not happen post-auth). */
@@ -36,7 +34,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, v.music_title, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -47,7 +45,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, v.music_title, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -66,7 +64,7 @@ export async function listUserFeedVideos(
   const sql = neon(databaseUrl);
 
   const rows = (await sql`
-    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, v.music_title, u.country
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, u.country
     FROM feed_videos v
     LEFT JOIN app_users u ON u.id = v.owner_user_id
     WHERE v.owner_user_id = ${userId}::uuid
@@ -103,7 +101,6 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
       country: row.country,
       authorName: row.author_name ?? null,
       caption: row.caption ?? null,
-      musicTitle: row.music_title ?? null,
     };
   });
 }
@@ -115,7 +112,6 @@ export async function insertFeedVideo(
   longitude: number,
   ownerUserId: string,
   caption: string = "",
-  musicTitle: string = "",
 ): Promise<FeedItemJson> {
   assertHttpsStreamUrl(streamUrl);
 
@@ -125,7 +121,6 @@ export async function insertFeedVideo(
       stream_url,
       author_name,
       caption,
-      music_title,
       sort_order,
       latitude,
       longitude,
@@ -135,13 +130,12 @@ export async function insertFeedVideo(
       ${streamUrl},
       COALESCE((SELECT handle FROM app_users WHERE id = ${ownerUserId}::uuid), ${UPLOAD_AUTHOR_NAME}),
       ${caption},
-      ${musicTitle},
       (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),
       ${latitude},
       ${longitude},
       ${ownerUserId}::uuid
     )
-    RETURNING id, stream_url, latitude, longitude, author_name, caption, music_title
+    RETURNING id, stream_url, latitude, longitude, author_name, caption
   `) as FeedRow[];
 
   const row = rows[0];
@@ -157,6 +151,5 @@ export async function insertFeedVideo(
     country: null,
     authorName: row.author_name ?? null,
     caption: row.caption ?? null,
-    musicTitle: row.music_title ?? null,
   };
 }
