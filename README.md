@@ -119,7 +119,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | `GET` | `/health` | health check |
 | `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | รายการฟีด; `country` กรองเฉพาะคลิปของผู้อัปโหลดประเทศนั้น |
-| `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption`/`musicTitle` (ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
+| `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption` (ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
 | `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (handle, ประเทศ, พิกัดล่าสุด, จำนวนคลิป) + คลิปของตัวเอง (Bearer) |
@@ -153,8 +153,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
       "longitude": 100.5018,
       "country": "TH",
       "authorName": "@marauders",
-      "caption": "Sunset over the river",
-      "musicTitle": "Golden Hour"
+      "caption": "Sunset over the river"
     }
   ]
 }

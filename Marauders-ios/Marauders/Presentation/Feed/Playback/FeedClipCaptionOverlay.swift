@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// Bottom-left caption block for the current feed clip (author, caption, music).
+/// Bottom-left caption block for the current feed clip (author, caption).
 /// The author line is tappable when `onAuthorTap` is provided; everything else
 /// ignores touches so feed paging and tap-to-play keep working.
 struct FeedClipCaptionOverlay: View {
@@ -28,12 +28,6 @@ struct FeedClipCaptionOverlay: View {
                     Text(caption)
                         .font(.subheadline)
                         .foregroundStyle(.white)
-                        .allowsHitTesting(false)
-                }
-                if let musicTitle = Self.cleaned(clip.musicTitle) {
-                    Label(musicTitle, systemImage: "music.note")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.85))
                         .allowsHitTesting(false)
                 }
             }

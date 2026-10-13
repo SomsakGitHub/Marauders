@@ -47,8 +47,7 @@ struct VideoUploadAPIClient: Sendable {
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String = "",
-        musicTitle: String = ""
+        caption: String = ""
     ) async throws -> FeedVideo {
         guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
@@ -82,8 +81,7 @@ struct VideoUploadAPIClient: Sendable {
             fileURL: fileURL,
             mimeType: mimeType,
             clipLocation: clipLocation,
-            caption: caption,
-            musicTitle: musicTitle
+            caption: caption
         )
 
         let bodySize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? NSNumber)?
@@ -134,13 +132,11 @@ struct VideoUploadAPIClient: Sendable {
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String,
-        musicTitle: String
+        caption: String
     ) throws -> URL {
         let fileData = try Data(contentsOf: fileURL)
         let fileName = fileURL.lastPathComponent
         let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedMusic = musicTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         var body = Data()
 
         body.appendFormField(
@@ -155,9 +151,6 @@ struct VideoUploadAPIClient: Sendable {
         )
         if !trimmedCaption.isEmpty {
             body.appendFormField(boundary: boundary, name: "caption", value: trimmedCaption)
-        }
-        if !trimmedMusic.isEmpty {
-            body.appendFormField(boundary: boundary, name: "musicTitle", value: trimmedMusic)
         }
 
         body.appendString("--\(boundary)\r\n")

@@ -29,8 +29,7 @@ struct UserProfileAPIClientTests {
           "longitude": 100.5018,
           "country": "TH",
           "authorName": "@marauders",
-          "caption": "Sunset",
-          "musicTitle": "Golden Hour"
+          "caption": "Sunset"
         }
       ]
     }
@@ -152,8 +151,7 @@ struct UserProfileAPIClientTests {
               "longitude": null,
               "country": "TH",
               "authorName": "@friend",
-              "caption": "Hi",
-              "musicTitle": null
+              "caption": "Hi"
             }
           ]
         }

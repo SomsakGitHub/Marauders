@@ -36,7 +36,7 @@ flowchart TB
 |---------|----------------|
 | `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read. `authorName` is the uploader's **live** `@handle` (`COALESCE(app_users.handle, feed_videos.author_name)`) |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
-| `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` + optional `caption` (≤500) / `musicTitle` (≤200) → R2 + `feed_videos.owner_user_id` |
+| `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` + optional `caption` (≤500) → R2 + `feed_videos.owner_user_id` |
 | `DELETE /v1/videos/:id` | **Bearer** required; deletes the caller's own video row + its R2 object |
 | `POST /v1/users/me/location` | **Bearer** required; `{ latitude, longitude }` → `app_users.latitude/longitude` |
 | `GET /v1/users/me` | **Bearer** required; `{ handle, country, latitude, longitude, videoCount, videos[] }` for the signed-in user |
@@ -105,7 +105,7 @@ Per-cell `AVPlayer` instances caused teardown races. A single player in a fixed 
 | `VerticalPagingFeedScrollView` | `UIScrollView` + `isPagingEnabled`; black page placeholders |
 | `FeedPlayerCompositorView` | Two `AVPlayerLayer` hosts (slot A / B); visible slot on top |
 | `FeedPlayerEngine` | Dual `AVPlayer`, prefetch cache, `settle(on:prefetchNeighbors:)` |
-| `VideoFeedView` | SwiftUI chrome, buffering overlay, tap → play/pause, `FeedClipCaptionOverlay` (author / caption / music for the current page) |
+| `VideoFeedView` | SwiftUI chrome, buffering overlay, tap → play/pause, `FeedClipCaptionOverlay` (author / caption for the current page) |
 
 The compositor is a **subview of the scroll view’s content**, positioned at `y = playbackPageIndex × pageHeight`, so video moves with the user during a drag.
 
@@ -143,14 +143,14 @@ sequenceDiagram
 
 ### Upload path (client)
 
-`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, plus optional `caption` / `musicTitle` typed in the upload form; blank values are omitted).
+`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, plus optional `caption` typed in the upload form; blank values are omitted).
 
 ### Map tab (Instagram-style map)
 
-- **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present. The response also carries `authorName` / `caption` / `musicTitle`, used by client-side search.
+- **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present. The response also carries `authorName` / `caption`, used by client-side search.
 - **Layout:** full-screen `Map` (no navigation bar) with a filters menu (country / near me / sign out) and a locate FAB. `MapView` tracks the visible region via `.onMapCameraChange(frequency: .onEnd)`.
 - **Pins & clustering:** `MapClipClustering` collapses nearby clips into `MapClipCluster`s using a grid sized from the visible span, so zooming in breaks clusters apart again; single clips render as circular thumbnail pins (`MapClipPinView`) and clusters as a count bubble (`MapClusterPinView`) — tapping a cluster zooms in, tapping a single pin plays the clip inline (`MapClipPlayerView`, looping, with a "Play in Feed" shortcut).
-- **Search (hidden):** `MapClipSearch` filters already-loaded clips client-side by author handle, caption, music title and country (no network round-trip) and re-fits the camera. `MapView.isSearchVisible` is `false` for now; the `MapSearchBar` pill and logic stay in place to re-enable later.
+- **Search (hidden):** `MapClipSearch` filters already-loaded clips client-side by author handle, caption and country (no network round-trip) and re-fits the camera. `MapView.isSearchVisible` is `false` for now; the `MapSearchBar` pill and logic stay in place to re-enable later.
 - **Country filter:** filters menu → `MapCountryFilterSheet`; selection fetches `/v1/feed?country=<ISO2>` via `VideoFeedViewModel.loadMapClips(country:)`.
 - **Near Me:** filters menu toggles a 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.

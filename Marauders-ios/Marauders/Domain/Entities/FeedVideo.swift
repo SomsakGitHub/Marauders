@@ -16,8 +16,6 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     let authorName: String?
     /// Caption text shown with the clip, when known.
     let caption: String?
-    /// Music title shown with the clip, when known.
-    let musicTitle: String?
 
     init(
         id: UUID = UUID(),
@@ -26,8 +24,7 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         longitude: Double? = nil,
         country: String? = nil,
         authorName: String? = nil,
-        caption: String? = nil,
-        musicTitle: String? = nil
+        caption: String? = nil
     ) {
         self.id = id
         self.streamURL = streamURL
@@ -36,6 +33,5 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         self.country = country
         self.authorName = authorName
         self.caption = caption
-        self.musicTitle = musicTitle
     }
 }

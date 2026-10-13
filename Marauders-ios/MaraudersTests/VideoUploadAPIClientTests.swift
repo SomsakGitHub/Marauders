@@ -86,7 +86,7 @@ struct VideoUploadAPIClientTests {
         #expect(contentType.hasPrefix("multipart/form-data; boundary="))
     }
 
-    @Test func uploadSendsCaptionAndMusicFields() async throws {
+    @Test func uploadSendsCaptionField() async throws {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
@@ -103,18 +103,16 @@ struct VideoUploadAPIClientTests {
             fileURL: fileURL,
             mimeType: "video/mp4",
             clipLocation: Self.sampleClipLocation,
-            caption: "Sunset over Bangkok",
-            musicTitle: "Golden Hour"
+            caption: "Sunset over Bangkok"
         )
 
         let body = String(decoding: capturedBody, as: UTF8.self)
         #expect(body.contains("name=\"caption\""))
         #expect(body.contains("Sunset over Bangkok"))
-        #expect(body.contains("name=\"musicTitle\""))
-        #expect(body.contains("Golden Hour"))
+        #expect(!body.contains("name=\"musicTitle\""))
     }
 
-    @Test func uploadOmitsEmptyCaptionAndMusic() async throws {
+    @Test func uploadOmitsEmptyCaption() async throws {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
@@ -131,13 +129,11 @@ struct VideoUploadAPIClientTests {
             fileURL: fileURL,
             mimeType: "video/mp4",
             clipLocation: Self.sampleClipLocation,
-            caption: "   ",
-            musicTitle: ""
+            caption: "   "
         )
 
         let body = String(decoding: capturedBody, as: UTF8.self)
         #expect(!body.contains("name=\"caption\""))
-        #expect(!body.contains("name=\"musicTitle\""))
     }
 
     @Test func uploadSurfacesServerErrorMessage() async throws {        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)

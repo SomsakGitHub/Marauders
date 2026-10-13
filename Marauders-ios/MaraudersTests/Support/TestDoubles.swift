@@ -58,7 +58,6 @@ final class RecordingVideoUploadRepository: VideoUploadRepository, @unchecked Se
     private(set) var uploadedMimeType: String?
     private(set) var uploadedClipLocation: ClipLocation?
     private(set) var uploadedCaption: String?
-    private(set) var uploadedMusicTitle: String?
 
     init(result: Result<FeedVideo, Error>) {
         self.result = result
@@ -68,15 +67,13 @@ final class RecordingVideoUploadRepository: VideoUploadRepository, @unchecked Se
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String,
-        musicTitle: String
+        caption: String
     ) async throws -> FeedVideo {
         uploadCount += 1
         uploadedFileURL = fileURL
         uploadedMimeType = mimeType
         uploadedClipLocation = clipLocation
         uploadedCaption = caption
-        uploadedMusicTitle = musicTitle
         return try result.get()
     }
 }

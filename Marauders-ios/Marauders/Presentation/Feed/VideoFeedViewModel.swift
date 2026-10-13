@@ -85,8 +85,7 @@ final class VideoFeedViewModel {
             longitude: video.longitude,
             country: video.country,
             authorName: newValue,
-            caption: video.caption,
-            musicTitle: video.musicTitle
+            caption: video.caption
         )
     }
 

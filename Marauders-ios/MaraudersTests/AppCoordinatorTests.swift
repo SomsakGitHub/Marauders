@@ -153,8 +153,7 @@ private struct MockUploadRepository: VideoUploadRepository {
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String,
-        musicTitle: String
+        caption: String
     ) async throws -> FeedVideo {
         try result.get()
     }

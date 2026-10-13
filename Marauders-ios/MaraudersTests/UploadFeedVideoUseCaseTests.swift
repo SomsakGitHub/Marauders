@@ -25,10 +25,9 @@ struct UploadFeedVideoUseCaseTests {
         #expect(repository.uploadedMimeType == "video/mp4")
         #expect(repository.uploadedClipLocation == Self.bangkok)
         #expect(repository.uploadedCaption == "")
-        #expect(repository.uploadedMusicTitle == "")
     }
 
-    @Test func executeForwardsCaptionAndMusicTitle() async throws {
+    @Test func executeForwardsCaption() async throws {
         let file = try TestFixtureFiles.temporaryVideoFile(byteCount: 4)
         let repository = RecordingVideoUploadRepository(
             result: .success(FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!))
@@ -38,12 +37,10 @@ struct UploadFeedVideoUseCaseTests {
         _ = try await useCase.execute(
             fileURL: file,
             clipLocation: Self.bangkok,
-            caption: "Sunset over Bangkok",
-            musicTitle: "Golden Hour"
+            caption: "Sunset over Bangkok"
         )
 
         #expect(repository.uploadedCaption == "Sunset over Bangkok")
-        #expect(repository.uploadedMusicTitle == "Golden Hour")
     }
 
     @Test func executeForwardsCustomMimeType() async throws {

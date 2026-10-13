@@ -10,7 +10,6 @@ protocol VideoUploadRepository: Sendable {
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String,
-        musicTitle: String
+        caption: String
     ) async throws -> FeedVideo
 }

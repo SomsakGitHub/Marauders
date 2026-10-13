@@ -16,15 +16,13 @@ struct DefaultVideoUploadRepository: VideoUploadRepository {
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String,
-        musicTitle: String
+        caption: String
     ) async throws -> FeedVideo {
         try await apiClient.upload(
             fileURL: fileURL,
             mimeType: mimeType,
             clipLocation: clipLocation,
-            caption: caption,
-            musicTitle: musicTitle
+            caption: caption
         )
     }
 }

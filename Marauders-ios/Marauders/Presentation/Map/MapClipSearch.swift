@@ -6,7 +6,7 @@
 import Foundation
 
 /// Filters the clips already loaded onto the map. Matching is client-side and
-/// covers the uploader handle, caption, music title and country so the search
+/// covers the uploader handle, caption and country so the search
 /// pill behaves like Instagram's place search without a network round-trip.
 enum MapClipSearch {
     static func matches(_ clip: FeedVideo, query: String) -> Bool {
@@ -29,7 +29,6 @@ enum MapClipSearch {
         [
             clip.authorName,
             clip.caption,
-            clip.musicTitle,
             clip.country,
             clip.country.map { CountryCatalog.name(for: $0) },
         ]

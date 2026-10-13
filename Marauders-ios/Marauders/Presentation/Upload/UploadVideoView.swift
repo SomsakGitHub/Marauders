@@ -52,9 +52,6 @@ struct UploadVideoView: View {
                     TextField("Caption", text: $viewModel.caption, axis: .vertical)
                         .lineLimit(1 ... 4)
                         .accessibilityIdentifier("upload.caption")
-
-                    TextField("Music (optional)", text: $viewModel.musicTitle)
-                        .accessibilityIdentifier("upload.musicTitle")
                 }
                 .disabled(viewModel.isUploading || viewModel.isPreparing)
 
