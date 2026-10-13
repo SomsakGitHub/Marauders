@@ -1,5 +1,6 @@
 import { authenticateBearerRequest } from "./auth/authenticateRequest";
 import { listFeedVideos } from "./db/feed";
+import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleMediaGet } from "./routes/media";
 import { handleUserLocationUpdate } from "./routes/userLocation";
@@ -18,6 +19,10 @@ export interface Env {
   VIDEOS: R2Bucket;
   JWT_SIGNING_SECRET: string;
   APPLE_CLIENT_ID: string;
+  /** General per-IP limit for reads/writes; see wrangler.toml. */
+  RATE_LIMITER?: RateLimit;
+  /** Stricter per-IP limit for the Apple sign-in endpoint. */
+  AUTH_RATE_LIMITER?: RateLimit;
 }
 
 const JSON_HEADERS: Record<string, string> = {
@@ -33,6 +38,16 @@ function jsonResponse(body: unknown, status = 200): Response {
 function errorResponse(status: number, message: string): Response {
   return jsonResponse({ error: message }, status);
 }
+
+function rateLimitedResponse(retryAfterSeconds = 60): Response {
+  const response = errorResponse(429, "too many requests");
+  response.headers.set("retry-after", String(retryAfterSeconds));
+  return response;
+}
+
+/** Limit rules for the authoritative Neon-backed limiter. */
+const AUTH_RATE_LIMIT = { scope: "auth", limit: 30, windowSeconds: 60 };
+const UPLOAD_RATE_LIMIT = { scope: "upload", limit: 10, windowSeconds: 60 };
 
 function withCors(response: Response, request: Request): Response {
   const headers = new Headers(response.headers);
@@ -91,7 +106,30 @@ export default {
       return withCors(jsonResponse({ status: "ok" }), request);
     }
 
+    if (
+      url.pathname.startsWith("/v1/") &&
+      !url.pathname.startsWith("/v1/media/")
+    ) {
+      const isAuthRoute = url.pathname === "/v1/auth/apple";
+      const limiter = isAuthRoute ? env.AUTH_RATE_LIMITER : env.RATE_LIMITER;
+      const key = `${isAuthRoute ? "auth" : "api"}:${clientIp(request)}`;
+      if (await isRateLimited(limiter, key)) {
+        return withCors(rateLimitedResponse(), request);
+      }
+    }
+
     if (url.pathname === "/v1/auth/apple" && request.method === "POST") {
+      const decision = await enforceDatabaseRateLimit(
+        env.DATABASE_URL,
+        AUTH_RATE_LIMIT,
+        clientIp(request),
+      );
+      if (!decision.allowed) {
+        return withCors(
+          rateLimitedResponse(decision.retryAfterSeconds),
+          request,
+        );
+      }
       return withCors(await handleAppleAuth(request, env), request);
     }
 
@@ -106,6 +144,17 @@ export default {
       );
       if (!auth) {
         return withCors(errorResponse(401, "authentication required"), request);
+      }
+      const decision = await enforceDatabaseRateLimit(
+        env.DATABASE_URL,
+        UPLOAD_RATE_LIMIT,
+        auth.userId,
+      );
+      if (!decision.allowed) {
+        return withCors(
+          rateLimitedResponse(decision.retryAfterSeconds),
+          request,
+        );
       }
       return withCors(
         await handleVideoUpload(request, env, auth.userId),

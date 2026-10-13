@@ -10,3 +10,22 @@ compatibility_flags = ["nodejs_compat"]
 [[r2_buckets]]
 binding = "VIDEOS"
 bucket_name = "marauders-videos"
+
+# Cloudflare Rate Limiting bindings — a cheap, per-location first line of
+# defence (no extra latency). The authoritative limits for auth/upload live in
+# Neon (see src/rateLimit.ts) because the platform binding is currently
+# unreliable in production. All bindings share one namespace_id and are
+# separated by key prefix.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 120
+period = 60
+
+[[ratelimits]]
+name = "AUTH_RATE_LIMITER"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 30
+period = 60

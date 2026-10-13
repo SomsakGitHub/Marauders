@@ -162,7 +162,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 - API validate query/body ฝั่ง Worker; อัปโหลดจำกัดชนิดไฟล์และขนาด  
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
 - **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT (เก็บใน Keychain); อัปโหลดต้องมี Bearer token  
-- ยังไม่มี rate limit — production ควรเพิ่ม
+- **Rate limiting:** sign-in จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด 10 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); ทุก `/v1/*` มีชั้นแรกเป็น Cloudflare Rate Limiting binding ช่วยกันต่อ PoP ด้วย
 
 ## Troubleshooting
 
@@ -177,7 +177,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 
 - [x] Sign in with Apple + จำกัดอัปโหลดต่อ user  
 - [x] เลือกประเทศตอน login  
-- [ ] Rate limiting ที่ Worker  
+- [x] Rate limiting ที่ Worker  
 - [ ] Like / โปรไฟล์ต่อ `@handle`  
 - [ ] ซ่อนแท็บ Log ใน Release build  
 - [ ] CI: `npm run typecheck` + Xcode build  

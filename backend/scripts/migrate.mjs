@@ -35,6 +35,7 @@ for (const file of [
   "../sql/007_app_users_country.sql",
   "../sql/008_app_users_country_index.sql",
   "../sql/009_app_users_location.sql",
+  "../sql/010_rate_limit_counters.sql",
 ]) {
   for (const statement of statementsFromFile(file)) {
     await pool.query(statement);

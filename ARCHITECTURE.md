@@ -73,6 +73,19 @@ flowchart TB
 | R2 | Video objects | Key allowlist `videos/{uuid}.mp4` or `videos/{uuid}/…` |
 | Neon | `stream_url`, feed rows | Parameterized SQL; pooled connection string |
 
+### Rate limiting
+
+Two layers, cheapest first:
+
+1. **Cloudflare Rate Limiting binding** (`RATE_LIMITER`, `AUTH_RATE_LIMITER` in `wrangler.toml`) — an in-runtime, per-location counter with zero added latency, applied to every `/v1/*` request except `/v1/media/*`. Best-effort only: `isRateLimited()` fails open, and the binding is per-PoP. *Note:* as of Oct 2026 this binding is unreliable on live Workers (returns `success: true` regardless — cf. workers-sdk#16097), so it is defence-in-depth, not the enforcement point.
+2. **Neon-backed limiter** (authoritative): `enforceDatabaseRateLimit` (`src/rateLimit.ts`) does an atomic fixed-window `INSERT … ON CONFLICT` into `rate_limit_counters` keyed by `scope:actor`. Counts are exact across Cloudflare locations. Applied to sensitive endpoints: sign-in (`30 / 60s` per IP) and upload (`10 / 60s` per user). Over the limit → `429` with `Retry-After`. Fails open if the database is unreachable.
+
+| Scope | Actor | Limit | Storage |
+|-------|-------|-------|---------|
+| `auth` | client IP | 30 / 60 s | Neon fixed window |
+| `upload` | user id | 10 / 60 s | Neon fixed window |
+| all `/v1/*` | IP / route | see `wrangler.toml` | CF binding (per-PoP, best-effort) |
+
 ---
 
 ## iOS — feed playback
