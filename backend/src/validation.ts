@@ -44,8 +44,15 @@ export function parseFeedCursor(raw: string | null): string | null {
   return raw;
 }
 
-/** Optional ISO 3166-1 alpha-2 filter for the feed, normalized to uppercase. */
-export function parseFeedCountry(raw: string | null): string | null {
+/** Validates a feed video id path parameter. */
+export function parseVideoId(raw: string): string {
+  if (raw.length !== 36 || !UUID_RE.test(raw)) {
+    throw new FeedValidationError("invalid video id");
+  }
+  return raw;
+}
+
+/** Optional ISO 3166-1 alpha-2 filter for the feed, normalized to uppercase. */export function parseFeedCountry(raw: string | null): string | null {
   if (raw === null || raw === "") {
     return null;
   }

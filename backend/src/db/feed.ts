@@ -78,8 +78,23 @@ export async function listUserFeedVideos(
   return mapFeedRows(rows);
 }
 
-function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {
-  return rows.map((row) => {
+/** Deletes a video owned by `ownerUserId`, returning its stream URL (or null if not found/not owned). */
+export async function deleteFeedVideo(
+  databaseUrl: string,
+  videoId: string,
+  ownerUserId: string,
+): Promise<string | null> {
+  const sql = neon(databaseUrl);
+  const rows = (await sql`
+    DELETE FROM feed_videos
+    WHERE id = ${videoId}::uuid AND owner_user_id = ${ownerUserId}::uuid
+    RETURNING stream_url
+  `) as { stream_url: string }[];
+
+  return rows[0]?.stream_url ?? null;
+}
+
+function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) => {
     assertHttpsStreamUrl(row.stream_url);
     return {
       id: row.id,

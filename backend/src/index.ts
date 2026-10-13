@@ -4,6 +4,7 @@ import { handleAppleAuth } from "./routes/authApple";
 import { handleMediaGet } from "./routes/media";
 import { handleUserLocationUpdate } from "./routes/userLocation";
 import { handleUserProfileGet } from "./routes/userProfile";
+import { handleVideoDelete } from "./routes/deleteVideo";
 import { handleVideoUpload } from "./routes/upload";
 import {
   FeedValidationError,
@@ -40,7 +41,7 @@ function withCors(response: Response, request: Request): Response {
     headers.set("access-control-allow-origin", origin);
     headers.set("vary", "Origin");
   }
-  headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
+  headers.set("access-control-allow-methods", "GET, POST, DELETE, OPTIONS");
   headers.set("access-control-allow-headers", "Content-Type, Authorization");
   return new Response(response.body, {
     status: response.status,
@@ -136,6 +137,24 @@ export default {
       }
       return withCors(
         await handleUserProfileGet(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (
+      url.pathname.startsWith("/v1/videos/") &&
+      request.method === "DELETE"
+    ) {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      const videoId = decodeURIComponent(url.pathname.slice("/v1/videos/".length));
+      return withCors(
+        await handleVideoDelete(request, env, videoId, auth.userId),
         request,
       );
     }
