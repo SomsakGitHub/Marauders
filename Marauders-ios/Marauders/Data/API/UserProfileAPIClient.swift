@@ -172,9 +172,82 @@ struct UserProfileAPIClient: Sendable {
         }
     }
 
+    /// Uploads (or replaces) the signed-in user's avatar; returns the new URL.
+    func uploadAvatar(imageData: Data, mimeType: String, filename: String) async throws -> URL {
+        guard let authHeader = authorization?.bearerAuthorizationHeader() else {
+            throw UserProfileAPIError.notAuthenticated
+        }
+
+        let requestURL = try APIConfiguration.userAvatarURL()
+        AppLog.info("api.profile", "POST \(requestURL.host ?? "?")/v1/users/me/avatar bytes=\(imageData.count)")
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 60
+
+        var body = Data()
+        body.appendAvatarFormField(boundary: boundary, name: "file", filename: filename,
+                                   mimeType: mimeType, fileData: imageData)
+
+        let (data, response) = try await session.upload(for: request, from: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw UserProfileAPIError.invalidResponse
+        }
+        switch http.statusCode {
+        case 401:
+            throw UserProfileAPIError.notAuthenticated
+        case 400:
+            throw UserProfileAPIError.invalidHandle
+        case 200 ... 299:
+            break
+        default:
+            throw UserProfileAPIError.serverError(http.statusCode)
+        }
+
+        struct AvatarResponse: Decodable { let avatarURL: URL }
+        do {
+            return try JSONDecoder().decode(AvatarResponse.self, from: data).avatarURL
+        } catch {
+            throw UserProfileAPIError.invalidResponse
+        }
+    }
+
+    /// Removes the signed-in user's avatar.
+    func deleteAvatar() async throws {
+        guard let authHeader = authorization?.bearerAuthorizationHeader() else {
+            throw UserProfileAPIError.notAuthenticated
+        }
+
+        let requestURL = try APIConfiguration.userAvatarURL()
+        AppLog.info("api.profile", "DELETE \(requestURL.host ?? "?")/v1/users/me/avatar")
+
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 15
+
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw UserProfileAPIError.invalidResponse
+        }
+        switch http.statusCode {
+        case 401:
+            throw UserProfileAPIError.notAuthenticated
+        case 200 ... 299:
+            break
+        default:
+            throw UserProfileAPIError.serverError(http.statusCode)
+        }
+    }
+
     private struct Response: Decodable {
         let handle: String?
         let country: String?
+        let avatarURL: URL?
         let latitude: Double?
         let longitude: Double?
         let videoCount: Int
@@ -184,6 +257,7 @@ struct UserProfileAPIClient: Sendable {
             UserProfile(
                 handle: handle ?? "@marauders",
                 country: country,
+                avatarURL: avatarURL,
                 latitude: latitude,
                 longitude: longitude,
                 videoCount: videoCount,
@@ -195,6 +269,7 @@ struct UserProfileAPIClient: Sendable {
     private struct PublicResponse: Decodable {
         let handle: String
         let country: String?
+        let avatarURL: URL?
         let videoCount: Int
         let videos: [FeedVideo]
 
@@ -202,9 +277,29 @@ struct UserProfileAPIClient: Sendable {
             PublicUserProfile(
                 handle: handle,
                 country: country,
+                avatarURL: avatarURL,
                 videoCount: videoCount,
                 videos: videos
             )
         }
+    }
+}
+
+private extension Data {
+    mutating func appendAvatarFormField(
+        boundary: String,
+        name: String,
+        filename: String,
+        mimeType: String,
+        fileData: Data
+    ) {
+        append(Data("--\(boundary)\r\n".utf8))
+        append(Data(
+            "Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n".utf8
+        ))
+        append(Data("Content-Type: \(mimeType)\r\n\r\n".utf8))
+        append(fileData)
+        append(Data("\r\n".utf8))
+        append(Data("--\(boundary)--\r\n".utf8))
     }
 }

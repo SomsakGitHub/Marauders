@@ -111,6 +111,33 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testFeedAvatarOpensPublicProfile() throws {
+        let app = launchApp()
+
+        XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 15))
+
+        let avatar = app.buttons["feed.avatar"]
+        XCTAssertTrue(avatar.waitForExistence(timeout: 10))
+        avatar.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15)
+        )
+    }
+
+    @MainActor
+    func testProfileShowsChangeAvatarControl() throws {
+        let app = launchApp()
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 15))
+        profileTab.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile.root"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["profile.avatar"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
     private func launchApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["UITEST"] + extraArguments

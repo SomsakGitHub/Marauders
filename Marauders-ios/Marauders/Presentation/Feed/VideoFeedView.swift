@@ -147,6 +147,9 @@ struct VideoFeedView: View {
                 if let video = currentVideo {
                     FeedClipCaptionOverlay(clip: video, onAuthorTap: onOpenProfile)
                         .frame(width: geometry.size.width, height: geometry.size.height)
+
+                    FeedClipActionRail(clip: video, onAuthorTap: onOpenProfile)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
                 playbackOverlay

@@ -12,14 +12,16 @@ import Testing
 struct ProfileViewModelTests {
     private func makeSUT(
         result: Result<UserProfile, Error>,
-        deleteResult: Result<Void, Error> = .success(())
+        deleteResult: Result<Void, Error> = .success(()),
+        imagePreparer: StubAvatarImagePreparer = StubAvatarImagePreparer()
     ) -> (ProfileViewModel, StubUserProfileRepository) {
         let repository = StubUserProfileRepository(result: result)
         repository.deleteResult = deleteResult
         let viewModel = ProfileViewModel(
             loadProfile: LoadUserProfileUseCase(repository: repository),
             deleteClip: DeleteUserClipUseCase(repository: repository),
-            updateHandle: UpdateUserHandleUseCase(repository: repository)
+            updateHandle: UpdateUserHandleUseCase(repository: repository),
+            updateAvatar: UpdateAvatarUseCase(repository: repository, imagePreparer: imagePreparer)
         )
         return (viewModel, repository)
     }
@@ -158,5 +160,70 @@ struct ProfileViewModelTests {
 
         viewModel.clearHandleError()
         #expect(viewModel.handleErrorMessage == nil)
+    }
+
+    @Test func updateAvatarUploadsPreparedJPEGAndUpdatesProfile() async {
+        let profile = UserProfile(handle: "@me", country: "TH", videoCount: 0)
+        let prepared = Data([0x01, 0x02, 0x03])
+        let (viewModel, repository) = makeSUT(
+            result: .success(profile),
+            imagePreparer: StubAvatarImagePreparer(result: prepared)
+        )
+        repository.updateAvatarResult = .success(URL(string: "https://cdn.example.com/a.jpg")!)
+        await viewModel.loadIfNeeded()
+
+        let didSave = await viewModel.updateAvatar(rawImageData: Data([0xAA, 0xBB]))
+
+        #expect(didSave)
+        #expect(repository.updatedAvatars.count == 1)
+        #expect(repository.updatedAvatars.first?.imageData == prepared)
+        #expect(repository.updatedAvatars.first?.mimeType == "image/jpeg")
+        #expect(viewModel.profile?.avatarURL == URL(string: "https://cdn.example.com/a.jpg"))
+        #expect(viewModel.avatarErrorMessage == nil)
+    }
+
+    @Test func updateAvatarNotifiesObserverWithURLAndHandle() async {
+        let profile = UserProfile(handle: "@me", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        repository.updateAvatarResult = .success(URL(string: "https://cdn.example.com/a.jpg")!)
+        await viewModel.loadIfNeeded()
+
+        var observed: (url: URL, handle: String)?
+        viewModel.onAvatarChanged = { observed = ($0, $1) }
+
+        _ = await viewModel.updateAvatar(rawImageData: Data([0xAA]))
+
+        #expect(observed?.url == URL(string: "https://cdn.example.com/a.jpg"))
+        #expect(observed?.handle == "@me")
+    }
+
+    @Test func updateAvatarUnreadableImageSurfacesMessage() async {
+        let profile = UserProfile(handle: "@me", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(
+            result: .success(profile),
+            imagePreparer: StubAvatarImagePreparer(result: nil)
+        )
+        await viewModel.loadIfNeeded()
+
+        let didSave = await viewModel.updateAvatar(rawImageData: Data([0xAA]))
+
+        #expect(!didSave)
+        #expect(repository.updatedAvatars.isEmpty)
+        #expect(viewModel.avatarErrorMessage != nil)
+
+        viewModel.clearAvatarError()
+        #expect(viewModel.avatarErrorMessage == nil)
+    }
+
+    @Test func updateAvatarFailureSurfacesMessage() async {
+        let profile = UserProfile(handle: "@me", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        repository.updateAvatarResult = .failure(StubError.feedFailed)
+        await viewModel.loadIfNeeded()
+
+        let didSave = await viewModel.updateAvatar(rawImageData: Data([0xAA]))
+
+        #expect(!didSave)
+        #expect(viewModel.avatarErrorMessage == "feed failed")
     }
 }

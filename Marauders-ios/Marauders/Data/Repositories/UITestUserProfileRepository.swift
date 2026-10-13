@@ -9,6 +9,7 @@ import Foundation
 /// the grid can be asserted after a delete.
 final class UITestUserProfileRepository: UserProfileRepository, @unchecked Sendable {
     private var handle = "@marauders"
+    private var avatarURL: URL?
 
     private var videos: [FeedVideo] = [
         FeedVideo(
@@ -26,6 +27,7 @@ final class UITestUserProfileRepository: UserProfileRepository, @unchecked Senda
         UserProfile(
             handle: handle,
             country: "TH",
+            avatarURL: avatarURL,
             latitude: 13.7563,
             longitude: 100.5018,
             videoCount: videos.count,
@@ -37,6 +39,7 @@ final class UITestUserProfileRepository: UserProfileRepository, @unchecked Senda
         PublicUserProfile(
             handle: handle,
             country: "TH",
+            avatarURL: avatarURL,
             videoCount: videos.count,
             videos: videos
         )
@@ -45,6 +48,12 @@ final class UITestUserProfileRepository: UserProfileRepository, @unchecked Senda
     func updateHandle(_ handle: String) async throws -> String {
         self.handle = handle
         return handle
+    }
+
+    func updateAvatar(imageData: Data, mimeType: String) async throws -> URL {
+        let url = URL(string: "https://example.com/ui-test-avatar.\(mimeType == "image/png" ? "png" : "jpg")")!
+        avatarURL = url
+        return url
     }
 
     func deleteClip(id: UUID) async throws {

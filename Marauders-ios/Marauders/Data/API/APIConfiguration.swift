@@ -93,6 +93,15 @@ enum APIConfiguration {
         return url
     }
 
+    /// Signed-in user's avatar upload/delete endpoint.
+    static func userAvatarURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/users/me/avatar", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     /// Public profile for a `@handle` (no authentication required).
     static func publicUserProfileURL(handle: String) throws -> URL {
         let base = try apiBaseURL()

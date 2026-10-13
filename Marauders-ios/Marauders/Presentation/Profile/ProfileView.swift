@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct ProfileView: View {
     @Bindable var viewModel: ProfileViewModel
@@ -13,6 +14,7 @@ struct ProfileView: View {
     @State private var pendingDeletion: FeedVideo?
     @State private var isEditingHandle = false
     @State private var handleDraft = ""
+    @State private var avatarPhotoItem: PhotosPickerItem?
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 2),
@@ -66,6 +68,11 @@ struct ProfileView: View {
             } message: {
                 Text("Letters, numbers, dots and underscores.")
             }
+            .alert("Couldn't update photo", isPresented: avatarErrorBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.avatarErrorMessage ?? "")
+            }
             .alert("Couldn't update handle", isPresented: handleErrorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -114,6 +121,13 @@ struct ProfileView: View {
         )
     }
 
+    private var avatarErrorBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.avatarErrorMessage != nil },
+            set: { if !$0 { viewModel.clearAvatarError() } }
+        )
+    }
+
     private var content: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -132,9 +146,36 @@ struct ProfileView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 76))
-                .foregroundStyle(.secondary)
+            PhotosPicker(selection: $avatarPhotoItem, matching: .images, photoLibrary: .shared()) {
+                AvatarView(url: viewModel.profile?.avatarURL, handle: viewModel.handle, size: 96)
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "camera.fill")
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(6)
+                            .background(.black.opacity(0.6), in: Circle())
+                    }
+                    .overlay {
+                        if viewModel.isUpdatingAvatar {
+                            Circle()
+                                .fill(.black.opacity(0.45))
+                            ProgressView().tint(.white)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isUpdatingAvatar)
+            .accessibilityIdentifier("profile.avatar")
+            .accessibilityLabel("Change profile photo")
+            .onChange(of: avatarPhotoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self) {
+                        await viewModel.updateAvatar(rawImageData: data)
+                    }
+                    avatarPhotoItem = nil
+                }
+            }
 
             Button {
                 handleDraft = viewModel.handle

@@ -14,6 +14,8 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     let country: String?
     /// Display handle of the uploader, when known.
     let authorName: String?
+    /// Avatar image URL of the uploader, when known.
+    let authorAvatarURL: URL?
     /// Caption text shown with the clip, when known.
     let caption: String?
 
@@ -24,6 +26,7 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         longitude: Double? = nil,
         country: String? = nil,
         authorName: String? = nil,
+        authorAvatarURL: URL? = nil,
         caption: String? = nil
     ) {
         self.id = id
@@ -32,6 +35,7 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         self.longitude = longitude
         self.country = country
         self.authorName = authorName
+        self.authorAvatarURL = authorAvatarURL
         self.caption = caption
     }
 }

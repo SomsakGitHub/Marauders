@@ -66,6 +66,44 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.videos[0].authorName == "@old")
     }
 
+    @Test func applyAuthorAvatarUpdatesOnlyMatchingClips() async {
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!,
+            authorName: "@me"
+        )
+        let other = FeedVideo(
+            streamURL: URL(string: "https://example.com/other.mp4")!,
+            authorName: "@other"
+        )
+        let repo = MockFeedRepository(
+            result: .success(FeedPage(items: [mine, other], hasMore: false))
+        )
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+
+        let url = URL(string: "https://cdn.example.com/a.jpg")!
+        viewModel.applyAuthorAvatar(url: url, for: "@me")
+
+        #expect(viewModel.videos[0].authorAvatarURL == url)
+        #expect(viewModel.videos[1].authorAvatarURL == nil)
+    }
+
+    @Test func applyAuthorAvatarIgnoresEmptyHandle() async {
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!,
+            authorName: "@me"
+        )
+        let repo = MockFeedRepository(
+            result: .success(FeedPage(items: [mine], hasMore: false))
+        )
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+
+        viewModel.applyAuthorAvatar(url: URL(string: "https://cdn.example.com/a.jpg")!, for: "")
+
+        #expect(viewModel.videos[0].authorAvatarURL == nil)
+    }
+
     @Test func staleReloadResponseIsIgnored() async {
         final class DelayedRepository: FeedRepository, @unchecked Sendable {
             private var firstContinuation: CheckedContinuation<FeedPage, Error>?

@@ -115,10 +115,12 @@ final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendabl
     var deleteResult: Result<Void, Error> = .success(())
     var publicResult: Result<PublicUserProfile, Error>?
     var updateHandleResult: Result<String, Error>?
+    var updateAvatarResult: Result<URL, Error>?
     private(set) var fetchCount = 0
     private(set) var deletedIDs: [UUID] = []
     private(set) var requestedHandles: [String] = []
     private(set) var updatedHandles: [String] = []
+    private(set) var updatedAvatars: [(imageData: Data, mimeType: String)] = []
 
     init(result: Result<UserProfile, Error>) {
         self.result = result
@@ -145,9 +147,29 @@ final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendabl
         return handle
     }
 
+    func updateAvatar(imageData: Data, mimeType: String) async throws -> URL {
+        updatedAvatars.append((imageData, mimeType))
+        if let updateAvatarResult {
+            return try updateAvatarResult.get()
+        }
+        return URL(string: "https://example.com/avatar.jpg")!
+    }
+
     func deleteClip(id: UUID) async throws {
         deletedIDs.append(id)
         try deleteResult.get()
+    }
+}
+
+final class StubAvatarImagePreparer: AvatarImagePreparing, @unchecked Sendable {
+    var result: Data?
+
+    init(result: Data? = Data([0xFF, 0xD8, 0xFF])) {
+        self.result = result
+    }
+
+    func prepareJPEG(from data: Data, maxDimension: CGFloat) -> Data? {
+        result
     }
 }
 

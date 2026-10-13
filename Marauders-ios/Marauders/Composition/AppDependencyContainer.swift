@@ -76,7 +76,11 @@ final class AppDependencyContainer {
         profileViewModel = ProfileViewModel(
             loadProfile: LoadUserProfileUseCase(repository: resolveProfileRepository),
             deleteClip: DeleteUserClipUseCase(repository: resolveProfileRepository),
-            updateHandle: UpdateUserHandleUseCase(repository: resolveProfileRepository)
+            updateHandle: UpdateUserHandleUseCase(repository: resolveProfileRepository),
+            updateAvatar: UpdateAvatarUseCase(
+                repository: resolveProfileRepository,
+                imagePreparer: DefaultAvatarImagePreparer()
+            )
         )
 
         coordinator = AppCoordinator(
@@ -87,6 +91,9 @@ final class AppDependencyContainer {
 
         profileViewModel.onHandleChanged = { [weak feedViewModel] oldHandle, newHandle in
             feedViewModel?.replaceAuthorName(from: oldHandle, to: newHandle)
+        }
+        profileViewModel.onAvatarChanged = { [weak feedViewModel] url, handle in
+            feedViewModel?.applyAuthorAvatar(url: url, for: handle)
         }
     }
 

@@ -85,6 +85,28 @@ final class VideoFeedViewModel {
             longitude: video.longitude,
             country: video.country,
             authorName: newValue,
+            authorAvatarURL: video.authorAvatarURL,
+            caption: video.caption
+        )
+    }
+
+    /// Updates the avatar shown for the signed-in user's own clips after an avatar change.
+    func applyAuthorAvatar(url: URL?, for handle: String) {
+        guard !handle.isEmpty else { return }
+        videos = videos.map { Self.withAvatar($0, handle: handle, url: url) }
+        mapFilteredClips = mapFilteredClips.map { Self.withAvatar($0, handle: handle, url: url) }
+    }
+
+    private static func withAvatar(_ video: FeedVideo, handle: String, url: URL?) -> FeedVideo {
+        guard video.authorName == handle else { return video }
+        return FeedVideo(
+            id: video.id,
+            streamURL: video.streamURL,
+            latitude: video.latitude,
+            longitude: video.longitude,
+            country: video.country,
+            authorName: video.authorName,
+            authorAvatarURL: url,
             caption: video.caption
         )
     }

@@ -20,22 +20,29 @@ final class ProfileViewModel {
     private(set) var profile: UserProfile?
     private(set) var deleteErrorMessage: String?
     private(set) var handleErrorMessage: String?
+    private(set) var avatarErrorMessage: String?
+    private(set) var isUpdatingAvatar = false
 
     /// Called with (oldHandle, newHandle) after a @handle change succeeds, so other tabs can update.
     var onHandleChanged: ((_ oldHandle: String, _ newHandle: String) -> Void)?
+    /// Called with (newAvatarURL, handle) after a successful avatar change.
+    var onAvatarChanged: ((_ avatarURL: URL, _ handle: String) -> Void)?
 
     private let loadProfile: LoadUserProfileUseCase
     private let deleteClip: DeleteUserClipUseCase
     private let changeHandle: UpdateUserHandleUseCase
+    private let changeAvatar: UpdateAvatarUseCase
 
     init(
         loadProfile: LoadUserProfileUseCase,
         deleteClip: DeleteUserClipUseCase,
-        updateHandle: UpdateUserHandleUseCase
+        updateHandle: UpdateUserHandleUseCase,
+        updateAvatar: UpdateAvatarUseCase
     ) {
         self.loadProfile = loadProfile
         self.deleteClip = deleteClip
         self.changeHandle = updateHandle
+        self.changeAvatar = updateAvatar
     }
 
     var clips: [FeedVideo] {
@@ -52,6 +59,10 @@ final class ProfileViewModel {
 
     func clearHandleError() {
         handleErrorMessage = nil
+    }
+
+    func clearAvatarError() {
+        avatarErrorMessage = nil
     }
 
     func loadIfNeeded() async {
@@ -87,6 +98,7 @@ final class ProfileViewModel {
                 profile = UserProfile(
                     handle: saved,
                     country: current.country,
+                    avatarURL: current.avatarURL,
                     latitude: current.latitude,
                     longitude: current.longitude,
                     videoCount: current.videoCount,
@@ -103,6 +115,37 @@ final class ProfileViewModel {
         }
     }
 
+    /// Uploads a new avatar from raw picked image data; returns true on success.
+    @discardableResult
+    func updateAvatar(rawImageData: Data) async -> Bool {
+        guard !isUpdatingAvatar else { return false }
+        isUpdatingAvatar = true
+        avatarErrorMessage = nil
+        defer { isUpdatingAvatar = false }
+
+        do {
+            let url = try await changeAvatar.execute(rawImageData: rawImageData)
+            if let current = profile {
+                profile = UserProfile(
+                    handle: current.handle,
+                    country: current.country,
+                    avatarURL: url,
+                    latitude: current.latitude,
+                    longitude: current.longitude,
+                    videoCount: current.videoCount,
+                    videos: current.videos
+                )
+            }
+            onAvatarChanged?(url, profile?.handle ?? "")
+            AppLog.info("profile", "avatar updated")
+            return true
+        } catch {
+            avatarErrorMessage = Self.userFacingMessage(for: error)
+            AppLog.warning("profile", "avatar update failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
     /// Deletes a clip the user owns, removing it optimistically on success.
     func delete(_ clip: FeedVideo) async {
         deleteErrorMessage = nil
@@ -110,7 +153,9 @@ final class ProfileViewModel {
             try await deleteClip.execute(id: clip.id)
             guard let current = profile else { return }
             profile = UserProfile(
+                handle: current.handle,
                 country: current.country,
+                avatarURL: current.avatarURL,
                 latitude: current.latitude,
                 longitude: current.longitude,
                 videoCount: max(0, current.videoCount - 1),
