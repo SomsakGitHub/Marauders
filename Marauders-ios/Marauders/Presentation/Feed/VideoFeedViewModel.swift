@@ -68,6 +68,28 @@ final class VideoFeedViewModel {
         videos.filter { $0.mapCoordinate != nil }
     }
 
+    /// Replaces the cached author handle on the signed-in user's own clips after a @handle change,
+    /// so the feed reflects the new name without a network round-trip.
+    func replaceAuthorName(from oldValue: String, to newValue: String) {
+        guard !oldValue.isEmpty, oldValue != newValue else { return }
+        videos = videos.map { Self.renamed($0, from: oldValue, to: newValue) }
+        mapFilteredClips = mapFilteredClips.map { Self.renamed($0, from: oldValue, to: newValue) }
+    }
+
+    private static func renamed(_ video: FeedVideo, from oldValue: String, to newValue: String) -> FeedVideo {
+        guard video.authorName == oldValue else { return video }
+        return FeedVideo(
+            id: video.id,
+            streamURL: video.streamURL,
+            latitude: video.latitude,
+            longitude: video.longitude,
+            country: video.country,
+            authorName: newValue,
+            caption: video.caption,
+            musicTitle: video.musicTitle
+        )
+    }
+
     /// Loads clips posted by people from `country` (Map tab filter). Pass `nil` to clear.
     func loadMapClips(country: String?) async {
         guard let country, !country.isEmpty else {

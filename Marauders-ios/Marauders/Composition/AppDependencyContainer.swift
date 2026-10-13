@@ -84,6 +84,10 @@ final class AppDependencyContainer {
             feedViewModel: feedViewModel,
             uploadViewModel: uploadViewModel
         )
+
+        profileViewModel.onHandleChanged = { [weak feedViewModel] oldHandle, newHandle in
+            feedViewModel?.replaceAuthorName(from: oldHandle, to: newHandle)
+        }
     }
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {

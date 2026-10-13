@@ -21,6 +21,9 @@ final class ProfileViewModel {
     private(set) var deleteErrorMessage: String?
     private(set) var handleErrorMessage: String?
 
+    /// Called with (oldHandle, newHandle) after a @handle change succeeds, so other tabs can update.
+    var onHandleChanged: ((_ oldHandle: String, _ newHandle: String) -> Void)?
+
     private let loadProfile: LoadUserProfileUseCase
     private let deleteClip: DeleteUserClipUseCase
     private let changeHandle: UpdateUserHandleUseCase
@@ -77,6 +80,7 @@ final class ProfileViewModel {
     /// Saves a new @handle; returns true on success.
     @discardableResult
     func updateHandle(_ newHandle: String) async -> Bool {
+        let previousHandle = profile?.handle
         do {
             let saved = try await changeHandle.execute(newHandle)
             if let current = profile {
@@ -90,6 +94,7 @@ final class ProfileViewModel {
                 )
             }
             handleErrorMessage = nil
+            onHandleChanged?(previousHandle ?? "", saved)
             return true
         } catch {
             handleErrorMessage = Self.userFacingMessage(for: error)

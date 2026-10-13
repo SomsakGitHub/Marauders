@@ -115,6 +115,35 @@ struct ProfileViewModelTests {
         #expect(viewModel.handleErrorMessage == nil)
     }
 
+    @Test func updateHandleNotifiesObserver() async {
+        let profile = UserProfile(handle: "@old", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        repository.updateHandleResult = .success("@new")
+        await viewModel.loadIfNeeded()
+
+        var observed: (old: String, new: String)?
+        viewModel.onHandleChanged = { observed = ($0, $1) }
+
+        _ = await viewModel.updateHandle("@new")
+
+        #expect(observed?.old == "@old")
+        #expect(observed?.new == "@new")
+    }
+
+    @Test func updateHandleFailureDoesNotNotifyObserver() async {
+        let profile = UserProfile(handle: "@old", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        repository.updateHandleResult = .failure(StubError.feedFailed)
+        await viewModel.loadIfNeeded()
+
+        var notified = false
+        viewModel.onHandleChanged = { _, _ in notified = true }
+
+        _ = await viewModel.updateHandle("@taken")
+
+        #expect(!notified)
+    }
+
     @Test func updateHandleFailureSurfacesMessage() async {
         let profile = UserProfile(handle: "@old", country: "TH", videoCount: 0)
         let (viewModel, repository) = makeSUT(result: .success(profile))

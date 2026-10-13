@@ -27,6 +27,45 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.loadState == .failed("Feed is empty — try uploading a clip"))
     }
 
+    @Test func replaceAuthorNameUpdatesOnlyMatchingClips() async {
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!,
+            authorName: "@old"
+        )
+        let other = FeedVideo(
+            streamURL: URL(string: "https://example.com/other.mp4")!,
+            authorName: "@other"
+        )
+        let repo = MockFeedRepository(
+            result: .success(FeedPage(items: [mine, other], hasMore: false))
+        )
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+
+        viewModel.replaceAuthorName(from: "@old", to: "@new")
+
+        #expect(viewModel.videos[0].authorName == "@new")
+        #expect(viewModel.videos[0].id == mine.id)
+        #expect(viewModel.videos[1].authorName == "@other")
+    }
+
+    @Test func replaceAuthorNameIgnoresEmptyOrSameValue() async {
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!,
+            authorName: "@old"
+        )
+        let repo = MockFeedRepository(
+            result: .success(FeedPage(items: [mine], hasMore: false))
+        )
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+
+        viewModel.replaceAuthorName(from: "", to: "@new")
+        viewModel.replaceAuthorName(from: "@old", to: "@old")
+
+        #expect(viewModel.videos[0].authorName == "@old")
+    }
+
     @Test func staleReloadResponseIsIgnored() async {
         final class DelayedRepository: FeedRepository, @unchecked Sendable {
             private var firstContinuation: CheckedContinuation<FeedPage, Error>?
