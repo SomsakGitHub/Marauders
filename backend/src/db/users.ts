@@ -6,6 +6,7 @@ type UserProfileRow = {
   id: string;
   handle: string;
   country: string | null;
+  avatar_url: string | null;
   latitude: number | null;
   longitude: number | null;
   location_updated_at: string | null;
@@ -16,6 +17,7 @@ export type UserProfileJson = {
   id: string;
   handle: string;
   country: string | null;
+  avatarURL: string | null;
   latitude: number | null;
   longitude: number | null;
   locationUpdatedAt: string | null;
@@ -26,6 +28,7 @@ export type PublicAccountJson = {
   userId: string;
   handle: string;
   country: string | null;
+  avatarURL: string | null;
   videoCount: number;
 };
 
@@ -141,6 +144,7 @@ export async function getUserProfile(
       u.id,
       u.handle,
       u.country,
+      u.avatar_url,
       u.latitude,
       u.longitude,
       u.location_updated_at,
@@ -158,6 +162,7 @@ export async function getUserProfile(
     id: row.id,
     handle: row.handle,
     country: row.country,
+    avatarURL: row.avatar_url,
     latitude: row.latitude,
     longitude: row.longitude,
     locationUpdatedAt: row.location_updated_at,
@@ -175,6 +180,7 @@ export async function getPublicAccountByHandle(
       u.id,
       u.handle,
       u.country,
+      u.avatar_url,
       (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count
     FROM app_users u
     WHERE u.handle = ${handle}
@@ -182,6 +188,7 @@ export async function getPublicAccountByHandle(
     id: string;
     handle: string;
     country: string | null;
+    avatar_url: string | null;
     video_count: number;
   }[];
 
@@ -194,6 +201,54 @@ export async function getPublicAccountByHandle(
     userId: row.id,
     handle: row.handle,
     country: row.country,
+    avatarURL: row.avatar_url,
     videoCount: Number(row.video_count),
   };
+}
+
+/** Sets the avatar URL, returning the previous URL (for best-effort R2 cleanup). */
+export async function setUserAvatar(
+  databaseUrl: string,
+  userId: string,
+  avatarUrl: string,
+): Promise<string | null> {
+  const sql = neon(databaseUrl);
+  const rows = (await sql`
+    WITH prev AS (
+      SELECT avatar_url FROM app_users WHERE id = ${userId}::uuid
+    )
+    UPDATE app_users
+    SET avatar_url = ${avatarUrl}
+    WHERE id = ${userId}::uuid
+    RETURNING (SELECT avatar_url FROM prev) AS previous_avatar_url
+  `) as { previous_avatar_url: string | null }[];
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("user not found");
+  }
+  return row.previous_avatar_url ?? null;
+}
+
+/** Clears the avatar URL, returning the previous URL (for best-effort R2 cleanup). */
+export async function clearUserAvatar(
+  databaseUrl: string,
+  userId: string,
+): Promise<string | null> {
+  const sql = neon(databaseUrl);
+  const rows = (await sql`
+    WITH prev AS (
+      SELECT avatar_url FROM app_users WHERE id = ${userId}::uuid
+    )
+    UPDATE app_users
+    SET avatar_url = NULL
+    WHERE id = ${userId}::uuid
+    RETURNING (SELECT avatar_url FROM prev) AS previous_avatar_url
+  `) as { previous_avatar_url: string | null }[];
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("user not found");
+  }
+  return row.previous_avatar_url ?? null;
 }

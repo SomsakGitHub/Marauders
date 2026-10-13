@@ -10,10 +10,16 @@ export const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 
 const ALLOWED_VIDEO_MIME = new Set(["video/mp4", "video/quicktime"]);
 
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+const ALLOWED_AVATAR_MIME = new Set(["image/jpeg", "image/png"]);
+
 const MEDIA_OBJECT_KEY_RE =
   /^videos\/[0-9a-f-]{36}\.(mp4|mov)$/;
 const MEDIA_HLS_OBJECT_KEY_RE =
   /^videos\/[0-9a-f-]{36}\/(master\.m3u8|seg\d{3}\.ts)$/;
+const MEDIA_AVATAR_OBJECT_KEY_RE =
+  /^avatars\/[0-9a-f-]{36}\.(jpg|jpeg|png)$/;
 
 export function parseFeedLimit(raw: string | null): number {
   if (raw === null || raw === "") {
@@ -189,8 +195,52 @@ export function extensionForVideoMime(mime: string): "mp4" | "mov" {
   throw new FeedValidationError("unsupported video type");
 }
 
+function resolveAvatarMime(file: File): "image/jpeg" | "image/png" {
+  const declaredMime = file.type.toLowerCase();
+  if (ALLOWED_AVATAR_MIME.has(declaredMime)) {
+    return declaredMime as "image/jpeg" | "image/png";
+  }
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".png")) {
+    return "image/png";
+  }
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  throw new FeedValidationError("avatar must be a JPEG or PNG image");
+}
+
+export function parseAvatarFile(raw: MultipartField): File {
+  if (!(raw instanceof File)) {
+    throw new FeedValidationError("file is required");
+  }
+  if (raw.size < 1 || raw.size > AVATAR_MAX_BYTES) {
+    throw new FeedValidationError("avatar exceeds allowed size (max 5 MB)");
+  }
+  resolveAvatarMime(raw);
+  return raw;
+}
+
+export function avatarMimeFor(file: File): "image/jpeg" | "image/png" {
+  return resolveAvatarMime(file);
+}
+
+export function extensionForAvatarMime(mime: string): "jpg" | "png" {
+  if (mime === "image/jpeg") {
+    return "jpg";
+  }
+  if (mime === "image/png") {
+    return "png";
+  }
+  throw new FeedValidationError("unsupported avatar type");
+}
+
 export function assertMediaObjectKey(key: string): void {
-  if (!MEDIA_OBJECT_KEY_RE.test(key) && !MEDIA_HLS_OBJECT_KEY_RE.test(key)) {
+  if (
+    !MEDIA_OBJECT_KEY_RE.test(key) &&
+    !MEDIA_HLS_OBJECT_KEY_RE.test(key) &&
+    !MEDIA_AVATAR_OBJECT_KEY_RE.test(key)
+  ) {
     throw new FeedValidationError("invalid media path");
   }
 }
@@ -201,6 +251,12 @@ export function contentTypeForMediaKey(objectKey: string): string {
   }
   if (objectKey.endsWith(".ts")) {
     return "video/mp2t";
+  }
+  if (objectKey.endsWith(".jpg") || objectKey.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (objectKey.endsWith(".png")) {
+    return "image/png";
   }
   const extension = objectKey.split(".").pop()?.toLowerCase() ?? "mp4";
   if (extension === "mov") {

@@ -40,6 +40,7 @@ export async function handlePublicProfileGet(
     return jsonResponse({
       handle: account.handle,
       country: account.country,
+      avatarURL: account.avatarURL,
       videoCount: account.videoCount,
       videos,
     });

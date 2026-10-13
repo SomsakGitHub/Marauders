@@ -8,6 +8,7 @@ type FeedRow = {
   longitude: number | null;
   country: string | null;
   author_name?: string | null;
+  avatar_url?: string | null;
   caption?: string | null;
 };
 
@@ -18,6 +19,7 @@ export type FeedItemJson = {
   longitude: number | null;
   country: string | null;
   authorName: string | null;
+  authorAvatarURL: string | null;
   caption: string | null;
 };
 
@@ -34,7 +36,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -45,7 +47,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -64,7 +66,7 @@ export async function listUserFeedVideos(
   const sql = neon(databaseUrl);
 
   const rows = (await sql`
-    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, v.caption, u.country
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, u.country
     FROM feed_videos v
     LEFT JOIN app_users u ON u.id = v.owner_user_id
     WHERE v.owner_user_id = ${userId}::uuid
@@ -100,6 +102,7 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
       longitude: row.longitude,
       country: row.country,
       authorName: row.author_name ?? null,
+      authorAvatarURL: row.avatar_url ?? null,
       caption: row.caption ?? null,
     };
   });
@@ -135,7 +138,9 @@ export async function insertFeedVideo(
       ${longitude},
       ${ownerUserId}::uuid
     )
-    RETURNING id, stream_url, latitude, longitude, author_name, caption
+    RETURNING id, stream_url, latitude, longitude, author_name,
+      (SELECT avatar_url FROM app_users WHERE id = ${ownerUserId}::uuid) AS avatar_url,
+      caption
   `) as FeedRow[];
 
   const row = rows[0];
@@ -150,6 +155,7 @@ export async function insertFeedVideo(
     longitude: row.longitude,
     country: null,
     authorName: row.author_name ?? null,
+    authorAvatarURL: row.avatar_url ?? null,
     caption: row.caption ?? null,
   };
 }

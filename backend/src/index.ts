@@ -2,6 +2,7 @@ import { authenticateBearerRequest } from "./auth/authenticateRequest";
 import { listFeedVideos } from "./db/feed";
 import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
+import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleMediaGet } from "./routes/media";
 import { handlePublicProfileGet } from "./routes/publicProfile";
 import { handleUserLocationUpdate } from "./routes/userLocation";
@@ -201,6 +202,45 @@ export default {
       }
       return withCors(
         await handleUserProfileUpdate(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (url.pathname === "/v1/users/me/avatar" && request.method === "POST") {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      const decision = await enforceDatabaseRateLimit(
+        env.DATABASE_URL,
+        UPLOAD_RATE_LIMIT,
+        auth.userId,
+      );
+      if (!decision.allowed) {
+        return withCors(
+          rateLimitedResponse(decision.retryAfterSeconds),
+          request,
+        );
+      }
+      return withCors(
+        await handleAvatarUpload(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (url.pathname === "/v1/users/me/avatar" && request.method === "DELETE") {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      return withCors(
+        await handleAvatarDelete(request, env, auth.userId),
         request,
       );
     }
