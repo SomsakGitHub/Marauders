@@ -191,25 +191,25 @@ private struct ProfileClipThumbnail: View {
     @State private var thumbnail: UIImage?
 
     var body: some View {
-        Group {
-            if let thumbnail {
-                Image(uiImage: thumbnail)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Color(white: 0.25)
-                    .overlay { ProgressView().tint(.white) }
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                if let thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Color(white: 0.25)
+                        .overlay { ProgressView().tint(.white) }
+                }
             }
-        }
-        .aspectRatio(1, contentMode: .fill)
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .contentShape(Rectangle())
-        .task(id: clip.streamURL) {
-            thumbnail = await VideoThumbnailLoader.shared.thumbnail(
-                for: clip.streamURL,
-                maxPixelSize: 240
-            )
-        }
+            .clipped()
+            .contentShape(Rectangle())
+            .task(id: clip.streamURL) {
+                thumbnail = await VideoThumbnailLoader.shared.thumbnail(
+                    for: clip.streamURL,
+                    maxPixelSize: 240
+                )
+            }
     }
 }
