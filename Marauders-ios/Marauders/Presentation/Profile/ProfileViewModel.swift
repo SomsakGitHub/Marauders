@@ -19,21 +19,36 @@ final class ProfileViewModel {
     private(set) var state: LoadState = .idle
     private(set) var profile: UserProfile?
     private(set) var deleteErrorMessage: String?
+    private(set) var handleErrorMessage: String?
 
     private let loadProfile: LoadUserProfileUseCase
     private let deleteClip: DeleteUserClipUseCase
+    private let changeHandle: UpdateUserHandleUseCase
 
-    init(loadProfile: LoadUserProfileUseCase, deleteClip: DeleteUserClipUseCase) {
+    init(
+        loadProfile: LoadUserProfileUseCase,
+        deleteClip: DeleteUserClipUseCase,
+        updateHandle: UpdateUserHandleUseCase
+    ) {
         self.loadProfile = loadProfile
         self.deleteClip = deleteClip
+        self.changeHandle = updateHandle
     }
 
     var clips: [FeedVideo] {
         profile?.videos ?? []
     }
 
+    var handle: String {
+        profile?.handle ?? "@marauders"
+    }
+
     func clearDeleteError() {
         deleteErrorMessage = nil
+    }
+
+    func clearHandleError() {
+        handleErrorMessage = nil
     }
 
     func loadIfNeeded() async {
@@ -57,6 +72,30 @@ final class ProfileViewModel {
             return description
         }
         return "Could not load your profile."
+    }
+
+    /// Saves a new @handle; returns true on success.
+    @discardableResult
+    func updateHandle(_ newHandle: String) async -> Bool {
+        do {
+            let saved = try await changeHandle.execute(newHandle)
+            if let current = profile {
+                profile = UserProfile(
+                    handle: saved,
+                    country: current.country,
+                    latitude: current.latitude,
+                    longitude: current.longitude,
+                    videoCount: current.videoCount,
+                    videos: current.videos
+                )
+            }
+            handleErrorMessage = nil
+            return true
+        } catch {
+            handleErrorMessage = Self.userFacingMessage(for: error)
+            AppLog.warning("profile", "handle update failed: \(error.localizedDescription)")
+            return false
+        }
     }
 
     /// Deletes a clip the user owns, removing it optimistically on success.

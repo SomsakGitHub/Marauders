@@ -116,8 +116,12 @@ final class CallbackFlag: @unchecked Sendable {
 final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendable {
     var result: Result<UserProfile, Error>
     var deleteResult: Result<Void, Error> = .success(())
+    var publicResult: Result<PublicUserProfile, Error>?
+    var updateHandleResult: Result<String, Error>?
     private(set) var fetchCount = 0
     private(set) var deletedIDs: [UUID] = []
+    private(set) var requestedHandles: [String] = []
+    private(set) var updatedHandles: [String] = []
 
     init(result: Result<UserProfile, Error>) {
         self.result = result
@@ -126,6 +130,22 @@ final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendabl
     func fetchProfile() async throws -> UserProfile {
         fetchCount += 1
         return try result.get()
+    }
+
+    func fetchPublicProfile(handle: String) async throws -> PublicUserProfile {
+        requestedHandles.append(handle)
+        if let publicResult {
+            return try publicResult.get()
+        }
+        return PublicUserProfile(handle: handle)
+    }
+
+    func updateHandle(_ handle: String) async throws -> String {
+        updatedHandles.append(handle)
+        if let updateHandleResult {
+            return try updateHandleResult.get()
+        }
+        return handle
     }
 
     func deleteClip(id: UUID) async throws {

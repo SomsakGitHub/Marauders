@@ -13,10 +13,15 @@ struct ContentView: View {
     @Bindable var authViewModel: AuthViewModel
     @Bindable var profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
+    let makePublicProfileViewModel: (String) -> PublicProfileViewModel
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
-            VideoFeedView(viewModel: feedViewModel, isFeedTabSelected: router.selectedTab == .feed)
+            VideoFeedView(
+                viewModel: feedViewModel,
+                isFeedTabSelected: router.selectedTab == .feed,
+                onOpenProfile: { router.openPublicProfile(handle: $0) }
+            )
                 .tabItem {
                     Label("Feed", systemImage: "play.rectangle.fill")
                 }
@@ -66,6 +71,12 @@ struct ContentView: View {
         .onAppear {
             AppLog.info("app", "Marauders launched")
         }
+        .sheet(item: $router.publicProfileRoute) { route in
+            PublicProfileView(
+                viewModel: makePublicProfileViewModel(route.handle),
+                onClose: { router.publicProfileRoute = nil }
+            )
+        }
     }
 }
 
@@ -78,6 +89,7 @@ struct ContentView: View {
         uploadViewModel: container.uploadViewModel,
         authViewModel: container.authViewModel,
         profileViewModel: container.profileViewModel,
-        reportUserLocation: container.reportUserLocation
+        reportUserLocation: container.reportUserLocation,
+        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) }
     )
 }

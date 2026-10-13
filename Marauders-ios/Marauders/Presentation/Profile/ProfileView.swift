@@ -11,6 +11,8 @@ struct ProfileView: View {
 
     @State private var selectedClip: FeedVideo?
     @State private var pendingDeletion: FeedVideo?
+    @State private var isEditingHandle = false
+    @State private var handleDraft = ""
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 2),
@@ -51,6 +53,24 @@ struct ProfileView: View {
                         .accessibilityIdentifier("profile.signOut")
                 }
             }
+            .alert("Edit handle", isPresented: $isEditingHandle) {
+                TextField("@handle", text: $handleDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("profile.handleField")
+                Button("Save") {
+                    Task { await viewModel.updateHandle(handleDraft) }
+                }
+                .accessibilityIdentifier("profile.handleSave")
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Letters, numbers, dots and underscores.")
+            }
+            .alert("Couldn't update handle", isPresented: handleErrorBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.handleErrorMessage ?? "")
+            }
         }
         .accessibilityIdentifier("profile.root")
         .task {
@@ -87,6 +107,13 @@ struct ProfileView: View {
         )
     }
 
+    private var handleErrorBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.handleErrorMessage != nil },
+            set: { if !$0 { viewModel.clearHandleError() } }
+        )
+    }
+
     private var content: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -108,6 +135,21 @@ struct ProfileView: View {
             Image(systemName: "person.crop.circle.fill")
                 .font(.system(size: 76))
                 .foregroundStyle(.secondary)
+
+            Button {
+                handleDraft = viewModel.handle
+                isEditingHandle = true
+            } label: {
+                HStack(spacing: 6) {
+                    Text(viewModel.handle)
+                        .font(.title3.weight(.semibold))
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.handle")
 
             if let country = viewModel.profile?.country, !country.isEmpty {
                 Text("\(Country.flagEmoji(for: country)) \(CountryCatalog.name(for: country))")
@@ -185,7 +227,7 @@ struct ProfileView: View {
     }
 }
 
-private struct ProfileClipThumbnail: View {
+struct ProfileClipThumbnail: View {
     let clip: FeedVideo
 
     @State private var thumbnail: UIImage?

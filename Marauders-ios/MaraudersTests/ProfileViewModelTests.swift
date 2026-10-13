@@ -18,7 +18,8 @@ struct ProfileViewModelTests {
         repository.deleteResult = deleteResult
         let viewModel = ProfileViewModel(
             loadProfile: LoadUserProfileUseCase(repository: repository),
-            deleteClip: DeleteUserClipUseCase(repository: repository)
+            deleteClip: DeleteUserClipUseCase(repository: repository),
+            updateHandle: UpdateUserHandleUseCase(repository: repository)
         )
         return (viewModel, repository)
     }
@@ -98,5 +99,35 @@ struct ProfileViewModelTests {
 
         viewModel.clearDeleteError()
         #expect(viewModel.deleteErrorMessage == nil)
+    }
+
+    @Test func updateHandleSavesAndReflectsNewValue() async {
+        let profile = UserProfile(handle: "@old", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        repository.updateHandleResult = .success("@new")
+        await viewModel.loadIfNeeded()
+
+        let didSave = await viewModel.updateHandle("@new")
+
+        #expect(didSave)
+        #expect(repository.updatedHandles == ["@new"])
+        #expect(viewModel.handle == "@new")
+        #expect(viewModel.handleErrorMessage == nil)
+    }
+
+    @Test func updateHandleFailureSurfacesMessage() async {
+        let profile = UserProfile(handle: "@old", country: "TH", videoCount: 0)
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        repository.updateHandleResult = .failure(StubError.feedFailed)
+        await viewModel.loadIfNeeded()
+
+        let didSave = await viewModel.updateHandle("@taken")
+
+        #expect(!didSave)
+        #expect(viewModel.handle == "@old")
+        #expect(viewModel.handleErrorMessage != nil)
+
+        viewModel.clearHandleError()
+        #expect(viewModel.handleErrorMessage == nil)
     }
 }

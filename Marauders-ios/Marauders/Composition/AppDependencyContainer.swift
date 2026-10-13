@@ -19,6 +19,7 @@ final class AppDependencyContainer {
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
+    private let profileRepository: UserProfileRepository
 
     init(
         feedRepository: FeedRepository? = nil,
@@ -71,15 +72,24 @@ final class AppDependencyContainer {
                 apiClient: UserProfileAPIClient(authorization: apiAuthorization)
             )
         }
+        self.profileRepository = resolveProfileRepository
         profileViewModel = ProfileViewModel(
             loadProfile: LoadUserProfileUseCase(repository: resolveProfileRepository),
-            deleteClip: DeleteUserClipUseCase(repository: resolveProfileRepository)
+            deleteClip: DeleteUserClipUseCase(repository: resolveProfileRepository),
+            updateHandle: UpdateUserHandleUseCase(repository: resolveProfileRepository)
         )
 
         coordinator = AppCoordinator(
             router: router,
             feedViewModel: feedViewModel,
             uploadViewModel: uploadViewModel
+        )
+    }
+
+    func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {
+        PublicProfileViewModel(
+            handle: handle,
+            loadProfile: LoadPublicProfileUseCase(repository: profileRepository)
         )
     }
 

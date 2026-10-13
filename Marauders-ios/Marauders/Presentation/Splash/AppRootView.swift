@@ -19,9 +19,10 @@ struct AppRootView: View {
                 feedViewModel: container.feedViewModel,
                 uploadViewModel: container.uploadViewModel,
                 authViewModel: container.authViewModel,
-                profileViewModel: container.profileViewModel,
-                reportUserLocation: container.reportUserLocation
-            )
+        profileViewModel: container.profileViewModel,
+        reportUserLocation: container.reportUserLocation,
+        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) }
+    )
             .opacity(isShowingSplash ? 0 : 1)
 
             if isShowingSplash {

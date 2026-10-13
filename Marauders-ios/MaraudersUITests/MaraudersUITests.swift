@@ -95,6 +95,22 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testFeedAuthorOpensPublicProfile() throws {
+        let app = launchApp()
+
+        XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 15))
+
+        let author = app.buttons["feed.author"]
+        XCTAssertTrue(author.waitForExistence(timeout: 10))
+        author.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15)
+        )
+        XCTAssertTrue(app.staticTexts["publicProfile.handle"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
     private func launchApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["UITEST"] + extraArguments

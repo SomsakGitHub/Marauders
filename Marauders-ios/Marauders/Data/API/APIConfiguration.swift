@@ -93,6 +93,16 @@ enum APIConfiguration {
         return url
     }
 
+    /// Public profile for a `@handle` (no authentication required).
+    static func publicUserProfileURL(handle: String) throws -> URL {
+        let base = try apiBaseURL()
+        let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? handle
+        guard let url = URL(string: "v1/users/\(encoded)", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     static func deleteVideoURL(id: UUID) throws -> URL {
         let base = try apiBaseURL()
         guard let url = URL(string: "v1/videos/\(id.uuidString)", relativeTo: base) else {

@@ -122,7 +122,9 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption`/`musicTitle` (ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
-| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (ประเทศ, พิกัดล่าสุด, จำนวนคลิป) + คลิปของตัวเอง (Bearer) |
+| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (handle, ประเทศ, พิกัดล่าสุด, จำนวนคลิป) + คลิปของตัวเอง (Bearer) |
+| `PATCH` | `/v1/users/me` | `{ handle }` — เปลี่ยน `@handle` ของตัวเอง (ตัวพิมพ์เล็ก, `a-z0-9._`, 1–63 ตัว, ตรวจคำสงวน) → `{ handle }`; ซ้ำคืน `409` (Bearer) |
+| `GET` | `/v1/users/<handle>` | โปรไฟล์สาธารณะของคนอื่น (handle, ประเทศ, จำนวนคลิป, คลิป) — ไม่ต้องล็อกอิน |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์จาก R2 |
 
 **ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB
@@ -135,7 +137,9 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 
 **บันทึกตำแหน่งผู้ใช้:** เมื่อผู้ใช้ให้สิทธิ์และแอปได้พิกัดครั้งแรกในเซสชัน หน้า Map จะส่งพิกัดไปที่ `POST /v1/users/me/location` (ครั้งเดียวต่อการเปิดแอป) → เก็บใน `app_users.latitude/longitude`
 
-**แท็บ Profile:** เรียก `GET /v1/users/me` (Bearer) เพื่อโชว์ประเทศ + จำนวนคลิป และกริดคลิปที่ตัวเองอัปโหลด (แตะเพื่อเล่นวนซ้ำ) พร้อมปุ่มออกจากระบบ — ลบคลิปของตัวเองได้ด้วยการกดค้างที่คลิปหรือกดถังขยะตอนเล่น (ยืนยันก่อนลบ → `DELETE /v1/videos/:id`)
+**แท็บ Profile:** เรียก `GET /v1/users/me` (Bearer) เพื่อโชว์ `@handle` + ประเทศ + จำนวนคลิป และกริดคลิปที่ตัวเองอัปโหลด (แตะเพื่อเล่นวนซ้ำ) พร้อมปุ่มออกจากระบบ — แตะ handle เพื่อแก้ไข (`PATCH /v1/users/me`) และลบคลิปของตัวเองได้ด้วยการกดค้างที่คลิปหรือกดถังขยะตอนเล่น (ยืนยันก่อนลบ → `DELETE /v1/videos/:id`)
+
+**โปรไฟล์สาธารณะต่อ `@handle`:** ทุกบัญชีมี `@handle` อัตโนมัติตอนสมัคร (`@user_<hex>`) แก้ไขได้ในแท็บ Profile แตะชื่อผู้เขียนในฟีดเพื่อเปิดโปรไฟล์สาธารณะของคนนั้นได้แบบไม่ต้องล็อกอิน (`GET /v1/users/<handle>`) — ฟีดใช้ `handle` ของเจ้าของเป็น `authorName`
 
 ตัวอย่าง response ฟีด:
 
@@ -178,7 +182,8 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 - [x] Sign in with Apple + จำกัดอัปโหลดต่อ user  
 - [x] เลือกประเทศตอน login  
 - [x] Rate limiting ที่ Worker  
-- [ ] Like / โปรไฟล์ต่อ `@handle`  
+- [x] โปรไฟล์สาธารณะต่อ `@handle` (แก้ไขได้)  
+- [ ] Like  
 - [ ] ซ่อนแท็บ Log ใน Release build  
 - [ ] CI: `npm run typecheck` + Xcode build  
 

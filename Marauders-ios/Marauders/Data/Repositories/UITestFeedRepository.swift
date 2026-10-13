@@ -32,7 +32,9 @@ struct UITestFeedRepository: FeedRepository {
                 streamURL: URL(string: "https://example.com/ui-test-clip.mp4")!,
                 latitude: 13.7563,
                 longitude: 100.5018,
-                country: "TH"
+                country: "TH",
+                authorName: "@marauders",
+                caption: "UI test clip"
             ),
         ]
         return FeedPage(items: items, hasMore: false)

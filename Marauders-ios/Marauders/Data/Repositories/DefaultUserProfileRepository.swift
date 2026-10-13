@@ -16,6 +16,14 @@ struct DefaultUserProfileRepository: UserProfileRepository {
         try await apiClient.fetchProfile()
     }
 
+    func fetchPublicProfile(handle: String) async throws -> PublicUserProfile {
+        try await apiClient.fetchPublicProfile(handle: handle)
+    }
+
+    func updateHandle(_ handle: String) async throws -> String {
+        try await apiClient.updateHandle(handle)
+    }
+
     func deleteClip(id: UUID) async throws {
         try await apiClient.deleteClip(id: id)
     }

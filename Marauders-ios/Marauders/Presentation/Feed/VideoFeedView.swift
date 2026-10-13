@@ -13,6 +13,8 @@ struct VideoFeedView: View {
     /// so a Map/Upload visit (or a system permission alert) never starts
     /// background audio/video.
     var isFeedTabSelected: Bool
+    /// Opens the public profile for a tapped author handle.
+    var onOpenProfile: (String) -> Void = { _ in }
 
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
@@ -40,6 +42,7 @@ struct VideoFeedView: View {
                     }
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("feed.root")
         .task {
             await viewModel.loadIfNeeded()
@@ -134,20 +137,21 @@ struct VideoFeedView: View {
                         playerEngine.togglePlayPause()
                     }
                 )
+                .ignoresSafeArea()
 
                 FeedPlaybackChrome(engine: playerEngine)
                     .frame(width: geometry.size.width, height: geometry.size.height)
+                    .ignoresSafeArea()
                     .allowsHitTesting(false)
 
                 if let video = currentVideo {
-                    FeedClipCaptionOverlay(clip: video)
+                    FeedClipCaptionOverlay(clip: video, onAuthorTap: onOpenProfile)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
                 playbackOverlay
             }
         }
-        .ignoresSafeArea()
         .background(Color.black)
     }
 
