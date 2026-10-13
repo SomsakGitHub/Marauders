@@ -67,8 +67,33 @@ struct UserProfileAPIClient: Sendable {
         }
     }
 
-    private struct Response: Decodable {
-        let country: String?
+    func deleteClip(id: UUID) async throws {
+        guard let authHeader = authorization?.bearerAuthorizationHeader() else {
+            throw UserProfileAPIError.notAuthenticated
+        }
+
+        let requestURL = try APIConfiguration.deleteVideoURL(id: id)
+        AppLog.info("api.profile", "DELETE \(requestURL.host ?? "?")/v1/videos/\(id.uuidString)")
+
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 15
+
+        let (_, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw UserProfileAPIError.invalidResponse
+        }
+        if http.statusCode == 404 {
+            throw UserProfileAPIError.notFound
+        }
+        guard (200 ... 299).contains(http.statusCode) else {
+            throw UserProfileAPIError.serverError(http.statusCode)
+        }
+    }
+
+    private struct Response: Decodable {        let country: String?
         let latitude: Double?
         let longitude: Double?
         let videoCount: Int

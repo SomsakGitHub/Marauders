@@ -11,11 +11,14 @@ import Testing
 @MainActor
 struct ProfileViewModelTests {
     private func makeSUT(
-        result: Result<UserProfile, Error>
+        result: Result<UserProfile, Error>,
+        deleteResult: Result<Void, Error> = .success(())
     ) -> (ProfileViewModel, StubUserProfileRepository) {
         let repository = StubUserProfileRepository(result: result)
+        repository.deleteResult = deleteResult
         let viewModel = ProfileViewModel(
-            loadProfile: LoadUserProfileUseCase(repository: repository)
+            loadProfile: LoadUserProfileUseCase(repository: repository),
+            deleteClip: DeleteUserClipUseCase(repository: repository)
         )
         return (viewModel, repository)
     }
@@ -63,5 +66,37 @@ struct ProfileViewModelTests {
         await viewModel.reload()
 
         #expect(repository.fetchCount == 2)
+    }
+
+    @Test func deleteRemovesClipAndDecrementsCount() async {
+        let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
+        let profile = UserProfile(country: "TH", videoCount: 1, videos: [clip])
+        let (viewModel, repository) = makeSUT(result: .success(profile))
+        await viewModel.loadIfNeeded()
+
+        await viewModel.delete(clip)
+
+        #expect(repository.deletedIDs == [clip.id])
+        #expect(viewModel.clips.isEmpty)
+        #expect(viewModel.profile?.videoCount == 0)
+        #expect(viewModel.deleteErrorMessage == nil)
+    }
+
+    @Test func deleteFailureSurfacesMessageAndKeepsClip() async {
+        let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
+        let profile = UserProfile(country: "TH", videoCount: 1, videos: [clip])
+        let (viewModel, _) = makeSUT(
+            result: .success(profile),
+            deleteResult: .failure(StubError.feedFailed)
+        )
+        await viewModel.loadIfNeeded()
+
+        await viewModel.delete(clip)
+
+        #expect(viewModel.clips.count == 1)
+        #expect(viewModel.deleteErrorMessage == "feed failed")
+
+        viewModel.clearDeleteError()
+        #expect(viewModel.deleteErrorMessage == nil)
     }
 }

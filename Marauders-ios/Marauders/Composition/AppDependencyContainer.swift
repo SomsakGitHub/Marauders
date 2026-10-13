@@ -72,7 +72,8 @@ final class AppDependencyContainer {
             )
         }
         profileViewModel = ProfileViewModel(
-            loadProfile: LoadUserProfileUseCase(repository: resolveProfileRepository)
+            loadProfile: LoadUserProfileUseCase(repository: resolveProfileRepository),
+            deleteClip: DeleteUserClipUseCase(repository: resolveProfileRepository)
         )
 
         coordinator = AppCoordinator(

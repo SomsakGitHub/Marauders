@@ -58,6 +58,30 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testProfileCanDeleteOwnClip() throws {
+        let app = launchApp()
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 15))
+        profileTab.tap()
+
+        let clip = app.buttons["profile.clip"]
+        XCTAssertTrue(clip.waitForExistence(timeout: 15))
+        clip.tap()
+
+        let deleteButton = app.buttons["clip.delete"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 10))
+        deleteButton.tap()
+
+        let confirmDelete = app.buttons["Delete"]
+        XCTAssertTrue(confirmDelete.waitForExistence(timeout: 10))
+        confirmDelete.tap()
+
+        let emptyState = app.staticTexts["No clips yet"]
+        XCTAssertTrue(emptyState.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
     func testSmokeEmptyFeedShowsErrorState() throws {
         let app = launchApp(extraArguments: ["UITEST_EMPTY_FEED"])
 

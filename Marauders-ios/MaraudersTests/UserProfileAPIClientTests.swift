@@ -94,6 +94,49 @@ struct UserProfileAPIClientTests {
             _ = try await client.fetchProfile()
         }
     }
+
+    @Test func deleteClipSendsDeleteWithBearerToken() async throws {
+        let id = UUID()
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 204), Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = UserProfileAPIClient(session: session, authorization: Self.authorization)
+        try await client.deleteClip(id: id)
+
+        #expect(capturedRequest?.httpMethod == "DELETE")
+        #expect(capturedRequest?.url?.path().hasSuffix("/v1/videos/\(id.uuidString)") == true)
+        #expect(
+            capturedRequest?.value(forHTTPHeaderField: "Authorization")?.hasPrefix("Bearer ") == true
+        )
+    }
+
+    @Test func deleteClipThrowsWhenUnauthenticated() async {
+        let session = StubURLSessionFactory.make { request in
+            (StubURLSessionFactory.httpResponse(for: request, statusCode: 204), Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = UserProfileAPIClient(session: session, authorization: nil)
+        await #expect(throws: UserProfileAPIError.notAuthenticated) {
+            try await client.deleteClip(id: UUID())
+        }
+    }
+
+    @Test func deleteClipMapsNotFound() async {
+        let session = StubURLSessionFactory.make { request in
+            (StubURLSessionFactory.httpResponse(for: request, statusCode: 404), Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = UserProfileAPIClient(session: session, authorization: Self.authorization)
+        await #expect(throws: UserProfileAPIError.notFound) {
+            try await client.deleteClip(id: UUID())
+        }
+    }
 }
 
 private struct UserProfileTestAuthorization: APIAuthorization {

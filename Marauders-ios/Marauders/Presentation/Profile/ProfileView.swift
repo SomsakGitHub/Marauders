@@ -10,6 +10,7 @@ struct ProfileView: View {
     var onSignOut: () -> Void
 
     @State private var selectedClip: FeedVideo?
+    @State private var pendingDeletion: FeedVideo?
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 2),
@@ -29,6 +30,19 @@ struct ProfileView: View {
                     content
                 }
             }
+            .confirmationDialog(
+                "Delete this clip?",
+                isPresented: deletionBinding,
+                titleVisibility: .visible,
+                presenting: pendingDeletion
+            ) { clip in
+                Button("Delete", role: .destructive) {
+                    Task { await viewModel.delete(clip) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text("This cannot be undone.")
+            }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -43,8 +57,34 @@ struct ProfileView: View {
             await viewModel.loadIfNeeded()
         }
         .fullScreenCover(item: $selectedClip) { clip in
-            ClipPlayerView(clip: clip, onClose: { selectedClip = nil })
+            ClipPlayerView(
+                clip: clip,
+                onClose: { selectedClip = nil },
+                onDelete: {
+                    selectedClip = nil
+                    pendingDeletion = clip
+                }
+            )
         }
+        .alert("Couldn't delete clip", isPresented: deleteErrorBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.deleteErrorMessage ?? "")
+        }
+    }
+
+    private var deletionBinding: Binding<Bool> {
+        Binding(
+            get: { pendingDeletion != nil },
+            set: { if !$0 { pendingDeletion = nil } }
+        )
+    }
+
+    private var deleteErrorBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.deleteErrorMessage != nil },
+            set: { if !$0 { viewModel.clearDeleteError() } }
+        )
     }
 
     private var content: some View {
@@ -98,6 +138,14 @@ struct ProfileView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("profile.clip")
+                .contextMenu {
+                    Button(role: .destructive) {
+                        pendingDeletion = clip
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .accessibilityIdentifier("profile.clip.delete")
+                }
             }
         }
         .padding(.horizontal, 2)

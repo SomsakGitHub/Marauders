@@ -37,6 +37,7 @@ flowchart TB
 | `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
 | `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` → R2 + `feed_videos.owner_user_id` |
+| `DELETE /v1/videos/:id` | **Bearer** required; deletes the caller's own video row + its R2 object |
 | `POST /v1/users/me/location` | **Bearer** required; `{ latitude, longitude }` → `app_users.latitude/longitude` |
 | `GET /v1/users/me` | **Bearer** required; `{ country, latitude, longitude, videoCount, videos[] }` for the signed-in user |
 | `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**) or HLS playlist + `.ts` segments |
@@ -145,6 +146,7 @@ sequenceDiagram
 
 - **Data:** `GET /v1/users/me` (Bearer) via `UserProfileAPIClient` → `UserProfile` (country, last-known coords, clip count, and the user's own `[FeedVideo]`).
 - **UI:** `ProfileView` shows a header (country flag/name + clip count), a 3-column grid of the user's clips and a **Sign Out** action. Tapping a clip plays it inline with `ClipPlayerView`; pull-to-refresh re-fetches.
+- **Delete:** long-press a clip (or tap the trash button in the player) → confirm → `DELETE /v1/videos/:id` via `DeleteUserClipUseCase`; the clip is removed from the grid optimistically and the count decremented.
 - **State:** `ProfileViewModel` (`idle → loading → loaded/failed`) loads once via `loadIfNeeded()` and re-fetches on `reload()`.
 - **Auth:** gated on Sign in with Apple (same `SignInWithAppleGateView` as Upload/Map).
 - **`ClipPlayerView`** is shared between the map pins and the profile grid (`Presentation/Common`).
@@ -338,6 +340,7 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 | `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
 | `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 30s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
 | `/v1/users/me` | `UserProfileAPIClient` | GET (Bearer) | 15s | none | `UserProfile` (country, coords, count, `[FeedVideo]`) | `notAuthenticated`, `notFound`, `serverError(status)`, `invalidResponse` |
+| `/v1/videos/:id` | `UserProfileAPIClient` | DELETE (Bearer) | 15s | video id is a UUID | 204/200 | `notAuthenticated`, `notFound`, `serverError(status)`, `invalidResponse` |
 
 **Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests`, `UserProfileAPIClientTests` use `StubURLProtocol` (no live network in CI).
 

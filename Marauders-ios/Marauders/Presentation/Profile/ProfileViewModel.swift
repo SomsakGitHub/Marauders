@@ -18,15 +18,22 @@ final class ProfileViewModel {
 
     private(set) var state: LoadState = .idle
     private(set) var profile: UserProfile?
+    private(set) var deleteErrorMessage: String?
 
     private let loadProfile: LoadUserProfileUseCase
+    private let deleteClip: DeleteUserClipUseCase
 
-    init(loadProfile: LoadUserProfileUseCase) {
+    init(loadProfile: LoadUserProfileUseCase, deleteClip: DeleteUserClipUseCase) {
         self.loadProfile = loadProfile
+        self.deleteClip = deleteClip
     }
 
     var clips: [FeedVideo] {
         profile?.videos ?? []
+    }
+
+    func clearDeleteError() {
+        deleteErrorMessage = nil
     }
 
     func loadIfNeeded() async {
@@ -50,5 +57,24 @@ final class ProfileViewModel {
             return description
         }
         return "Could not load your profile."
+    }
+
+    /// Deletes a clip the user owns, removing it optimistically on success.
+    func delete(_ clip: FeedVideo) async {
+        deleteErrorMessage = nil
+        do {
+            try await deleteClip.execute(id: clip.id)
+            guard let current = profile else { return }
+            profile = UserProfile(
+                country: current.country,
+                latitude: current.latitude,
+                longitude: current.longitude,
+                videoCount: max(0, current.videoCount - 1),
+                videos: current.videos.filter { $0.id != clip.id }
+            )
+        } catch {
+            deleteErrorMessage = Self.userFacingMessage(for: error)
+            AppLog.warning("profile", "delete failed: \(error.localizedDescription)")
+        }
     }
 }

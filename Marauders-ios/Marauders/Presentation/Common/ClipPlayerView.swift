@@ -14,6 +14,7 @@ struct ClipPlayerView: View {
     var userCoordinate: CLLocationCoordinate2D?
     let onClose: () -> Void
     var onOpenInFeed: (() -> Void)?
+    var onDelete: (() -> Void)?
 
     @State private var player: AVPlayer?
 
@@ -60,6 +61,17 @@ struct ClipPlayerView: View {
                 }
             }
             Spacer()
+            if let onDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(.black.opacity(0.4), in: Circle())
+                }
+                .accessibilityLabel("Delete clip")
+                .accessibilityIdentifier("clip.delete")
+            }
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.headline)
