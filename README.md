@@ -121,6 +121,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | รายการฟีด; `country` กรองเฉพาะคลิปของผู้อัปโหลดประเทศนั้น |
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` เท่านั้น — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
+| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (ประเทศ, พิกัดล่าสุด, จำนวนคลิป) + คลิปของตัวเอง (Bearer) |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์จาก R2 |
 
 **ข้อจำกัดอัปโหลด (server):** MP4 / QuickTime, สูงสุด 100 MB
@@ -132,6 +133,8 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 **แผนที่สไตล์ Instagram:** แท็บ Map เป็นแผนที่เต็มจอ ไม่มี navigation bar มีเมนูตัวกรอง (ประเทศ / ใกล้ฉัน / ออกจากระบบ) และปุ่มหาตำแหน่ง หมุดวงกลมถูกจัดกลุ่มอัตโนมัติ (clustering) ตามระยะ zoom — แตะกลุ่มเพื่อซูมเข้า แตะหมุดเดี่ยวเพื่อเล่นวิดีโอทันที (วนซ้ำ มีปุ่มไปเล่นในฟีด) (แถบค้นหาแบบ client-side ยังซ่อนไว้ เปิดใช้ได้ด้วย `MapView.isSearchVisible`)
 
 **บันทึกตำแหน่งผู้ใช้:** เมื่อผู้ใช้ให้สิทธิ์และแอปได้พิกัดครั้งแรกในเซสชัน หน้า Map จะส่งพิกัดไปที่ `POST /v1/users/me/location` (ครั้งเดียวต่อการเปิดแอป) → เก็บใน `app_users.latitude/longitude`
+
+**แท็บ Profile:** เรียก `GET /v1/users/me` (Bearer) เพื่อโชว์ประเทศ + จำนวนคลิป และกริดคลิปที่ตัวเองอัปโหลด (แตะเพื่อเล่นวนซ้ำ) พร้อมปุ่มออกจากระบบ
 
 ตัวอย่าง response ฟีด:
 

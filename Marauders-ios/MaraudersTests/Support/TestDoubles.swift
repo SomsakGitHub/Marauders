@@ -107,6 +107,20 @@ final class CallbackFlag: @unchecked Sendable {
     var wasCalled = false
 }
 
+final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendable {
+    var result: Result<UserProfile, Error>
+    private(set) var fetchCount = 0
+
+    init(result: Result<UserProfile, Error>) {
+        self.result = result
+    }
+
+    func fetchProfile() async throws -> UserProfile {
+        fetchCount += 1
+        return try result.get()
+    }
+}
+
 final class RecordingUserLocationRepository: UserLocationRepository, @unchecked Sendable {
     var result: Result<Void, Error>
     private(set) var reportedLocations: [ClipLocation] = []

@@ -33,7 +33,7 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
-    func testSmokeCanOpenUploadTab() throws {
+    func testSmokeUploadTab() throws {
         let app = launchApp()
 
         let uploadTab = app.tabBars.buttons["Upload"]
@@ -43,6 +43,18 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Upload"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["upload.root"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["upload.pickVideo"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testSmokeProfileTab() throws {
+        let app = launchApp()
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 15))
+        profileTab.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["profile.root"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["profile.signOut"].waitForExistence(timeout: 10))
     }
 
     @MainActor

@@ -37,6 +37,8 @@ flowchart TB
 | `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
 | `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` → R2 + `feed_videos.owner_user_id` |
+| `POST /v1/users/me/location` | **Bearer** required; `{ latitude, longitude }` → `app_users.latitude/longitude` |
+| `GET /v1/users/me` | **Bearer** required; `{ country, latitude, longitude, videoCount, videos[] }` for the signed-in user |
 | `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**) or HLS playlist + `.ts` segments |
 
 ---
@@ -138,6 +140,14 @@ sequenceDiagram
 - **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
 - **Auth:** Map/Upload gate on Sign in with Apple; `identityToken` → `POST /v1/auth/apple` → access token in Keychain; upload sends `Authorization: Bearer`.
 - **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted. The first fix delivered in a session is reported once to `POST /v1/users/me/location` via `ReportUserLocationUseCase` (composition root), so the account keeps a last-known location.
+
+### Profile tab
+
+- **Data:** `GET /v1/users/me` (Bearer) via `UserProfileAPIClient` → `UserProfile` (country, last-known coords, clip count, and the user's own `[FeedVideo]`).
+- **UI:** `ProfileView` shows a header (country flag/name + clip count), a 3-column grid of the user's clips and a **Sign Out** action. Tapping a clip plays it inline with `ClipPlayerView`; pull-to-refresh re-fetches.
+- **State:** `ProfileViewModel` (`idle → loading → loaded/failed`) loads once via `loadIfNeeded()` and re-fetches on `reload()`.
+- **Auth:** gated on Sign in with Apple (same `SignInWithAppleGateView` as Upload/Map).
+- **`ClipPlayerView`** is shared between the map pins and the profile grid (`Presentation/Common`).
 
 ### Swift 6 concurrency
 
@@ -327,8 +337,9 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 | `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
 | `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
 | `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 30s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
+| `/v1/users/me` | `UserProfileAPIClient` | GET (Bearer) | 15s | none | `UserProfile` (country, coords, count, `[FeedVideo]`) | `notAuthenticated`, `notFound`, `serverError(status)`, `invalidResponse` |
 
-**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests` use `StubURLProtocol` (no live network in CI).
+**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests`, `UserProfileAPIClientTests` use `StubURLProtocol` (no live network in CI).
 
 **Not in MVP:** auth headers, automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only).
 

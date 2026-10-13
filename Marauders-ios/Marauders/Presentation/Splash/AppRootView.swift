@@ -19,6 +19,7 @@ struct AppRootView: View {
                 feedViewModel: container.feedViewModel,
                 uploadViewModel: container.uploadViewModel,
                 authViewModel: container.authViewModel,
+                profileViewModel: container.profileViewModel,
                 reportUserLocation: container.reportUserLocation
             )
             .opacity(isShowingSplash ? 0 : 1)

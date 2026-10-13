@@ -14,6 +14,7 @@ final class AppDependencyContainer {
     let feedViewModel: VideoFeedViewModel
     let uploadViewModel: UploadVideoViewModel
     let authViewModel: AuthViewModel
+    let profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
@@ -22,7 +23,8 @@ final class AppDependencyContainer {
     init(
         feedRepository: FeedRepository? = nil,
         uploadRepository: VideoUploadRepository? = nil,
-        videoExporter: VideoExporting? = nil
+        videoExporter: VideoExporting? = nil,
+        profileRepository: UserProfileRepository? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         if let feedRepository {
@@ -58,6 +60,20 @@ final class AppDependencyContainer {
             videoLocationReader: AVAssetVideoLocationReader()
         )
         authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore)
+
+        let resolveProfileRepository: UserProfileRepository
+        if let profileRepository {
+            resolveProfileRepository = profileRepository
+        } else if AppRuntimeConfiguration.isUITesting {
+            resolveProfileRepository = UITestUserProfileRepository()
+        } else {
+            resolveProfileRepository = DefaultUserProfileRepository(
+                apiClient: UserProfileAPIClient(authorization: apiAuthorization)
+            )
+        }
+        profileViewModel = ProfileViewModel(
+            loadProfile: LoadUserProfileUseCase(repository: resolveProfileRepository)
+        )
 
         coordinator = AppCoordinator(
             router: router,

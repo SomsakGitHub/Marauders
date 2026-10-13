@@ -1,0 +1,167 @@
+//
+//  ProfileView.swift
+//  Marauders
+//
+
+import SwiftUI
+
+struct ProfileView: View {
+    @Bindable var viewModel: ProfileViewModel
+    var onSignOut: () -> Void
+
+    @State private var selectedClip: FeedVideo?
+
+    private let columns = Array(
+        repeating: GridItem(.flexible(), spacing: 2),
+        count: 3
+    )
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch viewModel.state {
+                case .idle, .loading:
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .failed(let message):
+                    errorState(message)
+                case .loaded:
+                    content
+                }
+            }
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Sign Out", action: onSignOut)
+                        .accessibilityIdentifier("profile.signOut")
+                }
+            }
+        }
+        .accessibilityIdentifier("profile.root")
+        .task {
+            await viewModel.loadIfNeeded()
+        }
+        .fullScreenCover(item: $selectedClip) { clip in
+            ClipPlayerView(clip: clip, onClose: { selectedClip = nil })
+        }
+    }
+
+    private var content: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                header
+                if viewModel.clips.isEmpty {
+                    emptyState
+                } else {
+                    grid
+                }
+            }
+        }
+        .refreshable {
+            await viewModel.reload()
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "person.crop.circle.fill")
+                .font(.system(size: 76))
+                .foregroundStyle(.secondary)
+
+            if let country = viewModel.profile?.country, !country.isEmpty {
+                Text("\(Country.flagEmoji(for: country)) \(CountryCatalog.name(for: country))")
+                    .font(.headline)
+                    .accessibilityIdentifier("profile.country")
+            }
+
+            Text(clipCountLabel)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+    }
+
+    private var clipCountLabel: String {
+        let count = viewModel.profile?.videoCount ?? 0
+        return count == 1 ? "1 clip" : "\(count) clips"
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: columns, spacing: 2) {
+            ForEach(viewModel.clips) { clip in
+                Button {
+                    selectedClip = clip
+                } label: {
+                    ProfileClipThumbnail(clip: clip)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("profile.clip")
+            }
+        }
+        .padding(.horizontal, 2)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "square.stack.3d.up.slash")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text("No clips yet")
+                .font(.headline)
+            Text("Clips you upload will show up here.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 40)
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button("Retry") {
+                Task { await viewModel.reload() }
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("profile.retry")
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ProfileClipThumbnail: View {
+    let clip: FeedVideo
+
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        Group {
+            if let thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Color(white: 0.25)
+                    .overlay { ProgressView().tint(.white) }
+            }
+        }
+        .aspectRatio(1, contentMode: .fill)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .contentShape(Rectangle())
+        .task(id: clip.streamURL) {
+            thumbnail = await VideoThumbnailLoader.shared.thumbnail(
+                for: clip.streamURL,
+                maxPixelSize: 240
+            )
+        }
+    }
+}

@@ -11,6 +11,7 @@ struct ContentView: View {
     @Bindable var feedViewModel: VideoFeedViewModel
     @Bindable var uploadViewModel: UploadVideoViewModel
     @Bindable var authViewModel: AuthViewModel
+    @Bindable var profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
 
     var body: some View {
@@ -33,6 +34,15 @@ struct ContentView: View {
                     Label("Map", systemImage: "map.fill")
                 }
                 .tag(MainTab.map)
+
+            ProfileTabView(
+                authViewModel: authViewModel,
+                profileViewModel: profileViewModel
+            )
+                .tabItem {
+                    Label("Profile", systemImage: "person.crop.circle.fill")
+                }
+                .tag(MainTab.profile)
 
             UploadTabView(
                 authViewModel: authViewModel,
@@ -67,6 +77,7 @@ struct ContentView: View {
         feedViewModel: container.feedViewModel,
         uploadViewModel: container.uploadViewModel,
         authViewModel: container.authViewModel,
+        profileViewModel: container.profileViewModel,
         reportUserLocation: container.reportUserLocation
     )
 }

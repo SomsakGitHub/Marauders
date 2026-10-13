@@ -85,6 +85,14 @@ enum APIConfiguration {
         return url
     }
 
+    static func userProfileURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/users/me", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     private static func resolveBaseURLString() -> String? {
         if let fromPlist = bundledConfigValue() {
             AppLog.info("config", "loaded base URL from APIConfiguration.plist")
