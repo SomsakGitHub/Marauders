@@ -3,6 +3,7 @@ import { listFeedVideos } from "./db/feed";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleMediaGet } from "./routes/media";
 import { handleUserLocationUpdate } from "./routes/userLocation";
+import { handleUserProfileGet } from "./routes/userProfile";
 import { handleVideoUpload } from "./routes/upload";
 import {
   FeedValidationError,
@@ -121,6 +122,20 @@ export default {
       }
       return withCors(
         await handleUserLocationUpdate(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (url.pathname === "/v1/users/me" && request.method === "GET") {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      return withCors(
+        await handleUserProfileGet(request, env, auth.userId),
         request,
       );
     }

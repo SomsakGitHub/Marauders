@@ -56,6 +56,29 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `) as FeedRow[];
 
+  return mapFeedRows(rows);
+}
+
+export async function listUserFeedVideos(
+  databaseUrl: string,
+  userId: string,
+  limit: number,
+): Promise<FeedItemJson[]> {
+  const sql = neon(databaseUrl);
+
+  const rows = (await sql`
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, v.author_name, v.caption, v.music_title, u.country
+    FROM feed_videos v
+    LEFT JOIN app_users u ON u.id = v.owner_user_id
+    WHERE v.owner_user_id = ${userId}::uuid
+    ORDER BY v.sort_order DESC, v.created_at DESC, v.id DESC
+    LIMIT ${limit}
+  `) as FeedRow[];
+
+  return mapFeedRows(rows);
+}
+
+function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {
   return rows.map((row) => {
     assertHttpsStreamUrl(row.stream_url);
     return {

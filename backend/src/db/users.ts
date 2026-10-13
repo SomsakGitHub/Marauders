@@ -2,6 +2,24 @@ import { neon } from "@neondatabase/serverless";
 
 type UserRow = { id: string };
 
+type UserProfileRow = {
+  id: string;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_updated_at: string | null;
+  video_count: number;
+};
+
+export type UserProfileJson = {
+  id: string;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationUpdatedAt: string | null;
+  videoCount: number;
+};
+
 export async function upsertUserByAppleSub(
   databaseUrl: string,
   appleSub: string,
@@ -42,4 +60,36 @@ export async function updateUserLocation(
   if (!rows[0]?.id) {
     throw new Error("user not found");
   }
+}
+
+export async function getUserProfile(
+  databaseUrl: string,
+  userId: string,
+): Promise<UserProfileJson | null> {
+  const sql = neon(databaseUrl);
+  const rows = (await sql`
+    SELECT
+      u.id,
+      u.country,
+      u.latitude,
+      u.longitude,
+      u.location_updated_at,
+      (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count
+    FROM app_users u
+    WHERE u.id = ${userId}::uuid
+  `) as UserProfileRow[];
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    country: row.country,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    locationUpdatedAt: row.location_updated_at,
+    videoCount: Number(row.video_count),
+  };
 }
