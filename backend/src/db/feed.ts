@@ -24,8 +24,6 @@ export type FeedItemJson = {
 };
 
 const UPLOAD_AUTHOR_NAME = "@marauders";
-const UPLOAD_CAPTION = " ";
-const UPLOAD_MUSIC_TITLE = "—";
 
 export async function listFeedVideos(
   databaseUrl: string,
@@ -115,6 +113,8 @@ export async function insertFeedVideo(
   latitude: number,
   longitude: number,
   ownerUserId: string,
+  caption: string = "",
+  musicTitle: string = "",
 ): Promise<FeedItemJson> {
   assertHttpsStreamUrl(streamUrl);
 
@@ -133,8 +133,8 @@ export async function insertFeedVideo(
     VALUES (
       ${streamUrl},
       ${UPLOAD_AUTHOR_NAME},
-      ${UPLOAD_CAPTION},
-      ${UPLOAD_MUSIC_TITLE},
+      ${caption},
+      ${musicTitle},
       (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),
       ${latitude},
       ${longitude},

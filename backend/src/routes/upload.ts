@@ -7,8 +7,10 @@ import type { Env } from "../index";
 import {
   extensionForVideoMime,
   FeedValidationError,
+  parseUploadCaption,
   parseUploadCoordinates,
   parseUploadFile,
+  parseUploadMusicTitle,
   resolveVideoMime,
 } from "../validation";
 
@@ -47,6 +49,8 @@ export async function handleVideoUpload(
       formData.get("latitude"),
       formData.get("longitude"),
     );
+    const caption = parseUploadCaption(formData.get("caption"));
+    const musicTitle = parseUploadMusicTitle(formData.get("musicTitle"));
 
     const videoId = crypto.randomUUID();
     const mime = resolveVideoMime(file);
@@ -83,6 +87,8 @@ export async function handleVideoUpload(
         coordinates.latitude,
         coordinates.longitude,
         ownerUserId,
+        caption,
+        musicTitle,
       );
     } catch (databaseError) {
       console.error("database insert failed", databaseError);

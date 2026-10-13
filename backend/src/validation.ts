@@ -95,6 +95,37 @@ export function parseUploadFile(raw: MultipartField): File {
   return raw;
 }
 
+export const CAPTION_MAX_LENGTH = 500;
+export const MUSIC_TITLE_MAX_LENGTH = 200;
+
+/** Optional free-text caption for an upload, trimmed and length-checked. */
+export function parseUploadCaption(raw: MultipartField): string {
+  if (typeof raw !== "string") {
+    return "";
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length > CAPTION_MAX_LENGTH) {
+    throw new FeedValidationError(
+      `caption exceeds ${CAPTION_MAX_LENGTH} characters`,
+    );
+  }
+  return trimmed;
+}
+
+/** Optional music title for an upload, trimmed and length-checked. */
+export function parseUploadMusicTitle(raw: MultipartField): string {
+  if (typeof raw !== "string") {
+    return "";
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length > MUSIC_TITLE_MAX_LENGTH) {
+    throw new FeedValidationError(
+      `musicTitle exceeds ${MUSIC_TITLE_MAX_LENGTH} characters`,
+    );
+  }
+  return trimmed;
+}
+
 export function parseUploadCoordinates(
   latitudeField: MultipartField,
   longitudeField: MultipartField,
