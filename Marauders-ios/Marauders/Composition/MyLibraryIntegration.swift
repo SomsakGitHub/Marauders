@@ -4,8 +4,8 @@
 //
 
 import Foundation
-import MyLibrarySDKCore
-import MyLibrarySDKFeature
+import MyLibrarySDKCoreBinary
+import MyLibrarySDKFeatureBinary
 
 @MainActor
 enum MyLibraryIntegration {

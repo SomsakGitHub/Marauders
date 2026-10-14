@@ -1,0 +1,769 @@
+{
+  "ABIRoot": {
+    "kind": "Root",
+    "name": "MyLibrarySDKCoreBinary",
+    "printedName": "MyLibrarySDKCoreBinary",
+    "children": [
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "MyLibrarySDKCoreBinary"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "MyLibraryAppConfig",
+        "printedName": "MyLibraryAppConfig",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "hostAppName",
+            "printedName": "hostAppName",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV04hostE4NameSSvp",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV04hostE4NameSSvp",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV04hostE4NameSSvg",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV04hostE4NameSSvg",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "environment",
+            "printedName": "environment",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "MyLibraryEnvironment",
+                "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV11environmentAA0aB11EnvironmentOvp",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV11environmentAA0aB11EnvironmentOvp",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV11environmentAA0aB11EnvironmentOvg",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV11environmentAA0aB11EnvironmentOvg",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "debugMode",
+            "printedName": "debugMode",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "usr": "s:Sb"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV9debugModeSbvp",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV9debugModeSbvp",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV9debugModeSbvg",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV9debugModeSbvg",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(hostAppName:environment:debugMode:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "MyLibraryAppConfig",
+                "printedName": "MyLibrarySDKCoreBinary.MyLibraryAppConfig",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "MyLibraryEnvironment",
+                "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "hasDefaultArg": true,
+                "usr": "s:Sb"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV04hostE4Name11environment9debugModeACSS_AA0aB11EnvironmentOSbtcfc",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV04hostE4Name11environment9debugModeACSS_AA0aB11EnvironmentOSbtcfc",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "declAttributes": [
+              "AccessControl"
+            ],
+            "init_kind": "Designated"
+          }
+        ],
+        "declKind": "Struct",
+        "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV",
+        "mangledName": "$s22MyLibrarySDKCoreBinary0aB9AppConfigV",
+        "moduleName": "MyLibrarySDKCoreBinary",
+        "declAttributes": [
+          "AccessControl"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Sendable",
+            "printedName": "Sendable",
+            "usr": "s:s8SendableP",
+            "mangledName": "$ss8SendableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "SendableMetatype",
+            "printedName": "SendableMetatype",
+            "usr": "s:s16SendableMetatypeP",
+            "mangledName": "$ss16SendableMetatypeP"
+          }
+        ]
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "MyLibraryEnvironment",
+        "printedName": "MyLibraryEnvironment",
+        "children": [
+          {
+            "kind": "Var",
+            "name": "dev",
+            "printedName": "dev",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type) -> MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "MyLibraryEnvironment",
+                        "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                        "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO3devyA2CmF",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO3devyA2CmF",
+            "moduleName": "MyLibrarySDKCoreBinary"
+          },
+          {
+            "kind": "Var",
+            "name": "sit",
+            "printedName": "sit",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type) -> MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "MyLibraryEnvironment",
+                        "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                        "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO3sityA2CmF",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO3sityA2CmF",
+            "moduleName": "MyLibrarySDKCoreBinary"
+          },
+          {
+            "kind": "Var",
+            "name": "uat",
+            "printedName": "uat",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type) -> MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "MyLibraryEnvironment",
+                        "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                        "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO3uatyA2CmF",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO3uatyA2CmF",
+            "moduleName": "MyLibrarySDKCoreBinary"
+          },
+          {
+            "kind": "Var",
+            "name": "prod",
+            "printedName": "prod",
+            "children": [
+              {
+                "kind": "TypeFunc",
+                "name": "Function",
+                "printedName": "(MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type) -> MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  },
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Metatype",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment.Type",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "MyLibraryEnvironment",
+                        "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                        "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "declKind": "EnumElement",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO4prodyA2CmF",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO4prodyA2CmF",
+            "moduleName": "MyLibrarySDKCoreBinary"
+          },
+          {
+            "kind": "Constructor",
+            "name": "init",
+            "printedName": "init(rawValue:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  }
+                ],
+                "usr": "s:Sq"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Constructor",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO8rawValueACSgSS_tcfc",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO8rawValueACSgSS_tcfc",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "implicit": true,
+            "init_kind": "Designated"
+          },
+          {
+            "kind": "Var",
+            "name": "rawValue",
+            "printedName": "rawValue",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "String",
+                "printedName": "Swift.String",
+                "usr": "s:SS"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO8rawValueSSvp",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO8rawValueSSvp",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "implicit": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO8rawValueSSvg",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO8rawValueSSvg",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          }
+        ],
+        "declKind": "Enum",
+        "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO",
+        "mangledName": "$s22MyLibrarySDKCoreBinary0aB11EnvironmentO",
+        "moduleName": "MyLibrarySDKCoreBinary",
+        "declAttributes": [
+          "AccessControl"
+        ],
+        "enumRawTypeName": "String",
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Equatable",
+            "printedName": "Equatable",
+            "usr": "s:SQ",
+            "mangledName": "$sSQ"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Hashable",
+            "printedName": "Hashable",
+            "usr": "s:SH",
+            "mangledName": "$sSH"
+          },
+          {
+            "kind": "Conformance",
+            "name": "RawRepresentable",
+            "printedName": "RawRepresentable",
+            "children": [
+              {
+                "kind": "TypeWitness",
+                "name": "RawValue",
+                "printedName": "RawValue",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ]
+              }
+            ],
+            "usr": "s:SY",
+            "mangledName": "$sSY"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Sendable",
+            "printedName": "Sendable",
+            "usr": "s:s8SendableP",
+            "mangledName": "$ss8SendableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "SendableMetatype",
+            "printedName": "SendableMetatype",
+            "usr": "s:s16SendableMetatypeP",
+            "mangledName": "$ss16SendableMetatypeP"
+          }
+        ]
+      },
+      {
+        "kind": "Import",
+        "name": "Foundation",
+        "printedName": "Foundation",
+        "declKind": "Import",
+        "moduleName": "MyLibrarySDKCoreBinary"
+      },
+      {
+        "kind": "TypeDecl",
+        "name": "MyLibrarySDKCore",
+        "printedName": "MyLibrarySDKCore",
+        "children": [
+          {
+            "kind": "Function",
+            "name": "initialize",
+            "printedName": "initialize(app:)",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Void",
+                "printedName": "()"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "MyLibraryAppConfig",
+                "printedName": "MyLibrarySDKCoreBinary.MyLibraryAppConfig",
+                "usr": "s:22MyLibrarySDKCoreBinary0aB9AppConfigV"
+              }
+            ],
+            "declKind": "Func",
+            "usr": "s:22MyLibrarySDKCoreBinary0abC0O10initialize3appyAA0aB9AppConfigV_tFZ",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O10initialize3appyAA0aB9AppConfigV_tFZ",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "static": true,
+            "declAttributes": [
+              "AccessControl",
+              "Custom"
+            ],
+            "funcSelfKind": "NonMutating"
+          },
+          {
+            "kind": "Var",
+            "name": "isConfigured",
+            "printedName": "isConfigured",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Bool",
+                "printedName": "Swift.Bool",
+                "usr": "s:Sb"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0abC0O12isConfiguredSbvpZ",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O12isConfiguredSbvpZ",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "static": true,
+            "declAttributes": [
+              "AccessControl",
+              "Custom"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Bool",
+                    "printedName": "Swift.Bool",
+                    "usr": "s:Sb"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0abC0O12isConfiguredSbvgZ",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O12isConfiguredSbvgZ",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "static": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "configuredHostAppName",
+            "printedName": "configuredHostAppName",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "Swift.String?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "String",
+                    "printedName": "Swift.String",
+                    "usr": "s:SS"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0abC0O21configuredHostAppNameSSSgvpZ",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O21configuredHostAppNameSSSgvpZ",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "static": true,
+            "declAttributes": [
+              "AccessControl",
+              "Custom"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "Swift.String?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "String",
+                        "printedName": "Swift.String",
+                        "usr": "s:SS"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0abC0O21configuredHostAppNameSSSgvgZ",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O21configuredHostAppNameSSSgvgZ",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "static": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
+            "kind": "Var",
+            "name": "configuredEnvironment",
+            "printedName": "configuredEnvironment",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Optional",
+                "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment?",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "MyLibraryEnvironment",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                    "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                  }
+                ],
+                "usr": "s:Sq"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:22MyLibrarySDKCoreBinary0abC0O21configuredEnvironmentAA0abF0OSgvpZ",
+            "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O21configuredEnvironmentAA0abF0OSgvpZ",
+            "moduleName": "MyLibrarySDKCoreBinary",
+            "static": true,
+            "declAttributes": [
+              "AccessControl",
+              "Custom"
+            ],
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Optional",
+                    "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment?",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "MyLibraryEnvironment",
+                        "printedName": "MyLibrarySDKCoreBinary.MyLibraryEnvironment",
+                        "usr": "s:22MyLibrarySDKCoreBinary0aB11EnvironmentO"
+                      }
+                    ],
+                    "usr": "s:Sq"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:22MyLibrarySDKCoreBinary0abC0O21configuredEnvironmentAA0abF0OSgvgZ",
+                "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O21configuredEnvironmentAA0abF0OSgvgZ",
+                "moduleName": "MyLibrarySDKCoreBinary",
+                "static": true,
+                "accessorKind": "get"
+              }
+            ]
+          }
+        ],
+        "declKind": "Enum",
+        "usr": "s:22MyLibrarySDKCoreBinary0abC0O",
+        "mangledName": "$s22MyLibrarySDKCoreBinary0abC0O",
+        "moduleName": "MyLibrarySDKCoreBinary",
+        "declAttributes": [
+          "AccessControl"
+        ],
+        "conformances": [
+          {
+            "kind": "Conformance",
+            "name": "Copyable",
+            "printedName": "Copyable",
+            "usr": "s:s8CopyableP",
+            "mangledName": "$ss8CopyableP"
+          },
+          {
+            "kind": "Conformance",
+            "name": "Escapable",
+            "printedName": "Escapable",
+            "usr": "s:s9EscapableP",
+            "mangledName": "$ss9EscapableP"
+          }
+        ]
+      }
+    ],
+    "json_format_version": 8
+  },
+  "ConstValues": [
+    {
+      "filePath": "\/Users\/tiscomacnb2486\/Desktop\/POC_MyLibrary\/MyLibrary\/MyLibrarySDKCore\/Sources\/MyLibraryAppConfig.swift",
+      "kind": "BooleanLiteral",
+      "offset": 270,
+      "length": 5,
+      "value": "false"
+    }
+  ]
+}

@@ -3,28 +3,22 @@ import PackageDescription
 
 let package = Package(
     name: "MyLibrary",
-    defaultLocalization: "en",
-    platforms: [
-        .iOS(.v15),
-    ],
+    platforms: [.iOS(.v15)],
     products: [
-        .library(name: "MyLibrarySDKCore", targets: ["MyLibrarySDKCore"]),
-        .library(name: "MyLibrarySDKFeature", targets: ["MyLibrarySDKFeature"]),
+        .library(name: "MyLibrarySDKCore", targets: ["MyLibrarySDKCoreBinary"]),
+        .library(
+            name: "MyLibrarySDKFeature",
+            targets: ["MyLibrarySDKFeatureBinary", "MyLibrarySDKCoreBinary"]
+        ),
     ],
     targets: [
-        .target(
-            name: "MyLibrarySDKCore",
-            path: "MyLibrarySDKCore/Sources"
+        .binaryTarget(
+            name: "MyLibrarySDKCoreBinary",
+            path: "Binaries/MyLibrarySDKCoreBinary.xcframework"
         ),
-        .target(
-            name: "MyLibrarySDKFeature",
-            dependencies: ["MyLibrarySDKCore"],
-            path: "MyLibrarySDKFeature/Sources"
-        ),
-        .testTarget(
-            name: "MyLibrarySDKCoreTests",
-            dependencies: ["MyLibrarySDKCore"],
-            path: "MyLibrarySDKCore/Tests"
+        .binaryTarget(
+            name: "MyLibrarySDKFeatureBinary",
+            path: "Binaries/MyLibrarySDKFeatureBinary.xcframework"
         ),
     ]
 )
