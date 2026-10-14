@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */; };
+		06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		06BC2C3A3075A7FC0064F635 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +57,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */,
+				06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +119,8 @@
 			);
 			name = Marauders;
 			packageProductDependencies = (
+				06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */,
+				06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */,
 			);
 			productName = Marauders;
 			productReference = 06BC2C2A3075A7FB0064F635 /* Marauders.app */;
@@ -195,6 +204,9 @@
 			);
 			mainGroup = 06BC2C213075A7FB0064F635;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				06BC2D103075A7FD0064F635 /* XCLocalSwiftPackageReference "../MyLibrary" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 06BC2C2B3075A7FB0064F635 /* Products */;
 			projectDirPath = "";
@@ -590,6 +602,24 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		06BC2D103075A7FD0064F635 /* XCLocalSwiftPackageReference "../MyLibrary" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../MyLibrary;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MyLibrarySDKCore;
+		};
+		06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MyLibrarySDKFeature;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 06BC2C223075A7FB0064F635 /* Project object */;
 }

@@ -9,6 +9,10 @@ import SwiftUI
 struct MaraudersApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        MyLibraryIntegration.configure()
+    }
+
     var body: some Scene {
         WindowGroup {
             AppRootView()

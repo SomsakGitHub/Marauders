@@ -201,6 +201,14 @@ struct ProfileView: View {
             Text(clipCountLabel)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            Button {
+                MyLibraryIntegration.present()
+            } label: {
+                Label("MyLibrary", systemImage: "books.vertical.fill")
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("profile.myLibrary")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
