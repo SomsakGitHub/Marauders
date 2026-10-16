@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SomsakGitHub/POC_MyLibrary.git",
       "state" : {
-        "revision" : "755454c9078e56b6f9375739f856e8cd0322b37d",
-        "version" : "0.1.0"
+        "revision" : "8ff6f960be7fddd4f5524979b5c4ed2b2580fde2",
+        "version" : "0.1.1"
       }
     }
   ],
