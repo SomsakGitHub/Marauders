@@ -68,6 +68,7 @@ platform :ios do
       xcargs << "CURRENT_PROJECT_VERSION=#{build_number}" unless build_number.empty?
 
       gym(
+        project: "#{SCHEME}.xcodeproj",
         scheme: SCHEME,
         configuration: "Release",
         export_method: "app-store",
