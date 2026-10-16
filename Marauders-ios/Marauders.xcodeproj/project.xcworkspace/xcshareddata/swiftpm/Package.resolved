@@ -1,0 +1,15 @@
+{
+  "originHash" : "8a1808b02572a65d24ab4daa47769a15b3504f1ee96c8e41de52fec616541297",
+  "pins" : [
+    {
+      "identity" : "poc_mylibrary",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SomsakGitHub/POC_MyLibrary.git",
+      "state" : {
+        "revision" : "755454c9078e56b6f9375739f856e8cd0322b37d",
+        "version" : "0.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}
