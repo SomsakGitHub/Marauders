@@ -17,10 +17,11 @@ struct MapClipClusteringTests {
         span: MKCoordinateSpan(latitudeDelta: 0.2, longitudeDelta: 0.2)
     )
 
-    private func clip(latitude: Double, longitude: Double) -> FeedVideo {
+    private func clip(latitude: Double, longitude: Double, author: String? = nil) -> FeedVideo {
         FeedVideo(streamURL: URL(string: "https://example.com/\(latitude)-\(longitude).mp4")!,
                   latitude: latitude,
-                  longitude: longitude)
+                  longitude: longitude,
+                  authorName: author)
     }
 
     @Test func clipsWithoutCoordinatesAreIgnored() {
@@ -49,6 +50,39 @@ struct MapClipClusteringTests {
         #expect(clusters.count == 1)
         #expect(clusters.first?.isCluster == true)
         #expect(clusters.first?.clips.count == 3)
+    }
+
+    @Test func sameUserClipsAtTheSameLocationKeepTheMostRecentlyPostedClip() {
+        let newest = clip(latitude: 13.672, longitude: 100.60, author: "@somsak")
+        let older = clip(latitude: 13.672, longitude: 100.60, author: "@somsak")
+        let oldest = clip(latitude: 13.6719, longitude: 100.5999, author: "@somsak")
+
+        let clusters = MapClipClustering.clusters(from: [newest, older, oldest], in: region)
+
+        #expect(clusters.count == 1)
+        #expect(clusters.first?.isCluster == false)
+        #expect(clusters.first?.clips.count == 1)
+        #expect(clusters.first?.clips.first?.id == newest.id)
+    }
+
+    @Test func differentUsersAtTheSameLocationStaySeparate() {
+        let first = clip(latitude: 13.672, longitude: 100.60, author: "@somsak")
+        let second = clip(latitude: 13.672, longitude: 100.60, author: "@someone")
+
+        let clusters = MapClipClustering.clusters(from: [first, second], in: region)
+
+        #expect(clusters.count == 1)
+        #expect(clusters.first?.isCluster == true)
+        #expect(clusters.first?.clips.count == 2)
+    }
+
+    @Test func sameUserClipsFarApartStaySeparate() {
+        let near = clip(latitude: 13.672, longitude: 100.60, author: "@somsak")
+        let far = clip(latitude: 13.80, longitude: 100.58, author: "@somsak")
+
+        let clusters = MapClipClustering.clusters(from: [near, far], in: region)
+
+        #expect(clusters.count == 2)
     }
 
     @Test func distantClipsStaySeparate() {
