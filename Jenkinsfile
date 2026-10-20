@@ -68,11 +68,11 @@ pipeline {
     stage('Deploy to TestFlight') {
       when {
         anyOf {
-          branch 'codex/profile-mylibrary-button'
+          branch 'main'
           // Plain (non-multibranch) Pipeline jobs don't set BRANCH_NAME, so
           // fall back to GIT_BRANCH which the Git plugin sets to
           // origin/<branch-specifier>.
-          expression { env.GIT_BRANCH in ['origin/codex/profile-mylibrary-button'] }
+          expression { env.GIT_BRANCH in ['origin/main'] }
         }
       }
       steps {
