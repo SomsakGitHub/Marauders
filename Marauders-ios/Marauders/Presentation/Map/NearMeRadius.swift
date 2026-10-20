@@ -13,7 +13,7 @@ enum NearMeRadius: Int, CaseIterable, Identifiable, Hashable {
 
     var id: Int { rawValue }
 
-    static let `default` = NearMeRadius.twentyFiveKm
+    static let `default` = NearMeRadius.fiveKm
 
     var kilometers: Int { rawValue }
 

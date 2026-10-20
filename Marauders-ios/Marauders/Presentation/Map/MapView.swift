@@ -17,7 +17,7 @@ struct MapView: View {
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
     @State private var visibleRegion = Self.defaultRegion
     @State private var selectedClip: FeedVideo?
-    @State private var isNearMeActive = false
+    @State private var isNearMeActive = true
     @State private var nearMeRadius = NearMeRadius.default
     @State private var isCountryFilterPresented = false
     @State private var searchText = ""
