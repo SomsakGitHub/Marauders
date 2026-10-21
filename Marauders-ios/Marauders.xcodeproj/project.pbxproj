@@ -10,6 +10,9 @@
 		06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */; };
 		06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */; };
 		06BC2D233075A7FD0064F635 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D223075A7FD0064F635 /* Alamofire */; };
+		06BC2D333075A7FD0064F635 /* WaypointCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D323075A7FD0064F635 /* WaypointCore */; };
+		06BC2D353075A7FD0064F635 /* WaypointJourney in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D343075A7FD0064F635 /* WaypointJourney */; };
+		06BC2D373075A7FD0064F635 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D363075A7FD0064F635 /* Lottie */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +64,9 @@
 				06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */,
 				06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */,
 				06BC2D233075A7FD0064F635 /* Alamofire in Frameworks */,
+				06BC2D333075A7FD0064F635 /* WaypointCore in Frameworks */,
+				06BC2D353075A7FD0064F635 /* WaypointJourney in Frameworks */,
+				06BC2D373075A7FD0064F635 /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -124,6 +130,9 @@
 				06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */,
 				06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */,
 				06BC2D223075A7FD0064F635 /* Alamofire */,
+				06BC2D323075A7FD0064F635 /* WaypointCore */,
+				06BC2D343075A7FD0064F635 /* WaypointJourney */,
+				06BC2D363075A7FD0064F635 /* Lottie */,
 			);
 			productName = Marauders;
 			productReference = 06BC2C2A3075A7FB0064F635 /* Marauders.app */;
@@ -210,6 +219,8 @@
 			packageReferences = (
 				06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */,
 				06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */,
+				06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */,
+				06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 06BC2C2B3075A7FB0064F635 /* Products */;
@@ -624,6 +635,22 @@
 				minimumVersion = 5.10.0;
 			};
 		};
+		06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "poc-sdk.waypointsdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
+		06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.4.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -641,6 +668,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */;
 			productName = Alamofire;
+		};
+		06BC2D323075A7FD0064F635 /* WaypointCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */;
+			productName = WaypointCore;
+		};
+		06BC2D343075A7FD0064F635 /* WaypointJourney */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */;
+			productName = WaypointJourney;
+		};
+		06BC2D363075A7FD0064F635 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */;
+			productName = Lottie;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

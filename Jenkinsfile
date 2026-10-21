@@ -34,6 +34,32 @@ pipeline {
       }
     }
 
+    stage('Resolve Swift packages') {
+      steps {
+        // The poc-sdk.waypointsdk package lives in a private JFrog Swift package
+        // registry, so resolution needs an access token. Store it as the secret
+        // text credential `jfrog-sdk-swift-token` in Jenkins. SwiftPM keeps
+        // registry credentials in the keychain (via `package-registry login`),
+        // not in ~/.netrc, so log in before resolving.
+        withCredentials([
+          string(credentialsId: 'jfrog-sdk-swift-token', variable: 'JFROG_SDK_SWIFT_TOKEN')
+        ]) {
+          dir('Marauders-ios') {
+            sh '''
+              set -eu
+              swift package-registry login \\
+                "https://tartheesaran.jfrog.io/artifactory/api/swift/sdk-swift" \\
+                --token "$JFROG_SDK_SWIFT_TOKEN" \\
+                --no-confirm
+              xcodebuild -resolvePackageDependencies \\
+                -project Marauders.xcodeproj \\
+                -scheme Marauders
+            '''
+          }
+        }
+      }
+    }
+
     stage('Deploy to TestFlight') {
       when {
         anyOf {
@@ -48,7 +74,8 @@ pipeline {
         withCredentials([
           file(credentialsId: 'asc-api-key', variable: 'ASC_KEY_PATH'),
           string(credentialsId: 'asc-key-id', variable: 'ASC_KEY_ID'),
-          string(credentialsId: 'asc-issuer-id', variable: 'ASC_ISSUER_ID')
+          string(credentialsId: 'asc-issuer-id', variable: 'ASC_ISSUER_ID'),
+          string(credentialsId: 'jfrog-sdk-swift-token', variable: 'JFROG_SDK_SWIFT_TOKEN')
         ]) {
           dir('Marauders-ios') {
             sh 'bundle exec fastlane beta'

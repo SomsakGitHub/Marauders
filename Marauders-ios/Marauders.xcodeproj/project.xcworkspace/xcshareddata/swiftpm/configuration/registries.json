@@ -1,0 +1,8 @@
+{
+  "registries": {
+    "poc-sdk": {
+      "url": "https://tartheesaran.jfrog.io/artifactory/api/swift/sdk-swift"
+    }
+  },
+  "version": 1
+}
