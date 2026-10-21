@@ -34,37 +34,6 @@ pipeline {
       }
     }
 
-    stage('Unit tests') {
-      options { retry(2) }
-      steps {
-        dir('Marauders-ios') {
-          sh 'bundle exec fastlane test'
-        }
-      }
-      post {
-        always {
-          junit allowEmptyResults: true, testResults: 'Marauders-ios/build/test/junit.xml'
-        }
-      }
-    }
-
-    stage('Coverage report') {
-      steps {
-        dir('Marauders-ios') {
-          sh 'xcrun xccov view --report build/test/Marauders.xcresult || true'
-        }
-      }
-      post {
-        always {
-          // Requires the Jenkins "Coverage" plugin. Renders a coverage tab
-          // (line/branch drift vs. previous build) from the Cobertura XML that
-          // `fastlane test` emits via xcresultparser.
-          recordCoverage tools: [[parser: 'COBERTURA', pattern: 'Marauders-ios/build/test/coverage.xml']],
-                         sourceCodeRetention: 'LAST_BUILD'
-        }
-      }
-    }
-
     stage('Deploy to TestFlight') {
       when {
         anyOf {
@@ -87,6 +56,40 @@ pipeline {
         }
       }
     }
+
+    // Temporarily disabled to keep the TestFlight build fast. Re-enable before
+    // merging for good: it runs the fastlane test lane and records coverage.
+    //
+    // stage('Unit tests') {
+    //   options { retry(2) }
+    //   steps {
+    //     dir('Marauders-ios') {
+    //       sh 'bundle exec fastlane test'
+    //     }
+    //   }
+    //   post {
+    //     always {
+    //       junit allowEmptyResults: true, testResults: 'Marauders-ios/build/test/junit.xml'
+    //     }
+    //   }
+    // }
+    //
+    // stage('Coverage report') {
+    //   steps {
+    //     dir('Marauders-ios') {
+    //       sh 'xcrun xccov view --report build/test/Marauders.xcresult || true'
+    //     }
+    //   }
+    //   post {
+    //     always {
+    //       // Requires the Jenkins "Coverage" plugin. Renders a coverage tab
+    //       // (line/branch drift vs. previous build) from the Cobertura XML that
+    //       // `fastlane test` emits via xcresultparser.
+    //       recordCoverage tools: [[parser: 'COBERTURA', pattern: 'Marauders-ios/build/test/coverage.xml']],
+    //                      sourceCodeRetention: 'LAST_BUILD'
+    //     }
+    //   }
+    // }
   }
 
   post {

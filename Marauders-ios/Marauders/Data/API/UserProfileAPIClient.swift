@@ -32,11 +32,15 @@ enum UserProfileAPIError: LocalizedError, Equatable {
 }
 
 struct UserProfileAPIClient: Sendable {
-    private let session: URLSession
+    private let client: HTTPClient
     private let authorization: APIAuthorization?
 
     nonisolated init(session: URLSession = .shared, authorization: APIAuthorization? = nil) {
-        self.session = session
+        self.init(client: AlamofireHTTPClient(session: session), authorization: authorization)
+    }
+
+    nonisolated init(client: HTTPClient, authorization: APIAuthorization? = nil) {
+        self.client = client
         self.authorization = authorization
     }
 
@@ -54,19 +58,16 @@ struct UserProfileAPIClient: Sendable {
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
 
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw UserProfileAPIError.invalidResponse
-        }
-        if http.statusCode == 404 {
+        let response = try await client.data(request)
+        if response.statusCode == 404 {
             throw UserProfileAPIError.notFound
         }
-        guard (200 ... 299).contains(http.statusCode) else {
-            throw UserProfileAPIError.serverError(http.statusCode)
+        guard response.isSuccess else {
+            throw UserProfileAPIError.serverError(response.statusCode)
         }
 
         do {
-            return try JSONDecoder().decode(Response.self, from: data).profile
+            return try JSONDecoder().decode(Response.self, from: response.data).profile
         } catch {
             AppLog.error("api.profile", "decode failed: \(error.localizedDescription)")
             throw UserProfileAPIError.invalidResponse
@@ -83,20 +84,19 @@ struct UserProfileAPIClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 15
 
-        let (data, response) = try await session.data(for: request)
-        let http = response as? HTTPURLResponse
-        if http?.statusCode == 404 {
+        let response = try await client.data(request)
+        if response.statusCode == 404 {
             throw UserProfileAPIError.notFound
         }
-        if http?.statusCode == 400 {
+        if response.statusCode == 400 {
             throw UserProfileAPIError.invalidHandle
         }
-        guard let http, (200 ... 299).contains(http.statusCode) else {
-            throw UserProfileAPIError.serverError(http?.statusCode ?? -1)
+        guard response.isSuccess else {
+            throw UserProfileAPIError.serverError(response.statusCode)
         }
 
         do {
-            return try JSONDecoder().decode(PublicResponse.self, from: data).profile
+            return try JSONDecoder().decode(PublicResponse.self, from: response.data).profile
         } catch {
             AppLog.error("api.profile", "decode failed: \(error.localizedDescription)")
             throw UserProfileAPIError.invalidResponse
@@ -121,11 +121,8 @@ struct UserProfileAPIClient: Sendable {
         request.timeoutInterval = 15
         request.httpBody = try JSONSerialization.data(withJSONObject: ["handle": handle])
 
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw UserProfileAPIError.invalidResponse
-        }
-        switch http.statusCode {
+        let response = try await client.data(request)
+        switch response.statusCode {
         case 409:
             throw UserProfileAPIError.handleTaken
         case 400:
@@ -135,12 +132,12 @@ struct UserProfileAPIClient: Sendable {
         case 200 ... 299:
             break
         default:
-            throw UserProfileAPIError.serverError(http.statusCode)
+            throw UserProfileAPIError.serverError(response.statusCode)
         }
 
         struct UpdateResponse: Decodable { let handle: String }
         do {
-            return try JSONDecoder().decode(UpdateResponse.self, from: data).handle
+            return try JSONDecoder().decode(UpdateResponse.self, from: response.data).handle
         } catch {
             throw UserProfileAPIError.invalidResponse
         }
@@ -160,15 +157,12 @@ struct UserProfileAPIClient: Sendable {
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
 
-        let (_, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw UserProfileAPIError.invalidResponse
-        }
-        if http.statusCode == 404 {
+        let response = try await client.data(request)
+        if response.statusCode == 404 {
             throw UserProfileAPIError.notFound
         }
-        guard (200 ... 299).contains(http.statusCode) else {
-            throw UserProfileAPIError.serverError(http.statusCode)
+        guard response.isSuccess else {
+            throw UserProfileAPIError.serverError(response.statusCode)
         }
     }
 
@@ -181,22 +175,16 @@ struct UserProfileAPIClient: Sendable {
         let requestURL = try APIConfiguration.userAvatarURL()
         AppLog.info("api.profile", "POST \(requestURL.host ?? "?")/v1/users/me/avatar bytes=\(imageData.count)")
 
-        let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: requestURL)
         request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 60
 
-        var body = Data()
-        body.appendAvatarFormField(boundary: boundary, name: "file", filename: filename,
-                                   mimeType: mimeType, fileData: imageData)
-
-        let (data, response) = try await session.upload(for: request, from: body)
-        guard let http = response as? HTTPURLResponse else {
-            throw UserProfileAPIError.invalidResponse
-        }
-        switch http.statusCode {
+        let parts: [HTTPMultipartPart] = [
+            .file(name: "file", filename: filename, mimeType: mimeType, data: imageData),
+        ]
+        let response = try await client.upload(request, multipart: parts)
+        switch response.statusCode {
         case 401:
             throw UserProfileAPIError.notAuthenticated
         case 400:
@@ -204,12 +192,12 @@ struct UserProfileAPIClient: Sendable {
         case 200 ... 299:
             break
         default:
-            throw UserProfileAPIError.serverError(http.statusCode)
+            throw UserProfileAPIError.serverError(response.statusCode)
         }
 
         struct AvatarResponse: Decodable { let avatarURL: URL }
         do {
-            return try JSONDecoder().decode(AvatarResponse.self, from: data).avatarURL
+            return try JSONDecoder().decode(AvatarResponse.self, from: response.data).avatarURL
         } catch {
             throw UserProfileAPIError.invalidResponse
         }
@@ -230,17 +218,14 @@ struct UserProfileAPIClient: Sendable {
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
 
-        let (_, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw UserProfileAPIError.invalidResponse
-        }
-        switch http.statusCode {
+        let response = try await client.data(request)
+        switch response.statusCode {
         case 401:
             throw UserProfileAPIError.notAuthenticated
         case 200 ... 299:
             break
         default:
-            throw UserProfileAPIError.serverError(http.statusCode)
+            throw UserProfileAPIError.serverError(response.statusCode)
         }
     }
 
@@ -282,24 +267,5 @@ struct UserProfileAPIClient: Sendable {
                 videos: videos
             )
         }
-    }
-}
-
-private extension Data {
-    mutating func appendAvatarFormField(
-        boundary: String,
-        name: String,
-        filename: String,
-        mimeType: String,
-        fileData: Data
-    ) {
-        append(Data("--\(boundary)\r\n".utf8))
-        append(Data(
-            "Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n".utf8
-        ))
-        append(Data("Content-Type: \(mimeType)\r\n\r\n".utf8))
-        append(fileData)
-        append(Data("\r\n".utf8))
-        append(Data("--\(boundary)--\r\n".utf8))
     }
 }

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */; };
 		06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */; };
+		06BC2D233075A7FD0064F635 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D223075A7FD0064F635 /* Alamofire */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 			files = (
 				06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */,
 				06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */,
+				06BC2D233075A7FD0064F635 /* Alamofire in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,6 +123,7 @@
 			packageProductDependencies = (
 				06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */,
 				06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */,
+				06BC2D223075A7FD0064F635 /* Alamofire */,
 			);
 			productName = Marauders;
 			productReference = 06BC2C2A3075A7FB0064F635 /* Marauders.app */;
@@ -206,6 +209,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */,
+				06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 06BC2C2B3075A7FB0064F635 /* Products */;
@@ -612,6 +616,14 @@
 				minimumVersion = 0.1.1;
 			};
 		};
+		06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -624,6 +636,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */;
 			productName = MyLibrarySDKFeature;
+		};
+		06BC2D223075A7FD0064F635 /* Alamofire */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */;
+			productName = Alamofire;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

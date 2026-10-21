@@ -35,11 +35,15 @@ enum VideoUploadAPIError: LocalizedError, Equatable {
 struct VideoUploadAPIClient: Sendable {
     static let maxUploadBytes: Int64 = 100 * 1024 * 1024
 
-    private let session: URLSession
+    private let client: HTTPClient
     private let authorization: APIAuthorization?
 
     nonisolated init(session: URLSession = .shared, authorization: APIAuthorization? = nil) {
-        self.session = session
+        self.init(client: AlamofireHTTPClient(session: session), authorization: authorization)
+    }
+
+    nonisolated init(client: HTTPClient, authorization: APIAuthorization? = nil) {
+        self.client = client
         self.authorization = authorization
     }
 
@@ -69,45 +73,34 @@ struct VideoUploadAPIClient: Sendable {
         let requestURL = try APIConfiguration.videoUploadURL()
         AppLog.info("api.upload", "POST \(requestURL.host ?? "?")/v1/videos bytes=\(fileSize)")
 
-        let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: requestURL)
         request.httpMethod = "POST"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 300
 
-        let bodyURL = try writeMultipartBody(
-            boundary: boundary,
-            fileURL: fileURL,
+        let fileData = try Data(contentsOf: fileURL)
+        let parts = multipartParts(
+            fileName: fileURL.lastPathComponent,
             mimeType: mimeType,
+            fileData: fileData,
             clipLocation: clipLocation,
             caption: caption
         )
 
-        let bodySize = (try? FileManager.default.attributesOfItem(atPath: bodyURL.path)[.size] as? NSNumber)?
-            .int64Value ?? -1
-        AppLog.info("api.upload", "multipart body bytes=\(bodySize)")
+        let response = try await client.upload(request, multipart: parts)
 
-        let (data, response) = try await session.upload(for: request, fromFile: bodyURL)
-        try? FileManager.default.removeItem(at: bodyURL)
+        let bodySnippet = Self.snippet(from: response.data)
+        AppLog.info("api.upload", "response status=\(response.statusCode) body=\(bodySnippet)")
 
-        guard let http = response as? HTTPURLResponse else {
-            AppLog.error("api.upload", "no HTTPURLResponse")
-            throw VideoUploadAPIError.invalidResponse
-        }
-
-        let bodySnippet = Self.snippet(from: data)
-        AppLog.info("api.upload", "response status=\(http.statusCode) body=\(bodySnippet)")
-
-        guard (200 ... 299).contains(http.statusCode) else {
-            if let serverMessage = parseServerErrorMessage(from: data) {
+        guard response.isSuccess else {
+            if let serverMessage = parseServerErrorMessage(from: response.data) {
                 throw UploadErrorMessage(message: serverMessage)
             }
-            throw VideoUploadAPIError.serverError(http.statusCode)
+            throw VideoUploadAPIError.serverError(response.statusCode)
         }
 
         do {
-            let decoded = try JSONDecoder().decode(VideoUploadAPIResponse.self, from: data)
+            let decoded = try JSONDecoder().decode(VideoUploadAPIResponse.self, from: response.data)
             guard decoded.item.streamURL.scheme?.lowercased() == "https" else {
                 AppLog.error("api.upload", "stream URL not HTTPS")
                 throw VideoUploadAPIError.invalidResponse
@@ -127,46 +120,23 @@ struct VideoUploadAPIClient: Sendable {
         return text.replacingOccurrences(of: "\n", with: " ")
     }
 
-    private func writeMultipartBody(
-        boundary: String,
-        fileURL: URL,
+    private func multipartParts(
+        fileName: String,
         mimeType: String,
+        fileData: Data,
         clipLocation: ClipLocation,
         caption: String
-    ) throws -> URL {
-        let fileData = try Data(contentsOf: fileURL)
-        let fileName = fileURL.lastPathComponent
+    ) -> [HTTPMultipartPart] {
+        var parts: [HTTPMultipartPart] = [
+            .field(name: "latitude", value: String(clipLocation.latitude)),
+            .field(name: "longitude", value: String(clipLocation.longitude)),
+        ]
         let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
-        var body = Data()
-
-        body.appendFormField(
-            boundary: boundary,
-            name: "latitude",
-            value: String(clipLocation.latitude)
-        )
-        body.appendFormField(
-            boundary: boundary,
-            name: "longitude",
-            value: String(clipLocation.longitude)
-        )
         if !trimmedCaption.isEmpty {
-            body.appendFormField(boundary: boundary, name: "caption", value: trimmedCaption)
+            parts.append(.field(name: "caption", value: trimmedCaption))
         }
-
-        body.appendString("--\(boundary)\r\n")
-        body.appendString(
-            "Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n"
-        )
-        body.appendString("Content-Type: \(mimeType)\r\n\r\n")
-        body.append(fileData)
-        body.appendString("\r\n")
-        body.appendString("--\(boundary)--\r\n")
-
-        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appending(path: UUID().uuidString)
-            .appendingPathExtension("multipart")
-        try body.write(to: tempURL, options: .atomic)
-        return tempURL
+        parts.append(.file(name: "file", filename: fileName, mimeType: mimeType, data: fileData))
+        return parts
     }
 
     private func parseServerErrorMessage(from data: Data) -> String? {
@@ -180,18 +150,4 @@ struct VideoUploadAPIClient: Sendable {
 private struct UploadErrorMessage: LocalizedError {
     let message: String
     var errorDescription: String? { message }
-}
-
-private extension Data {
-    mutating func appendString(_ string: String) {
-        if let data = string.data(using: .utf8) {
-            append(data)
-        }
-    }
-
-    mutating func appendFormField(boundary: String, name: String, value: String) {
-        appendString("--\(boundary)\r\n")
-        appendString("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n")
-        appendString("\(value)\r\n")
-    }
 }

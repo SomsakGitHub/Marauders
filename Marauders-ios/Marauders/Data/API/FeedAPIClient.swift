@@ -29,7 +29,7 @@ enum FeedAPIError: LocalizedError, Equatable {
 struct FeedAPIClient: Sendable {
     static let defaultMaxAttempts = 3
 
-    private let session: URLSession
+    private let client: HTTPClient
     private let maxAttempts: Int
     private let retryDelayNs: @Sendable (Int) -> UInt64
 
@@ -37,7 +37,14 @@ struct FeedAPIClient: Sendable {
         session: URLSession = .shared,
         maxAttempts: Int = FeedAPIClient.defaultMaxAttempts
     ) {
-        self.session = session
+        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts)
+    }
+
+    init(
+        client: HTTPClient,
+        maxAttempts: Int = FeedAPIClient.defaultMaxAttempts
+    ) {
+        self.client = client
         self.maxAttempts = max(1, maxAttempts)
         self.retryDelayNs = feedAPIProductionRetryDelayNanoseconds
     }
@@ -47,7 +54,15 @@ struct FeedAPIClient: Sendable {
         maxAttempts: Int,
         retryDelayNs: @escaping @Sendable (Int) -> UInt64
     ) {
-        self.session = session
+        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs)
+    }
+
+    init(
+        client: HTTPClient,
+        maxAttempts: Int,
+        retryDelayNs: @escaping @Sendable (Int) -> UInt64
+    ) {
+        self.client = client
         self.maxAttempts = max(1, maxAttempts)
         self.retryDelayNs = retryDelayNs
     }
@@ -88,21 +103,17 @@ struct FeedAPIClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
 
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            AppLog.error("api.feed", "no HTTPURLResponse")
-            throw FeedAPIError.invalidResponse
-        }
+        let response = try await client.data(request)
 
-        AppLog.info("api.feed", "status=\(http.statusCode) bytes=\(data.count)")
+        AppLog.info("api.feed", "status=\(response.statusCode) bytes=\(response.data.count)")
 
-        guard (200 ... 299).contains(http.statusCode) else {
-            AppLog.error("api.feed", "server error status=\(http.statusCode)")
-            throw FeedAPIError.serverError(http.statusCode)
+        guard response.isSuccess else {
+            AppLog.error("api.feed", "server error status=\(response.statusCode)")
+            throw FeedAPIError.serverError(response.statusCode)
         }
 
         do {
-            let decoded = try JSONDecoder().decode(FeedAPIResponse.self, from: data)
+            let decoded = try JSONDecoder().decode(FeedAPIResponse.self, from: response.data)
             for item in decoded.items {
                 guard item.streamURL.scheme?.lowercased() == "https" else {
                     AppLog.error("api.feed", "non-HTTPS stream URL in item \(item.id.uuidString)")

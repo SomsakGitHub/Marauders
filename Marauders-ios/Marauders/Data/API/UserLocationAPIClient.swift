@@ -23,11 +23,15 @@ enum UserLocationAPIError: LocalizedError, Equatable {
 }
 
 struct UserLocationAPIClient: Sendable {
-    private let session: URLSession
+    private let client: HTTPClient
     private let authorization: APIAuthorization?
 
     nonisolated init(session: URLSession = .shared, authorization: APIAuthorization? = nil) {
-        self.session = session
+        self.init(client: AlamofireHTTPClient(session: session), authorization: authorization)
+    }
+
+    nonisolated init(client: HTTPClient, authorization: APIAuthorization? = nil) {
+        self.client = client
         self.authorization = authorization
     }
 
@@ -48,12 +52,9 @@ struct UserLocationAPIClient: Sendable {
             Body(latitude: location.latitude, longitude: location.longitude)
         )
 
-        let (_, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw UserLocationAPIError.invalidResponse
-        }
-        guard (200 ... 299).contains(http.statusCode) else {
-            throw UserLocationAPIError.serverError(http.statusCode)
+        let response = try await client.data(request)
+        guard response.isSuccess else {
+            throw UserLocationAPIError.serverError(response.statusCode)
         }
     }
 

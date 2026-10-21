@@ -45,10 +45,14 @@ protocol AuthAPIClientProtocol: Sendable {
 }
 
 struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
-    private let session: URLSession
+    private let client: HTTPClient
 
     init(session: URLSession = .shared) {
-        self.session = session
+        self.init(client: AlamofireHTTPClient(session: session))
+    }
+
+    init(client: HTTPClient) {
+        self.client = client
     }
 
     func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
@@ -70,19 +74,16 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
 
         AppLog.info("api.auth", "POST /v1/auth/apple")
 
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw AuthAPIError.invalidResponse
-        }
+        let response = try await client.data(request)
 
-        guard (200 ... 299).contains(http.statusCode) else {
-            if http.statusCode == 401 {
+        guard response.isSuccess else {
+            if response.statusCode == 401 {
                 throw AuthAPIError.invalidIdentityToken
             }
-            throw AuthAPIError.serverError(http.statusCode)
+            throw AuthAPIError.serverError(response.statusCode)
         }
 
-        let decoded = try JSONDecoder().decode(AuthAPIResponse.self, from: data)
+        let decoded = try JSONDecoder().decode(AuthAPIResponse.self, from: response.data)
         guard APIAccessTokenFormat.isValid(decoded.accessToken) else {
             throw AuthAPIError.invalidResponse
         }
