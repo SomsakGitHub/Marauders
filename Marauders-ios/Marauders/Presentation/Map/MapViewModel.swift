@@ -5,7 +5,6 @@
 
 import CoreLocation
 import Foundation
-import MapKit
 import Observation
 
 @MainActor
@@ -129,14 +128,6 @@ final class MapViewModel {
         @unknown default:
             break
         }
-    }
-
-    func regionForCameraCenter() -> MKCoordinateRegion? {
-        guard let coordinate = userCoordinate else { return nil }
-        return MKCoordinateRegion(
-            center: coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
-        )
     }
 
     private func attachLocationServicesIfNeeded() {

@@ -30,10 +30,7 @@ struct MapView: View {
 
     /// Clips that fall inside the currently visible map region.
     private var visibleClips: [FeedVideo] {
-        allClips.filter { clip in
-            guard let coordinate = clip.mapCoordinate else { return false }
-            return visibleRegion.contains(coordinate)
-        }
+        MapClipProximity.clips(in: visibleRegion, from: allClips)
     }
 
     /// Clips that render as pins: visible region narrowed, then the search query.
@@ -208,14 +205,7 @@ struct MapView: View {
 
     private func applyNearMeCamera() {
         guard let user = viewModel.userCoordinate else { return }
-        let radius = MapClipProximity.defaultNearMeRadiusMeters
-        position = .region(
-            MKCoordinateRegion(
-                center: user,
-                latitudinalMeters: radius * 2,
-                longitudinalMeters: radius * 2
-            )
-        )
+        position = .region(MapClipProximity.region(centeredOn: user))
     }
 
     private static let defaultRegion = MKCoordinateRegion(
