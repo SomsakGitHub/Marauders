@@ -28,19 +28,17 @@ struct MapView: View {
         return feedViewModel.mapFilteredClips.filter { $0.country == country }
     }
 
-    /// Clips within the 5 km radius around the user.
-    private var nearMeClips: [FeedVideo] {
-        guard let user = viewModel.userCoordinate else { return allClips }
-        return MapClipProximity.clips(
-            within: MapClipProximity.defaultNearMeRadiusMeters,
-            of: user,
-            from: allClips
-        )
+    /// Clips that fall inside the currently visible map region.
+    private var visibleClips: [FeedVideo] {
+        allClips.filter { clip in
+            guard let coordinate = clip.mapCoordinate else { return false }
+            return visibleRegion.contains(coordinate)
+        }
     }
 
-    /// Clips that render as pins: near-me narrowed, then the search query.
+    /// Clips that render as pins: visible region narrowed, then the search query.
     private var mapClips: [FeedVideo] {
-        MapClipSearch.filter(nearMeClips, query: searchText)
+        MapClipSearch.filter(visibleClips, query: searchText)
     }
 
     private var clusteredClips: [MapClipCluster] {
@@ -77,9 +75,6 @@ struct MapView: View {
         .accessibilityIdentifier("map.root")
         .onAppear {
             viewModel.onMapTabBecameActive()
-        }
-        .onChange(of: allClips.count) { _, _ in
-            applyNearMeCamera()
         }
         .onChange(of: viewModel.countryFilter) { _, newValue in
             Task { await feedViewModel.loadMapClips(country: newValue) }
@@ -134,8 +129,8 @@ struct MapView: View {
                 filtersMenu
             }
 
-            if nearMeClips.isEmpty, viewModel.userCoordinate != nil {
-                Text(NearMeRadius.default.emptyClipsMessage)
+            if visibleClips.isEmpty, !allClips.isEmpty {
+                Text("No clips in this area")
                     .font(.subheadline.weight(.medium))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -180,6 +175,7 @@ struct MapView: View {
 
     private var locateButton: some View {
         Button {
+            applyNearMeCamera()
             viewModel.currentLocationButtonTapped()
         } label: {
             Image(systemName: "location.fill")
@@ -212,8 +208,14 @@ struct MapView: View {
 
     private func applyNearMeCamera() {
         guard let user = viewModel.userCoordinate else { return }
-        let region = MapClipProximity.regionFitting(user: user, clips: nearMeClips)
-        position = .region(region)
+        let radius = MapClipProximity.defaultNearMeRadiusMeters
+        position = .region(
+            MKCoordinateRegion(
+                center: user,
+                latitudinalMeters: radius * 2,
+                longitudinalMeters: radius * 2
+            )
+        )
     }
 
     private static let defaultRegion = MKCoordinateRegion(
