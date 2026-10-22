@@ -17,8 +17,6 @@ struct MapView: View {
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
     @State private var visibleRegion = Self.defaultRegion
     @State private var selectedClip: FeedVideo?
-    @State private var isNearMeActive = true
-    @State private var nearMeRadius = NearMeRadius.default
     @State private var isCountryFilterPresented = false
     @State private var searchText = ""
 
@@ -30,10 +28,14 @@ struct MapView: View {
         return feedViewModel.mapFilteredClips.filter { $0.country == country }
     }
 
-    /// Clips after the near-me radius is applied.
+    /// Clips within the 5 km radius around the user.
     private var nearMeClips: [FeedVideo] {
-        guard isNearMeActive, let user = viewModel.userCoordinate else { return allClips }
-        return MapClipProximity.clips(within: nearMeRadius.meters, of: user, from: allClips)
+        guard let user = viewModel.userCoordinate else { return allClips }
+        return MapClipProximity.clips(
+            within: MapClipProximity.defaultNearMeRadiusMeters,
+            of: user,
+            from: allClips
+        )
     }
 
     /// Clips that render as pins: near-me narrowed, then the search query.
@@ -65,12 +67,7 @@ struct MapView: View {
                 visibleRegion = context.region
             }
 
-            VStack(spacing: 10) {
-                topControls
-                if isNearMeActive {
-                    nearMeBanner
-                }
-            }
+            topControls
         }
         .overlay(alignment: .bottomTrailing) {
             locateButton
@@ -82,18 +79,10 @@ struct MapView: View {
             viewModel.onMapTabBecameActive()
         }
         .onChange(of: allClips.count) { _, _ in
-            if isNearMeActive {
-                applyNearMeCamera()
-            } else if let region = Self.regionFitting(allClips) {
-                position = .region(region)
-            }
+            applyNearMeCamera()
         }
         .onChange(of: viewModel.countryFilter) { _, newValue in
             Task { await feedViewModel.loadMapClips(country: newValue) }
-        }
-        .onChange(of: nearMeRadius) { _, _ in
-            guard isNearMeActive else { return }
-            applyNearMeCamera()
         }
         .onChange(of: searchText) { _, _ in
             guard let region = Self.regionFitting(mapClips) else { return }
@@ -116,11 +105,7 @@ struct MapView: View {
             MapCountryFilterSheet(selection: $viewModel.countryFilter)
         }
         .onChange(of: viewModel.cameraCenterGeneration) { _, _ in
-            if isNearMeActive {
-                applyNearMeCamera()
-            } else if let region = viewModel.regionForCameraCenter() {
-                position = .region(region)
-            }
+            applyNearMeCamera()
         }
         .alert("Location Access Off", isPresented: $viewModel.showLocationDeniedAlert) {
             Button("Open Settings") {
@@ -139,13 +124,24 @@ struct MapView: View {
     private static let isSearchVisible = false
 
     private var topControls: some View {
-        HStack(spacing: 10) {
-            if Self.isSearchVisible {
-                MapSearchBar(text: $searchText)
-            } else {
-                Spacer()
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                if Self.isSearchVisible {
+                    MapSearchBar(text: $searchText)
+                } else {
+                    Spacer()
+                }
+                filtersMenu
             }
-            filtersMenu
+
+            if nearMeClips.isEmpty, viewModel.userCoordinate != nil {
+                Text(NearMeRadius.default.emptyClipsMessage)
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .accessibilityIdentifier("map.nearMeEmpty")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -159,14 +155,6 @@ struct MapView: View {
                 Label(countryFilterMenuTitle, systemImage: "globe")
             }
             .accessibilityIdentifier("map.countryFilter")
-
-            Button {
-                toggleNearMe()
-            } label: {
-                Label(isNearMeActive ? "Hide clips near me" : "Clips near me",
-                      systemImage: isNearMeActive ? "location.fill" : "location")
-            }
-            .accessibilityIdentifier("map.nearMe")
 
             if let onSignOut {
                 Divider()
@@ -188,28 +176,6 @@ struct MapView: View {
     private var countryFilterMenuTitle: String {
         guard let country = viewModel.countryFilter else { return "All countries" }
         return CountryCatalog.name(for: country)
-    }
-
-    private var nearMeBanner: some View {
-        VStack(spacing: 10) {
-            Picker("Radius", selection: $nearMeRadius) {
-                ForEach(NearMeRadius.allCases) { radius in
-                    Text(radius.label).tag(radius)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("map.nearMeRadius")
-
-            if nearMeClips.isEmpty, viewModel.userCoordinate != nil {
-                Text(nearMeRadius.emptyClipsMessage)
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .accessibilityIdentifier("map.nearMeEmpty")
-            }
-        }
-        .padding(.horizontal, 20)
     }
 
     private var locateButton: some View {
@@ -241,18 +207,6 @@ struct MapView: View {
         )
         withAnimation(.easeInOut(duration: 0.3)) {
             position = .region(MKCoordinateRegion(center: cluster.coordinate, span: span))
-        }
-    }
-
-    private func toggleNearMe() {
-        isNearMeActive.toggle()
-        if isNearMeActive {
-            if viewModel.userCoordinate == nil {
-                viewModel.currentLocationButtonTapped()
-            }
-            applyNearMeCamera()
-        } else if let region = Self.regionFitting(allClips) {
-            position = .region(region)
         }
     }
 
