@@ -72,8 +72,8 @@ struct MapView: View {
         .onAppear {
             viewModel.onMapTabBecameActive()
         }
-        .onChange(of: viewModel.countryFilter) { _, newValue in
-            Task { await feedViewModel.loadMapClips(country: newValue) }
+        .task(id: viewModel.countryFilter) {
+            await feedViewModel.loadMapClips(country: viewModel.countryFilter)
         }
         .onChange(of: searchText) { _, _ in
             guard let region = Self.regionFitting(mapClips) else { return }
@@ -139,17 +139,11 @@ struct MapView: View {
     }
 
     private var filtersMenu: some View {
-        Menu {
-            Button {
-                isCountryFilterPresented = true
-            } label: {
-                Label(countryFilterMenuTitle, systemImage: "globe")
-            }
-            .accessibilityIdentifier("map.countryFilter")
+        Button {
+            isCountryFilterPresented = true
         } label: {
-            Image(systemName: "slider.horizontal.3")
-                .font(.headline)
-                .foregroundStyle(.primary)
+            Text(countryFilterMenuFlag)
+                .font(.system(size: 24))
                 .frame(width: 44, height: 44)
                 .background(.ultraThinMaterial, in: Circle())
                 .overlay { Circle().strokeBorder(.quaternary, lineWidth: 0.5) }
@@ -159,9 +153,9 @@ struct MapView: View {
         .accessibilityIdentifier("map.filters")
     }
 
-    private var countryFilterMenuTitle: String {
-        guard let country = viewModel.countryFilter else { return "All countries" }
-        return CountryCatalog.name(for: country)
+    private var countryFilterMenuFlag: String {
+        guard let country = viewModel.countryFilter else { return "🌐" }
+        return Country.flagEmoji(for: country)
     }
 
     private var locateButton: some View {
