@@ -103,42 +103,8 @@ actor FeedMediaPreparationService {
         } catch {
             return nil
         }
-        let item = makePlayerItem(asset: asset)
-        let ready = await waitUntilReadyToPlay(item)
-        return ready ? item : nil
-    }
-
-    private func waitUntilReadyToPlay(_ item: AVPlayerItem) async -> Bool {
-        if item.status == .readyToPlay { return true }
-        if item.status == .failed { return false }
-
-        return await withCheckedContinuation { continuation in
-            final class ResumeGuard: @unchecked Sendable {
-                var resumed = false
-                func resumeOnce(_ value: Bool) -> Bool {
-                    guard !resumed else { return false }
-                    resumed = true
-                    return true
-                }
-            }
-            let guardBox = ResumeGuard()
-            var observation: NSKeyValueObservation?
-            observation = item.observe(\.status, options: [.new]) { item, _ in
-                switch item.status {
-                case .readyToPlay:
-                    if guardBox.resumeOnce(true) {
-                        observation?.invalidate()
-                        continuation.resume(returning: true)
-                    }
-                case .failed:
-                    if guardBox.resumeOnce(false) {
-                        observation?.invalidate()
-                        continuation.resume(returning: false)
-                    }
-                default:
-                    break
-                }
-            }
-        }
+        // An unattached item cannot be relied on to become readyToPlay.
+        // Cache the playable asset's item; the hidden player handles readiness.
+        return makePlayerItem(asset: asset)
     }
 }

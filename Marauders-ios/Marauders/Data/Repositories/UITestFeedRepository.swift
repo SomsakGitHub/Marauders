@@ -26,6 +26,12 @@ struct UITestFeedRepository: FeedRepository {
             return FeedPage(items: [], hasMore: false)
         }
 
+        if ProcessInfo.processInfo.arguments.contains("UITEST_STREAMING_FEED") {
+            return FeedPage(items: FeedSampleData.videos.enumerated().map { index, sample in
+                FeedVideo(streamURL: sample.streamURL, authorName: "@stream\(index)", caption: "Streaming test clip \(index)")
+            }, hasMore: false)
+        }
+
         let items = [
             FeedVideo(
                 id: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,

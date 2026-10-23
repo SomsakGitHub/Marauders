@@ -33,14 +33,13 @@ final class FeedPlayerEngine {
     private let slotB: PlayerSlot
 
     private var currentURL: URL?
-    private var loadGeneration = 0
     private var pausedByUser = false
+    private var playbackEnabled = true
 
     private let mediaPreparation = FeedMediaPreparationService(maxPreparedItems: 5)
     private var bufferingIndicatorTask: Task<Void, Never>?
 
     private static let stallIndicatorDelayNs: UInt64 = 380_000_000
-    private static let maxPreparedItems = 5
 
     init() {
         layerA.videoGravity = .resizeAspectFill
@@ -58,6 +57,7 @@ final class FeedPlayerEngine {
             pause(byUser: true)
         default:
             pausedByUser = false
+            playbackEnabled = true
             player.play()
             updatePhaseFromVisiblePlayer()
         }
@@ -67,6 +67,7 @@ final class FeedPlayerEngine {
     func settle(on url: URL, prefetchNeighbors: [URL]) {
         guard validateHTTPS(url) else { return }
         pausedByUser = false
+        playbackEnabled = true
 
         if currentURL == url, visibleSlot.player.currentItem != nil {
             visibleSlot.player.play()
@@ -109,6 +110,7 @@ final class FeedPlayerEngine {
     }
 
     func pause(byUser: Bool = false) {
+        playbackEnabled = false
         visibleSlot.player.pause()
         hiddenSlot.player.pause()
         if byUser {
@@ -121,6 +123,8 @@ final class FeedPlayerEngine {
     }
 
     func resume() {
+        playbackEnabled = true
+        pausedByUser = false
         visibleSlot.player.play()
         updatePhaseFromVisiblePlayer()
     }
@@ -128,7 +132,9 @@ final class FeedPlayerEngine {
     func retry() {
         guard let url = currentURL else { return }
         Task { await mediaPreparation.discardPreparedItem(for: url) }
-        currentURL = nil
+        currentURL = url
+        playbackEnabled = true
+        pausedByUser = false
         playOnVisible(url: url)
     }
 
@@ -144,7 +150,7 @@ final class FeedPlayerEngine {
 
     private func swapToHiddenIfReady(url: URL) -> Bool {
         let hidden = hiddenSlot
-        guard hidden.loadedURL == url,
+        guard hidden.loadedURL == url, hidden.requestedURL == url,
               hidden.player.currentItem?.status == .readyToPlay
         else {
             return false
@@ -159,25 +165,25 @@ final class FeedPlayerEngine {
     }
 
     private func preloadHidden(urls: [URL]) {
-        guard let next = urls.first(where: { $0 != currentURL && $0 != hiddenSlot.loadedURL }) else {
-            return
-        }
-        load(into: hiddenSlot, url: next, autoplay: false, generation: loadGeneration)
+        guard let next = Self.preloadTarget(currentURL: currentURL, neighbors: urls),
+              hiddenSlot.requestedURL != next else { return }
+        load(into: hiddenSlot, url: next, autoplay: false)
+    }
+
+    static func preloadTarget(currentURL: URL?, neighbors: [URL]) -> URL? {
+        neighbors.first { $0 != currentURL && $0.scheme?.lowercased() == "https" }
     }
 
     private func playOnVisible(url: URL) {
-        loadGeneration += 1
-        let generation = loadGeneration
-        load(into: visibleSlot, url: url, autoplay: true, generation: generation)
+        load(into: visibleSlot, url: url, autoplay: true)
     }
 
     private func load(
         into slot: PlayerSlot,
         url: URL,
-        autoplay: Bool,
-        generation: Int
+        autoplay: Bool
     ) {
-        slot.clearObservers()
+        let requestID = slot.beginRequest(url: url)
 
         if autoplay {
             phase = .buffering
@@ -188,13 +194,11 @@ final class FeedPlayerEngine {
             guard let self else { return }
 
             if let cached = await self.mediaPreparation.consumePreparedItem(for: url) {
-                guard generation == self.loadGeneration else { return }
+                guard slot.requestID == requestID else { return }
                 slot.assign(
                     item: cached,
                     url: url,
                     autoplay: autoplay,
-                    itemAlreadyBuffered: true,
-                    generation: generation,
                     engine: self
                 )
                 return
@@ -202,20 +206,18 @@ final class FeedPlayerEngine {
 
             do {
                 guard let item = try await self.mediaPreparation.beginPlaybackItem(for: url) else {
-                    if autoplay { self.failPlayback(message: "Couldn’t load video") }
+                    if slot.requestID == requestID, autoplay { self.failPlayback(message: "Couldn’t load video") }
                     return
                 }
-                guard generation == self.loadGeneration else { return }
+                guard slot.requestID == requestID else { return }
                 slot.assign(
                     item: item,
                     url: url,
                     autoplay: autoplay,
-                    itemAlreadyBuffered: false,
-                    generation: generation,
                     engine: self
                 )
             } catch {
-                guard generation == self.loadGeneration, autoplay else { return }
+                guard slot.requestID == requestID, autoplay else { return }
                 self.failPlayback(message: error.localizedDescription)
             }
         }
@@ -290,6 +292,8 @@ private final class PlayerSlot {
     let player: AVPlayer
     let layer: AVPlayerLayer
     private(set) var loadedURL: URL?
+    private(set) var requestedURL: URL?
+    private(set) var requestID = UUID()
 
     private var statusObservation: NSKeyValueObservation?
     private var timeControlObservation: NSKeyValueObservation?
@@ -301,20 +305,25 @@ private final class PlayerSlot {
         layer.player = player
     }
 
+    func beginRequest(url: URL) -> UUID {
+        clearObservers()
+        requestID = UUID()
+        requestedURL = url
+        return requestID
+    }
+
     func assign(
         item: AVPlayerItem,
         url: URL,
         autoplay: Bool,
-        itemAlreadyBuffered: Bool,
-        generation: Int,
         engine: FeedPlayerEngine
     ) {
         loadedURL = url
-        player.automaticallyWaitsToMinimizeStalling = !itemAlreadyBuffered
+        player.automaticallyWaitsToMinimizeStalling = true
 
-        statusObservation = item.observe(\.status, options: [.new]) { item, _ in
+        statusObservation = item.observe(\.status, options: [.new]) { [weak self, weak engine] item, _ in
             Task { @MainActor in
-                guard autoplay, generation == engine.loadGenerationForObservers else { return }
+                guard let self, let engine, engine.isVisible(self), self.player.currentItem === item else { return }
                 switch item.status {
                 case .readyToPlay:
                     AppLog.info("player", "ready host=\(url.host ?? "?")")
@@ -328,10 +337,10 @@ private final class PlayerSlot {
             }
         }
 
-        if autoplay {
-            timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { _, _ in
+        do {
+            timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self, weak engine] _, _ in
                 Task { @MainActor in
-                    guard generation == engine.loadGenerationForObservers else { return }
+                    guard let self, let engine, engine.isVisible(self) else { return }
                     engine.updatePhaseFromVisiblePlayer()
                 }
             }
@@ -341,22 +350,23 @@ private final class PlayerSlot {
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self, weak engine] _ in
             Task { @MainActor in
-                self?.player.seek(to: .zero)
-                self?.player.play()
+                guard let self, let engine, self.player.currentItem === item else { return }
+                self.player.seek(to: .zero) { [weak self, weak engine] finished in
+                    Task { @MainActor in
+                        guard finished, let self, let engine,
+                              engine.shouldPlay(self), self.player.currentItem === item else { return }
+                        self.player.play()
+                    }
+                }
             }
         }
 
         player.replaceCurrentItem(with: item)
 
-        if autoplay {
-            if itemAlreadyBuffered, item.status == .readyToPlay {
-                engine.markPlayingFromSlot()
-                player.playImmediately(atRate: 1.0)
-            } else {
-                player.play()
-            }
+        if autoplay && engine.shouldPlay(self) {
+            player.play()
         } else {
             player.seek(to: .zero)
             player.pause()
@@ -376,16 +386,17 @@ private final class PlayerSlot {
 }
 
 extension FeedPlayerEngine {
-    fileprivate var loadGenerationForObservers: Int {
-        loadGeneration
+    fileprivate func isVisible(_ slot: PlayerSlot) -> Bool {
+        slot === visibleSlot
+    }
+
+    fileprivate func shouldPlay(_ slot: PlayerSlot) -> Bool {
+        isVisible(slot) && playbackEnabled && !pausedByUser
     }
 
     fileprivate func failPlaybackFromSlot(message: String) {
         failPlayback(message: message)
     }
 
-    fileprivate func markPlayingFromSlot() {
-        phase = .playing
-        hideBufferingIndicator()
-    }
+
 }

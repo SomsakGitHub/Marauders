@@ -80,4 +80,19 @@ struct FeedPlayerEngineTests {
         #expect(phaseAfterFirst == .buffering)
         #expect(engine.phase != .failed("URL is not secure"))
     }
+    @Test func preloadKeepsFirstNeighborEvenWhenAlreadyWarm() {
+        let current = URL(string: "https://example.com/current.mp4")!
+        let next = URL(string: "https://example.com/next.mp4")!
+        let previous = URL(string: "https://example.com/previous.mp4")!
+        #expect(FeedPlayerEngine.preloadTarget(currentURL: current, neighbors: [next, previous]) == next)
+        #expect(FeedPlayerEngine.preloadTarget(currentURL: current, neighbors: [current, next]) == next)
+    }
+
+    @Test func preloadSkipsInsecureNeighbors() {
+        let next = URL(string: "https://example.com/next.mp4")!
+        #expect(FeedPlayerEngine.preloadTarget(currentURL: nil, neighbors: [
+            URL(string: "http://example.com/invalid.mp4")!, next
+        ]) == next)
+        #expect(FeedPlayerEngine.preloadTarget(currentURL: next, neighbors: [next]) == nil)
+    }
 }

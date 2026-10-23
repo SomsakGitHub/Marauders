@@ -138,6 +138,32 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testStreamingFeedForwardAndReverseSwipes() throws {
+        let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED"])
+        let feed = app.otherElements["feed.root"]
+        XCTAssertTrue(feed.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
+        attachFeedScreenshot(app, name: "initial")
+        for iteration in 0..<3 {
+            feed.swipeUp(velocity: .fast)
+            XCTAssertTrue(app.staticTexts["Streaming test clip 1"].waitForExistence(timeout: 10))
+            attachFeedScreenshot(app, name: "forward-\(iteration)")
+            feed.swipeDown(velocity: .fast)
+            XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
+            attachFeedScreenshot(app, name: "reverse-\(iteration)")
+        }
+        XCTAssertFalse(app.buttons["Play Again"].exists)
+    }
+
+    @MainActor
+    private func attachFeedScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     private func launchApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["UITEST"] + extraArguments

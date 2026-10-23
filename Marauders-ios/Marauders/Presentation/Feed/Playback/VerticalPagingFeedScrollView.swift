@@ -97,7 +97,11 @@ final class VerticalFeedPagingView: UIView {
     func setPageCount(_ count: Int, scrollToIndex: Int) {
         let safeCount = max(count, 0)
         guard safeCount != pageCount else {
-            scrollToPage(scrollToIndex, animated: false)
+            if !scrollView.isDragging && !scrollView.isDecelerating {
+                playbackPageIndex = min(max(scrollToIndex, 0), max(pageCount - 1, 0))
+                scrollToPage(playbackPageIndex, animated: false)
+                repositionPlayerHost()
+            }
             return
         }
 
