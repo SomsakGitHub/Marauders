@@ -34,7 +34,6 @@ struct MapTabView: View {
                     MapView(
                         viewModel: mapViewModel,
                         feedViewModel: feedViewModel,
-                        onSignOut: { authViewModel.signOut() },
                         onOpenClipInFeed: { videoID in
                             Task { await onOpenClipInFeed(videoID) }
                         }

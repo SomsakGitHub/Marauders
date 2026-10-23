@@ -10,7 +10,6 @@ import UIKit
 struct MapView: View {
     @Bindable var viewModel: MapViewModel
     @Bindable var feedViewModel: VideoFeedViewModel
-    var onSignOut: (() -> Void)?
     var onOpenClipInFeed: (UUID) -> Void
 
     @Environment(\.openURL) private var openURL
@@ -147,11 +146,6 @@ struct MapView: View {
                 Label(countryFilterMenuTitle, systemImage: "globe")
             }
             .accessibilityIdentifier("map.countryFilter")
-
-            if let onSignOut {
-                Divider()
-                Button("Sign Out", role: .destructive, action: onSignOut)
-            }
         } label: {
             Image(systemName: "slider.horizontal.3")
                 .font(.headline)
@@ -252,7 +246,6 @@ struct MapView: View {
     MapView(
         viewModel: MapViewModel(),
         feedViewModel: container.feedViewModel,
-        onSignOut: {},
         onOpenClipInFeed: { _ in }
     )
 }
