@@ -39,7 +39,9 @@ final class FeedPlayerEngine {
     private var pausedByUser = false
     private var playbackEnabled = true
 
-    private let mediaPreparation = FeedMediaPreparationService(maxPreparedItems: 5)
+    private let mediaPreparation = FeedMediaPreparationService(
+        maxPreparedItems: 5, startupCache: AppRuntimeConfiguration.isUITesting ? nil : FeedStartupCache.shared
+    )
     private var bufferingIndicatorTask: Task<Void, Never>?
 
     private static let stallIndicatorDelayNs: UInt64 = 380_000_000
@@ -346,7 +348,11 @@ private final class PlayerSlot {
                     engine.updatePhaseFromVisiblePlayer()
                 case .failed:
                     let message = item.error?.localizedDescription ?? "Playback failed"
-                    engine.failPlaybackFromSlot(message: message)
+                    if (item.asset as? AVURLAsset)?.url.isFileURL == true {
+                        await engine.recoverCachedPlayback(url: url)
+                    } else {
+                        engine.failPlaybackFromSlot(message: message)
+                    }
                 default:
                     break
                 }
@@ -408,6 +414,12 @@ extension FeedPlayerEngine {
 
     fileprivate func shouldPlay(_ slot: PlayerSlot) -> Bool {
         isVisible(slot) && playbackEnabled && !pausedByUser
+    }
+
+    fileprivate func recoverCachedPlayback(url: URL) async {
+        await mediaPreparation.invalidateLocalFile(for: url)
+        guard currentURL == url else { return }
+        playOnVisible(url: url)
     }
 
     fileprivate func failPlaybackFromSlot(message: String) {

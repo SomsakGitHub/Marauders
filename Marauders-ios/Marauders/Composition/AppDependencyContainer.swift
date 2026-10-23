@@ -51,7 +51,10 @@ final class AppDependencyContainer {
         )
 
         let fetchFeed = FetchFeedUseCase(repository: self.feedRepository)
-        feedViewModel = VideoFeedViewModel(fetchFeed: fetchFeed)
+        feedViewModel = VideoFeedViewModel(
+            fetchFeed: fetchFeed,
+            startupCache: AppRuntimeConfiguration.isUITesting || feedRepository != nil ? nil : FeedStartupCache.shared
+        )
 
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
         let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)

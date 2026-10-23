@@ -12,12 +12,16 @@ final class VideoFeedViewModel {
     var videos: [FeedVideo] = []
     var loadState: FeedLoadState = .idle
     private(set) var isLoadingMore = false
+    private(set) var restoredStartupCache = false
     /// Clips fetched for a specific country (Map tab). Empty when no filter is active.
     private(set) var mapFilteredClips: [FeedVideo] = []
     /// Set by coordinator when opening a clip from the map; consumed by `VideoFeedView`.
     var focusVideoID: UUID?
 
     private let fetchFeed: FetchFeedUseCase
+    private let startupCache: (any FeedStartupCaching)?
+    private var didScheduleStartupCache = false
+    private var startupCacheTask: Task<Void, Never>?
     private let pageSize: Int
     private var reloadGeneration = 0
     private var initialLoadTask: Task<Void, Never>?
@@ -25,7 +29,8 @@ final class VideoFeedViewModel {
     private var isLoadingMoreInFlight = false
     private let maxPagesWhenResolvingVideo = 50
 
-    init(fetchFeed: FetchFeedUseCase, pageSize: Int = 20) {
+    init(fetchFeed: FetchFeedUseCase, pageSize: Int = 20, startupCache: (any FeedStartupCaching)? = nil) {
+        self.startupCache = startupCache
         self.fetchFeed = fetchFeed
         self.pageSize = pageSize
     }
@@ -50,10 +55,51 @@ final class VideoFeedViewModel {
         }
         guard loadState == .idle else { return }
         let task = Task { @MainActor in
-            await reload()
+            let generation = reloadGeneration
+            if let cached = await startupCache?.cachedVideos(), !cached.isEmpty,
+               generation == reloadGeneration, loadState == .idle {
+                restoredStartupCache = true
+                videos = cached
+                loadState = .loaded
+                AppLog.info("startup.cache", "restored clips=\(cached.count)")
+                Task { await refreshAfterCachedStart(cached, generation: generation) }
+            } else if generation == reloadGeneration {
+                await reload()
+            }
         }
         initialLoadTask = task
         await task.value
+    }
+
+    /// Fill shortly after playback starts; loop transitions must not cancel the download.
+    func prepareStartupCache(currentIndex: Int) {
+        guard !didScheduleStartupCache, let startupCache, videos.indices.contains(currentIndex) else { return }
+        didScheduleStartupCache = true
+        let upcoming = Array(videos.dropFirst(currentIndex + 1).prefix(2))
+        let candidates = upcoming.isEmpty ? [videos[currentIndex]] : upcoming
+        startupCacheTask = Task(priority: .utility) {
+            do {
+                try await Task.sleep(for: .seconds(3))
+                AppLog.info("startup.cache", "fill started clips=\(candidates.count)")
+                await startupCache.store(candidates)
+            } catch { }
+        }
+    }
+
+    private func refreshAfterCachedStart(_ cached: [FeedVideo], generation: Int) async {
+        do {
+            let page = try await fetchFeed.execute(limit: pageSize, cursor: nil)
+            guard reloadGeneration == generation else { return }
+            // Keep the displayed cached clip at the same index while refreshing the tail.
+            let cachedIDs = Set(cached.map(\.id))
+            videos = cached + page.items.filter { !cachedIDs.contains($0.id) }
+            hasMorePages = page.hasMore
+            AppLog.info("startup.cache", "fresh feed merged")
+        } catch {
+            guard reloadGeneration == generation else { return }
+            hasMorePages = true
+            AppLog.debug("startup.cache", "using cached feed while refresh unavailable")
+        }
     }
 
     func requestFocus(on videoID: UUID) {

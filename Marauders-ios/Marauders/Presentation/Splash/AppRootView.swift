@@ -43,7 +43,7 @@ struct AppRootView: View {
     private func presentSplash() async {
         await container.feedViewModel.awaitInitialLoad()
 
-        if AppRuntimeConfiguration.isUITesting {
+        if AppRuntimeConfiguration.isUITesting || container.feedViewModel.restoredStartupCache {
             isShowingSplash = false
             return
         }

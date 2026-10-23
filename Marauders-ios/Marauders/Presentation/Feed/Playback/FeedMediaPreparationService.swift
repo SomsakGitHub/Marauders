@@ -11,10 +11,12 @@ actor FeedMediaPreparationService {
     private var preparedItems: [URL: AVPlayerItem] = [:]
     private var preparingURLs: Set<URL> = []
 
+    private let startupCache: FeedStartupCache?
     private let maxPreparedItems: Int
     private let forwardBufferDuration: TimeInterval
 
-    init(maxPreparedItems: Int = 5, forwardBufferDuration: TimeInterval = 6) {
+    init(maxPreparedItems: Int = 5, forwardBufferDuration: TimeInterval = 6, startupCache: FeedStartupCache? = nil) {
+        self.startupCache = startupCache
         self.maxPreparedItems = maxPreparedItems
         self.forwardBufferDuration = forwardBufferDuration
     }
@@ -31,9 +33,16 @@ actor FeedMediaPreparationService {
     func beginPlaybackItem(for url: URL) async throws -> AVPlayerItem? {
         guard url.scheme?.lowercased() == "https" else { return nil }
         let asset = await asset(for: url)
-        let playable = try await asset.load(.isPlayable)
-        guard playable else { return nil }
-        return makePlayerItem(asset: asset)
+        do {
+            if try await asset.load(.isPlayable) { return makePlayerItem(asset: asset) }
+        } catch {
+            if !asset.url.isFileURL { throw error }
+        }
+        guard asset.url.isFileURL else { return nil }
+        await invalidateLocalFile(for: url)
+        let remote = await self.asset(for: url)
+        guard try await remote.load(.isPlayable) else { return nil }
+        return makePlayerItem(asset: remote)
     }
 
     /// Warms `preparedItems` when not already cached or in flight.
@@ -75,14 +84,22 @@ actor FeedMediaPreparationService {
         }
     }
 
+    func invalidateLocalFile(for url: URL) async {
+        await startupCache?.invalidate(url)
+        assetsByURL.removeValue(forKey: url)
+        preparedItems.removeValue(forKey: url)
+    }
+
     // MARK: - Private
 
     private func asset(for url: URL) async -> AVURLAsset {
         if let existing = assetsByURL[url] {
             return existing
         }
+        let local = await startupCache?.localURL(for: url)
+        if local != nil { await AppLog.info("startup.cache", "playback source=disk") }
         let asset = AVURLAsset(
-            url: url,
+            url: local ?? url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: false]
         )
         assetsByURL[url] = asset

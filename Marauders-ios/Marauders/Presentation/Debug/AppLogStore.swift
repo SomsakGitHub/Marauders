@@ -105,12 +105,18 @@ enum AppLog {
     }
 
     static func debug(_ category: String, _ message: String) {
+        #if DEBUG
+        if category == "startup.cache" { print("[startup.cache] \(message)") }
+        #endif
         Task { @MainActor in
             AppLogStore.shared.debug(category, message)
         }
     }
 
     static func info(_ category: String, _ message: String) {
+        #if DEBUG
+        if category == "startup.cache" { print("[startup.cache] \(message)") }
+        #endif
         Task { @MainActor in
             AppLogStore.shared.info(category, message)
         }

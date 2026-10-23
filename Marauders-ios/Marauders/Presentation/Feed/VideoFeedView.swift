@@ -53,6 +53,10 @@ struct VideoFeedView: View {
                 applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
             }
         }
+        .task(id: playerEngine.phase == .playing) {
+            guard playerEngine.phase == .playing, isFeedTabSelected else { return }
+            viewModel.prepareStartupCache(currentIndex: currentPageIndex)
+        }
         .onChange(of: viewModel.videos) { _, _ in
             syncPageIndex()
             applyFocusRequestIfNeeded()
