@@ -17,6 +17,34 @@ private struct MockFeedRepository: FeedRepository {
 
 @MainActor
 struct VideoFeedViewModelTests {
+    @Test func concurrentInitialLoadsShareOneRequest() async {
+        actor CountingRepository: FeedRepository {
+            var calls = 0
+            let page: FeedPage
+
+            init(page: FeedPage) { self.page = page }
+
+            func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
+                calls += 1
+                await Task.yield()
+                return page
+            }
+        }
+        let clip = FeedVideo(streamURL: URL(string: "https://example.com/first.mp4")!)
+        let repository = CountingRepository(page: FeedPage(items: [clip], hasMore: false))
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repository))
+        let callers = (0..<20).map { _ in
+            Task { @MainActor in
+                await viewModel.loadIfNeeded()
+                #expect(viewModel.loadState == .loaded)
+                #expect(viewModel.videos.count == 1)
+            }
+        }
+        for caller in callers { await caller.value }
+        await viewModel.awaitInitialLoad()
+        #expect(await repository.calls == 1)
+    }
+
     @Test func reloadEmptyFeedSetsFailedState() async {
         let repo = MockFeedRepository(result: .success(FeedPage(items: [], hasMore: false)))
         let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))

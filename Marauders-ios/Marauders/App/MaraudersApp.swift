@@ -10,6 +10,7 @@ struct MaraudersApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        _ = AppLog.launchUptime
         MyLibraryIntegration.configure()
     }
 

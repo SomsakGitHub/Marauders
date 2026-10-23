@@ -32,6 +32,9 @@ final class FeedPlayerEngine {
     private let slotA: PlayerSlot
     private let slotB: PlayerSlot
 
+    private var firstPlaybackStarted: TimeInterval?
+    private var didMeasureFirstPlayback = false
+    private var didMeasureFirstReady = false
     private var currentURL: URL?
     private var pausedByUser = false
     private var playbackEnabled = true
@@ -68,6 +71,10 @@ final class FeedPlayerEngine {
         guard validateHTTPS(url) else { return }
         pausedByUser = false
         playbackEnabled = true
+        if firstPlaybackStarted == nil {
+            firstPlaybackStarted = ProcessInfo.processInfo.systemUptime
+            AppLog.timing("firstVideo.requested", since: AppLog.launchUptime)
+        }
 
         if currentURL == url, visibleSlot.player.currentItem != nil {
             visibleSlot.player.play()
@@ -235,8 +242,17 @@ final class FeedPlayerEngine {
         let player = visibleSlot.player
         guard player.currentItem?.status != .failed else { return }
 
+        if player.currentItem?.status == .readyToPlay,
+           !didMeasureFirstReady, let start = firstPlaybackStarted {
+            didMeasureFirstReady = true
+            AppLog.timing("firstVideo.ready", since: start)
+        }
         switch player.timeControlStatus {
         case .playing:
+            if !didMeasureFirstPlayback, let start = firstPlaybackStarted {
+                didMeasureFirstPlayback = true
+                AppLog.timing("firstVideo.playing", since: start)
+            }
             phase = .playing
             hideBufferingIndicator()
         case .waitingToPlayAtSpecifiedRate:

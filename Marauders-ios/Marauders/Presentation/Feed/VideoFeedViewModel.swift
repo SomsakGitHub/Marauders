@@ -43,10 +43,12 @@ final class VideoFeedViewModel {
     }
 
     func loadIfNeeded() async {
-        if loadState != .idle {
-            await initialLoadTask?.value
+        // Share the task even before reload() gets its first MainActor turn.
+        if let initialLoadTask {
+            await initialLoadTask.value
             return
         }
+        guard loadState == .idle else { return }
         let task = Task { @MainActor in
             await reload()
         }
@@ -130,6 +132,7 @@ final class VideoFeedViewModel {
     func reload() async {
         reloadGeneration += 1
         let generation = reloadGeneration
+        let fetchStarted = ProcessInfo.processInfo.systemUptime
 
         AppLog.info("feed", "reload started (currentCount=\(videos.count))")
         loadState = .loading
@@ -138,6 +141,7 @@ final class VideoFeedViewModel {
 
         do {
             let page = try await fetchFeed.execute(limit: pageSize, cursor: nil)
+            AppLog.timing("feed.fetch.completed", since: fetchStarted)
             guard generation == reloadGeneration else { return }
             guard !page.items.isEmpty else {
                 videos = []
@@ -155,6 +159,7 @@ final class VideoFeedViewModel {
             )
         } catch {
             guard generation == reloadGeneration else { return }
+            AppLog.timing("feed.fetch.failed", since: fetchStarted)
             AppLog.error("feed", "reload failed: \(error.localizedDescription)")
             if videos.isEmpty {
                 loadState = .failed(error.localizedDescription)

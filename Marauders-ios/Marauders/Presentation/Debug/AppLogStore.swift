@@ -93,6 +93,17 @@ final class AppLogStore {
 }
 
 enum AppLog {
+    static let launchUptime = ProcessInfo.processInfo.systemUptime
+
+    static func timing(_ stage: String, since start: TimeInterval) {
+        let now = ProcessInfo.processInfo.systemUptime
+        let message = "\(stage) durationMs=\(Int((now - start) * 1000)) sinceLaunchMs=\(Int((now - launchUptime) * 1000))"
+        info("startup.timing", message)
+        #if DEBUG
+        print("[startup.timing] \(message)")
+        #endif
+    }
+
     static func debug(_ category: String, _ message: String) {
         Task { @MainActor in
             AppLogStore.shared.debug(category, message)
