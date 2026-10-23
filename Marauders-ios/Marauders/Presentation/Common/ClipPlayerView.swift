@@ -101,6 +101,17 @@ struct ClipPlayerView: View {
                     .foregroundStyle(.white.opacity(0.8))
                     .accessibilityIdentifier("clip.distance")
             }
+            if let coordinate = clip.mapCoordinate,
+               let mapsURL = URL(string: "https://www.google.com/maps/search/?api=1&query=\(coordinate.latitude),\(coordinate.longitude)") {
+                Link(destination: mapsURL) {
+                    Label("Open in Google Maps", systemImage: "map")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.white.opacity(0.2))
+                .foregroundStyle(.white)
+                .accessibilityIdentifier("clip.openGoogleMaps")
+            }
             if let onOpenInFeed {
                 Button(action: onOpenInFeed) {
                     Label("Play in Feed", systemImage: "list.bullet.rectangle")
