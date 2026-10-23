@@ -1,194 +1,132 @@
-//
-//  VerticalPagingFeedScrollView.swift
-//  Marauders
-//
-
 import SwiftUI
 import UIKit
 
-/// UIKit vertical paging — player layers live in scroll content so video moves 1:1 with the finger.
 struct VerticalPagingFeedScrollView: UIViewRepresentable {
-    let pageCount: Int
+    let streamURLs: [URL]
     @Binding var currentPageIndex: Int
     let engine: FeedPlayerEngine
     var onPageSettled: (Int) -> Void
     var onTap: () -> Void
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
     func makeUIView(context: Context) -> VerticalFeedPagingView {
         let view = VerticalFeedPagingView()
         view.delegate = context.coordinator
-        view.syncPlayer(with: engine)
-        view.onTap = { [weak coordinator = context.coordinator] in
-            coordinator?.parent.onTap()
-        }
+        view.onTap = { [weak coordinator = context.coordinator] in coordinator?.parent.onTap() }
         return view
     }
-
-    func updateUIView(_ uiView: VerticalFeedPagingView, context: Context) {
+    func updateUIView(_ view: VerticalFeedPagingView, context: Context) {
         context.coordinator.parent = self
-        uiView.setPageCount(pageCount, scrollToIndex: currentPageIndex)
-        uiView.syncPlayer(with: engine)
+        view.setVideos(streamURLs, scrollToIndex: currentPageIndex)
+        view.syncPresentations(engine.presentations)
     }
-
     final class Coordinator: NSObject, VerticalFeedPagingViewDelegate {
         var parent: VerticalPagingFeedScrollView
-
-        init(parent: VerticalPagingFeedScrollView) {
-            self.parent = parent
-        }
-
-        func pagingViewDidSettle(on pageIndex: Int) {
-            Task { @MainActor in
-                self.parent.currentPageIndex = pageIndex
-                self.parent.onPageSettled(pageIndex)
-            }
+        init(parent: VerticalPagingFeedScrollView) { self.parent = parent }
+        func pagingViewDidSettle(on index: Int) {
+            parent.currentPageIndex = index
+            parent.onPageSettled(index)
         }
     }
 }
 
-protocol VerticalFeedPagingViewDelegate: AnyObject {
-    func pagingViewDidSettle(on pageIndex: Int)
-}
+@MainActor
+protocol VerticalFeedPagingViewDelegate: AnyObject { func pagingViewDidSettle(on pageIndex: Int) }
 
+/// Each surface stays at its video's content coordinate throughout a drag and snap.
 final class VerticalFeedPagingView: UIView {
     weak var delegate: VerticalFeedPagingViewDelegate?
-
-    private let scrollView = UIScrollView()
-    private let playerCompositor = FeedPlayerCompositorView()
-    private var pageViews: [UIView] = []
-    private var pageCount = 0
-    private var playbackPageIndex = 0
-
     var onTap: (() -> Void)?
+    private let scrollView = UIScrollView()
+    private var streamURLs: [URL] = []
+    private var presentations: [FeedPlayerPresentation] = []
+    private var hosts: [Int: FeedPlayerLayerHostView] = [:]
+    private var settledIndex = 0
+    private var previousSize: CGSize = .zero
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
-
+        scrollView.backgroundColor = .black
         scrollView.isPagingEnabled = true
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.contentInsetAdjustmentBehavior = .never
-        scrollView.bounces = true
         scrollView.alwaysBounceVertical = true
         scrollView.delegate = self
         addSubview(scrollView)
-
-        scrollView.addSubview(playerCompositor)
-
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         tap.cancelsTouchesInView = false
         scrollView.addGestureRecognizer(tap)
     }
-
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func syncPlayer(with engine: FeedPlayerEngine) {
-        playerCompositor.sync(with: engine)
+    func setVideos(_ urls: [URL], scrollToIndex: Int) {
+        let changed = streamURLs != urls
+        streamURLs = urls
+        let target = min(max(scrollToIndex, 0), max(urls.count - 1, 0))
+        if changed { setNeedsLayout(); layoutIfNeeded() }
+        if !scrollView.isDragging && !scrollView.isDecelerating, target != settledIndex || changed {
+            settledIndex = target
+            scrollToSettledPage()
+        }
+        positionSurfaces()
     }
-
-    func setPageCount(_ count: Int, scrollToIndex: Int) {
-        let safeCount = max(count, 0)
-        guard safeCount != pageCount else {
-            if !scrollView.isDragging && !scrollView.isDecelerating {
-                playbackPageIndex = min(max(scrollToIndex, 0), max(pageCount - 1, 0))
-                scrollToPage(playbackPageIndex, animated: false)
-                repositionPlayerHost()
+    func syncPresentations(_ newPresentations: [FeedPlayerPresentation]) {
+        presentations = newPresentations
+        for presentation in newPresentations {
+            let host: FeedPlayerLayerHostView
+            if let existing = hosts[presentation.id] { host = existing }
+            else {
+                host = FeedPlayerLayerHostView()
+                hosts[presentation.id] = host
+                scrollView.addSubview(host)
             }
-            return
+            host.attach(layer: presentation.layer)
         }
-
-        pageCount = safeCount
-        pageViews.forEach { $0.removeFromSuperview() }
-        pageViews.removeAll()
-
-        for _ in 0..<safeCount {
-            let page = UIView()
-            page.backgroundColor = .black
-            scrollView.addSubview(page)
-            pageViews.append(page)
-        }
-
-        scrollView.addSubview(playerCompositor)
-        playbackPageIndex = min(max(scrollToIndex, 0), max(safeCount - 1, 0))
-        setNeedsLayout()
-        layoutIfNeeded()
-        scrollToPage(playbackPageIndex, animated: false)
-        repositionPlayerHost()
+        positionSurfaces()
     }
-
     override func layoutSubviews() {
         super.layoutSubviews()
+        let resized = bounds.size != previousSize
+        previousSize = bounds.size
         scrollView.frame = bounds
-        let width = bounds.width
-        let height = bounds.height
-        guard height > 0 else { return }
-
-        scrollView.contentSize = CGSize(width: width, height: height * CGFloat(pageCount))
-
-        for (index, page) in pageViews.enumerated() {
-            page.frame = CGRect(x: 0, y: CGFloat(index) * height, width: width, height: height)
+        scrollView.contentSize = CGSize(width: bounds.width, height: bounds.height * CGFloat(streamURLs.count))
+        if resized && !scrollView.isDragging && !scrollView.isDecelerating { scrollToSettledPage() }
+        positionSurfaces()
+    }
+    private func positionSurfaces() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        for presentation in presentations {
+            guard let host = hosts[presentation.id] else { continue }
+            guard let url = presentation.url, let index = streamURLs.firstIndex(of: url) else {
+                host.isHidden = true
+                continue
+            }
+            host.isHidden = false
+            host.frame = CGRect(x: 0, y: CGFloat(index) * bounds.height, width: bounds.width, height: bounds.height)
         }
-        repositionPlayerHost()
     }
-
-    private func repositionPlayerHost() {
-        let height = bounds.height
-        guard height > 0 else { return }
-        let width = bounds.width
-        playerCompositor.frame = CGRect(
-            x: 0,
-            y: CGFloat(playbackPageIndex) * height,
-            width: width,
-            height: height
-        )
-        scrollView.bringSubviewToFront(playerCompositor)
+    private func scrollToSettledPage() {
+        guard bounds.height > 0 else { return }
+        let offset = CGPoint(x: 0, y: CGFloat(settledIndex) * bounds.height)
+        if scrollView.contentOffset != offset { scrollView.setContentOffset(offset, animated: false) }
     }
-
-    private func scrollToPage(_ index: Int, animated: Bool) {
-        let height = bounds.height
-        guard height > 0, pageCount > 0 else { return }
-        let clamped = min(max(index, 0), pageCount - 1)
-        let offset = CGPoint(x: 0, y: CGFloat(clamped) * height)
-        scrollView.setContentOffset(offset, animated: animated)
+    private func settle() {
+        guard bounds.height > 0, !streamURLs.isEmpty else { return }
+        settledIndex = min(max(Int(round(scrollView.contentOffset.y / bounds.height)), 0), streamURLs.count - 1)
+        delegate?.pagingViewDidSettle(on: settledIndex)
+        // No surface is moved here. Paging only selects which audio/video should play.
     }
-
-    private func pageIndex(for scrollView: UIScrollView) -> Int {
-        let height = scrollView.bounds.height
-        guard height > 0, pageCount > 0 else { return 0 }
-        let index = Int(round(scrollView.contentOffset.y / height))
-        return min(max(index, 0), pageCount - 1)
-    }
-
-    private func settleIfNeeded(_ scrollView: UIScrollView) {
-        let index = pageIndex(for: scrollView)
-        if playbackPageIndex != index {
-            playbackPageIndex = index
-            repositionPlayerHost()
-        }
-        delegate?.pagingViewDidSettle(on: index)
-    }
-
-    @objc private func handleTap() {
-        onTap?()
-    }
+    @objc private func handleTap() { onTap?() }
 }
 
 extension VerticalFeedPagingView: UIScrollViewDelegate {
-    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-        settleIfNeeded(scrollView)
-    }
-
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { settle() }
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate {
-            settleIfNeeded(scrollView)
-        }
+        if !decelerate { settle() }
     }
 }

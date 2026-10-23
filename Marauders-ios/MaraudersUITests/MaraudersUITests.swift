@@ -156,6 +156,28 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testStreamingShortDragsReturnToSameClipInBothDirections() throws {
+        let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED"])
+        let feed = app.otherElements["feed.root"]
+        XCTAssertTrue(feed.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
+        let middle = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        middle.press(forDuration: 0.1,
+                     thenDragTo: feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)),
+                     withVelocity: .slow, thenHoldForDuration: 0.5)
+        XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
+        feed.swipeUp(velocity: .fast)
+        XCTAssertTrue(app.staticTexts["Streaming test clip 1"].waitForExistence(timeout: 10))
+        middle.press(forDuration: 0.1,
+                     thenDragTo: feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)),
+                     withVelocity: .slow, thenHoldForDuration: 0.5)
+        XCTAssertTrue(app.staticTexts["Streaming test clip 1"].waitForExistence(timeout: 10))
+        feed.swipeDown(velocity: .fast)
+        XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Play Again"].exists)
+    }
+
+    @MainActor
     private func attachFeedScreenshot(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

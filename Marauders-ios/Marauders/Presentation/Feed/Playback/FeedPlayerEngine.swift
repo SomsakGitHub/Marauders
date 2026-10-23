@@ -1,17 +1,16 @@
-//
-//  FeedPlayerEngine.swift
-//  Marauders
-//
-
 import AVFoundation
 import Observation
 
 enum FeedPlayerPhase: Equatable, Sendable {
-    case idle
-    case buffering
-    case playing
-    case paused
+    case idle, buffering, playing, paused
     case failed(String)
+}
+
+/// A surface belongs to a media URL, not to the currently selected page.
+struct FeedPlayerPresentation: Identifiable {
+    let id: Int
+    let url: URL?
+    let layer: AVPlayerLayer
 }
 
 @MainActor
@@ -19,412 +18,319 @@ enum FeedPlayerPhase: Equatable, Sendable {
 final class FeedPlayerEngine {
     private(set) var phase: FeedPlayerPhase = .idle
     private(set) var showsBufferingIndicator = false
-    private(set) var visibleSlotIsA = true
+    private(set) var presentations: [FeedPlayerPresentation]
+    private(set) var visibleSlotIndex = 0
+    var playerLayer: AVPlayerLayer { presentations[visibleSlotIndex].layer }
 
-    let layerA = AVPlayerLayer()
-    let layerB = AVPlayerLayer()
-
-    /// Visible slot layer (for single-layer call sites).
-    var playerLayer: AVPlayerLayer {
-        visibleSlotIsA ? layerA : layerB
-    }
-
-    private let slotA: PlayerSlot
-    private let slotB: PlayerSlot
-
+    private let slots: [PlayerSlot]
+    private var currentURL: URL?
+    private var neighbors: [URL] = []
+    private var pausedByUser = false
+    private var playbackEnabled = true
     private var firstPlaybackStarted: TimeInterval?
     private var didMeasureFirstPlayback = false
     private var didMeasureFirstReady = false
-    private var currentURL: URL?
-    private var pausedByUser = false
-    private var playbackEnabled = true
-
+    private var bufferingIndicatorTask: Task<Void, Never>?
     private let mediaPreparation = FeedMediaPreparationService(
         maxPreparedItems: 5, startupCache: AppRuntimeConfiguration.isUITesting ? nil : FeedStartupCache.shared
     )
-    private var bufferingIndicatorTask: Task<Void, Never>?
-
-    private static let stallIndicatorDelayNs: UInt64 = 380_000_000
+    private var visibleSlot: PlayerSlot { slots[visibleSlotIndex] }
 
     init() {
-        layerA.videoGravity = .resizeAspectFill
-        layerB.videoGravity = .resizeAspectFill
-        slotA = PlayerSlot(layer: layerA)
-        slotB = PlayerSlot(layer: layerB)
-        slotA.player.automaticallyWaitsToMinimizeStalling = true
-        slotB.player.automaticallyWaitsToMinimizeStalling = true
+        let pool = (0..<3).map { _ in PlayerSlot() }
+        slots = pool
+        presentations = pool.enumerated().map { FeedPlayerPresentation(id: $0.offset, url: nil, layer: $0.element.layer) }
     }
 
-    func togglePlayPause() {
-        let player = visibleSlot.player
-        switch player.timeControlStatus {
-        case .playing:
-            pause(byUser: true)
-        default:
-            pausedByUser = false
-            playbackEnabled = true
-            player.play()
-            updatePhaseFromVisiblePlayer()
-        }
-    }
-
-    /// Settles on a page after paging — swaps to preloaded hidden slot when possible.
     func settle(on url: URL, prefetchNeighbors: [URL]) {
-        guard validateHTTPS(url) else { return }
+        guard url.scheme?.lowercased() == "https" else {
+            failPlayback(message: "URL is not secure")
+            return
+        }
         pausedByUser = false
         playbackEnabled = true
+        neighbors = Self.previewTargets(currentURL: url, neighbors: prefetchNeighbors)
         if firstPlaybackStarted == nil {
             firstPlaybackStarted = ProcessInfo.processInfo.systemUptime
             AppLog.timing("firstVideo.requested", since: AppLog.launchUptime)
         }
-
-        if currentURL == url, visibleSlot.player.currentItem != nil {
-            visibleSlot.player.play()
-            updatePhaseFromVisiblePlayer()
-            preloadHidden(urls: prefetchNeighbors)
+        if currentURL == url, visibleSlot.requestedURL == url, !visibleSlot.loadFailed,
+           visibleSlot.player.currentItem?.status != .failed {
+            playVisibleIfLoaded()
+            prepareNeighbors()
             return
         }
 
-        if swapToHiddenIfReady(url: url) {
-            currentURL = url
-            updatePhaseFromVisiblePlayer()
-            preloadHidden(urls: prefetchNeighbors)
-            AppLog.debug("player", "swap host=\(url.host ?? "?")")
-            return
-        }
-
+        visibleSlot.player.pause()
+        visibleSlot.player.isMuted = true
         currentURL = url
-        playOnVisible(url: url)
-        preloadHidden(urls: prefetchNeighbors)
-    }
-
-    func play(url: URL) {
-        settle(on: url, prefetchNeighbors: [])
-    }
-
-    func prefetch(url: URL) {
-        guard url.scheme?.lowercased() == "https" else { return }
-        let protected = protectedMediaURLs()
-
-        let service = mediaPreparation
-        Task.detached(priority: .utility) {
-            await service.prefetch(url: url, protected: protected)
+        phase = .buffering
+        scheduleBufferingIndicatorIfNeeded()
+        if let readyIndex = slots.firstIndex(where: { $0.requestedURL == url }) {
+            // Retain both its buffer and its page-bound surface, even if still loading.
+            visibleSlotIndex = readyIndex
+            if visibleSlot.loadFailed || visibleSlot.player.currentItem?.status == .failed {
+                load(into: readyIndex, url: url)
+            } else {
+                visibleSlot.player.cancelPendingPrerolls()
+                visibleSlot.player.isMuted = false
+                playVisibleIfLoaded()
+            }
+        } else {
+            load(into: visibleSlotIndex, url: url)
         }
+        prepareNeighbors()
     }
 
-    func warmURLs(_ urls: [URL]) {
-        for url in urls {
-            prefetch(url: url)
-        }
+    func play(url: URL) { settle(on: url, prefetchNeighbors: []) }
+
+    func togglePlayPause() {
+        if visibleSlot.player.timeControlStatus == .playing { pause(byUser: true) }
+        else { resume() }
     }
 
     func pause(byUser: Bool = false) {
         playbackEnabled = false
-        visibleSlot.player.pause()
-        hiddenSlot.player.pause()
-        if byUser {
-            pausedByUser = true
-            phase = .paused
-            hideBufferingIndicator()
-        } else {
-            updatePhaseFromVisiblePlayer()
+        for slot in slots {
+            slot.player.pause()
+            slot.cancelPreview()
         }
+        if byUser { pausedByUser = true }
+        phase = .paused
+        hideBufferingIndicator()
     }
 
     func resume() {
         playbackEnabled = true
         pausedByUser = false
-        visibleSlot.player.play()
-        updatePhaseFromVisiblePlayer()
+        playVisibleIfLoaded()
+        prepareNeighbors()
     }
 
     func retry() {
         guard let url = currentURL else { return }
-        Task { await mediaPreparation.discardPreparedItem(for: url) }
-        currentURL = url
         playbackEnabled = true
         pausedByUser = false
-        playOnVisible(url: url)
+        load(into: visibleSlotIndex, url: url)
     }
 
-    // MARK: - Slots
-
-    private var visibleSlot: PlayerSlot {
-        visibleSlotIsA ? slotA : slotB
+    func prefetch(url: URL) {
+        guard url.scheme?.lowercased() == "https" else { return }
+        let protected = Set(slots.compactMap(\.requestedURL))
+        let service = mediaPreparation
+        Task.detached(priority: .utility) { await service.prefetch(url: url, protected: protected) }
     }
+    func warmURLs(_ urls: [URL]) { for url in urls { prefetch(url: url) } }
 
-    private var hiddenSlot: PlayerSlot {
-        visibleSlotIsA ? slotB : slotA
-    }
-
-    private func swapToHiddenIfReady(url: URL) -> Bool {
-        let hidden = hiddenSlot
-        guard hidden.loadedURL == url, hidden.requestedURL == url,
-              hidden.player.currentItem?.status == .readyToPlay
-        else {
-            return false
+    static func previewTargets(currentURL: URL?, neighbors: [URL]) -> [URL] {
+        var result: [URL] = []
+        for url in neighbors where url != currentURL && url.scheme?.lowercased() == "https" {
+            if !result.contains(url) { result.append(url) }
+            if result.count == 2 { break }
         }
-
-        visibleSlot.player.pause()
-        hidden.player.playImmediately(atRate: 1.0)
-        visibleSlotIsA.toggle()
-        phase = .playing
-        hideBufferingIndicator()
-        return true
+        return result
     }
-
-    private func preloadHidden(urls: [URL]) {
-        guard let next = Self.preloadTarget(currentURL: currentURL, neighbors: urls),
-              hiddenSlot.requestedURL != next else { return }
-        load(into: hiddenSlot, url: next, autoplay: false)
-    }
-
     static func preloadTarget(currentURL: URL?, neighbors: [URL]) -> URL? {
-        neighbors.first { $0 != currentURL && $0.scheme?.lowercased() == "https" }
+        previewTargets(currentURL: currentURL, neighbors: neighbors).first
     }
 
-    private func playOnVisible(url: URL) {
-        load(into: visibleSlot, url: url, autoplay: true)
+    private func prepareNeighbors() {
+        guard playbackEnabled else { return }
+        let desired = Set(neighbors)
+        for url in neighbors {
+            if let existing = slots.firstIndex(where: { $0.requestedURL == url }) {
+                if slots[existing].loadFailed || slots[existing].player.currentItem?.status == .failed {
+                    load(into: existing, url: url)
+                }
+                else if existing != visibleSlotIndex { slots[existing].preparePreview() }
+                continue
+            }
+            guard let index = slots.indices.first(where: {
+                $0 != visibleSlotIndex && slots[$0].requestedURL.map { !desired.contains($0) } != false
+            }) else { continue }
+            load(into: index, url: url)
+        }
     }
 
-    private func load(
-        into slot: PlayerSlot,
-        url: URL,
-        autoplay: Bool
-    ) {
+    private func playVisibleIfLoaded() {
+        guard playbackEnabled, !pausedByUser,
+              visibleSlot.loadedURL == currentURL, visibleSlot.player.currentItem != nil else { return }
+        visibleSlot.player.isMuted = false
+        visibleSlot.player.play()
+        updatePhaseFromVisiblePlayer()
+    }
+
+    private func load(into index: Int, url: URL) {
+        let slot = slots[index]
         let requestID = slot.beginRequest(url: url)
-
-        if autoplay {
+        presentations[index] = FeedPlayerPresentation(id: index, url: url, layer: slot.layer)
+        if index == visibleSlotIndex {
             phase = .buffering
             scheduleBufferingIndicatorIfNeeded()
         }
-
-        Task { [weak self] in
+        slot.loadTask = Task { [weak self] in
             guard let self else { return }
-
-            if let cached = await self.mediaPreparation.consumePreparedItem(for: url) {
-                guard slot.requestID == requestID else { return }
-                slot.assign(
-                    item: cached,
-                    url: url,
-                    autoplay: autoplay,
-                    engine: self
-                )
-                return
-            }
-
             do {
-                guard let item = try await self.mediaPreparation.beginPlaybackItem(for: url) else {
-                    if slot.requestID == requestID, autoplay { self.failPlayback(message: "Couldn’t load video") }
+                let prepared = await mediaPreparation.consumePreparedItem(for: url)
+                let item: AVPlayerItem?
+                if let prepared { item = prepared }
+                else { item = try await mediaPreparation.beginPlaybackItem(for: url) }
+                guard !Task.isCancelled, slot.requestID == requestID else { return }
+                guard let item else {
+                    slot.recordLoadFailure()
+                    if isVisible(slot) { failPlayback(message: "Couldn’t load video") }
                     return
                 }
-                guard slot.requestID == requestID else { return }
-                slot.assign(
-                    item: item,
-                    url: url,
-                    autoplay: autoplay,
-                    engine: self
-                )
+                slot.assign(item: item, url: url, engine: self)
             } catch {
-                guard slot.requestID == requestID, autoplay else { return }
-                self.failPlayback(message: error.localizedDescription)
+                guard !Task.isCancelled, slot.requestID == requestID else { return }
+                slot.recordLoadFailure()
+                if isVisible(slot) { failPlayback(message: error.localizedDescription) }
             }
         }
     }
 
-    private func validateHTTPS(_ url: URL) -> Bool {
-        guard url.scheme?.lowercased() == "https" else {
-            phase = .failed("URL is not secure")
-            return false
-        }
-        return true
+    fileprivate func isVisible(_ slot: PlayerSlot) -> Bool { slot === visibleSlot }
+    fileprivate func shouldPlay(_ slot: PlayerSlot) -> Bool { isVisible(slot) && playbackEnabled && !pausedByUser }
+    fileprivate func shouldPreview(_ slot: PlayerSlot) -> Bool { !isVisible(slot) && playbackEnabled }
+
+    fileprivate func itemFailed(in slot: PlayerSlot, item: AVPlayerItem, url: URL) async {
+        guard isVisible(slot), slot.player.currentItem === item else { return }
+        if (item.asset as? AVURLAsset)?.url.isFileURL == true {
+            await mediaPreparation.invalidateLocalFile(for: url)
+            guard currentURL == url, slot.player.currentItem === item else { return }
+            load(into: visibleSlotIndex, url: url)
+        } else { failPlayback(message: item.error?.localizedDescription ?? "Playback failed") }
     }
 
     fileprivate func updatePhaseFromVisiblePlayer() {
+        guard playbackEnabled, !pausedByUser, visibleSlot.loadedURL == currentURL else { return }
         let player = visibleSlot.player
         guard player.currentItem?.status != .failed else { return }
-
-        if player.currentItem?.status == .readyToPlay,
-           !didMeasureFirstReady, let start = firstPlaybackStarted {
+        if player.currentItem?.status == .readyToPlay, !didMeasureFirstReady, let start = firstPlaybackStarted {
             didMeasureFirstReady = true
             AppLog.timing("firstVideo.ready", since: start)
         }
-        switch player.timeControlStatus {
-        case .playing:
+        if player.timeControlStatus == .playing {
             if !didMeasureFirstPlayback, let start = firstPlaybackStarted {
                 didMeasureFirstPlayback = true
                 AppLog.timing("firstVideo.playing", since: start)
             }
             phase = .playing
             hideBufferingIndicator()
-        case .waitingToPlayAtSpecifiedRate:
-            phase = .buffering
-            scheduleBufferingIndicatorIfNeeded()
-        case .paused:
-            if pausedByUser {
-                phase = .paused
-                hideBufferingIndicator()
-            } else if player.currentItem?.status == .readyToPlay {
-                phase = .buffering
-                scheduleBufferingIndicatorIfNeeded()
-            }
-        @unknown default:
+        } else {
             phase = .buffering
             scheduleBufferingIndicatorIfNeeded()
         }
     }
-
-    private func failPlayback(message: String) {
-        phase = .failed(message)
-        hideBufferingIndicator()
-    }
-
-    private func protectedMediaURLs() -> Set<URL> {
-        Set([currentURL, hiddenSlot.loadedURL].compactMap { $0 })
-    }
-
+    private func failPlayback(message: String) { phase = .failed(message); hideBufferingIndicator() }
     private func scheduleBufferingIndicatorIfNeeded() {
-        bufferingIndicatorTask?.cancel()
+        guard bufferingIndicatorTask == nil else { return }
         bufferingIndicatorTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: Self.stallIndicatorDelayNs)
-            guard !Task.isCancelled else { return }
-            guard let self else { return }
-            if self.phase == .buffering {
-                self.showsBufferingIndicator = true
-            }
+            try? await Task.sleep(for: .milliseconds(380))
+            guard !Task.isCancelled, let self, self.phase == .buffering else { return }
+            self.showsBufferingIndicator = true
         }
     }
-
     private func hideBufferingIndicator() {
         bufferingIndicatorTask?.cancel()
         bufferingIndicatorTask = nil
         showsBufferingIndicator = false
     }
-
 }
-
-// MARK: - Player slot
 
 @MainActor
 private final class PlayerSlot {
-    let player: AVPlayer
-    let layer: AVPlayerLayer
+    let player = AVPlayer()
+    private(set) var layer = AVPlayerLayer()
     private(set) var loadedURL: URL?
     private(set) var requestedURL: URL?
     private(set) var requestID = UUID()
-
+    private(set) var loadFailed = false
+    var loadTask: Task<Void, Never>?
     private var statusObservation: NSKeyValueObservation?
+    private var playerStatusObservation: NSKeyValueObservation?
     private var timeControlObservation: NSKeyValueObservation?
     private var endObserver: NSObjectProtocol?
+    private var prerollRequested = false
 
-    init(layer: AVPlayerLayer) {
-        self.layer = layer
-        player = AVPlayer()
+    init() {
+        layer.videoGravity = .resizeAspectFill
         layer.player = player
+        player.automaticallyWaitsToMinimizeStalling = true
     }
-
     func beginRequest(url: URL) -> UUID {
+        loadTask?.cancel()
+        player.cancelPendingPrerolls()
+        player.pause()
         clearObservers()
-        requestID = UUID()
+        layer.player = nil
+        layer = AVPlayerLayer()
+        layer.videoGravity = .resizeAspectFill
+        player.replaceCurrentItem(with: nil)
+        loadedURL = nil
+        loadFailed = false
         requestedURL = url
+        requestID = UUID()
+        prerollRequested = false
         return requestID
     }
-
-    func assign(
-        item: AVPlayerItem,
-        url: URL,
-        autoplay: Bool,
-        engine: FeedPlayerEngine
-    ) {
+    func assign(item: AVPlayerItem, url: URL, engine: FeedPlayerEngine) {
         loadedURL = url
-        player.automaticallyWaitsToMinimizeStalling = true
-
-        statusObservation = item.observe(\.status, options: [.new]) { [weak self, weak engine] item, _ in
+        player.isMuted = !engine.isVisible(self)
+        statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak engine] item, _ in
             Task { @MainActor in
-                guard let self, let engine, engine.isVisible(self), self.player.currentItem === item else { return }
-                switch item.status {
-                case .readyToPlay:
-                    AppLog.info("player", "ready host=\(url.host ?? "?")")
-                    engine.updatePhaseFromVisiblePlayer()
-                case .failed:
-                    let message = item.error?.localizedDescription ?? "Playback failed"
-                    if (item.asset as? AVURLAsset)?.url.isFileURL == true {
-                        await engine.recoverCachedPlayback(url: url)
-                    } else {
-                        engine.failPlaybackFromSlot(message: message)
-                    }
-                default:
-                    break
-                }
+                guard let self, let engine, self.player.currentItem === item else { return }
+                if item.status == .failed { await engine.itemFailed(in: self, item: item, url: url) }
+                else if engine.isVisible(self) { engine.updatePhaseFromVisiblePlayer() }
+                else if engine.shouldPreview(self) { self.preparePreview() }
             }
         }
-
-        do {
-            timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self, weak engine] _, _ in
-                Task { @MainActor in
-                    guard let self, let engine, engine.isVisible(self) else { return }
-                    engine.updatePhaseFromVisiblePlayer()
-                }
+        timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self, weak engine] _, _ in
+            Task { @MainActor in
+                guard let self, let engine, engine.isVisible(self) else { return }
+                engine.updatePhaseFromVisiblePlayer()
             }
         }
-
-        endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self, weak engine] _ in
+        playerStatusObservation = player.observe(\.status, options: [.new]) { [weak self, weak engine] _, _ in
+            Task { @MainActor in
+                guard let self, let engine, engine.shouldPreview(self) else { return }
+                self.preparePreview()
+            }
+        }
+        endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self, weak engine] _ in
             Task { @MainActor in
                 guard let self, let engine, self.player.currentItem === item else { return }
                 self.player.seek(to: .zero) { [weak self, weak engine] finished in
                     Task { @MainActor in
-                        guard finished, let self, let engine,
-                              engine.shouldPlay(self), self.player.currentItem === item else { return }
+                        guard finished, let self, let engine, engine.shouldPlay(self), self.player.currentItem === item else { return }
                         self.player.play()
                     }
                 }
             }
         }
-
         player.replaceCurrentItem(with: item)
-
-        if autoplay && engine.shouldPlay(self) {
-            player.play()
-        } else {
-            player.seek(to: .zero)
-            player.pause()
-        }
+        layer.player = player
+        if engine.shouldPlay(self) { player.play() }
+        else if engine.shouldPreview(self) { preparePreview() }
     }
+    func cancelPreview() {
+        player.cancelPendingPrerolls()
+        prerollRequested = false
+    }
+    func recordLoadFailure() { loadFailed = true }
 
-    func clearObservers() {
-        statusObservation?.invalidate()
+    func preparePreview() {
+        guard !prerollRequested, player.isMuted, player.status == .readyToPlay,
+              player.currentItem?.status == .readyToPlay else { return }
+        prerollRequested = true
+        player.preroll(atRate: 1) { _ in }
+    }
+    private func clearObservers() {
         statusObservation = nil
-        timeControlObservation?.invalidate()
+        playerStatusObservation = nil
         timeControlObservation = nil
-        if let endObserver {
-            NotificationCenter.default.removeObserver(endObserver)
-        }
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil
     }
-}
-
-extension FeedPlayerEngine {
-    fileprivate func isVisible(_ slot: PlayerSlot) -> Bool {
-        slot === visibleSlot
-    }
-
-    fileprivate func shouldPlay(_ slot: PlayerSlot) -> Bool {
-        isVisible(slot) && playbackEnabled && !pausedByUser
-    }
-
-    fileprivate func recoverCachedPlayback(url: URL) async {
-        await mediaPreparation.invalidateLocalFile(for: url)
-        guard currentURL == url else { return }
-        playOnVisible(url: url)
-    }
-
-    fileprivate func failPlaybackFromSlot(message: String) {
-        failPlayback(message: message)
-    }
-
-
 }

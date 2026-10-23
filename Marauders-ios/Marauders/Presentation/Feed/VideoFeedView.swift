@@ -130,7 +130,7 @@ struct VideoFeedView: View {
         GeometryReader { geometry in
             ZStack {
                 VerticalPagingFeedScrollView(
-                    pageCount: videos.count,
+                    streamURLs: videos.map(\.streamURL),
                     currentPageIndex: $currentPageIndex,
                     engine: playerEngine,
                     onPageSettled: { index in
@@ -236,9 +236,6 @@ struct VideoFeedView: View {
         if index > 0 {
             neighbors.append(videos[index - 1].streamURL)
         }
-        if index + 2 < videos.count {
-            neighbors.append(videos[index + 2].streamURL)
-        }
         playerEngine.warmURLs(neighbors)
         playerEngine.settle(on: current.streamURL, prefetchNeighbors: neighbors)
     }
@@ -254,7 +251,7 @@ struct VideoFeedPreviewView: View {
         GeometryReader { geometry in
             ZStack {
                 VerticalPagingFeedScrollView(
-                    pageCount: videos.count,
+                    streamURLs: videos.map(\.streamURL),
                     currentPageIndex: $currentPageIndex,
                     engine: playerEngine,
                     onPageSettled: { index in
