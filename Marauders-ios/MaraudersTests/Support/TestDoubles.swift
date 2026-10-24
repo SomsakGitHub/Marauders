@@ -196,10 +196,15 @@ final class FakeLocationManager: LocationManaging {
     var desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyHundredMeters
     var delegate: CLLocationManagerDelegate?
     private(set) var authorizationRequestCount = 0
+    private(set) var alwaysAuthorizationRequestCount = 0
     private(set) var locationRequestCount = 0
 
     init(authorizationStatus: CLAuthorizationStatus = .notDetermined) {
         self.authorizationStatus = authorizationStatus
+    }
+
+    func requestAlwaysAuthorization() {
+        alwaysAuthorizationRequestCount += 1
     }
 
     func requestWhenInUseAuthorization() {

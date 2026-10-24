@@ -8,6 +8,9 @@ import SwiftUI
 
 struct SignInWithAppleGateView: View {
     @Bindable var authViewModel: AuthViewModel
+    @State private var locationGate = SignInLocationViewModel()
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
 
     let navigationTitle: String
     let systemImage: String
@@ -31,33 +34,35 @@ struct SignInWithAppleGateView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                NavigationLink {
-                    CountryPickerView(selection: $authViewModel.selectedCountryCode)
-                } label: {
-                    HStack {
-                        Text("Country")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(Country.flagEmoji(for: authViewModel.selectedCountryCode))
-                        Text(CountryCatalog.name(for: authViewModel.selectedCountryCode))
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                VStack(spacing: 12) {
+                    if let code = locationGate.countryCode {
+                        Label("\(Country.flagEmoji(for: code)) \(CountryCatalog.name(for: code))", systemImage: "location.fill")
+                            .accessibilityIdentifier("signin.country")
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+                    if locationGate.isResolving { ProgressView() }
+                    if let message = locationGate.message {
+                        Text(message).font(.subheadline).multilineTextAlignment(.center)
+                    }
+                    if !locationGate.canSignIn && !locationGate.isResolving {
+                        Button(locationGate.needsSettings ? "Open Settings" : "Allow Always location / Try again") {
+                            if locationGate.needsSettings, let url = URL(string: UIApplication.openSettingsURLString) {
+                                openURL(url)
+                            } else { locationGate.begin() }
+                        }
+                        .accessibilityIdentifier("signin.allowLocation")
+                    }
                 }
-                .accessibilityIdentifier("signin.country")
-                .frame(maxWidth: 320)
-                .padding(.top, 4)
 
                 SignInWithAppleButton(.signIn) { request in
                     request.requestedScopes = [.fullName, .email]
                 } onCompletion: { result in
+                    locationGate.refresh()
+                    guard locationGate.canSignIn, let code = locationGate.countryCode else { return }
+                    authViewModel.selectedCountryCode = code
                     authViewModel.handleAuthorization(result)
                 }
+                .disabled(!locationGate.canSignIn)
+                .accessibilityIdentifier("signin.apple")
                 .signInWithAppleButtonStyle(.black)
                 .frame(maxWidth: 320, minHeight: 48, maxHeight: 48)
                 .padding(.top, 8)
@@ -65,6 +70,7 @@ struct SignInWithAppleGateView: View {
                 #if DEBUG
                 if AppRuntimeConfiguration.isUITesting {
                     Button("Complete test sign in") { authViewModel.completeUITestSignIn() }
+                        .disabled(!locationGate.canSignIn)
                         .accessibilityIdentifier("auth.completeUITestSignIn")
                 }
                 #endif
@@ -81,5 +87,10 @@ struct SignInWithAppleGateView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .accessibilityIdentifier(accessibilityIdentifier)
+        .task { locationGate.begin() }
+        .onDisappear { locationGate.stop() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { locationGate.begin() }
+        }
     }
 }

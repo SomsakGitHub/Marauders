@@ -201,6 +201,20 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testSignInRequiresLocationPermission() throws {
+        let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED", "UITEST_GUEST", "UITEST_LOCATION_DENIED"])
+        let choose = app.buttons["feed.chooseAudio"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 15))
+        choose.tap()
+        let apple = app.buttons["signin.apple"]
+        XCTAssertTrue(apple.waitForExistence(timeout: 5))
+        XCTAssertFalse(apple.isEnabled)
+        XCTAssertFalse(app.buttons["auth.completeUITestSignIn"].isEnabled)
+        XCTAssertTrue(app.buttons["signin.allowLocation"].exists)
+        app.buttons["auth.closeSignIn"].tap()
+    }
+
+    @MainActor
     func testTabsUseSharedSignInAndCancelReturnsToSource() throws {
         let app = launchApp(extraArguments: ["UITEST_GUEST"])
         for tab in ["Map", "Profile", "Upload"] {
@@ -210,7 +224,7 @@ final class MaraudersUITests: XCTestCase {
             open.tap()
             let close = app.buttons["auth.closeSignIn"]
             XCTAssertTrue(close.waitForExistence(timeout: 5))
-            XCTAssertTrue(app.buttons["signin.country"].exists)
+            XCTAssertTrue(app.descendants(matching: .any)["signin.country"].exists)
             close.tap()
             XCTAssertTrue(app.tabBars.buttons[tab].isSelected)
             XCTAssertTrue(open.waitForExistence(timeout: 5))

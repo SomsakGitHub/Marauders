@@ -14,8 +14,8 @@ final class AuthViewModel {
     private(set) var isCheckingCredential = true
     var errorMessage: String?
 
-    /// Country the user identifies with, chosen on the sign-in gate. Defaults to
-    /// the device region. Sent to the API with the Apple identity token.
+    /// Country resolved from permitted location by the sign-in gate before authorization.
+    /// The initial device-region value is not used as a location-verification fallback.
     var selectedCountryCode: String = CountryCatalog.defaultCode()
 
     private let sessionStore: AuthSessionStore

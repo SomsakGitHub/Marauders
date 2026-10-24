@@ -12,6 +12,7 @@ protocol LocationManaging: AnyObject {
     var desiredAccuracy: CLLocationAccuracy { get set }
     var delegate: CLLocationManagerDelegate? { get set }
 
+    func requestAlwaysAuthorization()
     func requestWhenInUseAuthorization()
     func requestLocation()
 }
