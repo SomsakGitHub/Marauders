@@ -30,7 +30,7 @@ struct UploadVideoView: View {
                     if viewModel.isPreparing {
                         HStack {
                             ProgressView()
-                            Text("Converting to MP4…")
+                            Text("Preparing video…")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

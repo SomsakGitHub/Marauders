@@ -10,19 +10,64 @@ import Testing
 
 @MainActor
 struct UploadVideoViewModelTests {
+    private struct Inspector: ClipAudioInspecting {
+        let result: ClipAudioAssessment
+        func inspect(fileURL: URL) async -> ClipAudioAssessment { result }
+    }
+    @Test func quietAudioWarningDoesNotBlockUploadAndResetClearsIt() async throws {
+        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
+        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
+        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)), audioInspector: Inspector(result: .init(signal: .quietSamples)))
+        model.applyClipLocation(Self.bangkok)
+        await model.prepare(sourceURL: source)
+        #expect(model.audioAssessment?.signal == .quietSamples)
+        #expect(model.canUpload)
+        #expect(model.statusMessage == nil)
+        model.resetPickedFile()
+        #expect(model.audioAssessment == nil)
+        #expect(!model.canUpload)
+    }
+    @Test func resetDuringAudioInspectionCannotRestoreDiscardedFile() async throws {
+        actor DeferredInspector: ClipAudioInspecting {
+            var continuation: CheckedContinuation<ClipAudioAssessment, Never>?
+            var waiter: CheckedContinuation<Void, Never>?
+            func inspect(fileURL: URL) async -> ClipAudioAssessment {
+                await withCheckedContinuation { continuation = $0; waiter?.resume(); waiter = nil }
+            }
+            func waitUntilInspecting() async { if continuation != nil { return }; await withCheckedContinuation { waiter = $0 } }
+            func finish() { continuation?.resume(returning: .init(signal: .detected)); continuation = nil }
+        }
+        let inspector = DeferredInspector()
+        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
+        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
+        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)), audioInspector: inspector)
+        let task = Task { await model.prepare(sourceURL: source) }
+        await inspector.waitUntilInspecting()
+        #expect(model.isCheckingAudio)
+        model.resetPickedFile()
+        await inspector.finish()
+        await task.value
+        #expect(model.uploadFileURL == nil)
+        #expect(model.audioAssessment == nil)
+        #expect(!model.isPreparing)
+        #expect(!FileManager.default.fileExists(atPath: mp4.path))
+    }
+
     private static let bangkok = ClipLocation(latitude: 13.7563, longitude: 100.5018)!
 
     private func makeViewModel(
         exporter: VideoExporting = StubVideoExporter(result: .failure(StubError.exportFailed)),
         uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed)),
         locationManager: LocationManaging = CLLocationManager(),
-        videoLocationReader: VideoLocationReading = NoopVideoLocationReader()
+        videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
+        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()
     ) -> UploadVideoViewModel {
         UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: exporter),
             uploadVideo: UploadFeedVideoUseCase(repository: uploadRepository),
             locationManager: locationManager,
-            videoLocationReader: videoLocationReader
+            videoLocationReader: videoLocationReader,
+            audioInspector: audioInspector
         )
     }
 

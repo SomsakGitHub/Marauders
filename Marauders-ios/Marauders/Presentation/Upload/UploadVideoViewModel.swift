@@ -14,6 +14,8 @@ final class UploadVideoViewModel {
     var clipLocation: ClipLocation?
     var caption = ""
     var isPreparing = false
+    var isCheckingAudio = false
+    var audioAssessment: ClipAudioAssessment?
     var isUploading = false
     var isResolvingClipLocation = false
     var statusMessage: String?
@@ -22,6 +24,8 @@ final class UploadVideoViewModel {
     var showClipLocationPrePrompt = false
     var showClipLocationDeniedAlert = false
 
+    private let audioInspector: any ClipAudioInspecting
+    private var preparationGeneration = 0
     private let prepareVideo: PrepareVideoForUploadUseCase
     private let uploadVideo: UploadFeedVideoUseCase
     private let videoLocationReader: VideoLocationReading
@@ -36,8 +40,10 @@ final class UploadVideoViewModel {
         prepareVideo: PrepareVideoForUploadUseCase,
         uploadVideo: UploadFeedVideoUseCase,
         locationManager: LocationManaging = CLLocationManager(),
-        videoLocationReader: VideoLocationReading = NoopVideoLocationReader()
+        videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
+        audioInspector: any ClipAudioInspecting = FastClipAudioInspector()
     ) {
+        self.audioInspector = audioInspector
         self.prepareVideo = prepareVideo
         self.uploadVideo = uploadVideo
         self.locationManager = locationManager
@@ -59,6 +65,10 @@ final class UploadVideoViewModel {
     }
 
     func resetPickedFile() {
+        preparationGeneration += 1
+        isPreparing = false
+        isCheckingAudio = false
+        audioAssessment = nil
         discardAllStagingFiles()
         clipLocation = AppRuntimeConfiguration.isUITesting
             ? ClipLocation(latitude: 13.7563, longitude: 100.5018)
@@ -69,24 +79,46 @@ final class UploadVideoViewModel {
     }
 
     func prepare(sourceURL: URL) async {
+        preparationGeneration += 1
+        let current = preparationGeneration
         discardAllStagingFiles()
         pickerStagingURL = sourceURL
+        audioAssessment = nil
         statusMessage = nil
         isSuccess = false
         isPreparing = true
-        defer { isPreparing = false }
-
+        isCheckingAudio = false
+        defer { if current == preparationGeneration { isPreparing = false; isCheckingAudio = false } }
         AppLog.info("upload", "prepare export from picker file")
-
-        await suggestClipLocationFromVideoMetadata(sourceURL: sourceURL)
-
+        let suggestedLocation = await videoLocationReader.location(fromVideoAt: sourceURL)
+        guard current == preparationGeneration, !Task.isCancelled else { return }
+        if let suggestedLocation { clipLocation = suggestedLocation }
         do {
             let mp4URL = try await prepareVideo.execute(sourceURL: sourceURL)
-            TemporaryFileCleanup.deleteIfTemporary(pickerStagingURL)
+            guard current == preparationGeneration, !Task.isCancelled else {
+                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
+                return
+            }
+            isCheckingAudio = true
+            let audioCheckStarted = ProcessInfo.processInfo.systemUptime
+            let result = await audioInspector.inspect(fileURL: mp4URL)
+            guard current == preparationGeneration, !Task.isCancelled else {
+                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
+                return
+            }
+            if sourceURL != mp4URL { TemporaryFileCleanup.deleteIfTemporary(sourceURL) }
             pickerStagingURL = nil
             uploadFileURL = mp4URL
-            AppLog.info("upload", "ready for upload mp4")
+            audioAssessment = result
+            #if DEBUG
+            let elapsed = Int((ProcessInfo.processInfo.systemUptime - audioCheckStarted) * 1000)
+            let report = "content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
+            AppLog.info("upload.audio-check", report)
+            print("[upload.audio-check] \(report)")
+            #endif
+            AppLog.info("upload", "ready for upload; quick audio check completed")
         } catch {
+            guard current == preparationGeneration else { return }
             discardAllStagingFiles()
             statusMessage = error.localizedDescription
             isSuccess = false
@@ -98,17 +130,6 @@ final class UploadVideoViewModel {
         clipLocation = location
         statusMessage = nil
         AppLog.info("upload", "clip location chosen manually")
-    }
-
-    /// Pre-fills the clip location from the picked video's own metadata, so the
-    /// user doesn't have to pick it manually. No-op when the video has no location.
-    private func suggestClipLocationFromVideoMetadata(sourceURL: URL) async {
-        guard let location = await videoLocationReader.location(fromVideoAt: sourceURL) else {
-            return
-        }
-        clipLocation = location
-        statusMessage = nil
-        AppLog.info("upload", "clip location suggested from video metadata")
     }
 
     func setClipLocationFromCurrentPositionTapped() {
@@ -162,12 +183,19 @@ final class UploadVideoViewModel {
             let item = try await uploadVideo.execute(
                 fileURL: uploadFileURL,
                 clipLocation: clipLocation,
-                caption: caption
+                caption: caption,
+                audioAssessment: audioAssessment
             )
             isSuccess = true
             statusMessage = "Upload complete — opening feed"
             AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
+            #if DEBUG
+            if let audioAssessment {
+                AppLog.info("upload.audio-check", "videoId=\(item.id.uuidString) signal=\(audioAssessment.signal) languageHint=\(audioAssessment.languageHint ?? "unknown")")
+            }
+            #endif
             discardExportStagingFile()
+            audioAssessment = nil
             caption = ""
             await onUploaded?()
             AppLog.info("upload", "feed reload requested after upload")

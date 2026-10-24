@@ -16,7 +16,7 @@ struct FeedClipActionRail: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            if let onChooseThai {
+            if let onChooseThai, clip.allowsThaiAudio {
                 Button { choosingAudio = true } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "waveform").font(.title2)

@@ -40,6 +40,7 @@ for (const file of [
     "../sql/012_backfill_feed_author_handle.sql",
     "../sql/013_drop_music_title.sql",
     "../sql/014_app_users_avatar.sql",
+    "../sql/015_video_audio_assessment.sql",
 ]) {
   for (const statement of statementsFromFile(file)) {
     await pool.query(statement);

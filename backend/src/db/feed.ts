@@ -10,6 +10,7 @@ type FeedRow = {
   author_name?: string | null;
   avatar_url?: string | null;
   caption?: string | null;
+  audio_assessment?: Record<string, unknown> | null;
 };
 
 export type FeedItemJson = {
@@ -21,6 +22,7 @@ export type FeedItemJson = {
   authorName: string | null;
   authorAvatarURL: string | null;
   caption: string | null;
+  audioAssessment: Record<string, unknown> | null;
 };
 
 /** Fallback author name when an owner row is missing (should not happen post-auth). */
@@ -37,7 +39,7 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -49,7 +51,7 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -69,7 +71,7 @@ export async function listUserFeedVideos(
   const sql = neon(databaseUrl);
 
   const rows = (await sql`
-    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, u.country
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country
     FROM feed_videos v
     LEFT JOIN app_users u ON u.id = v.owner_user_id
     WHERE v.owner_user_id = ${userId}::uuid
@@ -107,6 +109,7 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
       authorName: row.author_name ?? null,
       authorAvatarURL: row.avatar_url ?? null,
       caption: row.caption ?? null,
+    audioAssessment: row.audio_assessment ?? null,
     };
   });
 }
@@ -118,6 +121,7 @@ export async function insertFeedVideo(
   longitude: number,
   ownerUserId: string,
   caption: string = "",
+  audioAssessment: Record<string, unknown> | null = null,
 ): Promise<FeedItemJson> {
   assertHttpsStreamUrl(streamUrl);
 
@@ -130,7 +134,8 @@ export async function insertFeedVideo(
       sort_order,
       latitude,
       longitude,
-      owner_user_id
+      owner_user_id,
+      audio_assessment
     )
     VALUES (
       ${streamUrl},
@@ -139,11 +144,12 @@ export async function insertFeedVideo(
       (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),
       ${latitude},
       ${longitude},
-      ${ownerUserId}::uuid
+      ${ownerUserId}::uuid,
+      ${audioAssessment === null ? null : JSON.stringify(audioAssessment)}::jsonb
     )
     RETURNING id, stream_url, latitude, longitude, author_name,
       (SELECT avatar_url FROM app_users WHERE id = ${ownerUserId}::uuid) AS avatar_url,
-      caption
+      caption, audio_assessment
   `) as FeedRow[];
 
   const row = rows[0];
@@ -160,5 +166,6 @@ export async function insertFeedVideo(
     authorName: row.author_name ?? null,
     authorAvatarURL: row.avatar_url ?? null,
     caption: row.caption ?? null,
+    audioAssessment: row.audio_assessment ?? null,
   };
 }

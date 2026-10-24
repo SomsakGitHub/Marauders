@@ -22,3 +22,24 @@ The system Thai voice reads one combined translation. It does not preserve speak
 ## Verification
 
 The exact Amsterdam clip produced about 22.6 seconds of Thai narration on iPhone 16 Pro Max. The uncached trial took about 75 seconds, including waiting for a no-speech segment. Backend checks cover shared reuse across sessions, concurrent conditional writes, source revisions, malformed/oversized/non-AAC audio and scoped deletion. iOS checks cover revision-bound URLs, authenticated upload, late-result cancellation and a cache hit without constructing a TranslationSession. The existing Worker was deployed and the real Amsterdam narration was uploaded through the signed-in iPhone session. A separate guest client downloaded the shared audio, verified its duration, and a fresh view model reused it without creating a TranslationSession (about 1.2 seconds for the measured lookup and media preparation). The first uncached conversion still has the longer local-processing cost. Temporary live probes are removed from the normal suite.
+
+## Internal upload audio classification
+
+The final exported MP4 is inspected on the iPhone before upload, off the main actor. Up to three one-second windows (start, middle, end) feed Apple's built-in SoundAnalysis classifier. A three-second sampling-work budget, cancellation, decoding failure or unsupported input returns an unknown advisory and never blocks upload. Classification is sampled evidence, not proof about the entire clip or a guarantee that recognition/translation will succeed. Speech and music can coexist. Singing/choir/rapping count as music evidence. Threshold policy: speech >= 0.5, mixed when music also >= 0.5; music only when music >= 0.7 and speech < 0.2; otherwise unknown. These are heuristic scores, not calibrated probabilities.
+
+Language is a sanitized audio-track metadata hint, not language recognition. Missing metadata remains unknown. No speech permissions, downloaded translation models or paid AI calls are needed for classification. The existing 120-second/12-MiB local-translation limit is advisory; upload limits are unchanged. No diagnostic summary appears on the upload screen. Resetting/changing the selection discards stale results.
+
+The upload sends optional `audioAssessment` JSON. The API bounds and validates fields, discards invalid advisory metadata without blocking upload, and stores the sanitized object in `feed_videos.audio_assessment` (migration 015). It stamps version/source/server receipt time; client-provided scores remain untrusted and must never authorize access or permanently deny translation. Legacy clips have NULL metadata. Feed/map/profile responses include the optional metadata. Shared Thai audio is still checked first; music classifications hide the AI audio entry points in feed and full-screen playback and suppress automatic Thai requests. Speech, mixed, unknown and legacy NULL metadata retain the viewer choice.
+
+Dev inspection: Debug Log tab or Xcode console category `upload.audio-check` shows class, scores, language hint, sampled duration, elapsed time and trial limit. App logs keep 250 entries in RAM. For durable inspection use the existing database console:
+
+```sql
+SELECT id, created_at, audio_assessment
+FROM feed_videos
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+Apply only `backend/sql/015_video_audio_assessment.sql` to an existing deployment before deploying the new Worker; do not rerun historical seed/purge migrations. No new external resources are required. Uploads from older app versions and clips uploaded before this feature remain NULL; no backfill is performed.
+
+Physical iPhone verification: the real Amsterdam clip classified as mixed (speech score ~0.94, music ~0.66), sampled ~2.97 seconds, and took ~0.17 seconds after MP4 preparation. This single measurement is not an accuracy benchmark or a full upload-time measurement. Pure music and diverse noisy/multilingual clips still need broader manual evaluation. Backend tests cover metadata bounds, tamper sanitization, parameterized SQL and response round trip, alongside existing feed/auth/shared-audio checks. No test clip was published.

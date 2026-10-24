@@ -17,7 +17,11 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     /// Avatar image URL of the uploader, when known.
     let authorAvatarURL: URL?
     /// Caption text shown with the clip, when known.
+    let audioAssessment: ClipAudioAssessment?
     let caption: String?
+
+    /// Music-only advisories keep original playback without an AI generation entry point.
+    var allowsThaiAudio: Bool { audioAssessment?.content != .music }
 
     init(
         id: UUID = UUID(),
@@ -27,7 +31,8 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         country: String? = nil,
         authorName: String? = nil,
         authorAvatarURL: URL? = nil,
-        caption: String? = nil
+        caption: String? = nil,
+        audioAssessment: ClipAudioAssessment? = nil
     ) {
         self.id = id
         self.streamURL = streamURL
@@ -37,5 +42,6 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         self.authorName = authorName
         self.authorAvatarURL = authorAvatarURL
         self.caption = caption
+        self.audioAssessment = audioAssessment
     }
 }

@@ -16,13 +16,15 @@ struct UploadFeedVideoUseCase: Sendable {
         fileURL: URL,
         clipLocation: ClipLocation,
         mimeType: String = "video/mp4",
-        caption: String = ""
+        caption: String = "",
+        audioAssessment: ClipAudioAssessment? = nil
     ) async throws -> FeedVideo {
         try await repository.upload(
             fileURL: fileURL,
             mimeType: mimeType,
             clipLocation: clipLocation,
-            caption: caption
+            caption: caption,
+            audioAssessment: audioAssessment
         )
     }
 }

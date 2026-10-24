@@ -1,3 +1,4 @@
+import { parseAudioAssessment } from "../audio/assessment";
 import { insertFeedVideo } from "../db/feed";
 import {
   MP4_FASTSTART_MAX_BYTES,
@@ -86,6 +87,7 @@ export async function handleVideoUpload(
         coordinates.longitude,
         ownerUserId,
         caption,
+        parseAudioAssessment(formData.get("audioAssessment")),
       );
     } catch (databaseError) {
       console.error("database insert failed", databaseError);

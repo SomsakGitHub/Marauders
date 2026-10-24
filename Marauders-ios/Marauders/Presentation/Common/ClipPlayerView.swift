@@ -50,20 +50,22 @@ struct ClipPlayerView: View {
         }
         .confirmationDialog("เลือกเสียงสำหรับคลิปนี้", isPresented: $choosingAudio, titleVisibility: .visible) {
             Button("ฟังเสียงต้นฉบับ") { wantsThai = false; dubbing.useOriginal() }
-            Button("แปลเป็นเสียงไทยด้วย AI") { audioRequestID += 1; wantsThai = true }
+            if clip.allowsThaiAudio {
+                Button("แปลเป็นเสียงไทยด้วย AI") { audioRequestID += 1; wantsThai = true }
+            }
             Button("ยกเลิก", role: .cancel) {}
         } message: {
             Text("ใช้เสียงแปลไทยจาก AI ที่เก็บไว้ หากยังไม่มีจะสร้างบน iPhone และเก็บให้ผู้ชมคนอื่นใช้ซ้ำได้ เสียงแปลอาจไม่ถูกต้องหรือตรงจังหวะต้นฉบับ")
         }
         .onAppear {
             startPlayback()
-            if !didChooseAudio {
+            if !didChooseAudio, clip.allowsThaiAudio {
                 didChooseAudio = true
                 if requestThaiOnOpen { wantsThai = true } else { choosingAudio = true }
             }
         }
         .task(id: "\(wantsThai):\(audioRequestID)") {
-            if wantsThai {
+            if wantsThai, clip.allowsThaiAudio {
                 translationConfiguration = nil
                 if AppRuntimeConfiguration.isUITesting {
                     dubbing.unavailableForTesting()
@@ -83,7 +85,7 @@ struct ClipPlayerView: View {
             }
         }
         .translationTask(translationConfiguration) { session in
-            guard wantsThai, !Task.isCancelled else { return }
+            guard wantsThai, clip.allowsThaiAudio, !Task.isCancelled else { return }
             if let url = await dubbing.request(sourceURL: clip.streamURL, session: session), wantsThai, !Task.isCancelled {
                 await useThaiTrack(url)
             }
@@ -159,12 +161,14 @@ struct ClipPlayerView: View {
 
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if clip.allowsThaiAudio {
             Button { choosingAudio = true } label: {
                 Label(hasThaiTrack ? "เสียงไทยจาก AI · เปลี่ยนเสียง" : "เสียงต้นฉบับ · เลือกเสียง", systemImage: "waveform")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("clip.chooseAudio")
+            }
             if let message = dubbing.message {
                 HStack {
                     if dubbing.isProcessing { ProgressView().tint(.white) }

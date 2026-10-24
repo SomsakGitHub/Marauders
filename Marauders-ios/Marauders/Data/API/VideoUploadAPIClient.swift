@@ -51,7 +51,8 @@ struct VideoUploadAPIClient: Sendable {
         fileURL: URL,
         mimeType: String,
         clipLocation: ClipLocation,
-        caption: String = ""
+        caption: String = "",
+        audioAssessment: ClipAudioAssessment? = nil
     ) async throws -> FeedVideo {
         guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
@@ -84,7 +85,8 @@ struct VideoUploadAPIClient: Sendable {
             mimeType: mimeType,
             fileData: fileData,
             clipLocation: clipLocation,
-            caption: caption
+            caption: caption,
+            audioAssessment: audioAssessment
         )
 
         let response = try await client.upload(request, multipart: parts)
@@ -125,12 +127,16 @@ struct VideoUploadAPIClient: Sendable {
         mimeType: String,
         fileData: Data,
         clipLocation: ClipLocation,
-        caption: String
+        caption: String,
+        audioAssessment: ClipAudioAssessment?
     ) -> [HTTPMultipartPart] {
         var parts: [HTTPMultipartPart] = [
             .field(name: "latitude", value: String(clipLocation.latitude)),
             .field(name: "longitude", value: String(clipLocation.longitude)),
         ]
+        if let audioAssessment, let data = try? JSONEncoder().encode(audioAssessment), let json = String(data: data, encoding: .utf8) {
+            parts.append(.field(name: "audioAssessment", value: json))
+        }
         let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCaption.isEmpty {
             parts.append(.field(name: "caption", value: trimmedCaption))
