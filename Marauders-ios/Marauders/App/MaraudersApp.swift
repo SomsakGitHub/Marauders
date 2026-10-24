@@ -11,6 +11,7 @@ struct MaraudersApp: App {
 
     init() {
         _ = AppLog.launchUptime
+        InstallationSessionGuard.bootstrap()
         MyLibraryIntegration.configure()
     }
 

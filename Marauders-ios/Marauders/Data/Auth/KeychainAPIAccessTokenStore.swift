@@ -16,6 +16,7 @@ struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
     }
 
     func loadAccessToken() -> String? {
+        guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
         var query: [String: Any] = baseQuery()
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
