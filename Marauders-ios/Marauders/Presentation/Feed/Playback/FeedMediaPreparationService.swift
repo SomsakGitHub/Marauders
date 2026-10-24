@@ -11,11 +11,11 @@ actor FeedMediaPreparationService {
     private var preparedItems: [URL: AVPlayerItem] = [:]
     private var preparingURLs: Set<URL> = []
 
-    private let startupCache: FeedStartupCache?
+    private let startupCache: (any FeedMediaCaching)?
     private let maxPreparedItems: Int
     private let forwardBufferDuration: TimeInterval
 
-    init(maxPreparedItems: Int = 5, forwardBufferDuration: TimeInterval = 6, startupCache: FeedStartupCache? = nil) {
+    init(maxPreparedItems: Int = 5, forwardBufferDuration: TimeInterval = 6, startupCache: (any FeedMediaCaching)? = nil) {
         self.startupCache = startupCache
         self.maxPreparedItems = maxPreparedItems
         self.forwardBufferDuration = forwardBufferDuration

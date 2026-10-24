@@ -45,14 +45,14 @@ struct VideoFeedViewModelTests {
         #expect(await repository.calls == 1)
     }
 
-    @Test func reloadEmptyFeedSetsFailedState() async {
+    @Test func reloadEmptyPersonalFeedIsValidEmptyState() async {
         let repo = MockFeedRepository(result: .success(FeedPage(items: [], hasMore: false)))
         let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
 
         await viewModel.reload()
 
         #expect(viewModel.videos.isEmpty)
-        #expect(viewModel.loadState == .failed("Feed is empty — try uploading a clip"))
+        #expect(viewModel.loadState == .loaded)
     }
 
     @Test func replaceAuthorNameUpdatesOnlyMatchingClips() async {
@@ -369,7 +369,7 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.mapFilteredClips.map(\.id) == [withCoordinate.id])
     }
 
-    @Test func loadMapClipsForwardsCountryAndClearsWhenNil() async {
+    @Test func loadMapClipsForwardsCountryAndLoadsAllWhenNil() async {
         let clip = FeedVideo(
             streamURL: URL(string: "https://example.com/a.mp4")!,
             latitude: 1,
@@ -386,6 +386,7 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.mapFilteredClips.count == 1)
 
         await viewModel.loadMapClips(country: nil)
-        #expect(viewModel.mapFilteredClips.isEmpty)
+        #expect(repo.lastCountry == nil)
+        #expect(viewModel.mapFilteredClips.count == 1)
     }
 }

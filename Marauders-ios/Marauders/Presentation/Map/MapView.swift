@@ -21,10 +21,7 @@ struct MapView: View {
 
     /// All clips available on the map, honoring the country filter.
     private var allClips: [FeedVideo] {
-        guard let country = viewModel.countryFilter else {
-            return feedViewModel.videosWithMapCoordinates
-        }
-        return feedViewModel.mapFilteredClips.filter { $0.country == country }
+        feedViewModel.mapFilteredClips
     }
 
     /// Clips that fall inside the currently visible map region.
@@ -72,7 +69,7 @@ struct MapView: View {
         .onAppear {
             viewModel.onMapTabBecameActive()
         }
-        .task(id: viewModel.countryFilter) {
+        .task(id: "\(feedViewModel.sessionGeneration):\(viewModel.countryFilter ?? "all")") {
             await feedViewModel.loadMapClips(country: viewModel.countryFilter)
         }
         .onChange(of: searchText) { _, _ in

@@ -33,7 +33,9 @@ final class AppDependencyContainer {
         } else if AppRuntimeConfiguration.isUITesting {
             self.feedRepository = UITestFeedRepository(mode: uiTestFeedMode)
         } else {
-            self.feedRepository = DefaultFeedRepository(apiClient: FeedAPIClient())
+            self.feedRepository = DefaultFeedRepository(apiClient: FeedAPIClient(
+                authorization: SessionAPIAuthorization(tokenStore: KeychainAPIAccessTokenStore())
+            ))
         }
         let sessionStore = KeychainAuthSessionStore()
         let tokenStore = KeychainAPIAccessTokenStore()

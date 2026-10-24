@@ -82,14 +82,14 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
-    func testSmokeEmptyFeedShowsErrorState() throws {
+    func testSmokeEmptyFeedShowsEmptyState() throws {
         let app = launchApp(extraArguments: ["UITEST_EMPTY_FEED"])
 
         XCTAssertTrue(app.tabBars.buttons["Feed"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 10))
 
         let emptyFeedBanner = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "Feed is empty")
+            NSPredicate(format: "label CONTAINS %@", "No clips to show yet")
         ).firstMatch
         XCTAssertTrue(emptyFeedBanner.waitForExistence(timeout: 15))
     }

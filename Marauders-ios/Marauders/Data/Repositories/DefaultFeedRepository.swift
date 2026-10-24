@@ -12,6 +12,10 @@ struct DefaultFeedRepository: FeedRepository {
         self.apiClient = apiClient
     }
 
+    func fetchMapClips(limit: Int, country: String?) async throws -> FeedPage {
+        try await apiClient.fetchFeed(limit: limit, country: country, forMap: true)
+    }
+
     func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
         try await apiClient.fetchFeed(limit: limit, cursor: cursor)
     }

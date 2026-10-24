@@ -9,6 +9,10 @@ protocol APIAuthorization: Sendable {
     func bearerAuthorizationHeader() -> String?
 }
 
+struct NoAPIAuthorization: APIAuthorization {
+    func bearerAuthorizationHeader() -> String? { nil }
+}
+
 struct SessionAPIAuthorization: APIAuthorization {
     private let tokenStore: APIAccessTokenStore
 

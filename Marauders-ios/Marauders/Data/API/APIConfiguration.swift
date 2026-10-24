@@ -39,14 +39,15 @@ enum APIConfiguration {
     static func feedRequestURL(
         limit: Int = feedLimitDefault,
         cursor: UUID? = nil,
-        country: String? = nil
+        country: String? = nil,
+        forMap: Bool = false
     ) throws -> URL {
         guard limit >= 1, limit <= feedLimitMax else {
             throw FeedAPIError.invalidLimit
         }
 
         let base = try apiBaseURL()
-        var components = URLComponents(url: base.appending(path: "v1/feed"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(url: base.appending(path: forMap ? "v1/map/clips" : "v1/feed"), resolvingAgainstBaseURL: false)
         var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor {
             queryItems.append(URLQueryItem(name: "cursor", value: cursor.uuidString))

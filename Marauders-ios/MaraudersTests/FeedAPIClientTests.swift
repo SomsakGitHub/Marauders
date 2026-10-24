@@ -10,6 +10,48 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct FeedAPIClientTests {
+    private struct SignedInAuthorization: APIAuthorization {
+        func bearerAuthorizationHeader() -> String? { "Bearer test-session-token-1234567890" }
+    }
+
+    @Test func personalizedFeedSendsSessionAndRequiresServerAudience() async throws {
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            let body = Data("{\"items\":[],\"viewerID\":\"viewer-123\"}".utf8)
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), body)
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = FeedAPIClient(session: session, authorization: SignedInAuthorization())
+        let page = try await client.fetchFeed()
+        #expect(page.items.isEmpty)
+        #expect(capturedRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer test-session-token-1234567890")
+    }
+
+    @Test func personalizedFeedRejectsLegacyUnfilteredResponse() async {
+        let session = StubURLSessionFactory.make { request in
+            (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data("{\"items\":[]}".utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = FeedAPIClient(session: session, maxAttempts: 1, authorization: SignedInAuthorization())
+        do {
+            _ = try await client.fetchFeed()
+            Issue.record("Accepted an unfiltered legacy feed for a signed-in viewer")
+        } catch { #expect(error as? FeedAPIError == .invalidResponse) }
+    }
+
+    @Test func mapUsesSeparateEndpointWithoutRequiringPersonalAudience() async throws {
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data("{\"items\":[]}".utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = FeedAPIClient(session: session, authorization: SignedInAuthorization())
+        _ = try await client.fetchFeed(country: "th", forMap: true)
+        #expect(capturedRequest?.url?.path == "/v1/map/clips")
+    }
+
     @Test func fetchFeedSuccessDecodesHTTPSItems() async throws {
         let videoID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
         let body = FeedAPIClientTests.feedResponseJSON(

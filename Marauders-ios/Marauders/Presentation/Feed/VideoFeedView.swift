@@ -28,7 +28,10 @@ struct VideoFeedView: View {
                 case .failed(let message):
                     errorView(message: message)
                 case .loaded:
-                    feedScroll(videos: viewModel.videos)
+                    ContentUnavailableView("No clips to show yet", systemImage: "play.rectangle",
+                        description: Text("Check back later for new clips."))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.black)
                 }
             } else {
                 feedScroll(videos: viewModel.videos)

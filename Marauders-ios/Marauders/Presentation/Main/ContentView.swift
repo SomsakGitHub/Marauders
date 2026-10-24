@@ -71,6 +71,10 @@ struct ContentView: View {
         .onAppear {
             AppLog.info("app", "Marauders launched")
         }
+        .onChange(of: authViewModel.isSignedIn) { _, _ in
+            feedViewModel.resetForSessionChange()
+            Task { await feedViewModel.loadIfNeeded() }
+        }
         .sheet(item: $router.publicProfileRoute) { route in
             PublicProfileView(
                 viewModel: makePublicProfileViewModel(route.handle),

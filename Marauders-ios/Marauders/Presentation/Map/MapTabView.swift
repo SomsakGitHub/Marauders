@@ -38,9 +38,6 @@ struct MapTabView: View {
                             Task { await onOpenClipInFeed(videoID) }
                         }
                     )
-                    .task {
-                        await feedViewModel.syncHeadWithServer()
-                    }
                 } else {
                     MapLocationRequiredView(viewModel: mapViewModel)
                 }

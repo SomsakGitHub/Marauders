@@ -117,8 +117,9 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | `GET` | `/health` | health check |
+| `GET` | `/v1/map/clips?limit=20&country=<ISO2>` | หมุดแผนที่ รวมคลิปของตัวเอง ไม่ใช้ตัวกรองเจ้าของของฟีด |
 | `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
-| `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | รายการฟีด; `country` กรองเฉพาะคลิปของผู้อัปโหลดประเทศนั้น |
+| `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | ฟีด; เมื่อส่ง Bearer จะกรองคลิปของผู้ใช้จาก `owner_user_id` ก่อนแบ่งหน้า; token ไม่ถูกต้องคืน 401 |
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption` (ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
@@ -134,7 +135,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 
 **ประเทศตอน login:** แอปส่ง `country` เป็น ISO 3166-1 alpha-2 (เช่น `TH`) พร้อม identity token; Worker ตรวจรูปแบบแล้วเก็บใน `app_users.country` (ไม่ทับค่าที่มีอยู่)
 
-**กรองแผนที่ตามประเทศ:** แท็บ Map มีตัวกรองเลือกดูเฉพาะโพสต์ของคนประเทศนั้น โดยส่ง `country` ไปกับ `/v1/feed` (ฝั่ง Worker join `feed_videos.owner_user_id` กับ `app_users.country`)
+**กรองแผนที่ตามประเทศ:** แท็บ Map มีตัวกรองเลือกดูเฉพาะโพสต์ของคนประเทศนั้น โดยส่ง `country` ไปกับ `/v1/map/clips` (ฝั่ง Worker join `feed_videos.owner_user_id` กับ `app_users.country`)
 
 **แผนที่สไตล์ Instagram:** แท็บ Map เป็นแผนที่เต็มจอ ไม่มี navigation bar มีเมนูตัวกรอง (ประเทศ / ใกล้ฉัน) โดยเริ่มต้นแสดงทุกประเทศ และปุ่มหาตำแหน่ง หมุดวงกลมถูกจัดกลุ่มอัตโนมัติ (clustering) ตามระยะ zoom — แตะกลุ่มเพื่อซูมเข้า แตะหมุดเดี่ยวเพื่อเล่นวิดีโอทันที (วนซ้ำ มีปุ่มไปเล่นในฟีด) (แถบค้นหาแบบ client-side ยังซ่อนไว้ เปิดใช้ได้ด้วย `MapView.isSearchVisible`)
 
@@ -195,3 +196,7 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 ## License
 
 Private portfolio project — ปรับ license ตามต้องการก่อนเปิด public repo
+
+**Personalized feed rollout:** deploy Worker ก่อนติดตั้ง iOS รุ่นนี้ เพราะ signed-in feed ต้องได้รับ `viewerID` จากเซิร์ฟเวอร์; แอปจะไม่รับ response แบบเก่าที่อาจยังมีคลิปตัวเอง แคชเริ่มต้นใช้ namespace ใหม่แยกตาม hash ของ session และไม่อ่านแคชเดิมที่ยังไม่กรอง ผู้ใช้ทั่วไปไม่ส่ง Bearer และยังเห็นฟีดสาธารณะได้
+
+ตรวจ backend โดยไม่ใช้ฐานข้อมูลจริง: `cd backend && npm run test:feed && npm run typecheck` (ทดสอบ router, auth และ SQL ที่สร้าง; ไม่ใช่ integration test กับ PostgreSQL)

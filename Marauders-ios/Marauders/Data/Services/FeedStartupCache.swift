@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import Foundation
 
 protocol FeedStartupCaching: Sendable {
@@ -6,9 +7,14 @@ protocol FeedStartupCaching: Sendable {
     func store(_ videos: [FeedVideo]) async
 }
 
+protocol FeedMediaCaching: Sendable {
+    func localURL(for remote: URL) async -> URL?
+    func invalidate(_ remote: URL) async
+}
+
 /// A small, disposable cache of complete files. Remote URLs remain the source of truth.
-actor FeedStartupCache: FeedStartupCaching {
-    static let shared = FeedStartupCache()
+actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
+    static let shared = SessionFeedStartupCache()
     private struct Entry: Codable {
         let video: FeedVideo
         let savedAt: Date
@@ -227,4 +233,37 @@ private final class FeedCacheDownloader: NSObject, URLSessionDownloadDelegate, @
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error { finish(.failure(error)) }
     }
+}
+
+
+/// Cache only personalized server feed responses, isolated by the current session.
+@MainActor
+final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
+    private var caches: [String: FeedStartupCache] = [:]
+    private let directory: URL
+    private let tokenProvider: @MainActor () -> String?
+    private let makeCache: @MainActor (URL) -> FeedStartupCache
+
+    init(directory: URL? = nil,
+         tokenProvider: @escaping @MainActor () -> String? = { KeychainAPIAccessTokenStore().loadAccessToken() },
+         makeCache: @escaping @MainActor (URL) -> FeedStartupCache = { FeedStartupCache(directory: $0) }) {
+        self.directory = directory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appending(path: "PersonalFeedStartup-v2", directoryHint: .isDirectory)
+        self.tokenProvider = tokenProvider
+        self.makeCache = makeCache
+    }
+
+    private func sessionCache() -> FeedStartupCache {
+        let token = tokenProvider() ?? "guest"
+        let scope = SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
+        if let cache = caches[scope] { return cache }
+        let cache = makeCache(directory.appending(path: scope, directoryHint: .isDirectory))
+        caches[scope] = cache
+        return cache
+    }
+
+    func localURL(for remote: URL) async -> URL? { await sessionCache().localURL(for: remote) }
+    func invalidate(_ remote: URL) async { await sessionCache().invalidate(remote) }
+    func cachedVideos() async -> [FeedVideo] { await sessionCache().cachedVideos() }
+    func store(_ videos: [FeedVideo]) async { await sessionCache().store(videos) }
 }

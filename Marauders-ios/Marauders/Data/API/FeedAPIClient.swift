@@ -7,6 +7,7 @@ import Foundation
 
 struct FeedAPIResponse: Decodable, Sendable {
     let items: [FeedVideo]
+    let viewerID: String?
 }
 
 enum FeedAPIError: LocalizedError, Equatable {
@@ -29,21 +30,25 @@ enum FeedAPIError: LocalizedError, Equatable {
 struct FeedAPIClient: Sendable {
     static let defaultMaxAttempts = 3
 
+    private let authorization: any APIAuthorization
     private let client: HTTPClient
     private let maxAttempts: Int
     private let retryDelayNs: @Sendable (Int) -> UInt64
 
     init(
         session: URLSession = .shared,
-        maxAttempts: Int = FeedAPIClient.defaultMaxAttempts
+        maxAttempts: Int = FeedAPIClient.defaultMaxAttempts,
+        authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
-        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts)
+        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts, authorization: authorization)
     }
 
     init(
         client: HTTPClient,
-        maxAttempts: Int = FeedAPIClient.defaultMaxAttempts
+        maxAttempts: Int = FeedAPIClient.defaultMaxAttempts,
+        authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
+        self.authorization = authorization
         self.client = client
         self.maxAttempts = max(1, maxAttempts)
         self.retryDelayNs = feedAPIProductionRetryDelayNanoseconds
@@ -52,27 +57,30 @@ struct FeedAPIClient: Sendable {
     init(
         session: URLSession,
         maxAttempts: Int,
-        retryDelayNs: @escaping @Sendable (Int) -> UInt64
+        retryDelayNs: @escaping @Sendable (Int) -> UInt64,
+        authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
-        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs)
+        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs, authorization: authorization)
     }
 
     init(
         client: HTTPClient,
         maxAttempts: Int,
-        retryDelayNs: @escaping @Sendable (Int) -> UInt64
+        retryDelayNs: @escaping @Sendable (Int) -> UInt64,
+        authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
+        self.authorization = authorization
         self.client = client
         self.maxAttempts = max(1, maxAttempts)
         self.retryDelayNs = retryDelayNs
     }
 
-    func fetchFeed(limit: Int = 20, cursor: UUID? = nil, country: String? = nil) async throws -> FeedPage {
+    func fetchFeed(limit: Int = 20, cursor: UUID? = nil, country: String? = nil, forMap: Bool = false) async throws -> FeedPage {
         var lastError: Error?
 
         for attempt in 0 ..< maxAttempts {
             do {
-                return try await performFetchFeed(limit: limit, cursor: cursor, country: country)
+                return try await performFetchFeed(limit: limit, cursor: cursor, country: country, forMap: forMap)
             } catch {
                 lastError = error
                 guard attempt < maxAttempts - 1, FeedAPIRetryPolicy.isRetryable(error) else {
@@ -94,12 +102,14 @@ struct FeedAPIClient: Sendable {
         throw lastError ?? FeedAPIError.invalidResponse
     }
 
-    private func performFetchFeed(limit: Int, cursor: UUID?, country: String?) async throws -> FeedPage {
-        let requestURL = try APIConfiguration.feedRequestURL(limit: limit, cursor: cursor, country: country)
+    private func performFetchFeed(limit: Int, cursor: UUID?, country: String?, forMap: Bool) async throws -> FeedPage {
+        let requestURL = try APIConfiguration.feedRequestURL(limit: limit, cursor: cursor, country: country, forMap: forMap)
         AppLog.info("api.feed", "GET \(requestURL.absoluteString)")
 
         var request = URLRequest(url: requestURL)
         request.httpMethod = "GET"
+        let bearer = authorization.bearerAuthorizationHeader()
+        if let bearer { request.setValue(bearer, forHTTPHeaderField: "Authorization") }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
 
@@ -114,6 +124,10 @@ struct FeedAPIClient: Sendable {
 
         do {
             let decoded = try JSONDecoder().decode(FeedAPIResponse.self, from: response.data)
+            // Do not accept an older server's unfiltered response for a signed-in feed.
+            if bearer != nil, !forMap, decoded.viewerID == nil {
+                throw FeedAPIError.invalidResponse
+            }
             for item in decoded.items {
                 guard item.streamURL.scheme?.lowercased() == "https" else {
                     AppLog.error("api.feed", "non-HTTPS stream URL in item \(item.id.uuidString)")

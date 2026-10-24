@@ -67,7 +67,7 @@ function withCors(response: Response, request: Request): Response {
   });
 }
 
-async function handleFeed(request: Request, env: Env): Promise<Response> {
+async function handleFeed(request: Request, env: Env, mapOnly = false): Promise<Response> {
   if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
     return errorResponse(503, "service configuration incomplete");
   }
@@ -89,8 +89,16 @@ async function handleFeed(request: Request, env: Env): Promise<Response> {
   }
 
   try {
-    const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country);
-    return jsonResponse({ items });
+    // A supplied but invalid session must never silently become a guest feed.
+    const auth = request.headers.has("Authorization")
+      ? await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "")
+      : null;
+    if (request.headers.has("Authorization") && !auth) {
+      return errorResponse(401, "invalid session");
+    }
+    const excludedOwnerId = mapOnly ? null : auth?.userId ?? null;
+    const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country, excludedOwnerId);
+    return jsonResponse({ items, viewerID: auth?.userId ?? null });
   } catch {
     return errorResponse(500, "failed to load feed");
   }
@@ -133,6 +141,10 @@ export default {
         );
       }
       return withCors(await handleAppleAuth(request, env), request);
+    }
+
+    if (url.pathname === "/v1/map/clips" && request.method === "GET") {
+      return withCors(await handleFeed(request, env, true), request);
     }
 
     if (url.pathname === "/v1/feed" && request.method === "GET") {

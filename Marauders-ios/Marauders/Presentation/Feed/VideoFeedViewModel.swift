@@ -9,6 +9,7 @@ import Observation
 @MainActor
 @Observable
 final class VideoFeedViewModel {
+    private(set) var sessionGeneration = 0
     var videos: [FeedVideo] = []
     var loadState: FeedLoadState = .idle
     private(set) var isLoadingMore = false
@@ -35,6 +36,24 @@ final class VideoFeedViewModel {
         self.pageSize = pageSize
     }
 
+    func resetForSessionChange() {
+        sessionGeneration += 1
+        reloadGeneration += 1
+        initialLoadTask?.cancel()
+        initialLoadTask = nil
+        startupCacheTask?.cancel()
+        startupCacheTask = nil
+        didScheduleStartupCache = false
+        restoredStartupCache = false
+        videos = []
+        mapFilteredClips = []
+        focusVideoID = nil
+        hasMorePages = false
+        isLoadingMore = false
+        isLoadingMoreInFlight = false
+        loadState = .idle
+    }
+
     /// Waits until the first feed load finishes (splash / cold start).
     func awaitInitialLoad() async {
         if let initialLoadTask {
@@ -55,6 +74,7 @@ final class VideoFeedViewModel {
         }
         guard loadState == .idle else { return }
         let task = Task { @MainActor in
+            guard !Task.isCancelled else { return }
             let generation = reloadGeneration
             if let cached = await startupCache?.cachedVideos(), !cached.isEmpty,
                generation == reloadGeneration, loadState == .idle {
@@ -159,19 +179,16 @@ final class VideoFeedViewModel {
         )
     }
 
-    /// Loads clips posted by people from `country` (Map tab filter). Pass `nil` to clear.
+    /// Loads map pins independently of the personalized feed; nil means every country.
     func loadMapClips(country: String?) async {
-        guard let country, !country.isEmpty else {
-            mapFilteredClips = []
-            return
-        }
-
+        let generation = sessionGeneration
         do {
-            let page = try await fetchFeed.execute(limit: pageSize, cursor: nil, country: country)
+            let page = try await fetchFeed.executeMap(limit: pageSize, country: country)
+            guard generation == sessionGeneration, !Task.isCancelled else { return }
             mapFilteredClips = page.items.filter { $0.mapCoordinate != nil }
-            AppLog.info("feed.map", "country=\(country) clips=\(mapFilteredClips.count)")
+            AppLog.info("feed.map", "country=\(country ?? "all") clips=\(mapFilteredClips.count)")
         } catch {
-            AppLog.warning("feed.map", "load failed country=\(country): \(error.localizedDescription)")
+            AppLog.warning("feed.map", "load failed country=\(country ?? "all"): \(error.localizedDescription)")
         }
     }
 
@@ -192,7 +209,7 @@ final class VideoFeedViewModel {
             guard !page.items.isEmpty else {
                 videos = []
                 hasMorePages = false
-                loadState = .failed("Feed is empty — try uploading a clip")
+                loadState = .loaded
                 AppLog.warning("feed", "reload returned empty list")
                 return
             }
@@ -222,8 +239,10 @@ final class VideoFeedViewModel {
             return
         }
 
+        let generation = reloadGeneration
         do {
             let page = try await fetchFeed.execute(limit: pageSize, cursor: nil)
+            guard generation == reloadGeneration else { return }
             mergeHead(page.items)
             hasMorePages = page.hasMore || videos.count > page.items.count
             AppLog.info("feed", "syncHead merged count=\(videos.count) mapPins=\(videosWithMapCoordinates.count)")
@@ -269,16 +288,20 @@ final class VideoFeedViewModel {
 
     private func loadNextPage() async {
         guard let cursor = videos.last?.id else { return }
+        let generation = reloadGeneration
 
         isLoadingMoreInFlight = true
         isLoadingMore = true
         defer {
-            isLoadingMoreInFlight = false
-            isLoadingMore = false
+            if generation == reloadGeneration {
+                isLoadingMoreInFlight = false
+                isLoadingMore = false
+            }
         }
 
         do {
             let page = try await fetchFeed.execute(limit: pageSize, cursor: cursor)
+            guard generation == reloadGeneration else { return }
             appendUnique(page.items)
             hasMorePages = page.hasMore
             AppLog.info("feed", "loadMore +\(page.items.count) total=\(videos.count) hasMore=\(page.hasMore)")

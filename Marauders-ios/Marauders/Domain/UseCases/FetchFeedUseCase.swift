@@ -14,6 +14,10 @@ struct FetchFeedUseCase: Sendable {
         self.defaultLimit = defaultLimit
     }
 
+    func executeMap(limit: Int? = nil, country: String? = nil) async throws -> FeedPage {
+        try await repository.fetchMapClips(limit: limit ?? defaultLimit, country: country)
+    }
+
     func execute(limit: Int? = nil, cursor: UUID? = nil, country: String? = nil) async throws -> FeedPage {
         try await repository.fetchFeed(
             limit: limit ?? defaultLimit,

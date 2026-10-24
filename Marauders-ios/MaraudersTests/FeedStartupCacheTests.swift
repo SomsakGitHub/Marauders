@@ -23,6 +23,28 @@ struct FeedStartupCacheTests {
         })
     }
 
+    @Test func sessionCacheSeparatesAccountsAndSurvivesReopen() async throws {
+        let directory = folder()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var token: String? = "account-a-session"
+        let scoped = SessionFeedStartupCache(directory: directory, tokenProvider: { token },
+                                            makeCache: { cache($0) })
+        let video = clip(1)
+        await scoped.store([video])
+        #expect(await scoped.cachedVideos() == [video])
+        token = "account-b-session"
+        #expect(await scoped.cachedVideos().isEmpty)
+        #expect(await scoped.localURL(for: video.streamURL) == nil)
+        token = nil
+        #expect(await scoped.cachedVideos().isEmpty)
+        token = "account-a-session"
+        let reopened = SessionFeedStartupCache(directory: directory, tokenProvider: { token },
+                                              makeCache: { cache($0) })
+        #expect(await reopened.cachedVideos() == [video])
+        let paths = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        #expect(paths.allSatisfy { !$0.contains("account-a-session") })
+    }
+
     @Test func persistsCompleteVideosAcrossCacheInstancesAndCapsCount() async throws {
         let directory = folder()
         defer { try? FileManager.default.removeItem(at: directory) }

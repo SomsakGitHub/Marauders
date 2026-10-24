@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "node scripts/migrate.mjs",
     "video:hls": "node scripts/hls-transcode-r2.mjs",
-    "db:purge": "node scripts/purge-videos.mjs"
+    "db:purge": "node scripts/purge-videos.mjs",
+    "test:feed": "node scripts/test-feed.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -18,6 +19,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261013.1",
     "typescript": "^5.7.3",
-    "wrangler": "^4.150.0"
+    "wrangler": "^4.150.0",
+    "esbuild": "^0.28.2"
   }
 }
