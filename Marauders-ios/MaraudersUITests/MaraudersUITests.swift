@@ -201,6 +201,29 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testSignInDetectedCountryCanBeChanged() throws {
+        let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED", "UITEST_GUEST"])
+        let choose = app.buttons["feed.chooseAudio"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 15))
+        choose.tap()
+        let country = app.buttons["signin.country"]
+        XCTAssertTrue(country.waitForExistence(timeout: 5))
+        XCTAssertTrue(country.label.contains("🇹🇭"))
+        country.tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("United States")
+        let usa = app.buttons["country.US"]
+        XCTAssertTrue(usa.waitForExistence(timeout: 5))
+        usa.tap()
+        XCTAssertTrue(country.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(country.label.contains("🇺🇸"))
+        XCTAssertTrue(app.buttons["signin.apple"].isEnabled)
+        app.buttons["auth.closeSignIn"].tap()
+    }
+
+    @MainActor
     func testSignInRequiresLocationPermission() throws {
         let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED", "UITEST_GUEST", "UITEST_LOCATION_DENIED"])
         let choose = app.buttons["feed.chooseAudio"]

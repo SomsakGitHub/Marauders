@@ -14,8 +14,8 @@ final class AuthViewModel {
     private(set) var isCheckingCredential = true
     var errorMessage: String?
 
-    /// Country resolved from permitted location by the sign-in gate before authorization.
-    /// The initial device-region value is not used as a location-verification fallback.
+    /// Defaults to the country resolved from location; the user may override it before sign-in.
+    /// Location permission and a successful lookup are still required by the sign-in gate.
     var selectedCountryCode: String = CountryCatalog.defaultCode()
 
     private let sessionStore: AuthSessionStore

@@ -30,6 +30,7 @@ struct CountryPickerView: View {
                             .foregroundStyle(.tint)
                     }
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("country.\(country.code)")

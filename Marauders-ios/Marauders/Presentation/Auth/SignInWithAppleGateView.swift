@@ -9,6 +9,7 @@ import SwiftUI
 struct SignInWithAppleGateView: View {
     @Bindable var authViewModel: AuthViewModel
     @State private var locationGate = SignInLocationViewModel()
+    @State private var countryOverride: String?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
 
@@ -36,8 +37,23 @@ struct SignInWithAppleGateView: View {
 
                 VStack(spacing: 12) {
                     if let code = locationGate.countryCode {
-                        Label("\(Country.flagEmoji(for: code)) \(CountryCatalog.name(for: code))", systemImage: "location.fill")
-                            .accessibilityIdentifier("signin.country")
+                        let selectedCode = countryOverride ?? code
+                        NavigationLink {
+                            CountryPickerView(selection: Binding(
+                                get: { countryOverride ?? code },
+                                set: { countryOverride = $0 }
+                            ))
+                        } label: {
+                            HStack {
+                                Text("Country")
+                                Spacer()
+                                Text("\(Country.flagEmoji(for: selectedCode)) \(CountryCatalog.name(for: selectedCode))")
+                                Image(systemName: "chevron.right").font(.footnote)
+                            }
+                            .padding(12)
+                            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+                        }
+                        .accessibilityIdentifier("signin.country")
                     }
                     if locationGate.isResolving { ProgressView() }
                     if let message = locationGate.message {
@@ -58,7 +74,7 @@ struct SignInWithAppleGateView: View {
                 } onCompletion: { result in
                     locationGate.refresh()
                     guard locationGate.canSignIn, let code = locationGate.countryCode else { return }
-                    authViewModel.selectedCountryCode = code
+                    authViewModel.selectedCountryCode = countryOverride ?? code
                     authViewModel.handleAuthorization(result)
                 }
                 .disabled(!locationGate.canSignIn)
@@ -69,7 +85,12 @@ struct SignInWithAppleGateView: View {
 
                 #if DEBUG
                 if AppRuntimeConfiguration.isUITesting {
-                    Button("Complete test sign in") { authViewModel.completeUITestSignIn() }
+                    Button("Complete test sign in") {
+                        if let code = locationGate.countryCode {
+                            authViewModel.selectedCountryCode = countryOverride ?? code
+                            authViewModel.completeUITestSignIn()
+                        }
+                    }
                         .disabled(!locationGate.canSignIn)
                         .accessibilityIdentifier("auth.completeUITestSignIn")
                 }
