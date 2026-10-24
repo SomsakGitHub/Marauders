@@ -193,7 +193,7 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(choose.waitForExistence(timeout: 5))
         choose.tap()
         app.buttons["auth.completeUITestSignIn"].tap()
-        XCTAssertTrue(app.buttons["ฟังเสียงต้นฉบับ"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["ฟังเสียงต้นฉบับ"].waitForExistence(timeout: 10), app.debugDescription)
         app.buttons["ฟังเสียงต้นฉบับ"].tap()
         XCTAssertTrue(app.buttons["clip.chooseAudio"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].exists)

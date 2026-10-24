@@ -20,8 +20,14 @@ struct VideoFeedView: View {
     var onOpenProfile: (String) -> Void = { _ in }
 
     @State private var pendingAudioClip: FeedVideo?
-    @State private var requestThaiOnOpen = true
-    @State private var thaiClip: FeedVideo?
+    @State private var isChoosingAudio = false
+    @State private var resumeAfterAudioChoice = false
+    private struct AudioRoute: Identifiable {
+        let clip: FeedVideo
+        let requestThaiOnOpen: Bool
+        var id: UUID { clip.id }
+    }
+    @State private var audioRoute: AudioRoute?
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
 
@@ -51,20 +57,23 @@ struct VideoFeedView: View {
                     }
             }
         }
-        .fullScreenCover(item: $thaiClip, onDismiss: {
+        .fullScreenCover(item: $audioRoute, onDismiss: {
             if isFeedTabSelected, scenePhase == .active { applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex) }
-        }) { clip in
+        }) { route in
             if isSignedIn {
-                ClipPlayerView(clip: clip, onClose: { thaiClip = nil }, requestThaiOnOpen: requestThaiOnOpen)
+                ClipPlayerView(clip: route.clip, onClose: { audioRoute = nil }, requestThaiOnOpen: route.requestThaiOnOpen)
             }
         }
         .onChange(of: signInDismissalID) { _, _ in
+            isChoosingAudio = false
             let pending = pendingAudioClip
             pendingAudioClip = nil
-            guard isSignedIn, let pending, pending.allowsThaiAudio else { return }
-            requestThaiOnOpen = false
+            guard isSignedIn, let pending, pending.allowsThaiAudio else {
+                resumeAfterAudioChoiceIfNeeded()
+                return
+            }
             playerEngine.pause()
-            thaiClip = pending
+            audioRoute = AudioRoute(clip: pending, requestThaiOnOpen: false)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("feed.root")
@@ -93,7 +102,7 @@ struct VideoFeedView: View {
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
         .onChange(of: isSignedIn) { _, signedIn in
-            if !signedIn { thaiClip = nil }
+            if !signedIn { audioRoute = nil }
         }
         .onChange(of: isFeedTabSelected) { _, isSelected in
             if isSelected {
@@ -181,11 +190,20 @@ struct VideoFeedView: View {
 
                     FeedClipActionRail(clip: video, onChooseThai: {
                         guard isSignedIn else { pendingAudioClip = video; onSignIn(); return }
-                        requestThaiOnOpen = true
                         playerEngine.pause()
-                        thaiClip = video
+                        audioRoute = AudioRoute(clip: video, requestThaiOnOpen: true)
                     }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
-                        onRequireSignIn: { pendingAudioClip = video; onSignIn() })
+                        onRequireSignIn: { pendingAudioClip = video; onSignIn() },
+                        onAudioSelectionChanged: { open in
+                            if open {
+                                resumeAfterAudioChoice = playerEngine.phase == .playing
+                                isChoosingAudio = true
+                                playerEngine.pause()
+                            } else {
+                                isChoosingAudio = false
+                                resumeAfterAudioChoiceIfNeeded()
+                            }
+                        })
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
@@ -254,8 +272,15 @@ struct VideoFeedView: View {
         playerEngine.warmURLs(urls)
     }
 
+    private func resumeAfterAudioChoiceIfNeeded() {
+        guard resumeAfterAudioChoice, audioRoute == nil, pendingAudioClip == nil,
+              isFeedTabSelected, scenePhase == .active else { return }
+        resumeAfterAudioChoice = false
+        applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+    }
+
     private func applyPlayback(for videos: [FeedVideo], pageIndex: Int) {
-        guard thaiClip == nil else { playerEngine.pause(); return }
+        guard audioRoute == nil, !isChoosingAudio else { playerEngine.pause(); return }
         guard !videos.isEmpty else {
             playerEngine.pause()
             return

@@ -14,6 +14,7 @@ struct FeedClipActionRail: View {
 
     var canChooseAudio = true
     var onRequireSignIn: (() -> Void)? = nil
+    var onAudioSelectionChanged: (Bool) -> Void = { _ in }
 
     @State private var choosingAudio = false
 
@@ -21,6 +22,7 @@ struct FeedClipActionRail: View {
         VStack(spacing: 20) {
             if let onChooseThai, clip.allowsThaiAudio {
                 Button {
+                    onAudioSelectionChanged(true)
                     if canChooseAudio { choosingAudio = true } else { onRequireSignIn?() }
                 } label: {
                     VStack(spacing: 4) {
@@ -29,6 +31,9 @@ struct FeedClipActionRail: View {
                     }.foregroundStyle(.white)
                 }
                 .accessibilityIdentifier("feed.chooseAudio")
+                .onChange(of: choosingAudio) { _, open in
+                    if !open { onAudioSelectionChanged(false) }
+                }
                 .confirmationDialog("เลือกเสียงสำหรับคลิปนี้", isPresented: $choosingAudio, titleVisibility: .visible) {
                     Button("ฟังเสียงต้นฉบับ") {}
                     Button("แปลเป็นเสียงไทยด้วย AI", action: onChooseThai)
