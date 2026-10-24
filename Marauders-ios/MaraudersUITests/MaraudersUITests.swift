@@ -69,6 +69,8 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(clip.waitForExistence(timeout: 15))
         clip.tap()
 
+        if app.buttons["ฟังเสียงต้นฉบับ"].waitForExistence(timeout: 5) { app.buttons["ฟังเสียงต้นฉบับ"].tap() }
+
         let deleteButton = app.buttons["clip.delete"]
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 10))
         deleteButton.tap()
@@ -175,6 +177,26 @@ final class MaraudersUITests: XCTestCase {
         feed.swipeDown(velocity: .fast)
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["Play Again"].exists)
+    }
+
+    @MainActor
+    func testThaiAudioRequiresViewerChoiceAndHandlesUnavailableService() throws {
+        let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED"])
+        let choose = app.buttons["feed.chooseAudio"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 20))
+        choose.tap()
+        app.buttons["ฟังเสียงต้นฉบับ"].tap()
+        XCTAssertFalse(app.buttons["clip.chooseAudio"].exists)
+        choose.tap()
+        app.buttons["แปลเป็นเสียงไทยด้วย AI"].tap()
+        let unavailable = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "เครื่องนี้ยังไม่พร้อมแปล")).firstMatch
+        XCTAssertTrue(unavailable.waitForExistence(timeout: 15))
+        attachFeedScreenshot(app, name: "thai-audio-unavailable-original-remains")
+        app.buttons["clip.chooseAudio"].tap()
+        app.buttons["ฟังเสียงต้นฉบับ"].tap()
+        XCTAssertFalse(unavailable.exists)
+        app.buttons["clip.closeVideo"].tap()
+        XCTAssertTrue(choose.waitForExistence(timeout: 10))
     }
 
     @MainActor

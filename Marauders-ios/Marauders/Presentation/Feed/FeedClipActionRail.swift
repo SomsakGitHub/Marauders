@@ -9,10 +9,28 @@ import SwiftUI
 /// the creator's avatar, which opens their public profile when tapped.
 struct FeedClipActionRail: View {
     let clip: FeedVideo
+    var onChooseThai: (() -> Void)? = nil
     var onAuthorTap: ((String) -> Void)?
+
+    @State private var choosingAudio = false
 
     var body: some View {
         VStack(spacing: 20) {
+            if let onChooseThai {
+                Button { choosingAudio = true } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "waveform").font(.title2)
+                        Text("เลือกเสียง").font(.caption)
+                    }.foregroundStyle(.white)
+                }
+                .accessibilityIdentifier("feed.chooseAudio")
+                .confirmationDialog("เลือกเสียงสำหรับคลิปนี้", isPresented: $choosingAudio, titleVisibility: .visible) {
+                    Button("ฟังเสียงต้นฉบับ") {}
+                    Button("แปลเป็นเสียงไทยด้วย AI", action: onChooseThai)
+                    Button("ยกเลิก", role: .cancel) {}
+                } message: { Text("ถอดคำพูดอังกฤษและแปลเป็นเสียงไทยบน iPhone อาจต้องดาวน์โหลดภาษาครั้งแรก") }
+            }
+
             if let handle = clip.authorName {
                 Button {
                     onAuthorTap?(handle)

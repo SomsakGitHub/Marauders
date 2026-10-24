@@ -16,6 +16,7 @@ struct VideoFeedView: View {
     /// Opens the public profile for a tapped author handle.
     var onOpenProfile: (String) -> Void = { _ in }
 
+    @State private var thaiClip: FeedVideo?
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
 
@@ -44,6 +45,11 @@ struct VideoFeedView: View {
                         }
                     }
             }
+        }
+        .fullScreenCover(item: $thaiClip, onDismiss: {
+            if isFeedTabSelected, scenePhase == .active { applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex) }
+        }) { clip in
+            ClipPlayerView(clip: clip, onClose: { thaiClip = nil }, requestThaiOnOpen: true)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("feed.root")
@@ -155,7 +161,10 @@ struct VideoFeedView: View {
                     FeedClipCaptionOverlay(clip: video, onAuthorTap: onOpenProfile)
                         .frame(width: geometry.size.width, height: geometry.size.height)
 
-                    FeedClipActionRail(clip: video, onAuthorTap: onOpenProfile)
+                    FeedClipActionRail(clip: video, onChooseThai: {
+                        playerEngine.pause()
+                        thaiClip = video
+                    }, onAuthorTap: onOpenProfile)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
@@ -225,6 +234,7 @@ struct VideoFeedView: View {
     }
 
     private func applyPlayback(for videos: [FeedVideo], pageIndex: Int) {
+        guard thaiClip == nil else { playerEngine.pause(); return }
         guard !videos.isEmpty else {
             playerEngine.pause()
             return

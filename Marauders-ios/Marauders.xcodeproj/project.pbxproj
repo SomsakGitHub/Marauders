@@ -431,6 +431,7 @@
 				INFOPLIST_KEY_MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to show your position on the map when you tap Current Location.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a video from your library to upload to the Marauders feed";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribe English speech from the selected clip on your iPhone to translate it into Thai.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = LaunchBackground;
@@ -469,6 +470,7 @@
 				INFOPLIST_KEY_MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to show your position on the map when you tap Current Location.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a video from your library to upload to the Marauders feed";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribe English speech from the selected clip on your iPhone to translate it into Thai.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = LaunchBackground;
