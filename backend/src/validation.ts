@@ -239,13 +239,15 @@ export function assertMediaObjectKey(key: string): void {
   if (
     !MEDIA_OBJECT_KEY_RE.test(key) &&
     !MEDIA_HLS_OBJECT_KEY_RE.test(key) &&
-    !MEDIA_AVATAR_OBJECT_KEY_RE.test(key)
+    !MEDIA_AVATAR_OBJECT_KEY_RE.test(key) &&
+    !/^translations\/[0-9a-f-]{36}\/[0-9a-f]{64}-th-v1\.m4a$/.test(key)
   ) {
     throw new FeedValidationError("invalid media path");
   }
 }
 
 export function contentTypeForMediaKey(objectKey: string): string {
+  if (objectKey.endsWith(".m4a")) return "audio/mp4";
   if (objectKey.endsWith(".m3u8")) {
     return "application/vnd.apple.mpegurl";
   }

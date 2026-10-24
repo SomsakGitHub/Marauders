@@ -28,7 +28,7 @@ struct FeedClipActionRail: View {
                     Button("ฟังเสียงต้นฉบับ") {}
                     Button("แปลเป็นเสียงไทยด้วย AI", action: onChooseThai)
                     Button("ยกเลิก", role: .cancel) {}
-                } message: { Text("ถอดคำพูดอังกฤษและแปลเป็นเสียงไทยบน iPhone อาจต้องดาวน์โหลดภาษาครั้งแรก") }
+                } message: { Text("ใช้เสียงแปลไทยจาก AI ที่เก็บไว้ หรือสร้างบน iPhone และเก็บให้ผู้ชมคนอื่นใช้ซ้ำได้") }
             }
 
             if let handle = clip.authorName {

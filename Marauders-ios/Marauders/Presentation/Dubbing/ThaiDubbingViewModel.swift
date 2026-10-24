@@ -8,7 +8,35 @@ import Speech
 final class ThaiDubbingViewModel {
     private(set) var message: String?
     private(set) var isProcessing = false
+    private let cache: any ThaiAudioCaching
+    private var cacheContext: (videoID: UUID, sourceURL: URL)?
     private var generation = 0
+    init(cache: (any ThaiAudioCaching)? = nil) { self.cache = cache ?? ThaiAudioCacheClient() }
+
+    /// Runs before constructing a TranslationSession, so a cache hit needs no
+    /// speech permission or installed translation models on the viewer's phone.
+    func cachedAudio(videoID: UUID, sourceURL: URL) async -> URL? {
+        useOriginal()
+        generation += 1
+        let current = generation
+        cacheContext = (videoID, sourceURL)
+        isProcessing = true
+        message = "กำลังตรวจเสียงไทยที่เก็บไว้…"
+        defer { if current == generation { isProcessing = false } }
+        do {
+            let audio = try await cache.lookup(videoID: videoID, sourceURL: sourceURL)
+            try check(current)
+            if let audio {
+                guard try await AVURLAsset(url: audio).load(.isPlayable) else { return nil }
+                try check(current)
+                message = "เสียงแปลไทยจาก AI · ใช้เสียงที่เก็บไว้"
+                return audio
+            }
+        } catch { }
+        if current == generation { message = nil }
+        return nil
+    }
+
     private var recognizer: SFSpeechRecognizer?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recognitionContinuation: CheckedContinuation<String, Error>?
@@ -21,7 +49,9 @@ final class ThaiDubbingViewModel {
     /// Called only following an explicit Thai choice. The system may request
     /// language-model downloads, but clip speech/text stays on device.
     func request(sourceURL: URL, session: TranslationSession) async -> URL? {
+        let context = cacheContext?.sourceURL == sourceURL ? cacheContext : nil
         useOriginal()
+        cacheContext = context
         generation += 1
         let current = generation
         isProcessing = true
@@ -90,6 +120,33 @@ final class ThaiDubbingViewModel {
             } onCancel: { Task { @MainActor [weak self] in if self?.generation == current { self?.cancelWork() } } }
             try check(current)
             message = "เสียงอ่านคำแปลไทยบนเครื่อง · จังหวะอาจต่างจากต้นฉบับ"
+            if let context {
+                do {
+                    let data = try await ThaiAudioCacheEncoding.encode(source: result, destination: folder.appendingPathComponent("shared-thai.m4a"))
+                    try check(current)
+                    message = "เสียงแปลไทยจาก AI · กำลังบันทึกเพื่อใช้ซ้ำ"
+                    let cache = self.cache
+                    // Retain bounded compressed data, not temporary file URLs. Closing
+                    // playback may delete files while the idempotent upload completes.
+                    Task { [weak self] in
+                        do {
+                            try await cache.store(videoID: context.videoID, sourceURL: context.sourceURL, audio: data)
+                            guard let self, self.generation == current else { return }
+                            self.message = "เสียงแปลไทยจาก AI · เก็บไว้ใช้ซ้ำแล้ว"
+                        } catch {
+                            #if DEBUG
+                            print("THAI_AUDIO_CACHE_UPLOAD_FAILED \(error)")
+                            #endif
+                            guard let self, self.generation == current else { return }
+                            self.message = "เสียงแปลไทยจาก AI · ยังเก็บบนเซิร์ฟเวอร์ไม่ได้ แต่ฟังต่อได้"
+                        }
+                    }
+                } catch is CancellationError { return nil }
+                catch {
+                    guard current == generation else { return nil }
+                    message = "เสียงแปลไทยจาก AI · ยังเก็บบนเซิร์ฟเวอร์ไม่ได้ แต่ฟังต่อได้"
+                }
+            }
             return result
         } catch {
             #if DEBUG
@@ -160,6 +217,7 @@ final class ThaiDubbingViewModel {
     func useOriginal() {
         generation += 1
         cancelWork(); cleanFiles()
+        cacheContext = nil
         isProcessing = false; message = nil
     }
     func unavailableForTesting() {

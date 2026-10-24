@@ -53,7 +53,7 @@ struct ClipPlayerView: View {
             Button("แปลเป็นเสียงไทยด้วย AI") { audioRequestID += 1; wantsThai = true }
             Button("ยกเลิก", role: .cancel) {}
         } message: {
-            Text("ถอดคำพูดอังกฤษ แปลและสร้างเสียงไทยบน iPhone อาจต้องดาวน์โหลดภาษาครั้งแรก เสียงอ่านอาจไม่ตรงจังหวะคำพูดเดิม")
+            Text("ใช้เสียงแปลไทยจาก AI ที่เก็บไว้ หากยังไม่มีจะสร้างบน iPhone และเก็บให้ผู้ชมคนอื่นใช้ซ้ำได้ เสียงแปลอาจไม่ถูกต้องหรือตรงจังหวะต้นฉบับ")
         }
         .onAppear {
             startPlayback()
@@ -64,9 +64,15 @@ struct ClipPlayerView: View {
         }
         .task(id: "\(wantsThai):\(audioRequestID)") {
             if wantsThai {
+                translationConfiguration = nil
                 if AppRuntimeConfiguration.isUITesting {
                     dubbing.unavailableForTesting()
                 } else {
+                    if let audio = await dubbing.cachedAudio(videoID: clip.id, sourceURL: clip.streamURL), wantsThai, !Task.isCancelled {
+                        await useThaiTrack(audio)
+                        return
+                    }
+                    guard wantsThai, !Task.isCancelled else { return }
                     translationConfiguration = .init(source: .init(identifier: "en"), target: .init(identifier: "th"), preferredStrategy: .lowLatency)
                     translationConfiguration?.invalidate()
                 }
@@ -77,6 +83,7 @@ struct ClipPlayerView: View {
             }
         }
         .translationTask(translationConfiguration) { session in
+            guard wantsThai, !Task.isCancelled else { return }
             if let url = await dubbing.request(sourceURL: clip.streamURL, session: session), wantsThai, !Task.isCancelled {
                 await useThaiTrack(url)
             }

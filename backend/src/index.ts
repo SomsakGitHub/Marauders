@@ -3,6 +3,7 @@ import { listFeedVideos } from "./db/feed";
 import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
+import { handleThaiAudio } from "./routes/thaiAudio";
 import { handleMediaGet } from "./routes/media";
 import { handlePublicProfileGet } from "./routes/publicProfile";
 import { handleUserLocationUpdate } from "./routes/userLocation";
@@ -59,7 +60,7 @@ function withCors(response: Response, request: Request): Response {
     headers.set("vary", "Origin");
   }
   headers.set("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  headers.set("access-control-allow-headers", "Content-Type, Authorization");
+  headers.set("access-control-allow-headers", "Content-Type, Authorization, X-Source-SHA256");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -263,6 +264,21 @@ export default {
     ) {
       const rawHandle = decodeURIComponent(url.pathname.slice("/v1/users/".length));
       return withCors(await handlePublicProfileGet(request, env, rawHandle), request);
+    }
+
+    const thaiAudioMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/thai-audio$/);
+    if (thaiAudioMatch && (request.method === "GET" || request.method === "POST")) {
+      const auth = request.headers.has("Authorization")
+        ? await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "") : null;
+      if ((request.headers.has("Authorization") || request.method === "POST") && !auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      if (request.method === "POST") {
+        const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+          { scope: "thai-audio-upload", limit: 10, windowSeconds: 60 }, auth!.userId);
+        if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      }
+      return withCors(await handleThaiAudio(request, env, thaiAudioMatch[1], auth?.userId), request);
     }
 
     if (

@@ -9,7 +9,8 @@
     "db:migrate": "node scripts/migrate.mjs",
     "video:hls": "node scripts/hls-transcode-r2.mjs",
     "db:purge": "node scripts/purge-videos.mjs",
-    "test:feed": "node scripts/test-feed.mjs"
+    "test:feed": "node scripts/test-feed.mjs",
+    "test:thai-audio": "node scripts/test-thai-audio.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
