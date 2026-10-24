@@ -9,6 +9,8 @@ struct UploadTabView: View {
     @Bindable var authViewModel: AuthViewModel
     @Bindable var uploadViewModel: UploadVideoViewModel
 
+    var onSignIn: () -> Void = {}
+
     var body: some View {
         Group {
             if authViewModel.isCheckingCredential {
@@ -17,14 +19,8 @@ struct UploadTabView: View {
             } else if authViewModel.isSignedIn {
                 UploadVideoView(viewModel: uploadViewModel)
             } else {
-                SignInWithAppleGateView(
-                    authViewModel: authViewModel,
-                    navigationTitle: "Upload",
-                    systemImage: "plus.circle.fill",
-                    title: "Sign in to upload",
-                    subtitle: "Uploading clips requires Sign in with Apple.",
-                    accessibilityIdentifier: "upload.signInRequired"
-                )
+                SignInRequiredView(onSignIn: onSignIn)
+                    .accessibilityIdentifier("upload.signInRequired")
             }
         }
         .task {

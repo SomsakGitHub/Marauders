@@ -15,11 +15,17 @@ struct ContentView: View {
     let reportUserLocation: ReportUserLocationUseCase
     let makePublicProfileViewModel: (String) -> PublicProfileViewModel
 
+    @State private var showingSignIn = false
+    @State private var signInDismissalID = 0
+
     var body: some View {
         TabView(selection: $router.selectedTab) {
             VideoFeedView(
                 viewModel: feedViewModel,
                 isFeedTabSelected: router.selectedTab == .feed,
+                isSignedIn: authViewModel.isSignedIn,
+                onSignIn: { showingSignIn = true },
+                signInDismissalID: signInDismissalID,
                 onOpenProfile: { router.openPublicProfile(handle: $0) }
             )
                 .tabItem {
@@ -31,6 +37,7 @@ struct ContentView: View {
                 authViewModel: authViewModel,
                 feedViewModel: feedViewModel,
                 reportUserLocation: reportUserLocation,
+                onSignIn: { showingSignIn = true },
                 onOpenClipInFeed: { videoID in
                     await coordinator.openClipInFeed(videoID: videoID)
                 }
@@ -42,7 +49,8 @@ struct ContentView: View {
 
             ProfileTabView(
                 authViewModel: authViewModel,
-                profileViewModel: profileViewModel
+                profileViewModel: profileViewModel,
+                onSignIn: { showingSignIn = true }
             )
                 .tabItem {
                     Label("Profile", systemImage: "person.crop.circle.fill")
@@ -51,7 +59,8 @@ struct ContentView: View {
 
             UploadTabView(
                 authViewModel: authViewModel,
-                uploadViewModel: uploadViewModel
+                uploadViewModel: uploadViewModel,
+                onSignIn: { showingSignIn = true }
             )
                 .tabItem {
                     Label("Upload", systemImage: "plus.circle.fill")
@@ -71,9 +80,27 @@ struct ContentView: View {
         .onAppear {
             AppLog.info("app", "Marauders launched")
         }
-        .onChange(of: authViewModel.isSignedIn) { _, _ in
+        .onChange(of: authViewModel.isSignedIn) { _, signedIn in
+            if signedIn { showingSignIn = false }
             feedViewModel.resetForSessionChange()
             Task { await feedViewModel.loadIfNeeded() }
+        }
+        .sheet(isPresented: $showingSignIn, onDismiss: { signInDismissalID += 1 }) {
+            SignInWithAppleGateView(
+                authViewModel: authViewModel,
+                navigationTitle: "Sign in",
+                systemImage: "person.crop.circle.fill",
+                title: "Welcome to Marauders",
+                subtitle: "Sign in with Apple to continue.",
+                accessibilityIdentifier: "auth.signIn"
+            )
+            .overlay(alignment: .topTrailing) {
+                Button { showingSignIn = false } label: {
+                    Image(systemName: "xmark.circle.fill").font(.title2).padding()
+                }
+                .accessibilityLabel("Close sign in")
+                .accessibilityIdentifier("auth.closeSignIn")
+            }
         }
         .sheet(item: $router.publicProfileRoute) { route in
             PublicProfileView(

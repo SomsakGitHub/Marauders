@@ -62,6 +62,13 @@ struct SignInWithAppleGateView: View {
                 .frame(maxWidth: 320, minHeight: 48, maxHeight: 48)
                 .padding(.top, 8)
 
+                #if DEBUG
+                if AppRuntimeConfiguration.isUITesting {
+                    Button("Complete test sign in") { authViewModel.completeUITestSignIn() }
+                        .accessibilityIdentifier("auth.completeUITestSignIn")
+                }
+                #endif
+
                 if let errorMessage = authViewModel.errorMessage {
                     Text(errorMessage)
                         .font(.footnote)

@@ -9,6 +9,8 @@ struct ProfileTabView: View {
     @Bindable var authViewModel: AuthViewModel
     @Bindable var profileViewModel: ProfileViewModel
 
+    var onSignIn: () -> Void = {}
+
     var body: some View {
         Group {
             if authViewModel.isCheckingCredential {
@@ -20,14 +22,8 @@ struct ProfileTabView: View {
                     onSignOut: { authViewModel.signOut() }
                 )
             } else {
-                SignInWithAppleGateView(
-                    authViewModel: authViewModel,
-                    navigationTitle: "Profile",
-                    systemImage: "person.crop.circle.fill",
-                    title: "Sign in to view your profile",
-                    subtitle: "Your clips and account require Sign in with Apple.",
-                    accessibilityIdentifier: "profile.signInRequired"
-                )
+                SignInRequiredView(onSignIn: onSignIn)
+                    .accessibilityIdentifier("profile.signInRequired")
             }
         }
         .task {

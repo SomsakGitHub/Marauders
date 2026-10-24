@@ -12,12 +12,17 @@ struct FeedClipActionRail: View {
     var onChooseThai: (() -> Void)? = nil
     var onAuthorTap: ((String) -> Void)?
 
+    var canChooseAudio = true
+    var onRequireSignIn: (() -> Void)? = nil
+
     @State private var choosingAudio = false
 
     var body: some View {
         VStack(spacing: 20) {
             if let onChooseThai, clip.allowsThaiAudio {
-                Button { choosingAudio = true } label: {
+                Button {
+                    if canChooseAudio { choosingAudio = true } else { onRequireSignIn?() }
+                } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "waveform").font(.title2)
                         Text("เลือกเสียง").font(.caption)

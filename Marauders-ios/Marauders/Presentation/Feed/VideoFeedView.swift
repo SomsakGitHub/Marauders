@@ -13,9 +13,14 @@ struct VideoFeedView: View {
     /// so a Map/Upload visit (or a system permission alert) never starts
     /// background audio/video.
     var isFeedTabSelected: Bool
+    var isSignedIn: Bool
+    var onSignIn: () -> Void = {}
+    var signInDismissalID = 0
     /// Opens the public profile for a tapped author handle.
     var onOpenProfile: (String) -> Void = { _ in }
 
+    @State private var pendingAudioClip: FeedVideo?
+    @State private var requestThaiOnOpen = true
     @State private var thaiClip: FeedVideo?
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
@@ -49,7 +54,17 @@ struct VideoFeedView: View {
         .fullScreenCover(item: $thaiClip, onDismiss: {
             if isFeedTabSelected, scenePhase == .active { applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex) }
         }) { clip in
-            ClipPlayerView(clip: clip, onClose: { thaiClip = nil }, requestThaiOnOpen: true)
+            if isSignedIn {
+                ClipPlayerView(clip: clip, onClose: { thaiClip = nil }, requestThaiOnOpen: requestThaiOnOpen)
+            }
+        }
+        .onChange(of: signInDismissalID) { _, _ in
+            let pending = pendingAudioClip
+            pendingAudioClip = nil
+            guard isSignedIn, let pending, pending.allowsThaiAudio else { return }
+            requestThaiOnOpen = false
+            playerEngine.pause()
+            thaiClip = pending
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("feed.root")
@@ -76,6 +91,9 @@ struct VideoFeedView: View {
             applyFocusRequestIfNeeded()
             guard isFeedTabSelected else { return }
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+        }
+        .onChange(of: isSignedIn) { _, signedIn in
+            if !signedIn { thaiClip = nil }
         }
         .onChange(of: isFeedTabSelected) { _, isSelected in
             if isSelected {
@@ -162,9 +180,12 @@ struct VideoFeedView: View {
                         .frame(width: geometry.size.width, height: geometry.size.height)
 
                     FeedClipActionRail(clip: video, onChooseThai: {
+                        guard isSignedIn else { pendingAudioClip = video; onSignIn(); return }
+                        requestThaiOnOpen = true
                         playerEngine.pause()
                         thaiClip = video
-                    }, onAuthorTap: onOpenProfile)
+                    }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
+                        onRequireSignIn: { pendingAudioClip = video; onSignIn() })
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 

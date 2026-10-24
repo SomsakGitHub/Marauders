@@ -180,6 +180,44 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testGuestFeedAudioChoiceRequiresSignIn() throws {
+        let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED", "UITEST_GUEST"])
+        XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 15))
+        let choose = app.buttons["feed.chooseAudio"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 10))
+        choose.tap()
+        XCTAssertTrue(app.buttons["auth.closeSignIn"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["clip.chooseAudio"].exists)
+        app.buttons["auth.closeSignIn"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Feed"].isSelected)
+        XCTAssertTrue(choose.waitForExistence(timeout: 5))
+        choose.tap()
+        app.buttons["auth.completeUITestSignIn"].tap()
+        XCTAssertTrue(app.buttons["ฟังเสียงต้นฉบับ"].waitForExistence(timeout: 10))
+        app.buttons["ฟังเสียงต้นฉบับ"].tap()
+        XCTAssertTrue(app.buttons["clip.chooseAudio"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Streaming test clip 0"].exists)
+
+    }
+
+    @MainActor
+    func testTabsUseSharedSignInAndCancelReturnsToSource() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        for tab in ["Map", "Profile", "Upload"] {
+            app.tabBars.buttons[tab].tap()
+            let open = app.buttons["auth.openSignIn"]
+            XCTAssertTrue(open.waitForExistence(timeout: 10), app.debugDescription)
+            open.tap()
+            let close = app.buttons["auth.closeSignIn"]
+            XCTAssertTrue(close.waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["signin.country"].exists)
+            close.tap()
+            XCTAssertTrue(app.tabBars.buttons[tab].isSelected)
+            XCTAssertTrue(open.waitForExistence(timeout: 5))
+        }
+    }
+
+    @MainActor
     func testThaiAudioRequiresViewerChoiceAndHandlesUnavailableService() throws {
         let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED"])
         let choose = app.buttons["feed.chooseAudio"]

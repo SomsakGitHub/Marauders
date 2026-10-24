@@ -31,7 +31,7 @@ final class AuthViewModel {
         self.tokenStore = tokenStore
         self.authAPI = authAPI
         if AppRuntimeConfiguration.isUITesting {
-            isSignedIn = true
+            isSignedIn = !ProcessInfo.processInfo.arguments.contains("UITEST_GUEST")
             isCheckingCredential = false
         }
     }
@@ -123,6 +123,15 @@ final class AuthViewModel {
             }
         }
     }
+
+    #if DEBUG
+    /// UI-only completion; creates no credentials and never authenticates API requests.
+    func completeUITestSignIn() {
+        guard AppRuntimeConfiguration.isUITesting else { return }
+        isSignedIn = true
+        isCheckingCredential = false
+    }
+    #endif
 
     func signOut() {
         try? sessionStore.clear()
