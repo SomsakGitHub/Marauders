@@ -33,6 +33,27 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testPlaceSearchShowsChoicesAndConfirmsSelectedPin() throws {
+        let app = launchApp()
+        app.tabBars.buttons["Upload"].tap()
+        let choose = app.buttons["upload.chooseClipLocation"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 10))
+        choose.tap()
+        let field = app.textFields["upload.clipLocationPicker.searchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("CentralWorld Bangkok")
+        let results = app.descendants(matching: .any)["upload.clipLocationPicker.results"].firstMatch
+        XCTAssertTrue(results.waitForExistence(timeout: 25), app.debugDescription)
+        let first = results.buttons.firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        first.tap()
+        XCTAssertFalse(results.exists)
+        app.buttons["upload.clipLocationPicker.confirm"].tap()
+        XCTAssertTrue(app.staticTexts["upload.clipLocation.value"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
     func testSmokeUploadTab() throws {
         let app = launchApp()
 
@@ -193,9 +214,12 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(choose.waitForExistence(timeout: 5))
         choose.tap()
         app.buttons["auth.completeUITestSignIn"].tap()
-        XCTAssertTrue(app.buttons["ฟังเสียงต้นฉบับ"].waitForExistence(timeout: 10), app.debugDescription)
-        app.buttons["ฟังเสียงต้นฉบับ"].tap()
-        XCTAssertTrue(app.buttons["clip.chooseAudio"].waitForExistence(timeout: 5))
+        XCTAssertTrue(choose.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["Feed"].isSelected)
+        XCTAssertFalse(app.buttons["auth.closeSignIn"].exists)
+        XCTAssertFalse(app.buttons["clip.chooseAudio"].exists)
+        XCTAssertFalse(app.buttons["clip.closeVideo"].exists)
+        XCTAssertFalse(app.buttons["แปลเป็นเสียงไทยด้วย AI"].exists)
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].exists)
 
     }

@@ -19,7 +19,7 @@ struct VideoFeedView: View {
     /// Opens the public profile for a tapped author handle.
     var onOpenProfile: (String) -> Void = { _ in }
 
-    @State private var pendingAudioClip: FeedVideo?
+    @State private var isWaitingForSignIn = false
     @State private var isChoosingAudio = false
     @State private var resumeAfterAudioChoice = false
     private struct AudioRoute: Identifiable {
@@ -65,15 +65,18 @@ struct VideoFeedView: View {
             }
         }
         .onChange(of: signInDismissalID) { _, _ in
+            guard isWaitingForSignIn else { return }
+            isWaitingForSignIn = false
             isChoosingAudio = false
-            let pending = pendingAudioClip
-            pendingAudioClip = nil
-            guard isSignedIn, let pending, pending.allowsThaiAudio else {
+            if isSignedIn {
+                // The session change reloads the server-filtered feed. Never reopen
+                // the guest clip, which may belong to the newly signed-in user.
+                resumeAfterAudioChoice = false
+                guard isFeedTabSelected, scenePhase == .active else { return }
+                applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+            } else {
                 resumeAfterAudioChoiceIfNeeded()
-                return
             }
-            playerEngine.pause()
-            audioRoute = AudioRoute(clip: pending, requestThaiOnOpen: false)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("feed.root")
@@ -189,11 +192,11 @@ struct VideoFeedView: View {
                         .frame(width: geometry.size.width, height: geometry.size.height)
 
                     FeedClipActionRail(clip: video, onChooseThai: {
-                        guard isSignedIn else { pendingAudioClip = video; onSignIn(); return }
+                        guard isSignedIn else { isWaitingForSignIn = true; onSignIn(); return }
                         playerEngine.pause()
                         audioRoute = AudioRoute(clip: video, requestThaiOnOpen: true)
                     }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
-                        onRequireSignIn: { pendingAudioClip = video; onSignIn() },
+                        onRequireSignIn: { isWaitingForSignIn = true; onSignIn() },
                         onAudioSelectionChanged: { open in
                             if open {
                                 resumeAfterAudioChoice = playerEngine.phase == .playing
@@ -273,7 +276,7 @@ struct VideoFeedView: View {
     }
 
     private func resumeAfterAudioChoiceIfNeeded() {
-        guard resumeAfterAudioChoice, audioRoute == nil, pendingAudioClip == nil,
+        guard resumeAfterAudioChoice, audioRoute == nil, !isWaitingForSignIn,
               isFeedTabSelected, scenePhase == .active else { return }
         resumeAfterAudioChoice = false
         applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
