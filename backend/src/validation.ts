@@ -1,3 +1,4 @@
+import { DUBBING_LANGUAGES } from "./audio/cache";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -20,6 +21,10 @@ const MEDIA_HLS_OBJECT_KEY_RE =
   /^videos\/[0-9a-f-]{36}\/(master\.m3u8|seg\d{3}\.ts)$/;
 const MEDIA_AVATAR_OBJECT_KEY_RE =
   /^avatars\/[0-9a-f-]{36}\.(jpg|jpeg|png)$/;
+/** Shared AI audio: one object per clip revision and dubbing language (see audio/cache.ts). */
+const MEDIA_DUBBED_AUDIO_KEY_RE = new RegExp(
+  `^translations/[0-9a-f-]{36}/[0-9a-f]{64}-(${DUBBING_LANGUAGES.join("|")})-v1\\.m4a$`,
+);
 
 export function parseFeedLimit(raw: string | null): number {
   if (raw === null || raw === "") {
@@ -240,7 +245,7 @@ export function assertMediaObjectKey(key: string): void {
     !MEDIA_OBJECT_KEY_RE.test(key) &&
     !MEDIA_HLS_OBJECT_KEY_RE.test(key) &&
     !MEDIA_AVATAR_OBJECT_KEY_RE.test(key) &&
-    !/^translations\/[0-9a-f-]{36}\/[0-9a-f]{64}-th-v1\.m4a$/.test(key)
+    !MEDIA_DUBBED_AUDIO_KEY_RE.test(key)
   ) {
     throw new FeedValidationError("invalid media path");
   }

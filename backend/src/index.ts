@@ -3,7 +3,8 @@ import { listFeedVideos } from "./db/feed";
 import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
-import { handleThaiAudio } from "./routes/thaiAudio";
+import { handleDubbedAudio } from "./routes/dubbedAudio";
+import { parseDubbingLanguage } from "./audio/cache";
 import { handleMediaGet } from "./routes/media";
 import { handlePublicProfileGet } from "./routes/publicProfile";
 import { handleUserLocationUpdate } from "./routes/userLocation";
@@ -266,8 +267,11 @@ export default {
       return withCors(await handlePublicProfileGet(request, env, rawHandle), request);
     }
 
-    const thaiAudioMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/thai-audio$/);
-    if (thaiAudioMatch && (request.method === "GET" || request.method === "POST")) {
+    // `thai-audio` is the original Thai-only path, kept for app versions that predate listening languages.
+    const dubbedAudioMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/(dubbed-audio|thai-audio)$/);
+    if (dubbedAudioMatch && (request.method === "GET" || request.method === "POST")) {
+      const language = dubbedAudioMatch[2] === "thai-audio" ? "th" : parseDubbingLanguage(url.searchParams.get("lang"));
+      if (!language) return withCors(errorResponse(400, "unsupported language"), request);
       const auth = request.headers.has("Authorization")
         ? await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "") : null;
       if ((request.headers.has("Authorization") || request.method === "POST") && !auth) {
@@ -275,10 +279,10 @@ export default {
       }
       if (request.method === "POST") {
         const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
-          { scope: "thai-audio-upload", limit: 10, windowSeconds: 60 }, auth!.userId);
+          { scope: "dubbed-audio-upload", limit: 10, windowSeconds: 60 }, auth!.userId);
         if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
       }
-      return withCors(await handleThaiAudio(request, env, thaiAudioMatch[1], auth?.userId), request);
+      return withCors(await handleDubbedAudio(request, env, dubbedAudioMatch[1], language, auth?.userId), request);
     }
 
     if (

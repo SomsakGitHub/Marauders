@@ -1,4 +1,4 @@
-import { deleteThaiAudio } from "./thaiAudio";
+import { deleteDubbedAudio } from "./dubbedAudio";
 import { deleteFeedVideo } from "../db/feed";
 import type { Env } from "../index";
 import { FeedValidationError, parseVideoId } from "../validation";
@@ -59,8 +59,8 @@ export async function handleVideoDelete(
   }
 
   if (env.VIDEOS) {
-    try { await deleteThaiAudio(env.VIDEOS, videoId); }
-    catch (error) { console.error("Thai audio cleanup failed", error); }
+    try { await deleteDubbedAudio(env.VIDEOS, videoId); }
+    catch (error) { console.error("Dubbed audio cleanup failed", error); }
   }
   return jsonOk({ deleted: true });
 }

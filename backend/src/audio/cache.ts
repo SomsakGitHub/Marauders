@@ -1,12 +1,25 @@
-export const THAI_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
-export const THAI_AUDIO_VERSION = "th-v1";
+export const DUBBED_AUDIO_MAX_BYTES = 4 * 1024 * 1024;
+export const DUBBED_AUDIO_VERSION = "v1";
+
+/** Languages a viewer can listen in; mirrors the app's listening-language list (BCP-47 base codes). */
+export const DUBBING_LANGUAGES: readonly string[] = [
+  "ar", "da", "de", "en", "es", "fr", "hi", "id", "it", "ja", "ko",
+  "nb", "nl", "pl", "pt", "ru", "sv", "th", "tr", "uk", "vi", "zh",
+];
+
+/** Returns the lowercase language code when it is an allowed dubbing language, otherwise null. */
+export function parseDubbingLanguage(value: string | null | undefined): string | null {
+  const language = value?.trim().toLowerCase();
+  return language && DUBBING_LANGUAGES.includes(language) ? language : null;
+}
 
 export async function sourceHash(source: string): Promise<string> {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source)));
   return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
 }
-export function audioKey(id: string, hash: string): string {
-  return `translations/${id.toLowerCase()}/${hash}-${THAI_AUDIO_VERSION}.m4a`;
+/** One immutable object per clip revision and language; Thai keeps its original `-th-v1` name. */
+export function audioKey(id: string, hash: string, language: string): string {
+  return `translations/${id.toLowerCase()}/${hash}-${language}-${DUBBED_AUDIO_VERSION}.m4a`;
 }
 
 type Box = { type: string; payload: number; end: number };
@@ -33,8 +46,8 @@ function boxes(data: Uint8Array, start: number, end: number): Box[] {
 }
 
 /** Structural bounds, duration and AAC-only audio; never trusts MIME/extension alone. */
-export function validateThaiAudio(data: Uint8Array): void {
-  if (data.length < 32 || data.length > THAI_AUDIO_MAX_BYTES) throw new Error("invalid audio size");
+export function validateDubbedAudio(data: Uint8Array): void {
+  if (data.length < 32 || data.length > DUBBED_AUDIO_MAX_BYTES) throw new Error("invalid audio size");
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   const root = boxes(data, 0, data.length);
   if (!root.some(b => b.type === "ftyp") || !root.some(b => b.type === "mdat" && b.end > b.payload)) throw new Error("invalid M4A");
@@ -71,7 +84,7 @@ export function validateThaiAudio(data: Uint8Array): void {
 
 export async function readAudioBody(request: Request): Promise<Uint8Array> {
   const length = Number(request.headers.get("content-length") ?? "0");
-  if (length > THAI_AUDIO_MAX_BYTES) throw new Error("audio too large");
+  if (length > DUBBED_AUDIO_MAX_BYTES) throw new Error("audio too large");
   if (!request.body) throw new Error("missing audio");
   const reader = request.body.getReader();
   const pieces: Uint8Array[] = [];
@@ -81,7 +94,7 @@ export async function readAudioBody(request: Request): Promise<Uint8Array> {
       const item = await reader.read();
       if (item.done) break;
       size += item.value.byteLength;
-      if (size > THAI_AUDIO_MAX_BYTES) { await reader.cancel(); throw new Error("audio too large"); }
+      if (size > DUBBED_AUDIO_MAX_BYTES) { await reader.cancel(); throw new Error("audio too large"); }
       pieces.push(item.value);
     }
   } finally { reader.releaseLock(); }
