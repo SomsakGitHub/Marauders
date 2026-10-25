@@ -33,12 +33,10 @@ enum DubbingSourceLanguage: String, Hashable, Sendable {
         }
     }
 
-    /// Picks the language from the uploader-side detection. Clips with no usable
-    /// detection keep the original English behavior.
+    /// Picks the language from what the uploader chose or the device detected. Clips with
+    /// no usable language keep the original English behavior.
     init(spokenLanguage: SpokenLanguageAssessment?) {
-        let code = spokenLanguage?.status == "likely"
-            ? spokenLanguage?.code?.split(separator: "-").first.map(String.init)
-            : nil
+        let code = spokenLanguage?.knownCode?.split(separator: "-").first.map(String.init)
         self = code == "es" ? .spanish : .english
     }
 }

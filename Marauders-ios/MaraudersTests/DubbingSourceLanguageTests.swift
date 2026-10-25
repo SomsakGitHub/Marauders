@@ -26,6 +26,12 @@ struct DubbingSourceLanguageTests {
         #expect(DubbingSourceLanguage(spokenLanguage: .init(status: "unknown", code: "es")) == .english)
     }
 
+    @Test func uploaderChosenSpanishSelectsSpanishAndAnUnsureChoiceDoesNot() {
+        #expect(clip(.chosen("es")).dubbingSourceLanguage == .spanish)
+        #expect(clip(.chosen("en")).dubbingSourceLanguage == .english)
+        #expect(clip(.unsure()).dubbingSourceLanguage == .english)
+    }
+
     @Test func languageCodesMatchAppleFrameworks() {
         #expect(DubbingSourceLanguage.spanish.translationCode == "es")
         #expect(DubbingSourceLanguage.spanish.speechLocale == "es-ES")

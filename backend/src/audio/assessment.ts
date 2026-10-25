@@ -1,16 +1,19 @@
 function spokenLanguage(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const x = value as Record<string, unknown>;
-  if (!["likely", "unknown"].includes(x.status as string)) return null;
+  // "confirmed" is a language the uploader picked; "likely" is the on-device guess.
+  if (!["likely", "confirmed", "unknown"].includes(x.status as string)) return null;
   if (typeof x.sampledSeconds !== "number" || !Number.isFinite(x.sampledSeconds) || x.sampledSeconds < 0 || x.sampledSeconds > 8) return null;
   const code = typeof x.code === "string" && x.code.length <= 35 && /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(x.code) ? x.code : null;
   const confidence = typeof x.confidence === "number" && Number.isFinite(x.confidence) && x.confidence >= 0 && x.confidence <= 1 ? x.confidence : null;
   if (x.status === "likely" && (!code || confidence === null)) return null;
-  const reasons = ["not_attempted", "unreadable", "permission_denied", "model_unavailable", "no_speech", "not_recognized", "ambiguous", "cancelled"];
-  return { status: x.status, code: x.status === "likely" ? code : null,
+  if (x.status === "confirmed" && !code) return null;
+  const reasons = ["not_attempted", "unreadable", "permission_denied", "model_unavailable", "no_speech", "not_recognized", "ambiguous", "cancelled", "uploader_unsure"];
+  const byUploader = x.status === "confirmed" || (x.status === "unknown" && x.method === "uploader");
+  return { status: x.status, code: x.status === "unknown" ? null : code,
     confidence: x.status === "likely" ? confidence : null,
     reason: reasons.includes(x.reason as string) ? x.reason : null,
-    method: x.method === "on_device_speech_analyzer_text" ? "on_device_speech_analyzer_text" : "on_device_speech_text", sampledSeconds: x.sampledSeconds };
+    method: byUploader ? "uploader" : x.method === "on_device_speech_analyzer_text" ? "on_device_speech_analyzer_text" : "on_device_speech_text", sampledSeconds: x.sampledSeconds };
 }
 
 // Untrusted client advisory; never a translation guarantee.

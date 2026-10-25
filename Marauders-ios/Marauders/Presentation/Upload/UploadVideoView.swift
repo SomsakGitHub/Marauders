@@ -55,6 +55,22 @@ struct UploadVideoView: View {
                 }
                 .disabled(viewModel.isUploading || viewModel.isPreparing)
 
+                if viewModel.showsSpokenLanguagePicker {
+                    Section {
+                        Picker("Language in clip", selection: spokenLanguageSelection) {
+                            Text("Not sure").tag(String?.none)
+                            ForEach(SpokenLanguageCatalog.options(including: viewModel.spokenLanguageCode)) { option in
+                                Text(option.name).tag(Optional(option.code))
+                            }
+                        }
+                        .pickerStyle(.navigationLink)
+                        .accessibilityIdentifier("upload.spokenLanguage")
+                    } footer: {
+                        Text(spokenLanguageFooter)
+                    }
+                    .disabled(viewModel.isUploading)
+                }
+
                 Section("Clip location") {
                     if let clipLocation = viewModel.clipLocation {
                         Text(
@@ -158,6 +174,24 @@ struct UploadVideoView: View {
             } message: {
                 Text("Turn on location for Marauders in Settings to tag your clip.")
             }
+        }
+    }
+
+    private var spokenLanguageSelection: Binding<String?> {
+        Binding(
+            get: { viewModel.spokenLanguageCode },
+            set: { viewModel.chooseSpokenLanguage($0) }
+        )
+    }
+
+    private var spokenLanguageFooter: String {
+        switch viewModel.spokenLanguageOrigin {
+        case .detected:
+            "Detected on your iPhone. Change it if it's wrong."
+        case .chosen:
+            "You chose this language. AI dubbing uses it as the source language."
+        case .undetected:
+            "We couldn't tell what language is spoken. Choose it so viewers can hear this clip in their own language."
         }
     }
 

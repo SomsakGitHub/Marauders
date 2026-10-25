@@ -16,6 +16,17 @@ assert.equal(parse(JSON.stringify(valid)).spokenLanguage,null);
 assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...language,confidence:2}})).spokenLanguage,null);
 assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{status:'unknown',code:'en',sampledSeconds:0}})).spokenLanguage.code,null);
 assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...language,sampledSeconds:100}})).spokenLanguage,null);
+const chosen = {status:'confirmed',code:'fr',confidence:null,reason:null,method:'uploader',sampledSeconds:0};
+const confirmed = parse(JSON.stringify({...valid,spokenLanguage:chosen})).spokenLanguage;
+assert.deepEqual(confirmed,{status:'confirmed',code:'fr',confidence:null,reason:null,method:'uploader',sampledSeconds:0});
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...chosen,confidence:0.9,method:'spoofed'}})).spokenLanguage.confidence,null);
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...chosen,method:'on_device_speech_text'}})).spokenLanguage.method,'uploader');
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...chosen,code:null}})).spokenLanguage,null);
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...chosen,code:'Not A Code'}})).spokenLanguage,null);
+const unsure = parse(JSON.stringify({...valid,spokenLanguage:{status:'unknown',code:'fr',reason:'uploader_unsure',method:'uploader',sampledSeconds:3}})).spokenLanguage;
+assert.deepEqual(unsure,{status:'unknown',code:null,confidence:null,reason:'uploader_unsure',method:'uploader',sampledSeconds:3});
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{status:'likely',code:'fr',confidence:0.9,method:'uploader',sampledSeconds:3}})).spokenLanguage.method,'on_device_speech_text');
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{status:'unknown',reason:'made_up',sampledSeconds:3}})).spokenLanguage.reason,null);
 console.log('audio assessment validation passed');
 
 const metadata = parse(JSON.stringify({...valid,spokenLanguage:{...language,code:'es',method:'on_device_speech_analyzer_text'}}));

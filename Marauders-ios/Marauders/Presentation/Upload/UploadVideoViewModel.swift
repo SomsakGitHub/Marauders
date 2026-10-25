@@ -67,6 +67,43 @@ final class UploadVideoViewModel {
             && clipLocation != nil
     }
 
+    /// Where the language shown on the upload screen came from.
+    enum SpokenLanguageOrigin: Equatable {
+        case detected
+        case chosen
+        case undetected
+    }
+
+    /// Language of the speech in the clip, as it will be sent with the upload.
+    var spokenLanguageCode: String? { audioAssessment?.spokenLanguage?.knownCode }
+
+    var spokenLanguageOrigin: SpokenLanguageOrigin {
+        switch audioAssessment?.spokenLanguage?.status {
+        case "confirmed": .chosen
+        case "likely": .detected
+        default: .undetected
+        }
+    }
+
+    /// Music-only clips and clips without sound have no speech to label.
+    var showsSpokenLanguagePicker: Bool {
+        guard uploadFileURL != nil, !isPreparing, let assessment = audioAssessment else { return false }
+        return assessment.content != .music && assessment.signal != .noTrack
+    }
+
+    /// The uploader's answer wins over the on-device guess. `nil` means "not sure".
+    func chooseSpokenLanguage(_ code: String?) {
+        guard var assessment = audioAssessment else { return }
+        let sampled = min(assessment.spokenLanguage?.sampledSeconds ?? 0, 8)
+        if let code, !code.isEmpty {
+            assessment.spokenLanguage = .chosen(code, sampledSeconds: sampled)
+        } else {
+            assessment.spokenLanguage = .unsure(sampledSeconds: sampled)
+        }
+        audioAssessment = assessment
+        AppLog.info("upload", "spoken language \(code == nil ? "marked unsure" : "chosen") by uploader")
+    }
+
     func resetPickedFile() {
         preparationGeneration += 1
         isPreparing = false
