@@ -23,6 +23,11 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     /// Music-only advisories keep original playback without an AI generation entry point.
     var allowsThaiAudio: Bool { audioAssessment?.content != .music }
 
+    /// Language the Thai narration is translated from.
+    var dubbingSourceLanguage: DubbingSourceLanguage {
+        DubbingSourceLanguage(spokenLanguage: audioAssessment?.spokenLanguage)
+    }
+
     init(
         id: UUID = UUID(),
         streamURL: URL,

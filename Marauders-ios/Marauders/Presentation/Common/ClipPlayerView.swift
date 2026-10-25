@@ -75,7 +75,7 @@ struct ClipPlayerView: View {
                         return
                     }
                     guard wantsThai, !Task.isCancelled else { return }
-                    translationConfiguration = .init(source: .init(identifier: "en"), target: .init(identifier: "th"), preferredStrategy: .lowLatency)
+                    translationConfiguration = .init(source: .init(identifier: clip.dubbingSourceLanguage.translationCode), target: .init(identifier: "th"), preferredStrategy: .lowLatency)
                     translationConfiguration?.invalidate()
                 }
             } else {
@@ -86,7 +86,7 @@ struct ClipPlayerView: View {
         }
         .translationTask(translationConfiguration) { session in
             guard wantsThai, clip.allowsThaiAudio, !Task.isCancelled else { return }
-            if let url = await dubbing.request(sourceURL: clip.streamURL, session: session), wantsThai, !Task.isCancelled {
+            if let url = await dubbing.request(sourceURL: clip.streamURL, session: session, language: clip.dubbingSourceLanguage), wantsThai, !Task.isCancelled {
                 await useThaiTrack(url)
             }
         }

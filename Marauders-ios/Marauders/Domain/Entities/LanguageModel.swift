@@ -23,7 +23,7 @@ struct LanguageModel: Identifiable, Hashable, Sendable {
         .init(id: "translation.en-th", kind: .translation(source: "en", target: "th"),
               title: "English → Thai", detail: "Used by AI Thai dubbing"),
         .init(id: "translation.es-th", kind: .translation(source: "es", target: "th"),
-              title: "Spanish → Thai", detail: "Optional")
+              title: "Spanish → Thai", detail: "Used by AI Thai dubbing of Spanish clips")
     ]
 
     static let speechModels: [LanguageModel] = [
@@ -32,7 +32,7 @@ struct LanguageModel: Identifiable, Hashable, Sendable {
         .init(id: "speech.th-TH", kind: .speech(locale: "th-TH"),
               title: "Thai", detail: "Speech recognition"),
         .init(id: "speech.es-ES", kind: .speech(locale: "es-ES"),
-              title: "Spanish", detail: "Used to detect Spanish clips on upload")
+              title: "Spanish", detail: "Detects Spanish on upload and transcribes it for dubbing")
     ]
 }
 

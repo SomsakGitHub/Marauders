@@ -7,10 +7,10 @@ enum ThaiDubbingError: LocalizedError {
     case unavailable, permission, unsupported, speechUnclear, failed
     var errorDescription: String? {
         switch self {
-        case .unavailable: "เครื่องนี้ยังไม่พร้อมแปลบนอุปกรณ์ กรุณาติดตั้งภาษาอังกฤษและไทย แล้วลองใหม่"
+        case .unavailable: "เครื่องนี้ยังไม่พร้อมแปลบนอุปกรณ์ กรุณาติดตั้งภาษาต้นฉบับและไทยที่ Settings › Language models แล้วลองใหม่"
         case .permission: "กรุณาอนุญาตการรู้จำเสียงในการตั้งค่า เพื่อถอดคำพูดจากคลิป"
         case .unsupported: "การแปลบนเครื่องรองรับไฟล์คลิปไม่เกิน 12 MB"
-        case .speechUnclear: "ถอดคำพูดอังกฤษจากคลิปนี้ไม่ได้ ลองคลิปที่มีเสียงพูดชัดเจน หรือฟังเสียงต้นฉบับ"
+        case .speechUnclear: "ถอดคำพูดจากคลิปนี้ไม่ได้ ลองคลิปที่มีเสียงพูดชัดเจน หรือฟังเสียงต้นฉบับ"
         case .failed: "แปลเสียงบนเครื่องไม่สำเร็จ กรุณาฟังเสียงต้นฉบับก่อน"
         }
     }

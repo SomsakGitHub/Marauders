@@ -48,7 +48,7 @@ final class ThaiDubbingViewModel {
 
     /// Called only following an explicit Thai choice. The system may request
     /// language-model downloads, but clip speech/text stays on device.
-    func request(sourceURL: URL, session: TranslationSession) async -> URL? {
+    func request(sourceURL: URL, session: TranslationSession, language: DubbingSourceLanguage = .english) async -> URL? {
         let context = cacheContext?.sourceURL == sourceURL ? cacheContext : nil
         useOriginal()
         cacheContext = context
@@ -57,14 +57,19 @@ final class ThaiDubbingViewModel {
         isProcessing = true
         defer { if generation == current { isProcessing = false } }
         do {
-            let availability = await LanguageAvailability(preferredStrategy: .lowLatency).status(from: .init(identifier: "en"), to: .init(identifier: "th"))
+            let availability = await LanguageAvailability(preferredStrategy: .lowLatency).status(from: .init(identifier: language.translationCode), to: .init(identifier: "th"))
             guard availability != .unsupported else { throw ThaiDubbingError.unavailable }
             message = availability == .installed
-                ? "กำลังเตรียมภาษาอังกฤษและไทยบนเครื่อง…"
+                ? "กำลังเตรียมภาษา\(language.thaiName)และไทยบนเครื่อง…"
                 : "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ Settings › Language models"
             try await session.prepareTranslation()
             try check(current)
-            guard let speech = SFSpeechRecognizer(locale: Locale(identifier: "en-US")), speech.supportsOnDeviceRecognition else { throw ThaiDubbingError.unavailable }
+            // The legacy recognizer handles English; other languages use the SpeechAnalyzer model.
+            var speech: SFSpeechRecognizer?
+            if language == .english {
+                guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language.speechLocale)), recognizer.supportsOnDeviceRecognition else { throw ThaiDubbingError.unavailable }
+                speech = recognizer
+            }
             guard let voice = AVSpeechSynthesisVoice(language: "th-TH") else { throw ThaiDubbingError.unavailable }
             let permission = await withCheckedContinuation { continuation in
                 SFSpeechRecognizer.requestAuthorization { @Sendable status in continuation.resume(returning: status == .authorized) }
@@ -98,8 +103,13 @@ final class ThaiDubbingViewModel {
             var words: [String] = []
             for (index, segment) in segments.enumerated() {
                 try check(current)
-                message = "กำลังถอดคำพูดอังกฤษบนเครื่อง… \(index + 1)/\(segments.count)"
-                let text = try await transcribe(segment, recognizer: speech)
+                message = "กำลังถอดคำพูด\(language.thaiName)บนเครื่อง… \(index + 1)/\(segments.count)"
+                let text: String
+                if let speech {
+                    text = try await transcribe(segment, recognizer: speech)
+                } else {
+                    text = try await transcribeWithAnalyzer(segment, language: language)
+                }
                 words.append(text)
             }
             let text = words.joined(separator: " ")
@@ -166,6 +176,21 @@ final class ThaiDubbingViewModel {
     private func check(_ current: Int) throws {
         try Task.checkCancellation()
         guard current == generation else { throw CancellationError() }
+    }
+    private func transcribeWithAnalyzer(_ url: URL, language: DubbingSourceLanguage) async throws -> String {
+        do {
+            // The user explicitly asked for Thai, so a first-time model download is acceptable here.
+            guard let transcript = try await SpeechAnalyzerTranscriber.transcribe(
+                file: url, localeIdentifier: language.speechLocale, downloadModelIfNeeded: true, timeout: .seconds(60)
+            ) else { throw ThaiDubbingError.unavailable }
+            return transcript.text
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as ThaiDubbingError {
+            throw error
+        } catch {
+            throw ThaiDubbingError.speechUnclear
+        }
     }
     private func transcribe(_ url: URL, recognizer: SFSpeechRecognizer) async throws -> String {
         let operationID = UUID()
