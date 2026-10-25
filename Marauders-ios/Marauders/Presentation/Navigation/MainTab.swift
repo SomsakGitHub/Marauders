@@ -10,5 +10,6 @@ enum MainTab: Hashable, Sendable {
     case map
     case profile
     case upload
+    case settings
     case log
 }

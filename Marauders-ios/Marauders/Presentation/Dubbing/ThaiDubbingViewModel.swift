@@ -57,8 +57,11 @@ final class ThaiDubbingViewModel {
         isProcessing = true
         defer { if generation == current { isProcessing = false } }
         do {
-            guard await LanguageAvailability(preferredStrategy: .lowLatency).status(from: .init(identifier: "en"), to: .init(identifier: "th")) != .unsupported else { throw ThaiDubbingError.unavailable }
-            message = "กำลังเตรียมภาษาอังกฤษและไทยบนเครื่อง…"
+            let availability = await LanguageAvailability(preferredStrategy: .lowLatency).status(from: .init(identifier: "en"), to: .init(identifier: "th"))
+            guard availability != .unsupported else { throw ThaiDubbingError.unavailable }
+            message = availability == .installed
+                ? "กำลังเตรียมภาษาอังกฤษและไทยบนเครื่อง…"
+                : "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ Settings › Language models"
             try await session.prepareTranslation()
             try check(current)
             guard let speech = SFSpeechRecognizer(locale: Locale(identifier: "en-US")), speech.supportsOnDeviceRecognition else { throw ThaiDubbingError.unavailable }

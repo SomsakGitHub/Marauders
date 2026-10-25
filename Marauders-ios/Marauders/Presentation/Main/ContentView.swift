@@ -15,6 +15,7 @@ struct ContentView: View {
     let reportUserLocation: ReportUserLocationUseCase
     let makePublicProfileViewModel: (String) -> PublicProfileViewModel
 
+    @State private var languageModelsViewModel = LanguageModelsViewModel()
     @State private var showingSignIn = false
     @State private var signInDismissalID = 0
 
@@ -66,6 +67,12 @@ struct ContentView: View {
                     Label("Upload", systemImage: "plus.circle.fill")
                 }
                 .tag(MainTab.upload)
+
+            SettingsView(languageModels: languageModelsViewModel)
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
+                .tag(MainTab.settings)
 
             #if DEBUG
             NavigationStack {
