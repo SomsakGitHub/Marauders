@@ -58,7 +58,7 @@ struct UploadVideoView: View {
                 if viewModel.showsSpokenLanguagePicker {
                     Section {
                         Picker("Language in clip", selection: spokenLanguageSelection) {
-                            Text("Not sure").tag(String?.none)
+                            Text("Automatic").tag(String?.none)
                             ForEach(SpokenLanguageCatalog.options(including: viewModel.spokenLanguageCode)) { option in
                                 Text(option.name).tag(Optional(option.code))
                             }
@@ -186,12 +186,10 @@ struct UploadVideoView: View {
 
     private var spokenLanguageFooter: String {
         switch viewModel.spokenLanguageOrigin {
-        case .detected:
-            "Detected on your iPhone. Change it if it's wrong."
         case .chosen:
-            "You chose this language. AI dubbing uses it as the source language."
-        case .undetected:
-            "We couldn't tell what language is spoken. Choose it so viewers can hear this clip in their own language."
+            "You chose this language. Viewers' iPhones use it instead of working it out themselves."
+        case .unset:
+            "Optional. Left on Automatic, each viewer's iPhone works out the language when they listen."
         }
     }
 

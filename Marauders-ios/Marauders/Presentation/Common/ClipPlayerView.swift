@@ -16,18 +16,24 @@ struct ClipPlayerView: View {
     let onClose: () -> Void
     var onOpenInFeed: (() -> Void)?
     var onDelete: (() -> Void)?
-    var requestThaiOnOpen = false
+    /// When set, dubbing into this language starts as soon as the player opens.
+    var requestDubbingTarget: ListeningLanguage?
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var translationConfiguration: TranslationSession.Configuration?
-    @State private var dubbing = ThaiDubbingViewModel()
-    @State private var wantsThai = false
+    @State private var dubbing = DubbingViewModel()
+    @State private var dubbingTarget: ListeningLanguage?
+    @State private var dubbingSource: DubbingSourceLanguage?
+    @State private var showingLanguagePicker = false
+    @State private var languagePicker = ListeningLanguagePickerViewModel()
+    @State private var wantsDubbing = false
     @State private var audioRequestID = 0
     @State private var choosingAudio = false
     @State private var didChooseAudio = false
-    @State private var hasThaiTrack = false
+    @State private var hasDubbedTrack = false
     @State private var resumeAfterInterruption = false
     @State private var player: AVPlayer?
+    private let listening = ListeningLanguageStore.shared
 
     var body: some View {
         ZStack {
@@ -48,46 +54,65 @@ struct ClipPlayerView: View {
                 bottomBar
             }
         }
-        .confirmationDialog("เลือกเสียงสำหรับคลิปนี้", isPresented: $choosingAudio, titleVisibility: .visible) {
-            Button("ฟังเสียงต้นฉบับ") { wantsThai = false; dubbing.useOriginal() }
-            if clip.allowsThaiAudio {
-                Button("แปลเป็นเสียงไทยด้วย AI") { audioRequestID += 1; wantsThai = true }
+        .confirmationDialog("Choose audio for this clip", isPresented: $choosingAudio, titleVisibility: .visible) {
+            Button("Original audio") { wantsDubbing = false; dubbing.useOriginal() }
+            if clip.allowsAIAudio {
+                ForEach(listening.targets(for: clip)) { target in
+                    Button("Listen in \(target.sentenceName()) (AI)") { startDubbing(in: target) }
+                }
             }
-            Button("ยกเลิก", role: .cancel) {}
+            Button("Change listening language…") { showingLanguagePicker = true }
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("ใช้เสียงแปลไทยจาก AI ที่เก็บไว้ หากยังไม่มีจะสร้างบน iPhone และเก็บให้ผู้ชมคนอื่นใช้ซ้ำได้ เสียงแปลอาจไม่ถูกต้องหรือตรงจังหวะต้นฉบับ")
+            Text("AI dubbing is created on your iPhone and saved so other viewers can reuse it. It may be inaccurate or out of sync with the original.")
+        }
+        .sheet(isPresented: $showingLanguagePicker) {
+            NavigationStack {
+                ListeningLanguagePickerView(viewModel: languagePicker, onChosen: languageChosen)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close") { showingLanguagePicker = false }
+                        }
+                    }
+            }
         }
         .onAppear {
             startPlayback()
-            if !didChooseAudio, clip.allowsThaiAudio {
+            if !didChooseAudio, listening.offersDubbing(for: clip) {
                 didChooseAudio = true
-                if requestThaiOnOpen { wantsThai = true } else { choosingAudio = true }
+                if let requestDubbingTarget { startDubbing(in: requestDubbingTarget) } else { choosingAudio = true }
             }
         }
-        .task(id: "\(wantsThai):\(audioRequestID)") {
-            if wantsThai, clip.allowsThaiAudio {
+        .task(id: "\(wantsDubbing):\(audioRequestID)") {
+            if wantsDubbing, clip.allowsAIAudio, let target = dubbingTarget {
                 translationConfiguration = nil
                 if AppRuntimeConfiguration.isUITesting {
                     dubbing.unavailableForTesting()
-                } else {
-                    if let audio = await dubbing.cachedAudio(videoID: clip.id, sourceURL: clip.streamURL), wantsThai, !Task.isCancelled {
-                        await useThaiTrack(audio)
-                        return
-                    }
-                    guard wantsThai, !Task.isCancelled else { return }
-                    translationConfiguration = .init(source: .init(identifier: clip.dubbingSourceLanguage.translationCode), target: .init(identifier: "th"), preferredStrategy: .lowLatency)
+                    return
+                }
+                let plan = await dubbing.prepare(clip: clip, target: target)
+                guard wantsDubbing, !Task.isCancelled else { return }
+                switch plan {
+                case .cached(let audio):
+                    await useDubbedTrack(audio)
+                case .translate(let source):
+                    dubbingSource = source
+                    translationConfiguration = .init(source: .init(identifier: source.translationCode), target: .init(identifier: target.code), preferredStrategy: .lowLatency)
                     translationConfiguration?.invalidate()
+                case .unavailable:
+                    // The status line says why; the original audio keeps playing.
+                    break
                 }
             } else {
                 translationConfiguration = nil
                 dubbing.useOriginal()
-                if hasThaiTrack { restoreOriginalTrack() }
+                if hasDubbedTrack { restoreOriginalTrack() }
             }
         }
         .translationTask(translationConfiguration) { session in
-            guard wantsThai, clip.allowsThaiAudio, !Task.isCancelled else { return }
-            if let url = await dubbing.request(sourceURL: clip.streamURL, session: session, language: clip.dubbingSourceLanguage), wantsThai, !Task.isCancelled {
-                await useThaiTrack(url)
+            guard wantsDubbing, clip.allowsAIAudio, let target = dubbingTarget, let source = dubbingSource, !Task.isCancelled else { return }
+            if let url = await dubbing.request(sourceURL: clip.streamURL, session: session, source: source, target: target), wantsDubbing, !Task.isCancelled {
+                await useDubbedTrack(url)
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -97,7 +122,7 @@ struct ClipPlayerView: View {
             } else if phase == .background {
                 resumeAfterInterruption = false
                 player?.pause()
-                wantsThai = false
+                wantsDubbing = false
                 translationConfiguration = nil
                 dubbing.useOriginal()
             } else if resumeAfterInterruption {
@@ -112,9 +137,9 @@ struct ClipPlayerView: View {
             if scenePhase == .active { player?.play() }
         }
         .onReceive(NotificationCenter.default.publisher(for: AVPlayerItem.failedToPlayToEndTimeNotification)) { note in
-            guard hasThaiTrack, let item = note.object as? AVPlayerItem, item === player?.currentItem else { return }
+            guard hasDubbedTrack, let item = note.object as? AVPlayerItem, item === player?.currentItem else { return }
             restoreOriginalTrack()
-            wantsThai = false
+            wantsDubbing = false
             dubbing.playbackFailed()
         }
     }
@@ -161,13 +186,13 @@ struct ClipPlayerView: View {
 
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if clip.allowsThaiAudio {
-            Button { choosingAudio = true } label: {
-                Label(hasThaiTrack ? "เสียงไทยจาก AI · เปลี่ยนเสียง" : "เสียงต้นฉบับ · เลือกเสียง", systemImage: "waveform")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("clip.chooseAudio")
+            if listening.offersDubbing(for: clip) {
+                Button { choosingAudio = true } label: {
+                    Label(audioButtonTitle, systemImage: "waveform")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("clip.chooseAudio")
             }
             if let message = dubbing.message {
                 HStack {
@@ -222,6 +247,32 @@ struct ClipPlayerView: View {
         )
     }
 
+    private var audioButtonTitle: String {
+        if hasDubbedTrack, let target = dubbingTarget {
+            return String(localized: "AI audio in \(target.sentenceName()) · Change audio")
+        }
+        return String(localized: "Original audio · Choose audio")
+    }
+
+    /// Starts dubbing into `target`, the language the viewer just picked.
+    private func startDubbing(in target: ListeningLanguage) {
+        dubbingTarget = target
+        audioRequestID += 1
+        wantsDubbing = true
+    }
+
+    private func languageChosen() {
+        showingLanguagePicker = false
+        if let chosen = listening.targets(for: clip).first {
+            startDubbing(in: chosen)
+        } else {
+            // The chosen language is the one already spoken in the clip.
+            wantsDubbing = false
+            dubbing.useOriginal()
+            if hasDubbedTrack { restoreOriginalTrack() }
+        }
+    }
+
     private func restoreOriginalTrack() {
         guard let player else { return }
         let time = player.currentTime()
@@ -229,35 +280,35 @@ struct ClipPlayerView: View {
         player.replaceCurrentItem(with: AVPlayerItem(url: clip.streamURL))
         player.seek(to: time)
         if playing, scenePhase == .active { player.play() }
-        hasThaiTrack = false
+        hasDubbedTrack = false
     }
 
-    private func useThaiTrack(_ url: URL) async {
+    private func useDubbedTrack(_ url: URL) async {
         do {
             let original = AVURLAsset(url: clip.streamURL)
             let translated = AVURLAsset(url: url)
             guard let video = try await original.loadTracks(withMediaType: .video).first,
-                  let audio = try await translated.loadTracks(withMediaType: .audio).first else { throw ThaiDubbingError.failed }
+                  let audio = try await translated.loadTracks(withMediaType: .audio).first else { throw DubbingError.failed }
             let duration = try await original.load(.duration)
             let audioDuration = try await translated.load(.duration)
             let composition = AVMutableComposition()
             guard let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
-                  let audioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw ThaiDubbingError.failed }
+                  let audioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw DubbingError.failed }
             try videoTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: video, at: .zero)
             videoTrack.preferredTransform = try await video.load(.preferredTransform)
             try audioTrack.insertTimeRange(CMTimeRange(start: .zero, duration: audioDuration), of: audio, at: .zero)
-            // Preserve the complete translated speech when Thai narration runs longer.
+            // Preserve the complete translated speech when the narration runs longer.
             if CMTimeCompare(audioDuration, duration) > 0 {
                 audioTrack.scaleTimeRange(CMTimeRange(start: .zero, duration: audioDuration), toDuration: duration)
             }
             try Task.checkCancellation()
-            guard wantsThai, let player else { return }
+            guard wantsDubbing, let player else { return }
             let time = CMTime.zero
             let playing = player.timeControlStatus == .playing
             player.replaceCurrentItem(with: AVPlayerItem(asset: composition))
-            hasThaiTrack = true
+            hasDubbedTrack = true
             await player.seek(to: time)
-            guard !Task.isCancelled, wantsThai else { return }
+            guard !Task.isCancelled, wantsDubbing else { return }
             if playing, scenePhase == .active { player.play() }
         } catch is CancellationError { }
         catch { dubbing.playbackFailed() }

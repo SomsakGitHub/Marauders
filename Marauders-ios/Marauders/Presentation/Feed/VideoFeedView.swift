@@ -24,7 +24,8 @@ struct VideoFeedView: View {
     @State private var resumeAfterAudioChoice = false
     private struct AudioRoute: Identifiable {
         let clip: FeedVideo
-        let requestThaiOnOpen: Bool
+        /// The language to start dubbing in as soon as the player opens.
+        let requestDubbingTarget: ListeningLanguage
         var id: UUID { clip.id }
     }
     @State private var audioRoute: AudioRoute?
@@ -61,7 +62,7 @@ struct VideoFeedView: View {
             if isFeedTabSelected, scenePhase == .active { applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex) }
         }) { route in
             if isSignedIn {
-                ClipPlayerView(clip: route.clip, onClose: { audioRoute = nil }, requestThaiOnOpen: route.requestThaiOnOpen)
+                ClipPlayerView(clip: route.clip, onClose: { audioRoute = nil }, requestDubbingTarget: route.requestDubbingTarget)
             }
         }
         .onChange(of: signInDismissalID) { _, _ in
@@ -191,10 +192,10 @@ struct VideoFeedView: View {
                     FeedClipCaptionOverlay(clip: video, onAuthorTap: onOpenProfile)
                         .frame(width: geometry.size.width, height: geometry.size.height)
 
-                    FeedClipActionRail(clip: video, onChooseThai: {
+                    FeedClipActionRail(clip: video, onChooseAIAudio: { target in
                         guard isSignedIn else { isWaitingForSignIn = true; onSignIn(); return }
                         playerEngine.pause()
-                        audioRoute = AudioRoute(clip: video, requestThaiOnOpen: true)
+                        audioRoute = AudioRoute(clip: video, requestDubbingTarget: target)
                     }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
                         onRequireSignIn: { isWaitingForSignIn = true; onSignIn() },
                         onAudioSelectionChanged: { open in

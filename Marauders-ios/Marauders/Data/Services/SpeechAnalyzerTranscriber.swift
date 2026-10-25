@@ -17,17 +17,23 @@ struct SpeechTranscript: Sendable {
               let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeIdentifier)) else { return nil }
         let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [],
             attributeOptions: [.transcriptionConfidence])
-        let installed = await AssetInventory.status(forModules: [transcriber]) == .installed
-        guard installed || downloadModelIfNeeded else { return nil }
-        if !installed {
-            let reserved = await AssetInventory.reservedLocales
-            if !reserved.contains(locale) {
-                guard try await AssetInventory.reserve(locale: locale) else { return nil }
-            }
-            if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                AppLog.info("speech.model", "Preparing \(localeIdentifier) speech model on device")
-                try await request.downloadAndInstall()
-            }
+        // Assets can be on the iPhone for the system (for example through Dictation) without this app
+        // having claimed them, so "installed" also looks at the system's installed locales.
+        let status = await AssetInventory.status(forModules: [transcriber])
+        var present = status == .installed
+        if !present {
+            let installedLocales = await SpeechTranscriber.installedLocales
+            present = installedLocales.contains { $0.identifier(.bcp47) == locale.identifier(.bcp47) }
+        }
+        guard present || downloadModelIfNeeded else { return nil }
+        // Using a locale requires reserving it for this app; reserving assets already on the iPhone downloads nothing.
+        let reserved = await AssetInventory.reservedLocales
+        if !reserved.contains(where: { $0.identifier(.bcp47) == locale.identifier(.bcp47) }) {
+            guard try await AssetInventory.reserve(locale: locale) else { return nil }
+        }
+        if !present, let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            AppLog.info("speech.model", "Preparing \(localeIdentifier) speech model on device")
+            try await request.downloadAndInstall()
         }
         try Task.checkCancellation()
         let analyzer = SpeechAnalyzer(modules: [transcriber])

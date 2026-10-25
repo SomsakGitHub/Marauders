@@ -24,7 +24,6 @@ final class UploadVideoViewModel {
     var showClipLocationPrePrompt = false
     var showClipLocationDeniedAlert = false
 
-    private let languageInspector: any ClipLanguageInspecting
     private let audioInspector: any ClipAudioInspecting
     private var preparationGeneration = 0
     private let prepareVideo: PrepareVideoForUploadUseCase
@@ -42,11 +41,9 @@ final class UploadVideoViewModel {
         uploadVideo: UploadFeedVideoUseCase,
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = FastClipAudioInspector(),
-        languageInspector: any ClipLanguageInspecting = OnDeviceClipLanguageInspector()
+        audioInspector: any ClipAudioInspecting = FastClipAudioInspector()
     ) {
         self.audioInspector = audioInspector
-        self.languageInspector = languageInspector
         self.prepareVideo = prepareVideo
         self.uploadVideo = uploadVideo
         self.locationManager = locationManager
@@ -67,22 +64,18 @@ final class UploadVideoViewModel {
             && clipLocation != nil
     }
 
-    /// Where the language shown on the upload screen came from.
+    /// Whether the uploader named the language. Language detection no longer happens at upload:
+    /// each viewer's iPhone works it out when they ask for AI audio, unless the uploader said.
     enum SpokenLanguageOrigin: Equatable {
-        case detected
         case chosen
-        case undetected
+        case unset
     }
 
     /// Language of the speech in the clip, as it will be sent with the upload.
     var spokenLanguageCode: String? { audioAssessment?.spokenLanguage?.knownCode }
 
     var spokenLanguageOrigin: SpokenLanguageOrigin {
-        switch audioAssessment?.spokenLanguage?.status {
-        case "confirmed": .chosen
-        case "likely": .detected
-        default: .undetected
-        }
+        audioAssessment?.spokenLanguage?.status == "confirmed" ? .chosen : .unset
     }
 
     /// Music-only clips and clips without sound have no speech to label.
@@ -91,17 +84,16 @@ final class UploadVideoViewModel {
         return assessment.content != .music && assessment.signal != .noTrack
     }
 
-    /// The uploader's answer wins over the on-device guess. `nil` means "not sure".
+    /// The uploader names the language; `nil` goes back to Automatic, leaving viewers to detect it.
     func chooseSpokenLanguage(_ code: String?) {
         guard var assessment = audioAssessment else { return }
-        let sampled = min(assessment.spokenLanguage?.sampledSeconds ?? 0, 8)
         if let code, !code.isEmpty {
-            assessment.spokenLanguage = .chosen(code, sampledSeconds: sampled)
+            assessment.spokenLanguage = .chosen(code)
         } else {
-            assessment.spokenLanguage = .unsure(sampledSeconds: sampled)
+            assessment.spokenLanguage = nil
         }
         audioAssessment = assessment
-        AppLog.info("upload", "spoken language \(code == nil ? "marked unsure" : "chosen") by uploader")
+        AppLog.info("upload", "spoken language \(code == nil ? "left automatic" : "chosen") by uploader")
     }
 
     func resetPickedFile() {
@@ -141,14 +133,7 @@ final class UploadVideoViewModel {
             }
             isCheckingAudio = true
             let audioCheckStarted = ProcessInfo.processInfo.systemUptime
-            var result = await audioInspector.inspect(fileURL: mp4URL)
-            guard current == preparationGeneration, !Task.isCancelled else {
-                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
-                return
-            }
-            if result.content == .speech || result.content == .mixed {
-                result.spokenLanguage = await languageInspector.inspect(fileURL: mp4URL)
-            }
+            let result = await audioInspector.inspect(fileURL: mp4URL)
             guard current == preparationGeneration, !Task.isCancelled else {
                 if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
                 return
@@ -159,7 +144,7 @@ final class UploadVideoViewModel {
             audioAssessment = result
             #if DEBUG
             let elapsed = Int((ProcessInfo.processInfo.systemUptime - audioCheckStarted) * 1000)
-            let report = "spokenLanguage=\(result.spokenLanguage?.code ?? "unknown") languageStatus=\(result.spokenLanguage?.status ?? "not_attempted") languageReason=\(result.spokenLanguage?.reason ?? "none") content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
+            let report = "content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
             AppLog.info("upload.audio-check", report)
             print("[upload.audio-check] \(report)")
             #endif

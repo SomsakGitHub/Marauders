@@ -9,32 +9,40 @@ struct DubbingSourceLanguageTests {
                   audioAssessment: ClipAudioAssessment(content: .speech, signal: .detected, spokenLanguage: language))
     }
 
-    @Test func likelySpanishSelectsSpanish() {
-        let spanish = SpokenLanguageAssessment(status: "likely", code: "es", confidence: 0.89)
-        #expect(clip(spanish).dubbingSourceLanguage == .spanish)
-        #expect(DubbingSourceLanguage(spokenLanguage: .init(status: "likely", code: "es-MX", confidence: 0.8)) == .spanish)
+    @Test func codesMapToSupportedSourcesIgnoringRegionAndCase() {
+        #expect(DubbingSourceLanguage(code: "es") == .spanish)
+        #expect(DubbingSourceLanguage(code: "es-MX") == .spanish)
+        #expect(DubbingSourceLanguage(code: "EN-us") == .english)
+        #expect(DubbingSourceLanguage(code: "fr") == nil)
+        #expect(DubbingSourceLanguage(code: "") == nil)
     }
 
-    @Test func englishUnknownOrMissingKeepsEnglish() {
-        #expect(clip(.init(status: "likely", code: "en", confidence: 0.9)).dubbingSourceLanguage == .english)
-        #expect(clip(.unknown("ambiguous")).dubbingSourceLanguage == .english)
-        #expect(clip(nil).dubbingSourceLanguage == .english)
-        #expect(FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!).dubbingSourceLanguage == .english)
-    }
-
-    @Test func unknownStatusNeverSelectsSpanishEvenWithACode() {
-        #expect(DubbingSourceLanguage(spokenLanguage: .init(status: "unknown", code: "es")) == .english)
-    }
-
-    @Test func uploaderChosenSpanishSelectsSpanishAndAnUnsureChoiceDoesNot() {
+    @Test func aClipDeclaresItsLanguageOnlyWhenSomeoneSaidSo() {
+        #expect(clip(.chosen("es")).declaredSourceCode == "es")
         #expect(clip(.chosen("es")).dubbingSourceLanguage == .spanish)
+        #expect(clip(.init(status: "likely", code: "es-MX", confidence: 0.8)).declaredSourceCode == "es")
+        #expect(clip(.init(status: "likely", code: "es-MX", confidence: 0.8)).dubbingSourceLanguage == .spanish)
         #expect(clip(.chosen("en")).dubbingSourceLanguage == .english)
-        #expect(clip(.unsure()).dubbingSourceLanguage == .english)
+    }
+
+    @Test func unknownOrMissingLanguagesAreNotGuessed() {
+        #expect(clip(.unknown("ambiguous")).declaredSourceCode == nil)
+        #expect(clip(.unknown("ambiguous")).dubbingSourceLanguage == nil)
+        #expect(clip(nil).dubbingSourceLanguage == nil)
+        #expect(FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!).declaredSourceCode == nil)
+        // A code without a confident status is never trusted.
+        #expect(clip(.init(status: "unknown", code: "es")).declaredSourceCode == nil)
+    }
+
+    @Test func aDeclaredLanguageWeCannotDubFromIsStillReported() {
+        #expect(clip(.chosen("fr")).declaredSourceCode == "fr")
+        #expect(clip(.chosen("fr")).dubbingSourceLanguage == nil)
     }
 
     @Test func languageCodesMatchAppleFrameworks() {
         #expect(DubbingSourceLanguage.spanish.translationCode == "es")
         #expect(DubbingSourceLanguage.spanish.speechLocale == "es-ES")
         #expect(DubbingSourceLanguage.english.speechLocale == "en-US")
+        #expect(DubbingSourceLanguage.spanish.candidate == SpeechLanguageCandidate(code: "es", locale: "es-ES"))
     }
 }

@@ -15,13 +15,19 @@ final class LanguageModelsViewModel {
     private(set) var translationConfiguration: TranslationSession.Configuration?
 
     private let manager: any LanguageModelManaging
+    private let listening: ListeningLanguageStore
     private var translationModel: LanguageModel?
 
-    init(manager: any LanguageModelManaging = AppleLanguageModelManager()) {
+    init(
+        manager: any LanguageModelManaging = AppleLanguageModelManager(),
+        listening: ListeningLanguageStore = .shared
+    ) {
         self.manager = manager
+        self.listening = listening
     }
 
-    var translationModels: [LanguageModel] { LanguageModel.translationModels }
+    /// Pairs follow the viewer's listening language, so the list changes when they pick another.
+    var translationModels: [LanguageModel] { LanguageModel.translationModels(for: listening.possibleTargets) }
     var speechModels: [LanguageModel] { LanguageModel.speechModels }
 
     func status(of model: LanguageModel) -> LanguageModelStatus {

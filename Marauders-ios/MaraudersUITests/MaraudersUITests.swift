@@ -90,7 +90,7 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(clip.waitForExistence(timeout: 15))
         clip.tap()
 
-        if app.buttons["ฟังเสียงต้นฉบับ"].waitForExistence(timeout: 5) { app.buttons["ฟังเสียงต้นฉบับ"].tap() }
+        if app.buttons["Original audio"].waitForExistence(timeout: 5) { app.buttons["Original audio"].tap() }
 
         let deleteButton = app.buttons["clip.delete"]
         XCTAssertTrue(deleteButton.waitForExistence(timeout: 10))
@@ -219,7 +219,7 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertFalse(app.buttons["auth.closeSignIn"].exists)
         XCTAssertFalse(app.buttons["clip.chooseAudio"].exists)
         XCTAssertFalse(app.buttons["clip.closeVideo"].exists)
-        XCTAssertFalse(app.buttons["แปลเป็นเสียงไทยด้วย AI"].exists)
+        XCTAssertFalse(app.buttons["Listen in Thai (AI)"].exists)
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].exists)
 
     }
@@ -279,20 +279,20 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
-    func testThaiAudioRequiresViewerChoiceAndHandlesUnavailableService() throws {
+    func testAIAudioRequiresViewerChoiceAndHandlesUnavailableService() throws {
         let app = launchApp(extraArguments: ["UITEST_STREAMING_FEED"])
         let choose = app.buttons["feed.chooseAudio"]
         XCTAssertTrue(choose.waitForExistence(timeout: 20))
         choose.tap()
-        app.buttons["ฟังเสียงต้นฉบับ"].tap()
+        app.buttons["Original audio"].tap()
         XCTAssertFalse(app.buttons["clip.chooseAudio"].exists)
         choose.tap()
-        app.buttons["แปลเป็นเสียงไทยด้วย AI"].tap()
-        let unavailable = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "เครื่องนี้ยังไม่พร้อมแปล")).firstMatch
+        app.buttons["Listen in Thai (AI)"].tap()
+        let unavailable = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "isn't ready to translate")).firstMatch
         XCTAssertTrue(unavailable.waitForExistence(timeout: 15))
-        attachFeedScreenshot(app, name: "thai-audio-unavailable-original-remains")
+        attachFeedScreenshot(app, name: "ai-audio-unavailable-original-remains")
         app.buttons["clip.chooseAudio"].tap()
-        app.buttons["ฟังเสียงต้นฉบับ"].tap()
+        app.buttons["Original audio"].tap()
         XCTAssertFalse(unavailable.exists)
         app.buttons["clip.closeVideo"].tap()
         XCTAssertTrue(choose.waitForExistence(timeout: 10))
@@ -309,7 +309,8 @@ final class MaraudersUITests: XCTestCase {
     @MainActor
     private func launchApp(extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST"] + extraArguments
+        // English keeps label lookups stable on devices set to another language.
+        app.launchArguments = ["UITEST", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"] + extraArguments
 
         var environment = app.launchEnvironment
         environment["UITEST"] = "1"

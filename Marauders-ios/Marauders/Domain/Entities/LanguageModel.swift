@@ -5,7 +5,7 @@
 
 import Foundation
 
-/// An on-device Apple language asset the app can use for Thai dubbing and language detection.
+/// An on-device Apple language asset the app can use for AI dubbing and language detection.
 struct LanguageModel: Identifiable, Hashable, Sendable {
     enum Kind: Hashable, Sendable {
         /// Apple Translation pair (BCP-47 language codes).
@@ -19,20 +19,32 @@ struct LanguageModel: Identifiable, Hashable, Sendable {
     let title: String
     let detail: String
 
-    static let translationModels: [LanguageModel] = [
-        .init(id: "translation.en-th", kind: .translation(source: "en", target: "th"),
-              title: "English → Thai", detail: "Used by AI Thai dubbing"),
-        .init(id: "translation.es-th", kind: .translation(source: "es", target: "th"),
-              title: "Spanish → Thai", detail: "Used by AI Thai dubbing of Spanish clips")
-    ]
+    /// Translation pairs the viewer may need: every dubbing source into each listening language.
+    static func translationModels(
+        for targets: [ListeningLanguage],
+        locale: Locale = ListeningLanguage.interfaceLocale
+    ) -> [LanguageModel] {
+        var models: [LanguageModel] = []
+        for target in targets {
+            for source in DubbingSourceLanguage.allCases where source.translationCode != target.code {
+                models.append(.init(
+                    id: "translation.\(source.translationCode)-\(target.code)",
+                    kind: .translation(source: source.translationCode, target: target.code),
+                    title: "\(source.displayName(in: locale)) → \(target.displayName(in: locale))",
+                    detail: String(localized: "Used by AI dubbing")
+                ))
+            }
+        }
+        return models
+    }
 
     static let speechModels: [LanguageModel] = [
         .init(id: "speech.en-US", kind: .speech(locale: "en-US"),
-              title: "English", detail: "Speech recognition"),
+              title: ListeningLanguage.english.displayName(), detail: String(localized: "Speech recognition")),
         .init(id: "speech.th-TH", kind: .speech(locale: "th-TH"),
-              title: "Thai", detail: "Speech recognition"),
+              title: ListeningLanguage.thai.displayName(), detail: String(localized: "Speech recognition")),
         .init(id: "speech.es-ES", kind: .speech(locale: "es-ES"),
-              title: "Spanish", detail: "Detects Spanish on upload and transcribes it for dubbing")
+              title: ListeningLanguage.spanish.displayName(), detail: String(localized: "Detects Spanish on upload and transcribes it for dubbing"))
     ]
 }
 

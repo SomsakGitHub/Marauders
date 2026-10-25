@@ -4,13 +4,12 @@ import Foundation
 /// Decode compressed/video audio into bounded mono PCM WAV segments. Keeping
 /// recognition requests short avoids depending on a single long-file final result.
 nonisolated enum SpeechAudioPreparation {
-    @concurrent static func chunks(from source: URL, directory: URL, maximumSampleSeconds: Double? = nil) async throws -> [URL] {
+    /// `maximumSegments` stops reading once that many non-silent segments exist, which is all
+    /// language detection needs from a long clip.
+    @concurrent static func chunks(from source: URL, directory: URL, maximumSegments: Int? = nil) async throws -> [URL] {
         let asset = AVURLAsset(url: source)
-        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw ThaiDubbingError.speechUnclear }
+        guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw DubbingError.speechUnclear }
         let reader = try AVAssetReader(asset: asset)
-        if let limit = maximumSampleSeconds {
-            reader.timeRange = CMTimeRange(start: .zero, duration: CMTime(seconds: min(8, max(0.5, limit)), preferredTimescale: 16000))
-        }
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: 16000,
@@ -22,7 +21,7 @@ nonisolated enum SpeechAudioPreparation {
         ]
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
         reader.add(output)
-        guard reader.startReading() else { throw reader.error ?? ThaiDubbingError.failed }
+        guard reader.startReading() else { throw reader.error ?? DubbingError.failed }
         var pcm = Data()
         let segmentBytes = 20 * 16000 * 2
         var files: [URL] = []
@@ -33,6 +32,7 @@ nonisolated enum SpeechAudioPreparation {
             try wave(payload).write(to: url)
             files.append(url)
         }
+        var reachedLimit = false
         while let sample = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
             guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
@@ -42,14 +42,17 @@ nonisolated enum SpeechAudioPreparation {
             let status = bytes.withUnsafeMutableBytes { buffer in
                 CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length, destination: buffer.baseAddress!)
             }
-            guard status == kCMBlockBufferNoErr else { throw ThaiDubbingError.failed }
+            guard status == kCMBlockBufferNoErr else { throw DubbingError.failed }
             pcm.append(bytes)
             while pcm.count >= segmentBytes {
                 try store(pcm.prefix(segmentBytes))
                 pcm.removeFirst(segmentBytes)
+                if let maximumSegments, files.count >= maximumSegments { reachedLimit = true; break }
             }
+            if reachedLimit { reader.cancelReading(); break }
         }
-        guard reader.status == .completed else { throw reader.error ?? ThaiDubbingError.failed }
+        if reachedLimit { return files }
+        guard reader.status == .completed else { throw reader.error ?? DubbingError.failed }
         if !pcm.isEmpty { try store(pcm) }
         return files
     }

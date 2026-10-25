@@ -4,7 +4,7 @@ import Testing
 @testable import Marauders
 
 @MainActor
-struct ThaiDubbingTests {
+struct DubbingTests {
     @Test func stereoAudioIsNormalizedAndSplitWithoutDroppingDuration() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -37,11 +37,12 @@ struct ThaiDubbingTests {
     }
 
     @Test func originalSelectionClearsUnavailableState() {
-        let model = ThaiDubbingViewModel()
+        let model = DubbingViewModel()
         #expect(model.message == nil)
         #expect(!model.isProcessing)
         model.unavailableForTesting()
-        #expect(model.message?.contains("บนอุปกรณ์") == true)
+        #expect(model.message == DubbingError.unavailable.errorDescription)
+        #expect(model.message?.isEmpty == false)
         model.useOriginal()
         #expect(model.message == nil)
         #expect(!model.isProcessing)
@@ -73,7 +74,7 @@ struct ThaiDubbingTests {
                 writer.append(empty)
             }
             Issue.record("Empty narration accepted")
-        } catch { #expect(error is ThaiDubbingError) }
+        } catch { #expect(error is DubbingError) }
     }
     @Test func speechWriterClosesReadableAudioOnEndBuffer() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".caf")
@@ -91,5 +92,15 @@ struct ThaiDubbingTests {
         }
         let file = try AVAudioFile(forReading: output)
         #expect(file.length == 100)
+    }
+    @Test func languageSpecificErrorsNameTheLanguages() {
+        let voice = DubbingError.voiceUnavailable(language: "Thai").errorDescription
+        #expect(voice?.contains("Thai") == true || voice?.contains("Thai".lowercased()) == true)
+        let pair = DubbingError.pairUnsupported(source: "Spanish", target: "Danish").errorDescription
+        #expect(pair?.contains("Spanish") == true)
+        #expect(pair?.contains("Danish") == true)
+        for error in [DubbingError.unavailable, .permission, .unsupported, .speechUnclear, .failed] {
+            #expect(error.errorDescription?.isEmpty == false)
+        }
     }
 }

@@ -7,10 +7,26 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var languageModels: LanguageModelsViewModel
+    @State private var listeningPicker = ListeningLanguagePickerViewModel()
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        ListeningLanguagePickerView(viewModel: listeningPicker)
+                    } label: {
+                        LabeledContent {
+                            Text(listeningPicker.summary)
+                        } label: {
+                            Label("Listening language", systemImage: "ear")
+                        }
+                    }
+                    .accessibilityIdentifier("settings.listeningLanguage")
+                } footer: {
+                    Text("Clips in other languages can be dubbed into this language with AI on your iPhone.")
+                }
+
                 Section {
                     NavigationLink {
                         LanguageModelsView(viewModel: languageModels)
@@ -19,7 +35,7 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("settings.languageModels")
                 } footer: {
-                    Text("Download on-device models for AI Thai dubbing and language detection.")
+                    Text("Download on-device models for AI dubbing and language detection.")
                 }
             }
             .navigationTitle("Settings")

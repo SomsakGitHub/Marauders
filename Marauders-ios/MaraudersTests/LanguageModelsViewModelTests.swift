@@ -34,12 +34,19 @@ private final class StubLanguageModelManager: LanguageModelManaging {
 @MainActor
 struct LanguageModelsViewModelTests {
     private let spanish = LanguageModel.speechModels.first { $0.id == "speech.es-ES" }!
-    private let thaiPair = LanguageModel.translationModels.first { $0.id == "translation.en-th" }!
+    private let thaiPair = LanguageModel.translationModels(for: [.thai]).first { $0.id == "translation.en-th" }!
+
+    /// A store that always listens in Thai, isolated from the device's saved settings.
+    private func thaiListener() -> ListeningLanguageStore {
+        let store = ListeningLanguageStore(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!, preferredLanguages: { [] })
+        store.choose(.thai)
+        return store
+    }
 
     @Test func refreshLoadsStatusForEveryModel() async {
         let manager = StubLanguageModelManager()
         manager.statuses[spanish.id] = .installed
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         #expect(viewModel.status(of: spanish) == .checking)
         await viewModel.refresh()
@@ -50,7 +57,7 @@ struct LanguageModelsViewModelTests {
 
     @Test func speechDownloadInstallsAndReportsInstalled() async {
         let manager = StubLanguageModelManager()
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         await viewModel.download(spanish)
 
@@ -61,7 +68,7 @@ struct LanguageModelsViewModelTests {
     @Test func speechDownloadFailureIsReportedAndRetryable() async {
         let manager = StubLanguageModelManager()
         manager.installError = LanguageModelError.unsupported
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         await viewModel.download(spanish)
         guard case .failed = viewModel.status(of: spanish) else {
@@ -75,7 +82,7 @@ struct LanguageModelsViewModelTests {
 
     @Test func translationDownloadRequestsSessionThenFinishes() async {
         let manager = StubLanguageModelManager()
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         await viewModel.download(thaiPair)
         #expect(viewModel.translationConfiguration != nil)
@@ -89,7 +96,7 @@ struct LanguageModelsViewModelTests {
 
     @Test func dismissedTranslationDownloadIsReportedAsFailureUnlessInstalled() async {
         let manager = StubLanguageModelManager()
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         await viewModel.download(thaiPair)
         await viewModel.translationDownloadFinished(error: LanguageModelError.unsupported)
@@ -103,7 +110,7 @@ struct LanguageModelsViewModelTests {
         let manager = StubLanguageModelManager()
         manager.statuses[spanish.id] = .installed
         manager.statuses[thaiPair.id] = .installed
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
         await viewModel.refresh()
 
         #expect(viewModel.canRemove(spanish))
@@ -118,7 +125,7 @@ struct LanguageModelsViewModelTests {
 
     @Test func leavingBeforeTheSystemPromptDoesNotStrandTheRow() async {
         let manager = StubLanguageModelManager()
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         await viewModel.download(thaiPair)
         await viewModel.abandonTranslationDownload()
@@ -129,7 +136,7 @@ struct LanguageModelsViewModelTests {
 
     @Test func refreshKeepsRowsThatAreStillDownloading() async {
         let manager = StubLanguageModelManager()
-        let viewModel = LanguageModelsViewModel(manager: manager)
+        let viewModel = LanguageModelsViewModel(manager: manager, listening: thaiListener())
 
         await viewModel.download(thaiPair)
         manager.statuses[thaiPair.id] = .installed

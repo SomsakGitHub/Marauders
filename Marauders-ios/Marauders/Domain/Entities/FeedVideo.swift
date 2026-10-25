@@ -21,11 +21,17 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     let caption: String?
 
     /// Music-only advisories keep original playback without an AI generation entry point.
-    var allowsThaiAudio: Bool { audioAssessment?.content != .music }
+    var allowsAIAudio: Bool { audioAssessment?.content != .music }
 
-    /// Language the Thai narration is translated from.
-    var dubbingSourceLanguage: DubbingSourceLanguage {
-        DubbingSourceLanguage(spokenLanguage: audioAssessment?.spokenLanguage)
+    /// The base language code the uploader chose (or an older upload-time guess recorded).
+    /// Nil when nothing is declared: the viewer's iPhone then works the language out itself.
+    var declaredSourceCode: String? {
+        audioAssessment?.spokenLanguage?.knownCode?.split(separator: "-").first.map { String($0).lowercased() }
+    }
+
+    /// The dubbing source for the declared language; nil when unknown or not supported yet.
+    var dubbingSourceLanguage: DubbingSourceLanguage? {
+        declaredSourceCode.flatMap { DubbingSourceLanguage(code: $0) }
     }
 
     init(

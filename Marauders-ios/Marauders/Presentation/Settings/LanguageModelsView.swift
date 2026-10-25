@@ -14,6 +14,11 @@ struct LanguageModelsView: View {
     var body: some View {
         List {
             Section {
+                if viewModel.translationModels.isEmpty {
+                    Text("Choose a listening language to see the translation models you need.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 ForEach(viewModel.translationModels) { row($0) }
             } header: {
                 Text("Translation")
@@ -93,7 +98,7 @@ struct LanguageModelsView: View {
         }
     }
 
-    private func downloadButton(_ model: LanguageModel, title: String) -> some View {
+    private func downloadButton(_ model: LanguageModel, title: LocalizedStringKey) -> some View {
         Button(title) {
             Task { await viewModel.download(model) }
         }
@@ -104,9 +109,9 @@ struct LanguageModelsView: View {
     private func subtitle(for model: LanguageModel, status: LanguageModelStatus) -> String {
         switch status {
         case .failed(let message): message
-        case .downloading(let progress?): "Downloading… \(Int(progress * 100))%"
-        case .downloading(nil): "Downloading…"
-        case .unsupported: "Not supported on this device"
+        case .downloading(let progress?): String(localized: "Downloading… \(Int(progress * 100))%")
+        case .downloading(nil): String(localized: "Downloading…")
+        case .unsupported: String(localized: "Not supported on this device")
         default: model.detail
         }
     }

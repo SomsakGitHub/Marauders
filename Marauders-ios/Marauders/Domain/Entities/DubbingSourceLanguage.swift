@@ -5,8 +5,8 @@
 
 import Foundation
 
-/// Languages the on-device pipeline can transcribe and translate into Thai.
-enum DubbingSourceLanguage: String, Hashable, Sendable {
+/// Languages the on-device pipeline can transcribe and translate into a viewer's language.
+enum DubbingSourceLanguage: String, Hashable, Sendable, CaseIterable {
     case english
     case spanish
 
@@ -25,18 +25,21 @@ enum DubbingSourceLanguage: String, Hashable, Sendable {
         }
     }
 
-    /// Thai name, used in progress and error messages.
-    var thaiName: String {
-        switch self {
-        case .english: "อังกฤษ"
-        case .spanish: "สเปน"
-        }
+    /// The name in the viewer's language, used in progress and error messages.
+    func displayName(in locale: Locale = ListeningLanguage.interfaceLocale) -> String {
+        locale.localizedString(forLanguageCode: translationCode) ?? translationCode
     }
 
-    /// Picks the language from what the uploader chose or the device detected. Clips with
-    /// no usable language keep the original English behavior.
-    init(spokenLanguage: SpokenLanguageAssessment?) {
-        let code = spokenLanguage?.knownCode?.split(separator: "-").first.map(String.init)
-        self = code == "es" ? .spanish : .english
+    /// The dubbing source for a language code such as "es" or "es-MX"; nil when we can't
+    /// transcribe that language yet.
+    init?(code: String) {
+        let base = code.split(separator: "-").first.map { String($0).lowercased() } ?? ""
+        guard let match = Self.allCases.first(where: { $0.translationCode == base }) else { return nil }
+        self = match
+    }
+
+    /// How the viewer's iPhone recognizes this language when it has to work out what a clip speaks.
+    var candidate: SpeechLanguageCandidate {
+        SpeechLanguageCandidate(code: translationCode, locale: speechLocale)
     }
 }

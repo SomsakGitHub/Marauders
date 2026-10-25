@@ -9,7 +9,8 @@ import SwiftUI
 /// the creator's avatar, which opens their public profile when tapped.
 struct FeedClipActionRail: View {
     let clip: FeedVideo
-    var onChooseThai: (() -> Void)? = nil
+    /// Called with the language the viewer picked to hear the clip in.
+    var onChooseAIAudio: ((ListeningLanguage) -> Void)? = nil
     var onAuthorTap: ((String) -> Void)?
 
     var canChooseAudio = true
@@ -17,28 +18,54 @@ struct FeedClipActionRail: View {
     var onAudioSelectionChanged: (Bool) -> Void = { _ in }
 
     @State private var choosingAudio = false
+    @State private var showingLanguagePicker = false
+    @State private var languagePicker = ListeningLanguagePickerViewModel()
+    private let listening = ListeningLanguageStore.shared
 
     var body: some View {
         VStack(spacing: 20) {
-            if let onChooseThai, clip.allowsThaiAudio {
+            if let onChooseAIAudio, listening.offersDubbing(for: clip) {
                 Button {
                     onAudioSelectionChanged(true)
                     if canChooseAudio { choosingAudio = true } else { onRequireSignIn?() }
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: "waveform").font(.title2)
-                        Text("เลือกเสียง").font(.caption)
+                        Text("Choose audio").font(.caption)
                     }.foregroundStyle(.white)
                 }
                 .accessibilityIdentifier("feed.chooseAudio")
                 .onChange(of: choosingAudio) { _, open in
+                    // The language sheet keeps the feed paused, so it reports the close itself.
+                    if !open, !showingLanguagePicker { onAudioSelectionChanged(false) }
+                }
+                .onChange(of: showingLanguagePicker) { _, open in
                     if !open { onAudioSelectionChanged(false) }
                 }
-                .confirmationDialog("เลือกเสียงสำหรับคลิปนี้", isPresented: $choosingAudio, titleVisibility: .visible) {
-                    Button("ฟังเสียงต้นฉบับ") {}
-                    Button("แปลเป็นเสียงไทยด้วย AI", action: onChooseThai)
-                    Button("ยกเลิก", role: .cancel) {}
-                } message: { Text("ใช้เสียงแปลไทยจาก AI ที่เก็บไว้ หรือสร้างบน iPhone และเก็บให้ผู้ชมคนอื่นใช้ซ้ำได้") }
+                .confirmationDialog("Choose audio for this clip", isPresented: $choosingAudio, titleVisibility: .visible) {
+                    Button("Original audio") {}
+                    ForEach(listening.targets(for: clip)) { target in
+                        Button("Listen in \(target.sentenceName()) (AI)") { onChooseAIAudio(target) }
+                    }
+                    Button("Change listening language…") { showingLanguagePicker = true }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("AI dubbing is created on your iPhone and saved so other viewers can reuse it.")
+                }
+                .sheet(isPresented: $showingLanguagePicker) {
+                    NavigationStack {
+                        ListeningLanguagePickerView(viewModel: languagePicker) {
+                            showingLanguagePicker = false
+                            // Choosing a language starts dubbing in it, unless it is the clip's own.
+                            if let chosen = listening.targets(for: clip).first { onChooseAIAudio(chosen) }
+                        }
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Close") { showingLanguagePicker = false }
+                            }
+                        }
+                    }
+                }
             }
 
             if let handle = clip.authorName {

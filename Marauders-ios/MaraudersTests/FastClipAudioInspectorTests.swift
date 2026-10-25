@@ -12,13 +12,13 @@ struct FastClipAudioInspectorTests {
         #expect(FastClipAudioInspector.content(speech: 0.3, music: 0.9) == .unknown)
         #expect(FastClipAudioInspector.content(speech: 0, music: 0) == .unknown)
     }
-    @Test func musicHidesThaiEntryWhileUnknownAndSpeechRemainAvailable() {
+    @Test func musicHidesAIAudioEntryWhileUnknownAndSpeechRemainAvailable() {
         let url = URL(string: "https://example.com/video.mp4")!
         for content in [ClipAudioAssessment.Content.speech, .mixed, .unknown, .music] {
             let clip = FeedVideo(streamURL: url, audioAssessment: .init(content: content, signal: .detected))
-            #expect(clip.allowsThaiAudio == (content != .music))
+            #expect(clip.allowsAIAudio == (content != .music))
         }
-        #expect(FeedVideo(streamURL: url).allowsThaiAudio)
+        #expect(FeedVideo(streamURL: url).allowsAIAudio)
     }
     private func wave(duration: Double = 2, toneAfter: Double? = nil) throws -> URL {
         let frames = Int(duration * 16000)

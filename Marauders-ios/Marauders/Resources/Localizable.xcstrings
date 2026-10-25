@@ -1,0 +1,636 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "AI audio in %@ · Change audio": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง AI ภาษา%@ · เปลี่ยนเสียง"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · couldn't save on the server, but you can keep listening": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง AI ภาษา%@ · ยังเก็บบนเซิร์ฟเวอร์ไม่ได้ แต่ฟังต่อได้"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · saved for reuse": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง AI ภาษา%@ · เก็บไว้ใช้ซ้ำแล้ว"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · saving for others to reuse": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง AI ภาษา%@ · กำลังบันทึกเพื่อให้คนอื่นใช้ซ้ำ"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · using saved audio": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง AI ภาษา%@ · ใช้เสียงที่เก็บไว้"
+          }
+        }
+      }
+    },
+    "AI dubbing from %@ isn't supported yet.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่รองรับการพากย์ด้วย AI จากภาษา%@"
+          }
+        }
+      }
+    },
+    "AI dubbing is created on your iPhone and saved so other viewers can reuse it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงพากย์ AI สร้างบน iPhone ของคุณและเก็บไว้ให้ผู้ชมคนอื่นใช้ซ้ำได้"
+          }
+        }
+      }
+    },
+    "AI dubbing is created on your iPhone and saved so other viewers can reuse it. It may be inaccurate or out of sync with the original.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงพากย์ AI สร้างบน iPhone ของคุณและเก็บไว้ให้ผู้ชมคนอื่นใช้ซ้ำได้ อาจไม่ถูกต้องหรือไม่ตรงจังหวะกับต้นฉบับ"
+          }
+        }
+      }
+    },
+    "AI voice reads the translation on this iPhone · timing may differ from the original": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง AI อ่านคำแปลบน iPhone · จังหวะอาจต่างจากต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Allow speech recognition in Settings so the clip's speech can be transcribed.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กรุณาอนุญาตการรู้จำเสียงในการตั้งค่า เพื่อถอดคำพูดจากคลิป"
+          }
+        }
+      }
+    },
+    "Apple downloads translation languages through a system prompt. Remove them in iOS Settings → Apps → Translate.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple จะดาวน์โหลดภาษาแปลผ่านหน้าต่างของระบบ ลบได้ที่ การตั้งค่า iOS → แอป → แปล"
+          }
+        }
+      }
+    },
+    "Automatic": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัตโนมัติ"
+          }
+        }
+      }
+    },
+    "Automatic · %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัตโนมัติ · %@"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยกเลิก"
+          }
+        }
+      }
+    },
+    "Change listening language…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปลี่ยนภาษาที่ฟัง…"
+          }
+        }
+      }
+    },
+    "Checking for saved AI audio…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังตรวจเสียงที่เก็บไว้…"
+          }
+        }
+      }
+    },
+    "Choose a listening language to see the translation models you need.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือกภาษาที่ฟังเพื่อดูโมเดลแปลที่ต้องใช้"
+          }
+        }
+      }
+    },
+    "Choose audio": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือกเสียง"
+          }
+        }
+      }
+    },
+    "Choose audio for this clip": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือกเสียงสำหรับคลิปนี้"
+          }
+        }
+      }
+    },
+    "Clips in other languages can be dubbed into this language with AI on your iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คลิปภาษาอื่นพากย์เป็นภาษานี้ด้วย AI บน iPhone ของคุณได้"
+          }
+        }
+      }
+    },
+    "Clips spoken in another language are dubbed into this language on your iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คลิปที่พูดภาษาอื่นจะถูกพากย์เป็นภาษานี้บน iPhone ของคุณ"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ปิด"
+          }
+        }
+      }
+    },
+    "Couldn't play the AI audio. Using the original audio.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดเสียง AI ไม่สำเร็จ กำลังใช้เสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't tell which language is spoken in this clip. Listen to the original audio.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจไม่ได้ว่าคลิปนี้พูดภาษาอะไร ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't transcribe speech from this clip. Try a clip with clear speech, or listen to the original audio.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ถอดคำพูดจากคลิปนี้ไม่ได้ ลองคลิปที่มีเสียงพูดชัดเจน หรือฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't translate the audio on this iPhone. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แปลเสียงบน iPhone ไม่สำเร็จ กรุณาฟังเสียงต้นฉบับก่อน"
+          }
+        }
+      }
+    },
+    "Creating the AI voice on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังสร้างเสียงอ่านด้วย AI บน iPhone…"
+          }
+        }
+      }
+    },
+    "Detecting the language spoken in this clip…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังตรวจภาษาที่พูดในคลิปนี้…"
+          }
+        }
+      }
+    },
+    "Detects Spanish on upload and transcribes it for dubbing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจภาษาสเปนตอนอัปโหลดและถอดเสียงเพื่อพากย์"
+          }
+        }
+      }
+    },
+    "Download": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลด"
+          }
+        }
+      }
+    },
+    "Download on-device models for AI dubbing and language detection.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดโมเดลบนเครื่องสำหรับพากย์ด้วย AI และตรวจภาษา"
+          }
+        }
+      }
+    },
+    "Downloading…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังดาวน์โหลด…"
+          }
+        }
+      }
+    },
+    "Downloading… %lld%%": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังดาวน์โหลด… %lld%%"
+          }
+        }
+      }
+    },
+    "First-time translation download · you can download ahead in Settings › Language models": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ การตั้งค่า › Language models"
+          }
+        }
+      }
+    },
+    "Installed": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ติดตั้งแล้ว"
+          }
+        }
+      }
+    },
+    "Language models": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โมเดลภาษา"
+          }
+        }
+      }
+    },
+    "Languages": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ภาษา"
+          }
+        }
+      }
+    },
+    "Listen in %@ (AI)": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ฟังเป็นภาษา%@ (พากย์ด้วย AI)"
+          }
+        }
+      }
+    },
+    "Listening language": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ภาษาที่ฟัง"
+          }
+        }
+      }
+    },
+    "Models run on this device. Audio and transcripts are not uploaded. Downloads need a network connection and free storage.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โมเดลทำงานบนเครื่องนี้ ไม่มีการอัปโหลดเสียงหรือข้อความ การดาวน์โหลดต้องใช้อินเทอร์เน็ตและพื้นที่ว่าง"
+          }
+        }
+      }
+    },
+    "No %@ voice is installed on this iPhone. Add one in Settings › Accessibility › Spoken Content › Voices.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่มีเสียงภาษา%@บน iPhone เครื่องนี้ เพิ่มได้ที่ การตั้งค่า › การช่วยการเข้าถึง › เนื้อหาที่พูด › เสียง"
+          }
+        }
+      }
+    },
+    "None of your device languages is supported yet": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่รองรับภาษาใดของเครื่องคุณ"
+          }
+        }
+      }
+    },
+    "Not available on this iPhone": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone เครื่องนี้ยังไม่รองรับ"
+          }
+        }
+      }
+    },
+    "Not set": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่ได้ตั้งค่า"
+          }
+        }
+      }
+    },
+    "Not supported on this device": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เครื่องนี้ไม่รองรับ"
+          }
+        }
+      }
+    },
+    "On-device translation supports clips up to 12 MB.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การแปลบนเครื่องรองรับไฟล์คลิปไม่เกิน 12 MB"
+          }
+        }
+      }
+    },
+    "Original audio": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Original audio · Choose audio": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงต้นฉบับ · เลือกเสียง"
+          }
+        }
+      }
+    },
+    "Preparing %@ and %@ on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมภาษา%@และ%@บน iPhone…"
+          }
+        }
+      }
+    },
+    "Preparing the clip's audio on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมเสียงจากคลิปบน iPhone…"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบ"
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า"
+          }
+        }
+      }
+    },
+    "Speech recognition": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การรู้จำเสียงพูด"
+          }
+        }
+      }
+    },
+    "This clip is already in %@.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คลิปนี้เป็นภาษา%@อยู่แล้ว"
+          }
+        }
+      }
+    },
+    "This iPhone isn't ready to translate on-device. Install the languages in Settings › Language models, then try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone เครื่องนี้ยังไม่พร้อมแปลบนอุปกรณ์ กรุณาติดตั้งภาษาที่ การตั้งค่า › Language models แล้วลองใหม่"
+          }
+        }
+      }
+    },
+    "Transcribing %@ speech on this iPhone… %lld/%lld": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังถอดคำพูดภาษา%@บน iPhone… %lld/%lld"
+          }
+        }
+      }
+    },
+    "Translating %@ into %@ isn't supported on this iPhone yet.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone เครื่องนี้ยังไม่รองรับการแปลจากภาษา%@เป็นภาษา%@"
+          }
+        }
+      }
+    },
+    "Translating into %@ on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังแปลเป็นภาษา%@บน iPhone…"
+          }
+        }
+      }
+    },
+    "Translation": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การแปล"
+          }
+        }
+      }
+    },
+    "Unavailable": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ไม่ได้"
+          }
+        }
+      }
+    },
+    "Used by AI dubbing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้กับการพากย์ด้วย AI"
+          }
+        }
+      }
+    },
+    "Uses your device languages · %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ภาษาของเครื่อง · %@"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}
