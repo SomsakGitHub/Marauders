@@ -43,8 +43,8 @@ final class DubbingViewModel {
     }
 
     /// Decides how to give the viewer AI audio in `target`: saved audio if someone already made it,
-    /// otherwise translation from the clip's language, which this iPhone detects itself when the
-    /// uploader did not say. Runs before a TranslationSession exists, so a cache hit needs no
+    /// otherwise translation from the clip's language, which this iPhone detects itself unless the
+    /// clip declares it. Runs before a TranslationSession exists, so a cache hit needs no
     /// speech permission or installed translation models.
     func prepare(clip: FeedVideo, target: ListeningLanguage) async -> Plan {
         useOriginal()

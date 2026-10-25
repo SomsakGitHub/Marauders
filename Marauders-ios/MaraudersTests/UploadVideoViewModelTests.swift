@@ -14,18 +14,23 @@ struct UploadVideoViewModelTests {
         let result: ClipAudioAssessment
         func inspect(fileURL: URL) async -> ClipAudioAssessment { result }
     }
-    @Test func uploadNeverDetectsTheSpokenLanguage() async throws {
-        // Language detection moved to the viewer's iPhone; the uploader only says it if they want to.
+    @Test func uploadSendsTheSpeechCheckButNeverALanguage() async throws {
+        // Each viewer's iPhone works out the language when they listen, so the uploader neither names nor detects it.
         let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
         let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
-        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)),
+        let repository = AssessmentRecordingRepository()
+        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)), uploadRepository: repository,
             audioInspector: Inspector(result: .init(content: .speech, signal: .detected)))
+        model.applyClipLocation(Self.bangkok)
         await model.prepare(sourceURL: source)
         #expect(model.audioAssessment?.content == .speech)
         #expect(model.audioAssessment?.spokenLanguage == nil)
-        model.clipLocation = ClipLocation(latitude: 13, longitude: 100)
         #expect(model.canUpload)
-        model.resetPickedFile()
+
+        await model.upload()
+
+        #expect(repository.uploadedAssessment?.content == .speech)
+        #expect(repository.uploadedAssessment?.spokenLanguage == nil)
     }
     @Test func quietAudioWarningDoesNotBlockUploadAndResetClearsIt() async throws {
         let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
@@ -75,93 +80,6 @@ struct UploadVideoViewModelTests {
         func upload(fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String) async throws -> FeedVideo {
             try await upload(fileURL: fileURL, mimeType: mimeType, clipLocation: clipLocation, caption: caption, audioAssessment: nil)
         }
-    }
-
-    private func preparedModel(
-        content: ClipAudioAssessment.Content = .speech,
-        signal: ClipAudioAssessment.Signal = .detected,
-        repository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed))
-    ) async throws -> UploadVideoViewModel {
-        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
-        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
-        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)), uploadRepository: repository,
-            audioInspector: Inspector(result: .init(content: content, signal: signal)))
-        model.applyClipLocation(Self.bangkok)
-        await model.prepare(sourceURL: source)
-        return model
-    }
-
-    @Test func languageStartsAutomaticSoViewersDetectIt() async throws {
-        let model = try await preparedModel()
-        #expect(model.showsSpokenLanguagePicker)
-        #expect(model.spokenLanguageCode == nil)
-        #expect(model.spokenLanguageOrigin == .unset)
-        model.resetPickedFile()
-    }
-
-    @Test func chosenLanguageIsSentWithTheUpload() async throws {
-        let repository = AssessmentRecordingRepository()
-        let model = try await preparedModel(repository: repository)
-
-        model.chooseSpokenLanguage("ES")
-
-        #expect(model.spokenLanguageCode == "es")
-        #expect(model.spokenLanguageOrigin == .chosen)
-        let chosen = try #require(model.audioAssessment?.spokenLanguage)
-        #expect(chosen.status == "confirmed")
-        #expect(chosen.method == "uploader")
-        #expect(chosen.confidence == nil)
-        #expect(model.canUpload)
-
-        await model.upload()
-
-        let sent = try #require(repository.uploadedAssessment?.spokenLanguage)
-        #expect(sent.code == "es")
-        #expect(sent.status == "confirmed")
-        let json = try JSONEncoder().encode(sent)
-        #expect(String(decoding: json, as: UTF8.self).contains("\"method\":\"uploader\""))
-    }
-
-    @Test func goingBackToAutomaticClearsTheChoiceAndStillUploads() async throws {
-        let repository = AssessmentRecordingRepository()
-        let model = try await preparedModel(repository: repository)
-        model.chooseSpokenLanguage("fr")
-        #expect(model.spokenLanguageCode == "fr")
-
-        model.chooseSpokenLanguage(nil)
-
-        #expect(model.spokenLanguageCode == nil)
-        #expect(model.spokenLanguageOrigin == .unset)
-        #expect(model.audioAssessment?.spokenLanguage == nil)
-        #expect(model.canUpload)
-        await model.upload()
-        #expect(repository.uploadedAssessment?.spokenLanguage == nil)
-        #expect(repository.uploadedAssessment?.content == .speech)
-    }
-
-    @Test func pickerIsHiddenWhenThereIsNoSpeechToLabel() async throws {
-        #expect(!(try await preparedModel(content: .music)).showsSpokenLanguagePicker)
-        #expect(!(try await preparedModel(signal: .noTrack)).showsSpokenLanguagePicker)
-        #expect(try await preparedModel(content: .mixed).showsSpokenLanguagePicker)
-        #expect(!makeViewModel().showsSpokenLanguagePicker)
-    }
-
-    @Test func choosingWithoutAnAssessmentDoesNothing() {
-        let model = makeViewModel()
-        model.chooseSpokenLanguage("es")
-        #expect(model.audioAssessment == nil)
-        #expect(model.spokenLanguageCode == nil)
-    }
-
-    @Test func pickingAnotherVideoDiscardsTheChosenLanguage() async throws {
-        let model = try await preparedModel()
-        model.chooseSpokenLanguage("es")
-
-        model.resetPickedFile()
-
-        #expect(model.audioAssessment == nil)
-        #expect(model.spokenLanguageCode == nil)
-        #expect(!model.showsSpokenLanguagePicker)
     }
 
     private static let bangkok = ClipLocation(latitude: 13.7563, longitude: 100.5018)!

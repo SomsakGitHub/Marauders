@@ -64,38 +64,6 @@ final class UploadVideoViewModel {
             && clipLocation != nil
     }
 
-    /// Whether the uploader named the language. Language detection no longer happens at upload:
-    /// each viewer's iPhone works it out when they ask for AI audio, unless the uploader said.
-    enum SpokenLanguageOrigin: Equatable {
-        case chosen
-        case unset
-    }
-
-    /// Language of the speech in the clip, as it will be sent with the upload.
-    var spokenLanguageCode: String? { audioAssessment?.spokenLanguage?.knownCode }
-
-    var spokenLanguageOrigin: SpokenLanguageOrigin {
-        audioAssessment?.spokenLanguage?.status == "confirmed" ? .chosen : .unset
-    }
-
-    /// Music-only clips and clips without sound have no speech to label.
-    var showsSpokenLanguagePicker: Bool {
-        guard uploadFileURL != nil, !isPreparing, let assessment = audioAssessment else { return false }
-        return assessment.content != .music && assessment.signal != .noTrack
-    }
-
-    /// The uploader names the language; `nil` goes back to Automatic, leaving viewers to detect it.
-    func chooseSpokenLanguage(_ code: String?) {
-        guard var assessment = audioAssessment else { return }
-        if let code, !code.isEmpty {
-            assessment.spokenLanguage = .chosen(code)
-        } else {
-            assessment.spokenLanguage = nil
-        }
-        audioAssessment = assessment
-        AppLog.info("upload", "spoken language \(code == nil ? "left automatic" : "chosen") by uploader")
-    }
-
     func resetPickedFile() {
         preparationGeneration += 1
         isPreparing = false

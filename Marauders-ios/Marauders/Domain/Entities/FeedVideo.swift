@@ -23,8 +23,8 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     /// Music-only advisories keep original playback without an AI generation entry point.
     var allowsAIAudio: Bool { audioAssessment?.content != .music }
 
-    /// The base language code the uploader chose (or an older upload-time guess recorded).
-    /// Nil when nothing is declared: the viewer's iPhone then works the language out itself.
+    /// The base language code an older clip declares (the uploader's choice, or an upload-time guess).
+    /// Nil when nothing is declared, as on every new upload: the viewer's iPhone then works the language out itself.
     var declaredSourceCode: String? {
         audioAssessment?.spokenLanguage?.knownCode?.split(separator: "-").first.map { String($0).lowercased() }
     }

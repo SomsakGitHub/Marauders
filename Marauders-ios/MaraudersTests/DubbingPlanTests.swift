@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import Marauders
 
-/// What `DubbingViewModel.prepare` decides: saved audio, a language declared by the uploader,
+/// What `DubbingViewModel.prepare` decides: saved audio, a language the clip declares,
 /// or a language the viewer's own iPhone has to detect first.
 @MainActor
 struct DubbingPlanTests {

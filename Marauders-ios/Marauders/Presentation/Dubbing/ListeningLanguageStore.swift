@@ -64,8 +64,8 @@ final class ListeningLanguageStore {
         else { defaults.removeObject(forKey: Self.defaultsKey) }
     }
 
-    /// The language a clip is declared to speak: the uploader's choice (or an older upload-time guess),
-    /// else what this iPhone's own detection found earlier. Nil when nobody knows yet.
+    /// The language a clip is known to speak: the one an older clip declares (an uploader's choice or an
+    /// upload-time guess), else what this iPhone's own detection found earlier. Nil when nobody knows yet.
     func declaredCode(for clip: FeedVideo) -> String? {
         clip.declaredSourceCode ?? memo.code(for: clip.id)
     }

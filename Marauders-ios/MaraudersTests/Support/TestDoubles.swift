@@ -7,6 +7,13 @@ import CoreLocation
 import Foundation
 @testable import Marauders
 
+extension SpokenLanguageAssessment {
+    /// A clip whose uploader named the language, as older builds of the app let them do.
+    static func chosen(_ code: String) -> Self {
+        .init(status: "confirmed", code: code.lowercased(), method: "uploader")
+    }
+}
+
 enum StubError: Error, Equatable {
     case exportFailed
     case uploadFailed
