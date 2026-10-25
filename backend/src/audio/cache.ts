@@ -49,7 +49,7 @@ export function validateThaiAudio(data: Uint8Array): void {
   const scale = view.getUint32(header.payload + (version === 1 ? 20 : 12));
   const ticks = version === 1 ? Number(view.getBigUint64(header.payload + 24)) : view.getUint32(header.payload + 16);
   const duration = ticks / scale;
-  if (!Number.isFinite(duration) || duration <= 0 || duration > 180) throw new Error("unsupported duration");
+  if (!Number.isFinite(duration) || duration <= 0) throw new Error("unsupported duration");
   let audio = false;
   for (const track of children.filter(b => b.type === "trak")) {
     const mdia = boxes(data, track.payload, track.end).find(b => b.type === "mdia");

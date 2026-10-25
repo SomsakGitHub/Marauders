@@ -90,7 +90,7 @@ final class ThaiDubbingViewModel {
             try check(current)
             let asset = AVURLAsset(url: videoURL)
             let duration = try await asset.load(.duration).seconds
-            guard duration.isFinite, duration > 0, duration <= 120 else { throw ThaiDubbingError.unsupported }
+            guard duration.isFinite, duration > 0 else { throw ThaiDubbingError.failed }
             let segments = try await SpeechAudioPreparation.chunks(from: videoURL, directory: folder)
             var words: [String] = []
             for (index, segment) in segments.enumerated() {

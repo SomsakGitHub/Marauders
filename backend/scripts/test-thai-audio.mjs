@@ -55,7 +55,8 @@ objects.clear();writes=0;
 const results=await Promise.all([request('POST',{auth:a,body:audio()}),request('POST',{auth:b,body:audio()})]);
 assert.ok(results.every(r=>r.status===200));assert.equal(objects.size,1,'concurrent completions share one immutable object');
 objects.clear();
-for(const invalid of [Buffer.from('not audio'),audio({duration:181}),audio({handler:'vide'}),audio({codec:'enca'}),audio().subarray(0,50)]){
+validateThaiAudio(audio({duration:600}));
+for(const invalid of [Buffer.from('not audio'),audio({duration:0}),audio({handler:'vide'}),audio({codec:'enca'}),audio().subarray(0,50)]){
  assert.throws(()=>validateThaiAudio(invalid));
  assert.equal((await request('POST',{auth:a,body:invalid})).status,422);assert.equal(objects.size,0);
 }

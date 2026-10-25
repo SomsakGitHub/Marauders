@@ -20,10 +20,10 @@ struct ThaiDubbingTests {
         }
         do {
             let file = try AVAudioFile(forWriting: source, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2, AVLinearPCMBitDepthKey: 16])
-            for _ in 0..<21 { try file.write(from: buffer) }
+            for _ in 0..<141 { try file.write(from: buffer) }
         }
         let segments = try await SpeechAudioPreparation.chunks(from: source, directory: directory)
-        #expect(segments.count == 2)
+        #expect(segments.count == 8)
         var seconds = 0.0
         for segment in segments {
             let file = try AVAudioFile(forReading: segment)
@@ -33,7 +33,7 @@ struct ThaiDubbingTests {
             #expect(duration <= 20)
             seconds += duration
         }
-        #expect(abs(seconds - 21) < 0.01)
+        #expect(abs(seconds - 141) < 0.01)
     }
 
     @Test func originalSelectionClearsUnavailableState() {

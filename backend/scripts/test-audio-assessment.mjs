@@ -7,9 +7,18 @@ assert.equal(parse(JSON.stringify(valid)).content,'mixed');
 assert.equal(parse(JSON.stringify(valid)).languageHint,null);
 for(const value of [null,'{',JSON.stringify({...valid,speechConfidence:2}),JSON.stringify({...valid,content:'guaranteed'}),JSON.stringify({...valid,sampledSeconds:100}), ' '.repeat(2049)]) assert.equal(parse(value),null);
 assert.equal(parse(JSON.stringify({...valid,source:'trusted',version:99})).source,'client-soundanalysis');
+const language = {status:'likely',code:'en',confidence:0.9,sampledSeconds:8,method:'spoofed'};
+const enriched = parse(JSON.stringify({...valid,spokenLanguage:language}));
+assert.equal(enriched.spokenLanguage.code,'en');
+assert.equal(enriched.spokenLanguage.method,'on_device_speech_text');
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...language,code:'es',method:'on_device_speech_analyzer_text'}})).spokenLanguage.method,'on_device_speech_analyzer_text');
+assert.equal(parse(JSON.stringify(valid)).spokenLanguage,null);
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...language,confidence:2}})).spokenLanguage,null);
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{status:'unknown',code:'en',sampledSeconds:0}})).spokenLanguage.code,null);
+assert.equal(parse(JSON.stringify({...valid,spokenLanguage:{...language,sampledSeconds:100}})).spokenLanguage,null);
 console.log('audio assessment validation passed');
 
-const metadata = parse(JSON.stringify(valid));
+const metadata = parse(JSON.stringify({...valid,spokenLanguage:{...language,code:'es',method:'on_device_speech_analyzer_text'}}));
 const db = await build({absWorkingDir:new URL('..',import.meta.url).pathname,entryPoints:['src/db/feed.ts'],bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'sql-spy',setup(b){
  b.onResolve({filter:/^@neondatabase\/serverless$/},()=>({path:'neon',namespace:'spy'}));
  b.onLoad({filter:/.*/,namespace:'spy'},()=>({contents:'export function neon(){return async (strings,...values)=>{globalThis.lastAudioSQL={text:strings.join("?"),values}; return [{id:"test",stream_url:"https://test.invalid/video.mp4",latitude:1,longitude:2,country:null,audio_assessment:globalThis.audioMetadata}];}}',loader:'js'}));
@@ -20,4 +29,6 @@ const item=await insertFeedVideo('test','https://test.invalid/video.mp4',1,2,'12
 assert.match(globalThis.lastAudioSQL.text,/audio_assessment/);
 assert.ok(globalThis.lastAudioSQL.values.includes(JSON.stringify(metadata)));
 assert.deepEqual(item.audioAssessment,metadata);
+assert.equal(item.audioAssessment.spokenLanguage.code,'es');
+assert.equal(item.audioAssessment.spokenLanguage.method,'on_device_speech_analyzer_text');
 console.log('audio assessment upload SQL and response round trip passed');

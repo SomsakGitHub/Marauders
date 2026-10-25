@@ -4,10 +4,13 @@ import Foundation
 /// Decode compressed/video audio into bounded mono PCM WAV segments. Keeping
 /// recognition requests short avoids depending on a single long-file final result.
 nonisolated enum SpeechAudioPreparation {
-    @concurrent static func chunks(from source: URL, directory: URL) async throws -> [URL] {
+    @concurrent static func chunks(from source: URL, directory: URL, maximumSampleSeconds: Double? = nil) async throws -> [URL] {
         let asset = AVURLAsset(url: source)
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { throw ThaiDubbingError.speechUnclear }
         let reader = try AVAssetReader(asset: asset)
+        if let limit = maximumSampleSeconds {
+            reader.timeRange = CMTimeRange(start: .zero, duration: CMTime(seconds: min(8, max(0.5, limit)), preferredTimescale: 16000))
+        }
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: 16000,
@@ -21,34 +24,33 @@ nonisolated enum SpeechAudioPreparation {
         reader.add(output)
         guard reader.startReading() else { throw reader.error ?? ThaiDubbingError.failed }
         var pcm = Data()
+        let segmentBytes = 20 * 16000 * 2
+        var files: [URL] = []
+        func store(_ payload: Data) throws {
+            // Keep silent-tail handling without retaining the whole decoded clip.
+            guard !payload.allSatisfy({ $0 == 0 }) else { return }
+            let url = directory.appendingPathComponent("speech-\(files.count).wav")
+            try wave(payload).write(to: url)
+            files.append(url)
+        }
         while let sample = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
             guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
             let length = CMBlockBufferGetDataLength(block)
-            guard pcm.count + length <= 120 * 16000 * 2 + 65536 else {
-                reader.cancelReading(); throw ThaiDubbingError.unsupported
-            }
+            guard length > 0 else { continue }
             var bytes = Data(count: length)
             let status = bytes.withUnsafeMutableBytes { buffer in
                 CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length, destination: buffer.baseAddress!)
             }
             guard status == kCMBlockBufferNoErr else { throw ThaiDubbingError.failed }
             pcm.append(bytes)
+            while pcm.count >= segmentBytes {
+                try store(pcm.prefix(segmentBytes))
+                pcm.removeFirst(segmentBytes)
+            }
         }
         guard reader.status == .completed else { throw reader.error ?? ThaiDubbingError.failed }
-        guard !pcm.isEmpty else { throw ThaiDubbingError.speechUnclear }
-        let segmentBytes = 20 * 16000 * 2
-        var files: [URL] = []
-        for start in stride(from: 0, to: pcm.count, by: segmentBytes) {
-            try Task.checkCancellation()
-            let payload = pcm.subdata(in: start..<min(start + segmentBytes, pcm.count))
-            // AAC export can leave a silent tail. Digital silence has no words
-            // to recognize, so omit it rather than waiting for a recognizer error.
-            if payload.allSatisfy({ $0 == 0 }) { continue }
-            let url = directory.appendingPathComponent("speech-\(files.count).wav")
-            try wave(payload).write(to: url)
-            files.append(url)
-        }
+        if !pcm.isEmpty { try store(pcm) }
         return files
     }
 

@@ -24,6 +24,7 @@ final class UploadVideoViewModel {
     var showClipLocationPrePrompt = false
     var showClipLocationDeniedAlert = false
 
+    private let languageInspector: any ClipLanguageInspecting
     private let audioInspector: any ClipAudioInspecting
     private var preparationGeneration = 0
     private let prepareVideo: PrepareVideoForUploadUseCase
@@ -41,9 +42,11 @@ final class UploadVideoViewModel {
         uploadVideo: UploadFeedVideoUseCase,
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = FastClipAudioInspector()
+        audioInspector: any ClipAudioInspecting = FastClipAudioInspector(),
+        languageInspector: any ClipLanguageInspecting = OnDeviceClipLanguageInspector()
     ) {
         self.audioInspector = audioInspector
+        self.languageInspector = languageInspector
         self.prepareVideo = prepareVideo
         self.uploadVideo = uploadVideo
         self.locationManager = locationManager
@@ -101,7 +104,14 @@ final class UploadVideoViewModel {
             }
             isCheckingAudio = true
             let audioCheckStarted = ProcessInfo.processInfo.systemUptime
-            let result = await audioInspector.inspect(fileURL: mp4URL)
+            var result = await audioInspector.inspect(fileURL: mp4URL)
+            guard current == preparationGeneration, !Task.isCancelled else {
+                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
+                return
+            }
+            if result.content == .speech || result.content == .mixed {
+                result.spokenLanguage = await languageInspector.inspect(fileURL: mp4URL)
+            }
             guard current == preparationGeneration, !Task.isCancelled else {
                 if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
                 return
@@ -112,7 +122,7 @@ final class UploadVideoViewModel {
             audioAssessment = result
             #if DEBUG
             let elapsed = Int((ProcessInfo.processInfo.systemUptime - audioCheckStarted) * 1000)
-            let report = "content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
+            let report = "spokenLanguage=\(result.spokenLanguage?.code ?? "unknown") languageStatus=\(result.spokenLanguage?.status ?? "not_attempted") languageReason=\(result.spokenLanguage?.reason ?? "none") content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
             AppLog.info("upload.audio-check", report)
             print("[upload.audio-check] \(report)")
             #endif

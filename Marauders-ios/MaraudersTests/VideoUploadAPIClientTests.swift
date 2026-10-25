@@ -104,7 +104,7 @@ struct VideoUploadAPIClientTests {
             mimeType: "video/mp4",
             clipLocation: Self.sampleClipLocation,
             caption: "Sunset over Bangkok",
-            audioAssessment: .init(content: .mixed, speechConfidence: 0.8, musicConfidence: 0.7, signal: .detected, sampledSeconds: 3)
+            audioAssessment: .init(content: .mixed, speechConfidence: 0.8, musicConfidence: 0.7, signal: .detected, spokenLanguage: .init(status: "likely", code: "en", confidence: 0.9), sampledSeconds: 3)
         )
 
         let body = String(decoding: capturedBody, as: UTF8.self)
@@ -112,6 +112,8 @@ struct VideoUploadAPIClientTests {
         #expect(body.contains("Sunset over Bangkok"))
         #expect(body.contains("name=\"audioAssessment\""))
         #expect(body.contains("\"content\":\"mixed\""))
+        #expect(body.contains("\"spokenLanguage\""))
+        #expect(body.contains("\"code\":\"en\""))
         #expect(!body.contains("name=\"musicTitle\""))
     }
 

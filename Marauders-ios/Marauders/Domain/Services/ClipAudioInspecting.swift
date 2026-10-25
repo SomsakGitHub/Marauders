@@ -8,6 +8,7 @@ struct ClipAudioAssessment: Sendable, Equatable, Codable, Hashable {
     var musicConfidence: Double = 0
     let signal: Signal
     var languageHint: String? = nil
+    var spokenLanguage: SpokenLanguageAssessment? = nil
     var sampledSeconds: Double = 0
     var exceedsTranslationLimit = false
 
@@ -25,4 +26,21 @@ protocol ClipAudioInspecting: Sendable {
 }
 struct NoopClipAudioInspector: ClipAudioInspecting {
     func inspect(fileURL: URL) async -> ClipAudioAssessment { .init(signal: .unknown) }
+}
+
+struct SpokenLanguageAssessment: Codable, Hashable, Sendable {
+    var status: String
+    var code: String?
+    var confidence: Double?
+    var reason: String?
+    var method = "on_device_speech_text"
+    var sampledSeconds: Double = 0
+    static func unknown(_ reason: String) -> Self { .init(status: "unknown", reason: reason) }
+}
+
+@MainActor protocol ClipLanguageInspecting: Sendable {
+    func inspect(fileURL: URL) async -> SpokenLanguageAssessment
+}
+struct NoopClipLanguageInspector: ClipLanguageInspecting {
+    func inspect(fileURL: URL) async -> SpokenLanguageAssessment { .unknown("not_attempted") }
 }

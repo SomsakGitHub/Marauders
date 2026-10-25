@@ -11,7 +11,7 @@ nonisolated struct FastClipAudioInspector: ClipAudioInspecting {
             let asset = AVURLAsset(url: fileURL)
             let duration = try await asset.load(.duration).seconds
             let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-            let exceeds = size > 12 * 1024 * 1024 || (duration.isFinite && duration > 120)
+            let exceeds = size > 12 * 1024 * 1024
             guard let track = try await asset.loadTracks(withMediaType: .audio).first else {
                 return .init(signal: .noTrack, exceedsTranslationLimit: exceeds)
             }

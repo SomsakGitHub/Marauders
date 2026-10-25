@@ -14,6 +14,32 @@ struct UploadVideoViewModelTests {
         let result: ClipAudioAssessment
         func inspect(fileURL: URL) async -> ClipAudioAssessment { result }
     }
+    private struct LanguageInspector: ClipLanguageInspecting {
+        let result: SpokenLanguageAssessment
+        func inspect(fileURL: URL) async -> SpokenLanguageAssessment { result }
+    }
+    @Test func speechLanguageIsAttachedWithoutBlockingUploadWhenUnknown() async throws {
+        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
+        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
+        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)),
+            audioInspector: Inspector(result: .init(content: .speech, signal: .detected)),
+            languageInspector: LanguageInspector(result: .unknown("permission_denied")))
+        await model.prepare(sourceURL: source)
+        #expect(model.audioAssessment?.spokenLanguage?.reason == "permission_denied")
+        model.clipLocation = ClipLocation(latitude: 13, longitude: 100)
+        #expect(model.canUpload)
+        model.resetPickedFile()
+    }
+    @Test func musicDoesNotRunSpeechLanguageInspection() async throws {
+        let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
+        let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
+        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)),
+            audioInspector: Inspector(result: .init(content: .music, signal: .detected)),
+            languageInspector: LanguageInspector(result: .init(status: "likely", code: "en", confidence: 0.9)))
+        await model.prepare(sourceURL: source)
+        #expect(model.audioAssessment?.spokenLanguage == nil)
+        model.resetPickedFile()
+    }
     @Test func quietAudioWarningDoesNotBlockUploadAndResetClearsIt() async throws {
         let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
         let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
@@ -60,14 +86,16 @@ struct UploadVideoViewModelTests {
         uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed)),
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()
+        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector(),
+        languageInspector: any ClipLanguageInspecting = NoopClipLanguageInspector()
     ) -> UploadVideoViewModel {
         UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: exporter),
             uploadVideo: UploadFeedVideoUseCase(repository: uploadRepository),
             locationManager: locationManager,
             videoLocationReader: videoLocationReader,
-            audioInspector: audioInspector
+            audioInspector: audioInspector,
+            languageInspector: languageInspector
         )
     }
 

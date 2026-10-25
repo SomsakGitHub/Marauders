@@ -432,7 +432,7 @@
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Marauders requires Always location permission to identify your country before sign-in.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to identify your country before sign-in and show your position on the map. Sign-in requires Always location permission.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a video from your library to upload to the Marauders feed";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribe English speech from the selected clip on your iPhone to translate it into Thai.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Inspect short speech samples on your iPhone to estimate the clip language and translate supported speech into Thai.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = LaunchBackground;
@@ -472,7 +472,7 @@
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Marauders requires Always location permission to identify your country before sign-in.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to identify your country before sign-in and show your position on the map. Sign-in requires Always location permission.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a video from your library to upload to the Marauders feed";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribe English speech from the selected clip on your iPhone to translate it into Thai.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Inspect short speech samples on your iPhone to estimate the clip language and translate supported speech into Thai.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_BackgroundColor = LaunchBackground;
