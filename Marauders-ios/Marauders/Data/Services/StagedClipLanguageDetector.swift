@@ -17,6 +17,24 @@ enum LanguageEvidence {
     }
 }
 
+extension LanguageEvidence {
+    /// The least confidence a transcript from the Whisper model needs before it is translated.
+    static let plausibleConfidence = 0.4
+
+    /// Whether a whole transcript from an engine with no other cross-check really is `languageCode`: it was
+    /// heard with some confidence and, once there is enough text to judge, NaturalLanguage reads it as that
+    /// language. A few words are accepted on confidence alone, because a very short clip says too little.
+    static func transcriptIsPlausible(text: String, confidence: Double, languageCode: String) -> Bool {
+        let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count
+        guard letters >= 3, confidence >= plausibleConfidence else { return false }
+        guard letters >= 12 else { return true }
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let best = recognizer.languageHypotheses(withMaximum: 3).max(by: { $0.value < $1.value }) else { return false }
+        return best.key.rawValue.split(separator: "-").first.map { String($0).lowercased() } == languageCode && best.value >= 0.6
+    }
+}
+
 /// Recognizes a sample as one candidate language. A seam so the staging logic can be tested.
 protocol SpeechEvidenceProviding {
     /// Candidates this iPhone can recognize right now without downloading anything.
@@ -38,6 +56,11 @@ final class StagedClipLanguageDetector: ClipLanguageDetecting {
     static let earlyAcceptance = 0.8
     /// Another language this close behind the best one makes the result ambiguous.
     static let ambiguityMargin = 0.15
+    /// The viewer's own language is tried only to say "this clip is already in it". A recognizer forced
+    /// onto a close relative (German on a Dutch clip scored 0.51) produces believable text at middling
+    /// confidence, so a language the app cannot dub from needs at least this much on its own. A heuristic,
+    /// set between that one measurement and the confidence real speech in the right language reaches.
+    static let ownLanguageFloor = 0.65
 
     private let provider: any SpeechEvidenceProviding
 
@@ -73,12 +96,14 @@ final class StagedClipLanguageDetector: ClipLanguageDetecting {
         }
     }
 
-    /// The most confident language, or nil when a different language is nearly as likely.
+    /// The most confident language, or nil when a different language is nearly as likely, or when it is a
+    /// language we cannot dub from and its evidence is below `ownLanguageFloor`.
     static func decide(_ evidence: [SpeechLanguageDetection]) -> SpeechLanguageDetection? {
         let sorted = evidence.sorted { $0.confidence > $1.confidence }
         guard let best = sorted.first else { return nil }
         if let other = sorted.dropFirst().first(where: { $0.code != best.code }),
            best.confidence - other.confidence < ambiguityMargin { return nil }
+        if DubbingSourceLanguage(code: best.code) == nil, best.confidence < ownLanguageFloor { return nil }
         return best
     }
 }

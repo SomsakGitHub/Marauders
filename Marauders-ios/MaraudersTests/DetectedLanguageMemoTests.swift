@@ -54,12 +54,21 @@ struct DetectedLanguageMemoTests {
 
     @Test func idsAreCaseInsensitiveAndCorruptStorageIsIgnored() {
         let store = defaults()
-        store.set(["order": ["a"], "codes": []], forKey: "detectedClipLanguages")
+        store.set(["order": ["a"], "codes": []], forKey: "detectedClipLanguages.v2")
         let memo = DetectedLanguageMemo(defaults: store)
         let id = UUID()
         memo.remember("en", for: id)
         #expect(memo.code(for: id) == "en")
-        store.set("not a dictionary", forKey: "detectedClipLanguages")
+        store.set("not a dictionary", forKey: "detectedClipLanguages.v2")
         #expect(DetectedLanguageMemo(defaults: store).code(for: id) == nil)
+    }
+
+    @Test func answersFromThePreviousDetectorAreNotTrustedAndAreRemoved() {
+        let store = defaults()
+        let id = UUID()
+        store.set(["order": [id.uuidString.lowercased()], "codes": ["de"]], forKey: "detectedClipLanguages")
+        let memo = DetectedLanguageMemo(defaults: store)
+        #expect(memo.code(for: id) == nil)
+        #expect(store.object(forKey: "detectedClipLanguages") == nil)
     }
 }

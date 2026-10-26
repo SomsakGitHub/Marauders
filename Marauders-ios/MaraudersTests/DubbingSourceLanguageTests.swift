@@ -39,6 +39,17 @@ struct DubbingSourceLanguageTests {
         #expect(clip(.chosen("fr")).dubbingSourceLanguage == nil)
     }
 
+    @Test func dutchIsADubbingSourceThatUsesTheWhisperModel() {
+        #expect(DubbingSourceLanguage(code: "nl") == .dutch)
+        #expect(DubbingSourceLanguage(code: "nl-BE") == .dutch)
+        #expect(DubbingSourceLanguage.dutch.translationCode == "nl")
+        #expect(DubbingSourceLanguage.dutch.speechLocale == "nl-NL")
+        #expect(DubbingSourceLanguage.dutch.speechEngine == .whisper)
+        #expect(DubbingSourceLanguage.spanish.speechEngine == .speechTranscriber)
+        #expect(DubbingSourceLanguage.english.speechEngine == .recognizer)
+        #expect(clip(.chosen("nl")).dubbingSourceLanguage == .dutch)
+    }
+
     @Test func languageCodesMatchAppleFrameworks() {
         #expect(DubbingSourceLanguage.spanish.translationCode == "es")
         #expect(DubbingSourceLanguage.spanish.speechLocale == "es-ES")

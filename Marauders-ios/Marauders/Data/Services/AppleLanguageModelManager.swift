@@ -8,8 +8,16 @@ import Speech
 @preconcurrency import Translation
 
 struct AppleLanguageModelManager: LanguageModelManaging {
+    private let detection: any LanguageDetectionModelManaging
+
+    init(detection: any LanguageDetectionModelManaging = LanguageDetectionModelStore.shared) {
+        self.detection = detection
+    }
+
     func status(of model: LanguageModel) async -> LanguageModelStatus {
         switch model.kind {
+        case .languageDetection:
+            return await detection.status()
         case let .translation(source, target):
             let availability = LanguageAvailability()
             switch await availability.status(from: Locale.Language(identifier: source),
@@ -50,6 +58,16 @@ struct AppleLanguageModelManager: LanguageModelManaging {
         try await request.downloadAndInstall()
     }
 
+    func installDetectionModel(progress: @escaping @MainActor (Double) -> Void) async throws {
+        try await detection.install { fraction in
+            Task { @MainActor in progress(fraction) }
+        }
+    }
+
+    func removeDetectionModel() async {
+        await detection.remove()
+    }
+
     func removeSpeechModel(locale identifier: String) async -> Bool {
         guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: identifier))
         else { return false }
@@ -68,8 +86,8 @@ enum LanguageModelError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupported: "This language isn't supported on this device."
-        case .reservationLimit: "The system limit for downloaded speech languages was reached. Remove another language first."
+        case .unsupported: String(localized: "This language isn't supported on this device.")
+        case .reservationLimit: String(localized: "The system limit for downloaded speech languages was reached. Remove another language first.")
         }
     }
 }

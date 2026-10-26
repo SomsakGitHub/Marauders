@@ -130,6 +130,20 @@ struct ListeningLanguageTests {
         #expect(!viewer.offersDubbing(for: video))
     }
 
+    @Test func aDutchClipIsOfferedToEveryoneWhoDoesNotListenInDutch() {
+        let dutch = clip(.chosen("nl"))
+        let memoWithDutch = memo()
+        #expect(store(preferred: ["th-TH"]).offersDubbing(for: dutch))
+        #expect(store(preferred: ["en-US", "th-TH"]).targets(for: dutch) == [.english, .thai])
+        // A Dutch viewer already understands it.
+        #expect(!store(preferred: ["nl-NL"]).offersDubbing(for: dutch))
+        // Detected on this phone earlier, the same holds without anything declared.
+        let video = clip(nil)
+        memoWithDutch.remember("nl", for: video.id)
+        #expect(store(preferred: ["th-TH"], memo: memoWithDutch).offersDubbing(for: video))
+        #expect(!store(preferred: ["nl-NL"], memo: memoWithDutch).offersDubbing(for: video))
+    }
+
     @Test func viewersWithoutASupportedLanguageCanStillOpenThePicker() {
         let viewer = store(preferred: ["bn-BD"])
         #expect(viewer.offersDubbing(for: clip(.chosen("es"))))
@@ -171,13 +185,13 @@ struct ListeningLanguageTests {
     @Test func translationPairsFollowTheListeningLanguages() {
         let english = Locale(identifier: "en")
         let thai = LanguageModel.translationModels(for: [.thai], locale: english)
-        #expect(thai.map(\.id) == ["translation.en-th", "translation.es-th"])
-        #expect(thai.map(\.title) == ["English → Thai", "Spanish → Thai"])
-        #expect(LanguageModel.translationModels(for: [.english], locale: english).map(\.id) == ["translation.es-en"])
+        #expect(thai.map(\.id) == ["translation.en-th", "translation.es-th", "translation.nl-th"])
+        #expect(thai.map(\.title) == ["English → Thai", "Spanish → Thai", "Dutch → Thai"])
+        #expect(LanguageModel.translationModels(for: [.english], locale: english).map(\.id) == ["translation.es-en", "translation.nl-en"])
         #expect(LanguageModel.translationModels(for: [.english, .thai], locale: english).map(\.id)
-                == ["translation.es-en", "translation.en-th", "translation.es-th"])
+                == ["translation.es-en", "translation.nl-en", "translation.en-th", "translation.es-th", "translation.nl-th"])
         #expect(LanguageModel.translationModels(for: []).isEmpty)
-        #expect(LanguageModel.translationModels(for: [.spanish]).map(\.id) == ["translation.en-es"])
+        #expect(LanguageModel.translationModels(for: [.spanish]).map(\.id) == ["translation.en-es", "translation.nl-es"])
     }
 
     @Test func pickerListsEveryLanguageSortedAndMarksTheSelection() async {

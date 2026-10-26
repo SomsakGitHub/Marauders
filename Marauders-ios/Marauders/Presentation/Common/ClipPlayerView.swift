@@ -25,6 +25,12 @@ struct ClipPlayerView: View {
     @State private var dubbingTarget: ListeningLanguage?
     @State private var dubbingSource: DubbingSourceLanguage?
     @State private var showingLanguagePicker = false
+    @State private var offeringDetectionModel = false
+    /// Set by the alert's Download button and used up by the next preparation, nowhere else.
+    @State private var detectionModelAgreed = false
+    /// The language whose speech model (the Whisper model) the viewer is being asked about, and their answer.
+    @State private var offeredSpeechModel: DubbingSourceLanguage?
+    @State private var speechModelAgreed = false
     @State private var languagePicker = ListeningLanguagePickerViewModel()
     @State private var wantsDubbing = false
     @State private var audioRequestID = 0
@@ -76,6 +82,31 @@ struct ClipPlayerView: View {
                     }
             }
         }
+        .alert("Download the language detection model?", isPresented: $offeringDetectionModel) {
+            Button("Download (about \(LanguageDetectionModel.approximateMegabytes) MB)") {
+                detectionModelAgreed = true
+                audioRequestID += 1
+            }
+            Button("Not now", role: .cancel) {
+                LanguageDetectionConsent.shared.decline()
+                audioRequestID += 1
+            }
+        } message: {
+            Text("To tell which language this clip speaks, your iPhone needs a model of about \(LanguageDetectionModel.approximateMegabytes) MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. Without it, your iPhone can mainly recognize English and Spanish.")
+        }
+        .alert(
+            "Download the \(offeredSpeechModel?.displayName() ?? "") speech model?",
+            isPresented: Binding(get: { offeredSpeechModel != nil }, set: { if !$0 { offeredSpeechModel = nil } }),
+            presenting: offeredSpeechModel
+        ) { language in
+            Button("Download (about \(LanguageDetectionModel.approximateMegabytes) MB)") {
+                speechModelAgreed = true
+                audioRequestID += 1
+            }
+            Button("Not now", role: .cancel) { dubbing.declineSpeechModel(for: language) }
+        } message: { language in
+            Text("To dub this clip, your iPhone needs a \(language.displayName()) speech model of about \(LanguageDetectionModel.approximateMegabytes) MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. It is the same model that tells which language a clip speaks.")
+        }
         .onAppear {
             startPlayback()
             if !didChooseAudio, listening.offersDubbing(for: clip) {
@@ -84,13 +115,18 @@ struct ClipPlayerView: View {
             }
         }
         .task(id: "\(wantsDubbing):\(audioRequestID)") {
+            let agreedToDetectionModel = detectionModelAgreed
+            detectionModelAgreed = false
+            let agreedToSpeechModel = speechModelAgreed
+            speechModelAgreed = false
             if wantsDubbing, clip.allowsAIAudio, let target = dubbingTarget {
                 translationConfiguration = nil
                 if AppRuntimeConfiguration.isUITesting {
                     dubbing.unavailableForTesting()
                     return
                 }
-                let plan = await dubbing.prepare(clip: clip, target: target)
+                let plan = await dubbing.prepare(clip: clip, target: target, downloadingDetectionModel: agreedToDetectionModel,
+                                                 downloadingSpeechModel: agreedToSpeechModel)
                 guard wantsDubbing, !Task.isCancelled else { return }
                 switch plan {
                 case .cached(let audio):
@@ -99,6 +135,10 @@ struct ClipPlayerView: View {
                     dubbingSource = source
                     translationConfiguration = .init(source: .init(identifier: source.translationCode), target: .init(identifier: target.code), preferredStrategy: .lowLatency)
                     translationConfiguration?.invalidate()
+                case .needsDetectionModel:
+                    offeringDetectionModel = true
+                case .needsSpeechModel(let language):
+                    offeredSpeechModel = language
                 case .unavailable:
                     // The status line says why; the original audio keeps playing.
                     break
@@ -123,6 +163,9 @@ struct ClipPlayerView: View {
                 resumeAfterInterruption = false
                 player?.pause()
                 wantsDubbing = false
+                // An open question about the download would otherwise outlive the request it belonged to.
+                offeringDetectionModel = false
+                offeredSpeechModel = nil
                 translationConfiguration = nil
                 dubbing.useOriginal()
             } else if resumeAfterInterruption {

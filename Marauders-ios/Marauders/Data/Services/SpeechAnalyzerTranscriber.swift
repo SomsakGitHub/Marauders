@@ -7,6 +7,13 @@ struct SpeechTranscript: Sendable {
     let confidence: Double
 }
 
+/// Why a speech model could not be made ready, so the viewer is told the real reason.
+nonisolated enum SpeechModelInstallError: Error, Equatable {
+    /// The system lets an app keep only a few speech languages downloaded.
+    case limitReached
+    case downloadFailed
+}
+
 /// Transcribes a short audio file with the iOS 26 `SpeechAnalyzer`, entirely on device.
 /// Only Apple-managed model assets are ever downloaded; audio and text never leave the phone.
 @MainActor enum SpeechAnalyzerTranscriber {
@@ -29,11 +36,13 @@ struct SpeechTranscript: Sendable {
         // Using a locale requires reserving it for this app; reserving assets already on the iPhone downloads nothing.
         let reserved = await AssetInventory.reservedLocales
         if !reserved.contains(where: { $0.identifier(.bcp47) == locale.identifier(.bcp47) }) {
-            guard try await AssetInventory.reserve(locale: locale) else { return nil }
+            guard try await AssetInventory.reserve(locale: locale) else { throw SpeechModelInstallError.limitReached }
         }
         if !present, let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             AppLog.info("speech.model", "Preparing \(localeIdentifier) speech model on device")
-            try await request.downloadAndInstall()
+            do { try await request.downloadAndInstall() }
+            catch is CancellationError { throw CancellationError() }
+            catch { throw SpeechModelInstallError.downloadFailed }
         }
         try Task.checkCancellation()
         let analyzer = SpeechAnalyzer(modules: [transcriber])

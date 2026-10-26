@@ -36,6 +36,34 @@ import Testing
         #expect(StagedClipLanguageDetector.decide([]) == nil)
     }
 
+    @Test func aLanguageWeCannotDubFromNeedsStrongEvidenceOnItsOwn() {
+        // German text read out of a Dutch clip scored 0.51: believable, and wrong.
+        #expect(StagedClipLanguageDetector.decide([.init(code: "de", confidence: 0.51)]) == nil)
+        #expect(StagedClipLanguageDetector.decide([.init(code: "de", confidence: 0.64)]) == nil)
+        #expect(StagedClipLanguageDetector.decide([.init(code: "de", confidence: 0.65)])?.code == "de")
+        #expect(StagedClipLanguageDetector.decide([.init(code: "th", confidence: 0.8)])?.code == "th")
+        // A language we can dub from is useful even at modest confidence.
+        #expect(StagedClipLanguageDetector.decide([.init(code: "es", confidence: 0.55)])?.code == "es")
+        // Stronger evidence for a dubbing source still beats a weak own-language reading.
+        #expect(StagedClipLanguageDetector.decide([.init(code: "en", confidence: 0.9), .init(code: "de", confidence: 0.5)])?.code == "en")
+    }
+
+    @Test func aWhisperTranscriptMustReadAsTheLanguageItWasToldToUse() {
+        let dutch = "Goeiemorgen, kan ik u helpen? Dan wil ik graag een kilo tomaten en twee komkommers alstublieft."
+        #expect(LanguageEvidence.transcriptIsPlausible(text: dutch, confidence: 0.65, languageCode: "nl"))
+        // The same words are not plausible as German, or when the engine was barely sure.
+        #expect(!LanguageEvidence.transcriptIsPlausible(text: "Guten Morgen, ich hätte gern ein Kilo Tomaten und ein paar Karotten, bitte.", confidence: 0.65, languageCode: "nl"))
+        #expect(!LanguageEvidence.transcriptIsPlausible(text: dutch, confidence: 0.3, languageCode: "nl"))
+        #expect(LanguageEvidence.transcriptIsPlausible(text: dutch, confidence: 0.4, languageCode: "nl"))
+    }
+
+    @Test func aVeryShortTranscriptIsJudgedOnConfidenceAlone() {
+        #expect(LanguageEvidence.transcriptIsPlausible(text: "Dank je wel", confidence: 0.6, languageCode: "nl"))
+        #expect(!LanguageEvidence.transcriptIsPlausible(text: "Dank je wel", confidence: 0.2, languageCode: "nl"))
+        #expect(!LanguageEvidence.transcriptIsPlausible(text: "Ja", confidence: 0.9, languageCode: "nl"))
+        #expect(!LanguageEvidence.transcriptIsPlausible(text: "", confidence: 0.9, languageCode: "nl"))
+    }
+
     @Test func legacyAudioAssessmentDecodesWithoutLanguage() throws {
         let json = Data(#"{"content":"speech","speechConfidence":0.9,"musicConfidence":0.1,"signal":"detected","sampledSeconds":3,"exceedsTranslationLimit":false}"#.utf8)
         let old = try JSONDecoder().decode(ClipAudioAssessment.self, from: json)
@@ -111,8 +139,11 @@ import Testing
         #expect(SpeechLanguageCandidate.recognizable("th")?.locale == "th-TH")
         #expect(SpeechLanguageCandidate.recognizable("es") == spanish)
         #expect(SpeechLanguageCandidate.recognizable("da") == nil)
-        for source in DubbingSourceLanguage.allCases {
+        for source in DubbingSourceLanguage.allCases where source.isRecognizedWithoutDetectionModel {
             #expect(SpeechLanguageCandidate.recognizable(source.translationCode) == source.candidate)
         }
+        // Dutch is found by the detection model, not by the quick recognizers.
+        #expect(SpeechLanguageCandidate.recognizable("nl") == nil)
+        #expect(DubbingSourceLanguage.recognizerCandidates.map(\.code) == ["en", "es"])
     }
 }

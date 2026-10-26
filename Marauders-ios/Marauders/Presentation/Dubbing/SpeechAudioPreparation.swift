@@ -57,6 +57,12 @@ nonisolated enum SpeechAudioPreparation {
         return files
     }
 
+    /// How long a window made by `chunks` is: 16 kHz mono 16-bit PCM behind a 44-byte header.
+    nonisolated static func seconds(ofWindow url: URL) -> Double {
+        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        return Double(max(size - 44, 0)) / 32_000
+    }
+
     static func wave(_ pcm: Data) -> Data {
         var result = Data()
         func ascii(_ string: String) { result.append(contentsOf: string.utf8) }

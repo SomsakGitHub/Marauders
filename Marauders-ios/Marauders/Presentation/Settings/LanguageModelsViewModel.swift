@@ -29,26 +29,50 @@ final class LanguageModelsViewModel {
     /// Pairs follow the viewer's listening language, so the list changes when they pick another.
     var translationModels: [LanguageModel] { LanguageModel.translationModels(for: listening.possibleTargets) }
     var speechModels: [LanguageModel] { LanguageModel.speechModels }
+    var detectionModels: [LanguageModel] { LanguageModel.detectionModels }
 
     func status(of model: LanguageModel) -> LanguageModelStatus {
         statuses[model.id] ?? .checking
     }
 
     func canRemove(_ model: LanguageModel) -> Bool {
-        if case .speech = model.kind { return status(of: model) == .installed }
-        return false
+        switch model.kind {
+        case .speech: return status(of: model) == .installed
+        // A failed install can leave files behind that the viewer should be able to clear.
+        case .languageDetection:
+            if case .failed = status(of: model) { return true }
+            return status(of: model) == .installed
+        case .translation: return false
+        }
     }
 
     func refresh() async {
-        let models = (translationModels + speechModels).filter { !isDownloading($0) }
+        let models = (translationModels + speechModels + detectionModels).filter { !isDownloading($0) }
         // Each lookup is independent; start them together instead of one after another.
         let lookups = models.map { model in
             Task { (model, await self.manager.status(of: model)) }
         }
+        var adopted: [LanguageModel] = []
         for lookup in lookups {
             let (model, status) = await lookup.value
+            // The detection model may be downloading because the player started it. Follow that download
+            // to the end, so the row never stays on "Downloading…" after it finished.
+            if case .downloading = status, case .languageDetection = model.kind, !isDownloading(model) {
+                adopted.append(model)
             // A download may have started while the lookup was in flight.
-            if !isDownloading(model) { statuses[model.id] = status }
+            } else if !isDownloading(model) {
+                statuses[model.id] = status
+            }
+        }
+        for model in adopted {
+            Task {
+                // The download may have ended while the other rows were being read; only follow one that is still running.
+                if case .downloading = await self.manager.status(of: model) {
+                    await self.download(model)
+                } else if !self.isDownloading(model) {
+                    self.statuses[model.id] = await self.manager.status(of: model)
+                }
+            }
         }
     }
 
@@ -74,6 +98,17 @@ final class LanguageModelsViewModel {
             statuses[model.id] = .downloading(progress: 0)
             do {
                 try await manager.installSpeechModel(locale: locale) { [weak self] value in
+                    guard let self, case .downloading = self.statuses[model.id] else { return }
+                    self.statuses[model.id] = .downloading(progress: value)
+                }
+                statuses[model.id] = await manager.status(of: model)
+            } catch {
+                statuses[model.id] = .failed(error.localizedDescription)
+            }
+        case .languageDetection:
+            statuses[model.id] = .downloading(progress: 0)
+            do {
+                try await manager.installDetectionModel { [weak self] value in
                     guard let self, case .downloading = self.statuses[model.id] else { return }
                     self.statuses[model.id] = .downloading(progress: value)
                 }
@@ -110,8 +145,12 @@ final class LanguageModelsViewModel {
     }
 
     func remove(_ model: LanguageModel) async {
-        guard case let .speech(locale) = model.kind, canRemove(model) else { return }
-        _ = await manager.removeSpeechModel(locale: locale)
+        guard canRemove(model) else { return }
+        switch model.kind {
+        case let .speech(locale): _ = await manager.removeSpeechModel(locale: locale)
+        case .languageDetection: await manager.removeDetectionModel()
+        case .translation: return
+        }
         statuses[model.id] = await manager.status(of: model)
     }
 

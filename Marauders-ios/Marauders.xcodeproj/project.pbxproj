@@ -13,6 +13,7 @@
 		06BC2D333075A7FD0064F635 /* WaypointCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D323075A7FD0064F635 /* WaypointCore */; };
 		06BC2D353075A7FD0064F635 /* WaypointJourney in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D343075A7FD0064F635 /* WaypointJourney */; };
 		06BC2D373075A7FD0064F635 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D363075A7FD0064F635 /* Lottie */; };
+		06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D3B3075A7FD0064F635 /* WhisperKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +68,7 @@
 				06BC2D333075A7FD0064F635 /* WaypointCore in Frameworks */,
 				06BC2D353075A7FD0064F635 /* WaypointJourney in Frameworks */,
 				06BC2D373075A7FD0064F635 /* Lottie in Frameworks */,
+				06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +135,7 @@
 				06BC2D323075A7FD0064F635 /* WaypointCore */,
 				06BC2D343075A7FD0064F635 /* WaypointJourney */,
 				06BC2D363075A7FD0064F635 /* Lottie */,
+				06BC2D3B3075A7FD0064F635 /* WhisperKit */,
 			);
 			productName = Marauders;
 			productReference = 06BC2C2A3075A7FB0064F635 /* Marauders.app */;
@@ -222,6 +225,7 @@
 				06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */,
 				06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */,
 				06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */,
+				06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 06BC2C2B3075A7FB0064F635 /* Products */;
@@ -656,6 +660,14 @@
 				minimumVersion = 4.4.0;
 			};
 		};
+		06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit";
+			requirement = {
+				kind = exactVersion;
+				version = 1.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -688,6 +700,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */;
 			productName = Lottie;
+		};
+		06BC2D3B3075A7FD0064F635 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

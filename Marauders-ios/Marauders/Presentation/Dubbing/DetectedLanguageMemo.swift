@@ -23,7 +23,10 @@ final class DetectedLanguageMemo {
         return DetectedLanguageMemo()
     }()
 
-    private static let key = "detectedClipLanguages"
+    /// Bumped when the detector changed, so answers from the previous one (some of them wrong, such as
+    /// Dutch read as German) are not trusted any more.
+    private static let key = "detectedClipLanguages.v2"
+    private static let retiredKeys = ["detectedClipLanguages"]
 
     private let defaults: UserDefaults
     private let limit: Int
@@ -34,6 +37,7 @@ final class DetectedLanguageMemo {
     init(defaults: UserDefaults = .standard, limit: Int = 300) {
         self.defaults = defaults
         self.limit = limit
+        for retired in Self.retiredKeys { defaults.removeObject(forKey: retired) }
         let saved = defaults.dictionary(forKey: Self.key) as? [String: [String]] ?? [:]
         let ids = saved["order"] ?? []
         let values = saved["codes"] ?? []

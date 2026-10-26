@@ -33,6 +33,14 @@ struct LanguageModelsView: View {
             } footer: {
                 Text("Models run on this device. Audio and transcripts are not uploaded. Downloads need a network connection and free storage.")
             }
+
+            Section {
+                ForEach(viewModel.detectionModels) { row($0) }
+            } header: {
+                Text("Language detection")
+            } footer: {
+                Text("Names the language of a clip, such as Dutch or Russian, and transcribes Dutch clips for dubbing. It runs on this iPhone and your audio is not uploaded. The model is downloaded from Hugging Face when you choose to install it.")
+            }
         }
         .navigationTitle("Language models")
         .navigationBarTitleDisplayMode(.inline)
@@ -109,6 +117,8 @@ struct LanguageModelsView: View {
     private func subtitle(for model: LanguageModel, status: LanguageModelStatus) -> String {
         switch status {
         case .failed(let message): message
+        case .downloading(let progress?) where model.kind == .languageDetection && progress >= LanguageDetectionModelStore.downloadShare:
+            String(localized: "Preparing on this iPhone…")
         case .downloading(let progress?): String(localized: "Downloading… \(Int(progress * 100))%")
         case .downloading(nil): String(localized: "Downloading…")
         case .unsupported: String(localized: "Not supported on this device")

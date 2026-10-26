@@ -281,16 +281,6 @@
         }
       }
     },
-    "Detects Spanish on upload and transcribes it for dubbing": {
-      "localizations": {
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ตรวจภาษาสเปนตอนอัปโหลดและถอดเสียงเพื่อพากย์"
-          }
-        }
-      }
-    },
     "Download": {
       "localizations": {
         "th": {
@@ -336,7 +326,7 @@
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ การตั้งค่า › Language models"
+            "value": "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ การตั้งค่า › โมเดลภาษา"
           }
         }
       }
@@ -556,7 +546,7 @@
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone เครื่องนี้ยังไม่พร้อมแปลบนอุปกรณ์ กรุณาติดตั้งภาษาที่ การตั้งค่า › Language models แล้วลองใหม่"
+            "value": "iPhone เครื่องนี้ยังไม่พร้อมแปลบนอุปกรณ์ กรุณาติดตั้งภาษาที่ การตั้งค่า › โมเดลภาษา แล้วลองใหม่"
           }
         }
       }
@@ -627,6 +617,296 @@
           "stringUnit": {
             "state": "translated",
             "value": "ใช้ภาษาของเครื่อง · %@"
+          }
+        }
+      }
+    },
+    "Couldn't download the language detection model. Check your connection and try again. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดโมเดลตรวจภาษาไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't download the %@ speech model. Check your connection and try again. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดโมเดลถอดเสียงภาษา%@ไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't tell which language is spoken in this clip. Download the language detection model in Settings › Language models to recognize more languages. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจไม่ได้ว่าคลิปนี้พูดภาษาอะไร ดาวน์โหลดโมเดลตรวจภาษาที่ การตั้งค่า › โมเดลภาษา เพื่อให้รู้จักภาษาได้มากขึ้น ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't use the language detection model on this iPhone. Try downloading it again in Settings › Language models. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้โมเดลตรวจภาษาบน iPhone เครื่องนี้ไม่ได้ ลองดาวน์โหลดใหม่ที่ การตั้งค่า › โมเดลภาษา ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Download (about %lld MB)": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลด (ประมาณ %lld MB)"
+          }
+        }
+      }
+    },
+    "Downloading the language detection model…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังดาวน์โหลดโมเดลตรวจภาษา…"
+          }
+        }
+      }
+    },
+    "Downloading the language detection model… %lld%%": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังดาวน์โหลดโมเดลตรวจภาษา… %lld%%"
+          }
+        }
+      }
+    },
+    "Downloading the %@ speech model… %lld%%": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังดาวน์โหลดโมเดลถอดเสียงภาษา%@… %lld%%"
+          }
+        }
+      }
+    },
+    "Downloading the %@ speech model… this only happens once": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังดาวน์โหลดโมเดลถอดเสียงภาษา%@… ทำครั้งเดียวเท่านั้น"
+          }
+        }
+      }
+    },
+    "Download the language detection model?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดโมเดลตรวจภาษาไหม?"
+          }
+        }
+      }
+    },
+    "Download the %@ speech model?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดโมเดลถอดเสียงภาษา%@ไหม?"
+          }
+        }
+      }
+    },
+    "Dubbing from %@ needs a one-time download of its speech model. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การพากย์จากภาษา%@ต้องดาวน์โหลดโมเดลถอดเสียงของภาษานั้นหนึ่งครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Language detection": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจภาษา"
+          }
+        }
+      }
+    },
+    "Language detection model": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โมเดลตรวจภาษา"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไว้ก่อน"
+          }
+        }
+      }
+    },
+    "Preparing on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมบน iPhone เครื่องนี้…"
+          }
+        }
+      }
+    },
+    "Preparing the language detection model on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมโมเดลตรวจภาษาบน iPhone เครื่องนี้…"
+          }
+        }
+      }
+    },
+    "The download didn't finish. Try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดไม่เสร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The downloaded model couldn't be used on this iPhone. Try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้โมเดลที่ดาวน์โหลดบน iPhone เครื่องนี้ไม่ได้ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "There isn't enough free storage for the language detection model. Free up some space and try again. Listen to the original audio for now.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พื้นที่ว่างไม่พอสำหรับโมเดลตรวจภาษา เคลียร์พื้นที่แล้วลองอีกครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "The system limit for downloaded speech languages was reached. Remove another language first.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดาวน์โหลดภาษาสำหรับถอดเสียงครบจำนวนที่ระบบกำหนดแล้ว ลบภาษาอื่นก่อน"
+          }
+        }
+      }
+    },
+    "This iPhone has reached its limit of downloaded speech languages. Remove one in Settings › Language models, then try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone เครื่องนี้ดาวน์โหลดภาษาสำหรับถอดเสียงครบจำนวนที่ระบบกำหนดแล้ว ลบหนึ่งภาษาที่ การตั้งค่า › โมเดลภาษา แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "This language isn't supported on this device.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ภาษานี้ไม่รองรับบนอุปกรณ์เครื่องนี้"
+          }
+        }
+      }
+    },
+    "To tell which language this clip speaks, your iPhone needs a model of about %lld MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. Without it, your iPhone can mainly recognize English and Spanish.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เพื่อบอกว่าคลิปนี้พูดภาษาอะไร iPhone ของคุณต้องมีโมเดลขนาดประมาณ %lld MB จาก Hugging Face (ใช้ Wi-Fi จะดีกว่า) โมเดลทำงานบน iPhone ของคุณและไม่มีการอัปโหลดเสียง หากไม่มีโมเดล iPhone จะรู้จักได้หลักๆ แค่ภาษาอังกฤษและภาษาสเปน"
+          }
+        }
+      }
+    },
+    "Transcribes Spanish clips for dubbing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ถอดเสียงคลิปภาษาสเปนเพื่อพากย์"
+          }
+        }
+      }
+    },
+    "Transcribing %@ speech on this iPhone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังถอดคำพูดภาษา%@บน iPhone…"
+          }
+        }
+      }
+    },
+    "Names the language of a clip and transcribes Dutch · about %lld MB": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บอกว่าคลิปพูดภาษาอะไร และถอดคำพูดภาษาดัตช์ · ประมาณ %lld MB"
+          }
+        }
+      }
+    },
+    "Names the language of a clip, such as Dutch or Russian, and transcribes Dutch clips for dubbing. It runs on this iPhone and your audio is not uploaded. The model is downloaded from Hugging Face when you choose to install it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บอกว่าคลิปพูดภาษาอะไร เช่น ดัตช์หรือรัสเซีย และถอดคำพูดภาษาดัตช์ของคลิปเพื่อพากย์ ทำงานบน iPhone เครื่องนี้ และเสียงของคุณจะไม่ถูกอัปโหลด โมเดลจะดาวน์โหลดจาก Hugging Face เมื่อคุณเลือกติดตั้ง"
+          }
+        }
+      }
+    },
+    "To dub this clip, your iPhone needs a %@ speech model of about %lld MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. It is the same model that tells which language a clip speaks.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ในการพากย์คลิปนี้ iPhone ของคุณต้องมีโมเดลถอดคำพูดภาษา%@ขนาดประมาณ %lld MB จาก Hugging Face (ใช้ Wi-Fi ถ้าทำได้) ทำงานบน iPhone ของคุณ และเสียงของคุณจะไม่ถูกอัปโหลด เป็นโมเดลเดียวกับที่ใช้บอกว่าคลิปพูดภาษาอะไร"
           }
         }
       }

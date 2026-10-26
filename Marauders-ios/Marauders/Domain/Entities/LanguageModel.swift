@@ -5,13 +5,16 @@
 
 import Foundation
 
-/// An on-device Apple language asset the app can use for AI dubbing and language detection.
+/// An on-device language model the app can use for AI dubbing and language detection: an Apple asset,
+/// or the Whisper model that names a clip's language.
 struct LanguageModel: Identifiable, Hashable, Sendable {
     enum Kind: Hashable, Sendable {
         /// Apple Translation pair (BCP-47 language codes).
         case translation(source: String, target: String)
         /// Apple SpeechTranscriber locale identifier.
         case speech(locale: String)
+        /// The Whisper model that names a clip's language and transcribes Dutch.
+        case languageDetection
     }
 
     let id: String
@@ -44,11 +47,17 @@ struct LanguageModel: Identifiable, Hashable, Sendable {
         .init(id: "speech.th-TH", kind: .speech(locale: "th-TH"),
               title: ListeningLanguage.thai.displayName(), detail: String(localized: "Speech recognition")),
         .init(id: "speech.es-ES", kind: .speech(locale: "es-ES"),
-              title: ListeningLanguage.spanish.displayName(), detail: String(localized: "Detects Spanish on upload and transcribes it for dubbing"))
+              title: ListeningLanguage.spanish.displayName(), detail: String(localized: "Transcribes Spanish clips for dubbing"))
+    ]
+
+    static let detectionModels: [LanguageModel] = [
+        .init(id: "detection.whisper-base", kind: .languageDetection,
+              title: String(localized: "Language detection model"),
+              detail: String(localized: "Names the language of a clip and transcribes Dutch · about \(LanguageDetectionModel.approximateMegabytes) MB"))
     ]
 }
 
-enum LanguageModelStatus: Equatable, Sendable {
+nonisolated enum LanguageModelStatus: Equatable, Sendable {
     case checking
     case installed
     case notInstalled
