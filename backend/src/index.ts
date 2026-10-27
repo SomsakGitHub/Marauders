@@ -2,6 +2,7 @@ import { authenticateBearerRequest } from "./auth/authenticateRequest";
 import { listFeedVideos } from "./db/feed";
 import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
+import { handleDevAuth } from "./routes/authDev";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleDubbedAudio } from "./routes/dubbedAudio";
 import { parseDubbingLanguage } from "./audio/cache";
@@ -23,6 +24,8 @@ export interface Env {
   VIDEOS: R2Bucket;
   JWT_SIGNING_SECRET: string;
   APPLE_CLIENT_ID: string;
+  /** Turns on `/v1/auth/dev` for the debug app on the Simulator; leave unset in normal operation. */
+  DEV_LOGIN_SECRET?: string;
   /** General per-IP limit for reads/writes; see wrangler.toml. */
   RATE_LIMITER?: RateLimit;
   /** Stricter per-IP limit for the Apple sign-in endpoint. */
@@ -125,7 +128,8 @@ export default {
       url.pathname.startsWith("/v1/") &&
       !url.pathname.startsWith("/v1/media/")
     ) {
-      const isAuthRoute = url.pathname === "/v1/auth/apple";
+      const isAuthRoute =
+        url.pathname === "/v1/auth/apple" || url.pathname === "/v1/auth/dev";
       const limiter = isAuthRoute ? env.AUTH_RATE_LIMITER : env.RATE_LIMITER;
       const key = `${isAuthRoute ? "auth" : "api"}:${clientIp(request)}`;
       if (await isRateLimited(limiter, key)) {
@@ -133,7 +137,10 @@ export default {
       }
     }
 
-    if (url.pathname === "/v1/auth/apple" && request.method === "POST") {
+    if (
+      (url.pathname === "/v1/auth/apple" || url.pathname === "/v1/auth/dev") &&
+      request.method === "POST"
+    ) {
       const decision = await enforceDatabaseRateLimit(
         env.DATABASE_URL,
         AUTH_RATE_LIMIT,
@@ -145,7 +152,9 @@ export default {
           request,
         );
       }
-      return withCors(await handleAppleAuth(request, env), request);
+      const handler =
+        url.pathname === "/v1/auth/dev" ? handleDevAuth : handleAppleAuth;
+      return withCors(await handler(request, env), request);
     }
 
     // The map reads the same list as the feed; installed apps still call it by its own path.

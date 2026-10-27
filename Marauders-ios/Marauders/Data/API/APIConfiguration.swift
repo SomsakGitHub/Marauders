@@ -78,6 +78,16 @@ enum APIConfiguration {
         return url
     }
 
+    #if DEBUG
+    static func devAuthURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/auth/dev", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+    #endif
+
     static func userLocationURL() throws -> URL {
         let base = try apiBaseURL()
         guard let url = URL(string: "v1/users/me/location", relativeTo: base) else {

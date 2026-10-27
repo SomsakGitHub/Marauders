@@ -55,6 +55,14 @@ final class AuthViewModel {
             return
         }
 
+        #if DEBUG
+        // A simulator test user has no Apple credential to check; its access token is the only proof.
+        if DevLogin.isDevUserID(userID) {
+            isSignedIn = true
+            return
+        }
+        #endif
+
         let state = await Self.credentialState(for: userID)
         switch state {
         case .authorized:
@@ -125,6 +133,27 @@ final class AuthViewModel {
     }
 
     #if DEBUG
+    /// Simulator only: becomes the test user named by `DevLogin.label`, a different account from any Apple ID.
+    func signInAsDevUser() async {
+        guard let secret = DevLogin.secret else { return }
+        let label = DevLogin.label
+        do {
+            let accessToken = try await DevAuthAPIClient().accessToken(
+                secret: secret,
+                label: label,
+                countryCode: selectedCountryCode
+            )
+            try sessionStore.saveUserID(DevLogin.userIDPrefix + label)
+            try tokenStore.saveAccessToken(accessToken)
+            isSignedIn = true
+            errorMessage = nil
+            AppLog.info("auth", "signed in as dev user \(label)")
+        } catch {
+            errorMessage = Self.userFacingMessage(for: error)
+            AppLog.error("auth", "dev sign in failed")
+        }
+    }
+
     /// UI-only completion; creates no credentials and never authenticates API requests.
     func completeUITestSignIn() {
         guard AppRuntimeConfiguration.isUITesting else { return }

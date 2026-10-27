@@ -84,6 +84,16 @@ struct SignInWithAppleGateView: View {
                 .padding(.top, 8)
 
                 #if DEBUG
+                if DevLogin.isAvailable {
+                    Button("Sign in as test user (\(DevLogin.label))") {
+                        if let code = locationGate.countryCode {
+                            authViewModel.selectedCountryCode = countryOverride ?? code
+                            Task { await authViewModel.signInAsDevUser() }
+                        }
+                    }
+                    .disabled(!locationGate.canSignIn)
+                    .accessibilityIdentifier("signin.devUser")
+                }
                 if AppRuntimeConfiguration.isUITesting {
                     Button("Complete test sign in") {
                         if let code = locationGate.countryCode {
