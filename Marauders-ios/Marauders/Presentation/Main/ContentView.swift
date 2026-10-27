@@ -87,6 +87,9 @@ struct ContentView: View {
         .onAppear {
             AppLog.info("app", "Marauders launched")
         }
+        // The feed is the first tab, so the saved session is restored here instead of waiting for
+        // the viewer to open Map, Upload or Profile.
+        .task { await authViewModel.restoreSession() }
         .onChange(of: authViewModel.isSignedIn) { _, signedIn in
             if signedIn { showingSignIn = false }
             feedViewModel.resetForSessionChange()
