@@ -238,7 +238,14 @@ struct ClipPlayerView: View {
             .accessibilityIdentifier("clip.closeVideo")
         }
         .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.top, 28)
+        .padding(.bottom, 16)
+        .background(alignment: .top) {
+            // Keeps the white handle readable over bright video and gives it room below the top edge.
+            LinearGradient(colors: [.black.opacity(0.5), .black.opacity(0)], startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
+        }
     }
 
     private var bottomBar: some View {
