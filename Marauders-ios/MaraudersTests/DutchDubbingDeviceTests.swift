@@ -11,7 +11,7 @@ import UIKit
 /// player's translation task makes: transcribe with the Whisper model, translate, speak. It does not go
 /// through `ClipPlayerView` or `prepare`, starts from a clip that was fetched beforehand, uploads nothing
 /// (there is no cache context) and uses a translation session hosted in a window of its own. It needs the
-/// production clip to still exist, Apple's Dutch to English translation pair, and the language detection
+/// production feed to hold the Dutch test clip, Apple's Dutch to English translation pair, and the language detection
 /// model (downloaded when missing: about a minute the first time). It needs no speech permission.
 /// The translation session uses the default strategy: the player asks for `.lowLatency`, whose models can need
 /// their own one-time system download that a test cannot confirm (`prepareTranslation` then waits for a tap).
@@ -20,7 +20,20 @@ import UIKit
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["RUN_DEVICE_DUBBING_TEST"] != nil, "Set TEST_RUNNER_RUN_DEVICE_DUBBING_TEST=1"))
 @MainActor
 struct DutchDubbingDeviceTests {
-    private let clipURL = URL(string: "https://marauders-api.js6ctz7gtj.workers.dev/v1/media/videos/ae774227-23aa-4a61-a173-1fa1fe23a45b.mp4")!
+    private let feedURL = URL(string: "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=1")!
+
+    /// The clip at the top of the production feed, which is expected to be the Dutch market dialogue. It has been
+    /// deleted and uploaded again before, so its address is looked up instead of written down.
+    private func clipURL() async throws -> URL {
+        struct Feed: Decodable {
+            struct Item: Decodable { let streamURL: URL }
+            let items: [Item]
+        }
+        let (data, response) = try await URLSession.shared.data(from: feedURL)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        try #require(status == 200, "the production feed is not available (HTTP \(status))")
+        return try #require(try JSONDecoder().decode(Feed.self, from: data).items.first?.streamURL, "the production feed has no clip")
+    }
 
     /// Words and phrases from the turns of the test clip (a vendor and a customer at a market stall, about
     /// 17 short turns, about 89 words), spread over both windows. The Dictation engine this route replaced
@@ -69,7 +82,7 @@ struct DutchDubbingDeviceTests {
 
     /// The production clip, fetched into `folder`, failing clearly when it is gone.
     private func fetchClip(into folder: URL) async throws -> URL {
-        let (data, response) = try await URLSession.shared.data(from: clipURL)
+        let (data, response) = try await URLSession.shared.data(from: try await clipURL())
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         try #require(status == 200, "the production clip is not available (HTTP \(status))")
         let file = folder.appendingPathComponent("clip.mp4")
