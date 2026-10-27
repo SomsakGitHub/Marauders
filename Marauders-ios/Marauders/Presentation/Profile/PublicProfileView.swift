@@ -30,12 +30,14 @@ struct PublicProfileView: View {
                     content
                 }
             }
-            .navigationTitle(viewModel.handle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Close", action: onClose)
-                        .accessibilityIdentifier("publicProfile.close")
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                    .accessibilityIdentifier("publicProfile.close")
                 }
             }
         }
@@ -69,9 +71,11 @@ struct PublicProfileView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 76))
-                .foregroundStyle(.secondary)
+            AvatarView(
+                url: viewModel.profile?.avatarURL,
+                handle: viewModel.profile?.handle ?? viewModel.handle,
+                size: 76
+            )
 
             Text(viewModel.profile?.handle ?? viewModel.handle)
                 .font(.headline)

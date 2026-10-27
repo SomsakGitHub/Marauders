@@ -5,12 +5,10 @@
 
 import SwiftUI
 
-/// Bottom-left caption block for the current feed clip (author, caption).
-/// The author line is tappable when `onAuthorTap` is provided; everything else
-/// ignores touches so feed paging and tap-to-play keep working.
+/// Bottom-left caption for the current feed clip. The author is shown only as the avatar in the action rail.
+/// The caption ignores touches so feed paging and tap-to-play keep working.
 struct FeedClipCaptionOverlay: View {
     let clip: FeedVideo
-    var onAuthorTap: ((String) -> Void)?
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -23,7 +21,6 @@ struct FeedClipCaptionOverlay: View {
             .allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 6) {
-                authorName
                 if let caption = Self.cleaned(clip.caption) {
                     Text(caption)
                         .font(.subheadline)
@@ -33,28 +30,6 @@ struct FeedClipCaptionOverlay: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 28)
-        }
-    }
-
-    @ViewBuilder
-    private var authorName: some View {
-        if let authorName = clip.authorName {
-            if let onAuthorTap {
-                Button {
-                    onAuthorTap(authorName)
-                } label: {
-                    Text(authorName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("feed.author")
-            } else {
-                Text(authorName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .allowsHitTesting(false)
-            }
         }
     }
 

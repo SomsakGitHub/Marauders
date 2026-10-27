@@ -189,7 +189,7 @@ struct VideoFeedView: View {
                     .allowsHitTesting(false)
 
                 if let video = currentVideo {
-                    FeedClipCaptionOverlay(clip: video, onAuthorTap: onOpenProfile)
+                    FeedClipCaptionOverlay(clip: video)
                         .frame(width: geometry.size.width, height: geometry.size.height)
 
                     FeedClipActionRail(clip: video, onChooseAIAudio: { target in
