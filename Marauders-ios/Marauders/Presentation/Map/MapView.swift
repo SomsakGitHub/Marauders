@@ -11,11 +11,13 @@ struct MapView: View {
     @Bindable var viewModel: MapViewModel
     @Bindable var feedViewModel: VideoFeedViewModel
     var onOpenClipInFeed: (UUID) -> Void
+    var onOpenProfile: (String) -> Void = { _ in }
 
     @Environment(\.openURL) private var openURL
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
     @State private var visibleRegion = Self.defaultRegion
     @State private var selectedClip: FeedVideo?
+    @State private var profileHandleAfterDismiss: String?
     @State private var isCountryFilterPresented = false
     @State private var searchText = ""
 
@@ -78,13 +80,23 @@ struct MapView: View {
                 position = .region(region)
             }
         }
-        .fullScreenCover(item: $selectedClip) { clip in
+        .fullScreenCover(item: $selectedClip, onDismiss: {
+            // A sheet presented while the cover is still leaving is dropped, so the profile waits for the dismissal.
+            if let handle = profileHandleAfterDismiss {
+                profileHandleAfterDismiss = nil
+                onOpenProfile(handle)
+            }
+        }) { clip in
             ClipPlayerView(
                 clip: clip,
                 userCoordinate: viewModel.userCoordinate,
                 onClose: { selectedClip = nil },
                 onOpenInFeed: {
                     onOpenClipInFeed(clip.id)
+                    selectedClip = nil
+                },
+                onOpenAuthor: { handle in
+                    profileHandleAfterDismiss = handle
                     selectedClip = nil
                 }
             )

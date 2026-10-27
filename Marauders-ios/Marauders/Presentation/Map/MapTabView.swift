@@ -9,6 +9,7 @@ struct MapTabView: View {
     @Bindable var authViewModel: AuthViewModel
     @Bindable var feedViewModel: VideoFeedViewModel
     let onOpenClipInFeed: (UUID) async -> Void
+    let onOpenProfile: (String) -> Void
 
     let onSignIn: () -> Void
 
@@ -19,11 +20,13 @@ struct MapTabView: View {
         feedViewModel: VideoFeedViewModel,
         reportUserLocation: ReportUserLocationUseCase? = nil,
         onSignIn: @escaping () -> Void = {},
-        onOpenClipInFeed: @escaping (UUID) async -> Void
+        onOpenClipInFeed: @escaping (UUID) async -> Void,
+        onOpenProfile: @escaping (String) -> Void = { _ in }
     ) {
         self.authViewModel = authViewModel
         self.feedViewModel = feedViewModel
         self.onOpenClipInFeed = onOpenClipInFeed
+        self.onOpenProfile = onOpenProfile
         self.onSignIn = onSignIn
         _mapViewModel = State(initialValue: MapViewModel(reportUserLocation: reportUserLocation))
     }
@@ -40,7 +43,8 @@ struct MapTabView: View {
                         feedViewModel: feedViewModel,
                         onOpenClipInFeed: { videoID in
                             Task { await onOpenClipInFeed(videoID) }
-                        }
+                        },
+                        onOpenProfile: onOpenProfile
                     )
                 } else {
                     MapLocationRequiredView(viewModel: mapViewModel)

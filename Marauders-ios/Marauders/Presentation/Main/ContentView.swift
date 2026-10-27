@@ -41,7 +41,8 @@ struct ContentView: View {
                 onSignIn: { showingSignIn = true },
                 onOpenClipInFeed: { videoID in
                     await coordinator.openClipInFeed(videoID: videoID)
-                }
+                },
+                onOpenProfile: { router.openPublicProfile(handle: $0) }
             )
                 .tabItem {
                     Label("Map", systemImage: "map.fill")

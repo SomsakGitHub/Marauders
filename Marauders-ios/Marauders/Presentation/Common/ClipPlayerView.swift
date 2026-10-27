@@ -15,6 +15,8 @@ struct ClipPlayerView: View {
     var userCoordinate: CLLocationCoordinate2D?
     let onClose: () -> Void
     var onOpenInFeed: (() -> Void)?
+    /// When set, the author's handle opens their profile.
+    var onOpenAuthor: ((String) -> Void)?
     var onDelete: (() -> Void)?
     /// When set, dubbing into this language starts as soon as the player opens.
     var requestDubbingTarget: ListeningLanguage?
@@ -191,9 +193,21 @@ struct ClipPlayerView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 if let authorName = clip.authorName {
-                    Text(authorName)
-                        .font(.headline)
-                        .foregroundStyle(.white)
+                    if let onOpenAuthor {
+                        Button {
+                            onOpenAuthor(authorName)
+                        } label: {
+                            Text(authorName)
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("clip.author")
+                    } else {
+                        Text(authorName)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                    }
                 }
                 if let country = clip.country {
                     Text("\(Country.flagEmoji(for: country)) \(CountryCatalog.name(for: country))")
