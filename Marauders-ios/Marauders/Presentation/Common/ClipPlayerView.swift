@@ -245,6 +245,14 @@ struct ClipPlayerView: View {
                 .accessibilityIdentifier("clip.dubbingStatus")
             }
 
+            if hasDubbedTrack, let subtitle = dubbing.subtitle {
+                Text(subtitle)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityIdentifier("clip.dubbingSubtitle")
+            }
             if let caption = clip.caption,
                !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text(caption)

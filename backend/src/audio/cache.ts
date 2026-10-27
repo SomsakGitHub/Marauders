@@ -22,6 +22,12 @@ export function audioKey(id: string, hash: string, language: string): string {
   return `translations/${id.toLowerCase()}/${hash}-${language}-${DUBBED_AUDIO_VERSION}.m4a`;
 }
 
+/** The translated words that were read aloud, saved beside the audio so every viewer can read them as subtitles. */
+export function textKey(id: string, hash: string, language: string): string {
+  return audioKey(id, hash, language).replace(/\.m4a$/, ".txt");
+}
+export const DUBBED_TEXT_MAX_BYTES = 16 * 1024;
+
 type Box = { type: string; payload: number; end: number };
 function boxes(data: Uint8Array, start: number, end: number): Box[] {
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);

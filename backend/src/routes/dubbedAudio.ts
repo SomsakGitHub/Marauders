@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import type { Env } from "../index";
 import { parseVideoId } from "../validation";
-import { audioKey, sourceHash, readAudioBody, validateDubbedAudio } from "../audio/cache";
+import { audioKey, textKey, sourceHash, readAudioBody, validateDubbedAudio, DUBBED_TEXT_MAX_BYTES } from "../audio/cache";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {status, headers: {"content-type":"application/json", "cache-control":"no-store"}});
@@ -22,6 +22,7 @@ export async function handleDubbedAudio(request: Request, env: Env, rawID: strin
     const suppliedHash = request.method === "GET" ? new URL(request.url).searchParams.get("source") : request.headers.get("X-Source-SHA256");
     if (suppliedHash !== hash) return json({error:"clip source changed"},409);
     const key = audioKey(id,hash,language);
+    if (new URL(request.url).searchParams.get("kind") === "text") return await handleDubbedText(request, env, id, hash, language, source, uploaderID);
     const ready = () => json({status:"ready",audioURL:`${new URL(request.url).origin}/v1/media/${key}`,sourceHash:hash,language,kind:"ai_translation"});
     if (await env.VIDEOS.head(key)) return ready();
     if (request.method === "GET") return json({status:"missing",sourceHash:hash});
@@ -54,4 +55,26 @@ export async function deleteDubbedAudio(bucket: R2Bucket, id: string): Promise<v
     if (page.objects.length) await bucket.delete(page.objects.map(object => object.key));
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
+}
+
+/** Subtitles for a saved dub: GET returns the text (or missing), POST saves it once, first writer wins. */
+async function handleDubbedText(request: Request, env: Env, id: string, hash: string, language: string, source: string, uploaderID?: string): Promise<Response> {
+  const key = textKey(id,hash,language);
+  const existing = await env.VIDEOS.get(key);
+  if (existing) return json({status:"ready",text:await existing.text(),sourceHash:hash,language});
+  if (request.method === "GET") return json({status:"missing",sourceHash:hash});
+  if (!uploaderID) return json({error:"authentication required"},401);
+  if (!await env.VIDEOS.head(audioKey(id,hash,language))) return json({error:"dubbed audio not saved yet"},409);
+  const text = (await request.text()).trim();
+  if (!text || new TextEncoder().encode(text).length > DUBBED_TEXT_MAX_BYTES) return json({error:"invalid or oversized dubbed text"},422);
+  await env.VIDEOS.put(key,text,{
+    onlyIf: new Headers({"If-None-Match":"*"}),
+    httpMetadata:{contentType:"text/plain; charset=utf-8",cacheControl:"no-store"},
+    customMetadata:{kind:"ai_translation_text",language,uploaderID,sourceHash:hash,version:"1"}
+  });
+  if (await clipSource(env,id) !== source) {
+    await env.VIDEOS.delete(key);
+    return json({error:"clip source changed"},409);
+  }
+  return json({status:"ready",text,sourceHash:hash,language});
 }

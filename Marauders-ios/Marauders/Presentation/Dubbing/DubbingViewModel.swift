@@ -24,6 +24,8 @@ final class DubbingViewModel {
 
     private(set) var message: String?
     private(set) var isProcessing = false
+    /// The words of the AI voice, in the viewer's language, shown as subtitles while it plays.
+    private(set) var subtitle: String?
     private let cache: any DubbedAudioCaching
     private let detector: any ClipLanguageDetecting
     private let loader: any ClipFileLoading
@@ -144,6 +146,8 @@ final class DubbingViewModel {
             guard try await AVURLAsset(url: audio).load(.isPlayable) else { return nil }
             try check(current)
             message = String(localized: "AI audio in \(target.sentenceName()) · using saved audio")
+            let text = await cache.lookupText(videoID: clip.id, sourceURL: clip.streamURL, language: target)
+            if current == generation { subtitle = text }
             return audio
         } catch { return nil }
     }
@@ -358,6 +362,7 @@ final class DubbingViewModel {
             message = String(localized: "Translating into \(targetName) on this iPhone…")
             let translated = try await session.translate(text).targetText
             try check(current)
+            subtitle = translated.trimmingCharacters(in: .whitespacesAndNewlines)
             message = String(localized: "Creating the AI voice on this iPhone…")
             let output = folder.appendingPathComponent("dubbed.caf")
             let synth = AVSpeechSynthesizer()
@@ -384,6 +389,7 @@ final class DubbingViewModel {
                     Task { [weak self] in
                         do {
                             try await cache.store(videoID: context.videoID, sourceURL: context.sourceURL, language: context.target, audio: data)
+                            try? await cache.storeText(videoID: context.videoID, sourceURL: context.sourceURL, language: context.target, text: translated)
                             guard let self, self.generation == current else { return }
                             self.message = String(localized: "AI audio in \(targetName) · saved for reuse")
                         } catch {
@@ -554,7 +560,7 @@ final class DubbingViewModel {
         cancelWork()
         if !keepingClip { cleanFiles() }
         cacheContext = nil
-        isProcessing = false; message = nil
+        isProcessing = false; message = nil; subtitle = nil
     }
     func unavailableForTesting() {
         useOriginal()
