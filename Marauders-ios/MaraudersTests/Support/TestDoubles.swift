@@ -115,6 +115,7 @@ final class RecordingFeedRepository: FeedRepository, @unchecked Sendable {
 
 final class CallbackFlag: @unchecked Sendable {
     var wasCalled = false
+    var uploadedID: UUID?
 }
 
 final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendable {

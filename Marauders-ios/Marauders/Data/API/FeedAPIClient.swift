@@ -7,7 +7,6 @@ import Foundation
 
 struct FeedAPIResponse: Decodable, Sendable {
     let items: [FeedVideo]
-    let viewerID: String?
 }
 
 enum FeedAPIError: LocalizedError, Equatable {
@@ -124,10 +123,6 @@ struct FeedAPIClient: Sendable {
 
         do {
             let decoded = try JSONDecoder().decode(FeedAPIResponse.self, from: response.data)
-            // Do not accept an older server's unfiltered response for a signed-in feed.
-            if bearer != nil, !forMap, decoded.viewerID == nil {
-                throw FeedAPIError.invalidResponse
-            }
             for item in decoded.items {
                 guard item.streamURL.scheme?.lowercased() == "https" else {
                     AppLog.error("api.feed", "non-HTTPS stream URL in item \(item.id.uuidString)")

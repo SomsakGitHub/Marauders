@@ -69,7 +69,7 @@ function withCors(response: Response, request: Request): Response {
   });
 }
 
-async function handleFeed(request: Request, env: Env, mapOnly = false): Promise<Response> {
+async function handleFeed(request: Request, env: Env): Promise<Response> {
   if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
     return errorResponse(503, "service configuration incomplete");
   }
@@ -91,15 +91,18 @@ async function handleFeed(request: Request, env: Env, mapOnly = false): Promise<
   }
 
   try {
-    // A supplied but invalid session must never silently become a guest feed.
+    // The feed no longer depends on who asks, but a supplied session is still checked: a bad one is an error
+    // the app can report, not a feed that quietly looks like a guest's.
     const auth = request.headers.has("Authorization")
       ? await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "")
       : null;
     if (request.headers.has("Authorization") && !auth) {
       return errorResponse(401, "invalid session");
     }
-    const excludedOwnerId = mapOnly ? null : auth?.userId ?? null;
-    const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country, excludedOwnerId);
+    // Everyone sees the same clips, the viewer's own included.
+    const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country);
+    // `viewerID` stays in the answer: app builds from 8d3657d (feed without own clips) until this change refuse a
+    // signed-in feed that lacks it.
     return jsonResponse({ items, viewerID: auth?.userId ?? null });
   } catch {
     return errorResponse(500, "failed to load feed");
@@ -145,11 +148,8 @@ export default {
       return withCors(await handleAppleAuth(request, env), request);
     }
 
-    if (url.pathname === "/v1/map/clips" && request.method === "GET") {
-      return withCors(await handleFeed(request, env, true), request);
-    }
-
-    if (url.pathname === "/v1/feed" && request.method === "GET") {
+    // The map reads the same list as the feed; installed apps still call it by its own path.
+    if ((url.pathname === "/v1/feed" || url.pathname === "/v1/map/clips") && request.method === "GET") {
       return withCors(await handleFeed(request, env), request);
     }
 

@@ -30,7 +30,8 @@ final class UploadVideoViewModel {
     private let uploadVideo: UploadFeedVideoUseCase
     private let videoLocationReader: VideoLocationReading
     private var pickerStagingURL: URL?
-    var onUploaded: (() async -> Void)?
+    /// Called with the clip the server stored, once the upload succeeded.
+    var onUploaded: ((_ uploaded: FeedVideo) async -> Void)?
 
     private let locationManager: LocationManaging
     private let locationDelegateBridge = LocationManagerDelegateBridge()
@@ -197,7 +198,7 @@ final class UploadVideoViewModel {
             discardExportStagingFile()
             audioAssessment = nil
             caption = ""
-            await onUploaded?()
+            await onUploaded?(item)
             AppLog.info("upload", "feed reload requested after upload")
         } catch {
             statusMessage = error.localizedDescription

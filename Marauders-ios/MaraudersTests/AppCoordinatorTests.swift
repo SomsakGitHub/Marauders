@@ -39,6 +39,45 @@ struct AppCoordinatorTests {
         #expect(feedVM.videos.count == 1)
     }
 
+    /// The feed shows the viewer's own clips, so after an upload it brings the new clip into view.
+    @Test func uploadCompletedFocusesTheUploadedClip() async {
+        let router = AppRouter()
+        router.showUpload()
+        let older = FeedVideo(streamURL: URL(string: "https://example.com/older.mp4")!)
+        let uploaded = FeedVideo(streamURL: URL(string: "https://example.com/new.mp4")!, authorName: "@me")
+        let repo = MockFeedRepositoryForCoordinator()
+        repo.nextResult = .success(FeedPage(items: [uploaded, older], hasMore: false))
+        let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        let uploadVM = UploadVideoViewModel(
+            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
+            uploadVideo: UploadFeedVideoUseCase(repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
+        )
+        let coordinator = AppCoordinator(router: router, feedViewModel: feedVM, uploadViewModel: uploadVM)
+
+        await coordinator.handleUploadCompleted(uploaded: uploaded)
+
+        #expect(router.selectedTab == .feed)
+        #expect(feedVM.videos.first?.id == uploaded.id)
+        #expect(feedVM.focusVideoID == uploaded.id)
+    }
+
+    @Test func uploadCompletedDoesNotFocusAClipTheReloadDidNotReturn() async {
+        let router = AppRouter()
+        let repo = MockFeedRepositoryForCoordinator()
+        repo.nextResult = .success(FeedPage(items: [FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!)], hasMore: false))
+        let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        let uploadVM = UploadVideoViewModel(
+            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
+            uploadVideo: UploadFeedVideoUseCase(repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
+        )
+        let coordinator = AppCoordinator(router: router, feedViewModel: feedVM, uploadViewModel: uploadVM)
+
+        await coordinator.handleUploadCompleted(uploaded: FeedVideo(streamURL: URL(string: "https://example.com/missing.mp4")!))
+
+        #expect(router.selectedTab == .feed)
+        #expect(feedVM.focusVideoID == nil)
+    }
+
     @Test func openClipInFeedFocusesVideoAndShowsFeedTab() async {
         let router = AppRouter()
         let videoID = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!

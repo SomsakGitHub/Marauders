@@ -110,9 +110,11 @@ final class VideoFeedViewModel {
         do {
             let page = try await fetchFeed.execute(limit: pageSize, cursor: nil)
             guard reloadGeneration == generation else { return }
-            // Keep the displayed cached clip at the same index while refreshing the tail.
+            // Keep the displayed cached clip at the same index while refreshing the tail, but show what the
+            // server says about it now (a new @handle, avatar or caption).
             let cachedIDs = Set(cached.map(\.id))
-            videos = cached + page.items.filter { !cachedIDs.contains($0.id) }
+            let fresh = Dictionary(page.items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            videos = cached.map { fresh[$0.id] ?? $0 } + page.items.filter { !cachedIDs.contains($0.id) }
             hasMorePages = page.hasMore
             AppLog.info("startup.cache", "fresh feed merged")
         } catch {
@@ -124,6 +126,19 @@ final class VideoFeedViewModel {
 
     func requestFocus(on videoID: UUID) {
         focusVideoID = videoID
+    }
+
+    /// Takes a clip the viewer deleted out of the feed, the map pins and the startup cache. The feed shows the
+    /// viewer's own clips, so without this the clip would stay on screen, and as the last clip loaded it
+    /// would be the cursor of the next page, which the server no longer knows.
+    func removeClip(id: UUID) async {
+        let removed = videos.first { $0.id == id } ?? mapFilteredClips.first { $0.id == id }
+        videos.removeAll { $0.id == id }
+        mapFilteredClips.removeAll { $0.id == id }
+        if focusVideoID == id { focusVideoID = nil }
+        if let removed, let media = startupCache as? any FeedMediaCaching {
+            await media.invalidate(removed.streamURL)
+        }
     }
 
     func consumeFocusRequest() -> UUID? {
@@ -154,7 +169,8 @@ final class VideoFeedViewModel {
             country: video.country,
             authorName: newValue,
             authorAvatarURL: video.authorAvatarURL,
-            caption: video.caption
+            caption: video.caption,
+            audioAssessment: video.audioAssessment
         )
     }
 
@@ -175,11 +191,12 @@ final class VideoFeedViewModel {
             country: video.country,
             authorName: video.authorName,
             authorAvatarURL: url,
-            caption: video.caption
+            caption: video.caption,
+            audioAssessment: video.audioAssessment
         )
     }
 
-    /// Loads map pins independently of the personalized feed; nil means every country.
+    /// Loads map pins independently of the feed; nil means every country.
     func loadMapClips(country: String?) async {
         let generation = sessionGeneration
         do {

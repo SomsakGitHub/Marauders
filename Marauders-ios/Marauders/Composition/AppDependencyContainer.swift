@@ -100,6 +100,9 @@ final class AppDependencyContainer {
         profileViewModel.onAvatarChanged = { [weak feedViewModel] url, handle in
             feedViewModel?.applyAuthorAvatar(url: url, for: handle)
         }
+        profileViewModel.onClipDeleted = { [weak feedViewModel] clipID in
+            Task { @MainActor in await feedViewModel?.removeClip(id: clipID) }
+        }
     }
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {

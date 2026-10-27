@@ -21,8 +21,8 @@ final class AppCoordinator {
         self.router = router
         self.feedViewModel = feedViewModel
         self.uploadViewModel = uploadViewModel
-        uploadViewModel.onUploaded = { [weak self] in
-            await self?.handleUploadCompleted()
+        uploadViewModel.onUploaded = { [weak self] uploaded in
+            await self?.handleUploadCompleted(uploaded: uploaded)
         }
     }
 
@@ -30,8 +30,12 @@ final class AppCoordinator {
         await feedViewModel.loadIfNeeded()
     }
 
-    func handleUploadCompleted() async {
+    /// Reloads the feed, which now includes the viewer's own clips, and brings the new clip into view.
+    func handleUploadCompleted(uploaded: FeedVideo? = nil) async {
         await feedViewModel.reload()
+        if let uploaded, feedViewModel.videos.contains(where: { $0.id == uploaded.id }) {
+            feedViewModel.requestFocus(on: uploaded.id)
+        }
         router.showFeed()
         AppLog.info("app", "coordinator: upload complete → feed tab")
     }

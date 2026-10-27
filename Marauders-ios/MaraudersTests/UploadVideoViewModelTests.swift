@@ -208,7 +208,10 @@ struct UploadVideoViewModelTests {
         viewModel.applyClipLocation(Self.bangkok)
 
         let callback = CallbackFlag()
-        viewModel.onUploaded = { callback.wasCalled = true }
+        viewModel.onUploaded = { uploaded in
+            callback.wasCalled = true
+            callback.uploadedID = uploaded.id
+        }
 
         await viewModel.upload()
 
@@ -219,6 +222,7 @@ struct UploadVideoViewModelTests {
         #expect(repository.uploadedMimeType == "video/mp4")
         #expect(repository.uploadedClipLocation == Self.bangkok)
         #expect(callback.wasCalled)
+        #expect(callback.uploadedID == video.id)
     }
 
     @Test func uploadFailureSurfacesErrorAndKeepsFile() async throws {

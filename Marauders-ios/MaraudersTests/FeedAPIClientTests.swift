@@ -14,7 +14,7 @@ struct FeedAPIClientTests {
         func bearerAuthorizationHeader() -> String? { "Bearer test-session-token-1234567890" }
     }
 
-    @Test func personalizedFeedSendsSessionAndRequiresServerAudience() async throws {
+    @Test func signedInFeedSendsTheSession() async throws {
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request
@@ -28,19 +28,20 @@ struct FeedAPIClientTests {
         #expect(capturedRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer test-session-token-1234567890")
     }
 
-    @Test func personalizedFeedRejectsLegacyUnfilteredResponse() async {
+    /// The viewer's own clips are part of the feed, so a response without a viewer ID is as good as one with it.
+    @Test func signedInFeedAcceptsAResponseWithoutAViewerID() async throws {
+        let videoID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let body = FeedAPIClientTests.feedResponseJSON(items: [(id: videoID, streamURL: "https://cdn.example.com/v/own.mp4")])
         let session = StubURLSessionFactory.make { request in
-            (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data("{\"items\":[]}".utf8))
+            (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), body)
         }
         defer { StubURLSessionFactory.reset(session) }
         let client = FeedAPIClient(session: session, maxAttempts: 1, authorization: SignedInAuthorization())
-        do {
-            _ = try await client.fetchFeed()
-            Issue.record("Accepted an unfiltered legacy feed for a signed-in viewer")
-        } catch { #expect(error as? FeedAPIError == .invalidResponse) }
+        let page = try await client.fetchFeed()
+        #expect(page.items.map(\.id) == [videoID])
     }
 
-    @Test func mapUsesSeparateEndpointWithoutRequiringPersonalAudience() async throws {
+    @Test func mapUsesSeparateEndpoint() async throws {
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request

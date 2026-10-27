@@ -44,6 +44,28 @@ private actor StartupRefreshGate: FeedRepository {
 
 @MainActor
 struct CachedFeedStartupTests {
+    /// A cached clip stays where it is on screen, but shows what the server says about it now.
+    @Test func cachedClipShowsTheServersCurrentHandleAfterTheRefresh() async throws {
+        let id = UUID()
+        let url = URL(string: "https://example.com/cached.mp4")!
+        let stale = FeedVideo(id: id, streamURL: url, authorName: "@old")
+        let current = FeedVideo(id: id, streamURL: url, authorName: "@new")
+        let fresh = FeedVideo(streamURL: URL(string: "https://example.com/fresh.mp4")!)
+        let repository = StartupRefreshGate(page: FeedPage(items: [fresh, current], hasMore: false))
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repository),
+                                          startupCache: MemoryStartupCache([stale]))
+        await viewModel.loadIfNeeded()
+        #expect(viewModel.videos == [stale])
+        await repository.waitForRequest()
+        await repository.release()
+        let deadline = ContinuousClock.now + .seconds(2)
+        while viewModel.videos.count == 1 && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(viewModel.videos.map(\.id) == [id, fresh.id])
+        #expect(viewModel.videos.first?.authorName == "@new")
+    }
+
     @Test func restoresWithoutWaitingForNetworkAndKeepsDisplayedClipOnRefresh() async throws {
         let cached = FeedVideo(streamURL: URL(string: "https://example.com/cached.mp4")!)
         let fresh = FeedVideo(streamURL: URL(string: "https://example.com/fresh.mp4")!)

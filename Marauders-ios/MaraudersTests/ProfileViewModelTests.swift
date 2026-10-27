@@ -85,6 +85,25 @@ struct ProfileViewModelTests {
         #expect(viewModel.deleteErrorMessage == nil)
     }
 
+    @Test func deleteTellsTheFeedWhichClipWentOnlyWhenTheServerDeletedIt() async {
+        let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
+        let profile = UserProfile(country: "TH", videoCount: 1, videos: [clip])
+        let (viewModel, _) = makeSUT(result: .success(profile))
+        await viewModel.loadIfNeeded()
+        var deleted: [UUID] = []
+        viewModel.onClipDeleted = { deleted.append($0) }
+
+        await viewModel.delete(clip)
+        #expect(deleted == [clip.id])
+
+        let (failing, _) = makeSUT(result: .success(profile), deleteResult: .failure(StubError.feedFailed))
+        await failing.loadIfNeeded()
+        var failedDeletes: [UUID] = []
+        failing.onClipDeleted = { failedDeletes.append($0) }
+        await failing.delete(clip)
+        #expect(failedDeletes.isEmpty)
+    }
+
     @Test func deleteFailureSurfacesMessageAndKeepsClip() async {
         let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
         let profile = UserProfile(country: "TH", videoCount: 1, videos: [clip])

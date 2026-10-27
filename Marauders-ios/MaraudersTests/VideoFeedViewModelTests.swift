@@ -77,6 +77,64 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.videos[1].authorName == "@other")
     }
 
+    /// The viewer's own clips are in the feed, so renaming or changing the avatar must not cost them their
+    /// audio advisory (music-only clips keep their original sound, a declared language stays declared).
+    @Test func renameAndAvatarChangeKeepTheAudioAdvisory() async {
+        let advisory = ClipAudioAssessment(content: .music, signal: .detected)
+        let mine = FeedVideo(streamURL: URL(string: "https://example.com/mine.mp4")!, authorName: "@old", audioAssessment: advisory)
+        let repo = MockFeedRepository(result: .success(FeedPage(items: [mine], hasMore: false)))
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+
+        viewModel.replaceAuthorName(from: "@old", to: "@new")
+        #expect(viewModel.videos[0].authorName == "@new")
+        #expect(viewModel.videos[0].audioAssessment == advisory)
+        #expect(!viewModel.videos[0].allowsAIAudio)
+
+        viewModel.applyAuthorAvatar(url: URL(string: "https://example.com/a.jpg"), for: "@new")
+        #expect(viewModel.videos[0].authorAvatarURL == URL(string: "https://example.com/a.jpg"))
+        #expect(viewModel.videos[0].audioAssessment == advisory)
+    }
+
+    @Test func removeClipTakesItOutOfTheFeedTheMapAndAPendingFocus() async {
+        let mine = FeedVideo(streamURL: URL(string: "https://example.com/mine.mp4")!, latitude: 1, longitude: 2, authorName: "@me")
+        let other = FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!, latitude: 3, longitude: 4, authorName: "@other")
+        let repo = MockFeedRepository(result: .success(FeedPage(items: [mine, other], hasMore: false)))
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+        await viewModel.loadMapClips(country: nil)
+        viewModel.requestFocus(on: mine.id)
+
+        await viewModel.removeClip(id: mine.id)
+
+        #expect(viewModel.videos.map(\.id) == [other.id])
+        #expect(viewModel.mapFilteredClips.map(\.id) == [other.id])
+        #expect(viewModel.focusVideoID == nil)
+
+        await viewModel.removeClip(id: UUID())
+        #expect(viewModel.videos.map(\.id) == [other.id])
+    }
+
+    @Test func removeClipAlsoForgetsItsFileInTheStartupCache() async {
+        final class RecordingCache: FeedStartupCaching, FeedMediaCaching, @unchecked Sendable {
+            private(set) var invalidated: [URL] = []
+            func cachedVideos() async -> [FeedVideo] { [] }
+            func store(_ videos: [FeedVideo]) async {}
+            func localURL(for remote: URL) async -> URL? { nil }
+            func invalidate(_ remote: URL) async { invalidated.append(remote) }
+        }
+        let mine = FeedVideo(streamURL: URL(string: "https://example.com/mine.mp4")!)
+        let repo = MockFeedRepository(result: .success(FeedPage(items: [mine], hasMore: false)))
+        let cache = RecordingCache()
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo), startupCache: cache)
+        await viewModel.reload()
+
+        await viewModel.removeClip(id: mine.id)
+
+        #expect(cache.invalidated == [mine.streamURL])
+        #expect(viewModel.videos.isEmpty)
+    }
+
     @Test func replaceAuthorNameIgnoresEmptyOrSameValue() async {
         let mine = FeedVideo(
             streamURL: URL(string: "https://example.com/mine.mp4")!,

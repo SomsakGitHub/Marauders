@@ -27,6 +27,8 @@ final class ProfileViewModel {
     var onHandleChanged: ((_ oldHandle: String, _ newHandle: String) -> Void)?
     /// Called with (newAvatarURL, handle) after a successful avatar change.
     var onAvatarChanged: ((_ avatarURL: URL, _ handle: String) -> Void)?
+    /// Called with the clip's ID after the server deleted it, so the feed and the map stop showing it.
+    var onClipDeleted: ((_ clipID: UUID) -> Void)?
 
     private let loadProfile: LoadUserProfileUseCase
     private let deleteClip: DeleteUserClipUseCase
@@ -151,6 +153,7 @@ final class ProfileViewModel {
         deleteErrorMessage = nil
         do {
             try await deleteClip.execute(id: clip.id)
+            onClipDeleted?(clip.id)
             guard let current = profile else { return }
             profile = UserProfile(
                 handle: current.handle,

@@ -236,7 +236,7 @@ private final class FeedCacheDownloader: NSObject, URLSessionDownloadDelegate, @
 }
 
 
-/// Cache only personalized server feed responses, isolated by the current session.
+/// Caches the feed the server sent, kept apart for each session.
 @MainActor
 final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     private var caches: [String: FeedStartupCache] = [:]

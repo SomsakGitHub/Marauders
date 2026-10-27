@@ -117,9 +117,9 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
 | `GET` | `/health` | health check |
-| `GET` | `/v1/map/clips?limit=20&country=<ISO2>` | หมุดแผนที่ รวมคลิปของตัวเอง ไม่ใช้ตัวกรองเจ้าของของฟีด |
+| `GET` | `/v1/map/clips?limit=20&country=<ISO2>` | หมุดแผนที่ ใช้ข้อมูลชุดเดียวกับฟีด (รวมคลิปของตัวเอง) |
 | `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
-| `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | ฟีด; เมื่อส่ง Bearer จะกรองคลิปของผู้ใช้จาก `owner_user_id` ก่อนแบ่งหน้า; token ไม่ถูกต้องคืน 401 |
+| `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | ฟีด; ทุกคนเห็นคลิปชุดเดียวกัน รวมคลิปของตัวเอง (Bearer ไม่เปลี่ยนผลลัพธ์ แต่ถ้าส่งมาและไม่ถูกต้องจะคืน 401); คำตอบมี `viewerID` เมื่อส่ง Bearer |
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption` (ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
@@ -193,10 +193,16 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 - [ ] ซ่อนแท็บ Log ใน Release build  
 - [ ] CI: `npm run typecheck` + Xcode build  
 
+## คลิปของตัวเองในฟีด
+
+`GET /v1/feed` และ `GET /v1/map/clips` ตอบรายการชุดเดียวกัน ไม่กรองคลิปของผู้ดูออกอีกแล้ว คลิปที่เพิ่งอัปโหลดอยู่บนสุดของฟีด และแอปเลื่อนไปที่คลิปนั้นให้หลังอัปโหลด การลบคลิปจากโปรไฟล์จะเอาคลิปนั้นออกจากฟีด แผนที่ และแคชด้วย ถ้าส่ง Bearer ที่ไม่ถูกต้องยังคืน 401 และคำตอบยังมี `viewerID` เพราะแอปรุ่นตั้งแต่ commit `8d3657d` จนถึงก่อนการแก้นี้ปฏิเสธฟีดของผู้ที่ล็อกอินที่ไม่มีค่านี้
+
+**ลำดับการ deploy:** deploy Worker อย่างเดียวก็ทำให้แอปที่ติดตั้งอยู่แล้วเห็นคลิปตัวเอง (`cd backend && npm run test:feed && npm run typecheck && npm run deploy`) ไม่ต้อง migrate ฐานข้อมูลและไม่ต้องตั้ง secret ใหม่ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่คลิปตัวเองจะยังไม่ขึ้นจนกว่าจะ deploy
+
+**แคชเริ่มต้นของแอป** (สูงสุด 2 คลิป อายุ 6 ชั่วโมง) ถูกสร้างตอนที่ฟีดยังไม่มีคลิปตัวเอง ในการเปิดแอปแบบมีแคช คลิปที่แคชไว้จะขึ้นก่อน (แสดงข้อมูลสดจากเซิร์ฟเวอร์) แล้วคลิปอื่นต่อท้าย ดังนั้นคลิปล่าสุดของตัวเองอาจไม่อยู่บนสุดจนกว่าแคชจะหมดอายุ
+
 ## License
 
 Private portfolio project — ปรับ license ตามต้องการก่อนเปิด public repo
-
-**Personalized feed rollout:** deploy Worker ก่อนติดตั้ง iOS รุ่นนี้ เพราะ signed-in feed ต้องได้รับ `viewerID` จากเซิร์ฟเวอร์; แอปจะไม่รับ response แบบเก่าที่อาจยังมีคลิปตัวเอง แคชเริ่มต้นใช้ namespace ใหม่แยกตาม hash ของ session และไม่อ่านแคชเดิมที่ยังไม่กรอง ผู้ใช้ทั่วไปไม่ส่ง Bearer และยังเห็นฟีดสาธารณะได้
 
 ตรวจ backend โดยไม่ใช้ฐานข้อมูลจริง: `cd backend && npm run test:feed && npm run typecheck` (ทดสอบ router, auth และ SQL ที่สร้าง; ไม่ใช่ integration test กับ PostgreSQL)

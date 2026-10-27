@@ -33,7 +33,6 @@ export async function listFeedVideos(
   limit: number,
   cursor: string | null,
   country: string | null = null,
-  excludedOwnerId: string | null = null,
 ): Promise<FeedItemJson[]> {
   const sql = neon(databaseUrl);
 
@@ -43,7 +42,6 @@ export async function listFeedVideos(
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
-          AND (${excludedOwnerId}::uuid IS NULL OR v.owner_user_id IS DISTINCT FROM ${excludedOwnerId}::uuid)
           AND (v.sort_order, v.created_at, v.id) < (
             SELECT sort_order, created_at, id FROM feed_videos WHERE id = ${cursor}::uuid
           )
@@ -55,7 +53,6 @@ export async function listFeedVideos(
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
-          AND (${excludedOwnerId}::uuid IS NULL OR v.owner_user_id IS DISTINCT FROM ${excludedOwnerId}::uuid)
         ORDER BY v.sort_order DESC, v.created_at DESC, v.id DESC
         LIMIT ${limit}
       `) as FeedRow[];

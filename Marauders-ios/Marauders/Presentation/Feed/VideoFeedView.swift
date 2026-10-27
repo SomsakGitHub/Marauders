@@ -70,8 +70,8 @@ struct VideoFeedView: View {
             isWaitingForSignIn = false
             isChoosingAudio = false
             if isSignedIn {
-                // The session change reloads the server-filtered feed. Never reopen
-                // the guest clip, which may belong to the newly signed-in user.
+                // The session change empties and reloads the feed, so the clip the guest was choosing audio for
+                // is no longer under the pager. Never reopen it.
                 resumeAfterAudioChoice = false
                 guard isFeedTabSelected, scenePhase == .active else { return }
                 applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
