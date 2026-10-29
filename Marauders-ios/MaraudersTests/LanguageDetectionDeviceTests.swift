@@ -21,7 +21,7 @@ struct LanguageDetectionDeviceTests {
 
     private func windowsOfTheDutchClip(in folder: URL) async throws -> [URL] {
         let file = try await ClipFileLoader().load(clipURL, into: folder) {}
-        return try await SpeechAudioPreparation.chunks(from: file, directory: folder, maximumSegments: 2)
+        return try await SpeechAudioPreparation.detectionWindows(from: file, directory: folder, count: 2)
     }
 
     private func temporaryFolder() throws -> URL {

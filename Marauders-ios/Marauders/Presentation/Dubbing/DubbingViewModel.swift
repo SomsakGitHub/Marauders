@@ -191,7 +191,7 @@ final class DubbingViewModel {
         let file = try await loader.load(clip.streamURL, into: folder) { try check(current) }
         preparedClip = (clip.streamURL, file)
         try check(current)
-        let windows = try await SpeechAudioPreparation.chunks(from: file, directory: folder, maximumSegments: hasModel ? 2 : 1)
+        let windows = try await SpeechAudioPreparation.detectionWindows(from: file, directory: folder, count: hasModel ? 2 : 1)
         guard let sample = windows.first else { throw DubbingError.speechUnclear }
         try check(current)
 
@@ -219,7 +219,8 @@ final class DubbingViewModel {
         return try source(forDetected: detection.code, of: clip, target: target, remember: true)
     }
 
-    /// A second window shorter than this is not asked about.
+    /// A window after the first that is shorter than this is not asked about. The selector already leaves out
+    /// such windows; this keeps the rule in force whatever supplies them.
     private static let shortestExtraWindow = 5.0
 
     private func requireSpeechPermission(current: Int) async throws {
