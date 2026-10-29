@@ -133,6 +133,37 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testMapClipAuthorOpensPublicProfile() throws {
+        let app = launchApp()
+
+        let mapTab = app.tabBars.buttons["Map"]
+        XCTAssertTrue(mapTab.waitForExistence(timeout: 15))
+        mapTab.tap()
+
+        let pin = app.buttons["map.clipPin"].firstMatch
+        XCTAssertTrue(pin.waitForExistence(timeout: 15))
+        pin.tap()
+
+        // The player may offer an audio choice on open; it covers the author bar.
+        let author = app.buttons["clip.author"]
+        XCTAssertTrue(author.waitForExistence(timeout: 15))
+        let originalAudio = app.buttons["Original audio"]
+        if originalAudio.waitForExistence(timeout: 3) {
+            originalAudio.tap()
+        }
+        XCTAssertTrue(author.isHittable)
+        let authorHandle = author.label
+        author.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15)
+        )
+        let shownHandle = app.staticTexts["publicProfile.handle"]
+        XCTAssertTrue(shownHandle.waitForExistence(timeout: 10))
+        XCTAssertEqual(shownHandle.label, authorHandle)
+    }
+
+    @MainActor
     func testProfileShowsChangeAvatarControl() throws {
         let app = launchApp()
 
