@@ -1,5 +1,5 @@
 -- Reports against a shared AI dubbed-audio file (one R2 object per clip, source hash and language).
--- Two different reporters remove the audio; the clip owner or the uploader removes it alone.
+-- Two different reporters remove the audio, and the clip owner or the uploader removes it alone.
 -- Rows are cleared when the audio is removed, and with the clip or the user (ON DELETE CASCADE).
 
 CREATE TABLE IF NOT EXISTS dubbed_audio_reports (
