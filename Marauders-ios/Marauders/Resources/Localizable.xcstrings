@@ -910,6 +910,46 @@
           }
         }
       }
+    },
+    "Report this audio": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "รายงานเสียงนี้"
+          }
+        }
+      }
+    },
+    "Thanks. This audio will be removed once another viewer reports it too.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ขอบคุณ เสียงนี้จะถูกลบเมื่อผู้ชมอีกคนรายงานด้วย"
+          }
+        }
+      }
+    },
+    "The audio was removed.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบเสียงแล้ว"
+          }
+        }
+      }
+    },
+    "Couldn't send your report. Please try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ส่งรายงานไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

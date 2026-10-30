@@ -39,7 +39,9 @@ export async function handleMediaGet(
 
   const baseHeaders = new Headers();
   baseHeaders.set("content-type", contentType);
-  baseHeaders.set("cache-control", "public, max-age=31536000, immutable");
+  // Shared dubs can be removed (and replaced under the same name), so clients must revalidate them (ETag -> 304).
+  baseHeaders.set("cache-control", objectKey.startsWith("translations/")
+    ? "public, max-age=0, must-revalidate" : "public, max-age=31536000, immutable");
   baseHeaders.set("x-content-type-options", "nosniff");
   baseHeaders.set("accept-ranges", "bytes");
   baseHeaders.set("content-disposition", "inline");

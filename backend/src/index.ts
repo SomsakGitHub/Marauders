@@ -4,7 +4,7 @@ import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleDevAuth } from "./routes/authDev";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
-import { handleDubbedAudio } from "./routes/dubbedAudio";
+import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
 import { parseDubbingLanguage } from "./audio/cache";
 import { handleMediaGet } from "./routes/media";
 import { handlePublicProfileGet } from "./routes/publicProfile";
@@ -274,6 +274,18 @@ export default {
     ) {
       const rawHandle = decodeURIComponent(url.pathname.slice("/v1/users/".length));
       return withCors(await handlePublicProfileGet(request, env, rawHandle), request);
+    }
+
+    const dubbedReportMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/dubbed-audio\/report$/);
+    if (dubbedReportMatch && request.method === "POST") {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      const language = parseDubbingLanguage(url.searchParams.get("lang"));
+      if (!language) return withCors(errorResponse(400, "unsupported language"), request);
+      const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+        { scope: "dubbed-audio-report", limit: 10, windowSeconds: 60 }, auth.userId);
+      if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      return withCors(await handleDubbedAudioReport(request, env, dubbedReportMatch[1], language, auth.userId), request);
     }
 
     // `thai-audio` is the original Thai-only path, kept for app versions that predate listening languages.

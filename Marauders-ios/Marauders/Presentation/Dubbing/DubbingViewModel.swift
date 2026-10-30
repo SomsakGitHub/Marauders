@@ -27,6 +27,7 @@ final class DubbingViewModel {
     /// The words of the AI voice, in the viewer's language, shown as subtitles while it plays.
     private(set) var subtitle: String?
     private let cache: any DubbedAudioCaching
+    private let reports: DubbedAudioReportMemory
     private let detector: any ClipLanguageDetecting
     private let loader: any ClipFileLoading
     private let memo: DetectedLanguageMemo
@@ -43,6 +44,7 @@ final class DubbingViewModel {
 
     init(
         cache: (any DubbedAudioCaching)? = nil,
+        reports: DubbedAudioReportMemory? = nil,
         detector: (any ClipLanguageDetecting)? = nil,
         loader: (any ClipFileLoading)? = nil,
         memo: DetectedLanguageMemo? = nil,
@@ -53,6 +55,7 @@ final class DubbingViewModel {
         requestSpeechPermission: (() async -> Bool)? = nil
     ) {
         self.cache = cache ?? DubbedAudioCacheClient()
+        self.reports = reports ?? DubbedAudioReportMemory.shared
         self.detector = detector ?? StagedClipLanguageDetector()
         self.loader = loader ?? ClipFileLoader()
         self.memo = memo ?? DetectedLanguageMemo.shared
@@ -563,6 +566,41 @@ final class DubbingViewModel {
         cacheContext = nil
         isProcessing = false; message = nil; subtitle = nil
     }
+    /// What the viewer is told after reporting a saved AI audio file.
+    enum ReportResult: Equatable {
+        case reported, removed, failed
+        /// Whether the AI track should stop and the original audio come back.
+        var stopsAIAudio: Bool { self != .failed }
+        var notice: String {
+            switch self {
+            case .reported: String(localized: "Thanks. This audio will be removed once another viewer reports it too.")
+            case .removed: String(localized: "The audio was removed.")
+            case .failed: String(localized: "Couldn't send your report. Please try again.")
+            }
+        }
+    }
+
+    /// The Report button is offered only while the AI track is really playing in `target`, and not again
+    /// for audio this account already reported. Guests cannot report, so they never see it.
+    func canReport(clip: FeedVideo, target: ListeningLanguage?, aiTrackPlaying: Bool) -> Bool {
+        guard aiTrackPlaying, let target, let user = cache.reporterID else { return false }
+        return !reports.hasReported(user: user, videoID: clip.id, language: target, sourceURL: clip.streamURL)
+    }
+
+    /// Reports the saved AI audio. A report that went through is remembered, and "nothing saved" counts as done.
+    func report(clip: FeedVideo, target: ListeningLanguage) async -> ReportResult {
+        guard let user = cache.reporterID else { return .failed }
+        do {
+            let outcome = try await cache.report(videoID: clip.id, sourceURL: clip.streamURL, language: target)
+            // Only a recorded report is remembered. After "removed" the key is free for a replacement, and
+            // "missing" may just mean this phone's upload has not finished yet.
+            if outcome == .reported { reports.remember(user: user, videoID: clip.id, language: target, sourceURL: clip.streamURL) }
+            return outcome == .reported ? .reported : .removed
+        } catch {
+            return .failed
+        }
+    }
+
     func unavailableForTesting() {
         useOriginal()
         message = DubbingError.unavailable.errorDescription

@@ -39,6 +39,7 @@ struct ClipPlayerView: View {
     @State private var choosingAudio = false
     @State private var didChooseAudio = false
     @State private var hasDubbedTrack = false
+    @State private var reportNotice: String?
     @State private var resumeAfterInterruption = false
     @State private var player: AVPlayer?
     private let listening = ListeningLanguageStore.shared
@@ -69,10 +70,19 @@ struct ClipPlayerView: View {
                     Button("Listen in \(target.sentenceName()) (AI)") { startDubbing(in: target) }
                 }
             }
+            if dubbing.canReport(clip: clip, target: dubbingTarget, aiTrackPlaying: hasDubbedTrack && wantsDubbing) {
+                Button("Report this audio", role: .destructive) { reportAudio() }
+            }
             Button("Change listening language…") { showingLanguagePicker = true }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("AI dubbing is created on your iPhone and saved so other viewers can reuse it. It may be inaccurate or out of sync with the original.")
+        }
+        .alert(
+            reportNotice ?? "",
+            isPresented: Binding(get: { reportNotice != nil }, set: { if !$0 { reportNotice = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
         }
         .sheet(isPresented: $showingLanguagePicker) {
             NavigationStack {
@@ -331,6 +341,20 @@ struct ClipPlayerView: View {
         dubbingTarget = target
         audioRequestID += 1
         wantsDubbing = true
+    }
+
+    private func reportAudio() {
+        guard let target = dubbingTarget else { return }
+        Task {
+            let result = await dubbing.report(clip: clip, target: target)
+            // Keep playing if the report failed or the viewer already moved to other audio.
+            if result.stopsAIAudio, wantsDubbing, dubbingTarget == target {
+                wantsDubbing = false
+                dubbing.useOriginal()
+                if hasDubbedTrack { restoreOriginalTrack() }
+            }
+            reportNotice = result.notice
+        }
     }
 
     private func languageChosen() {

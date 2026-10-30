@@ -8,7 +8,7 @@ const source='https://api.example/v1/media/videos/11111111-1111-4111-8111-111111
 globalThis.audioSource=source;
 const bundle=await build({entryPoints:['src/index.ts'],bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'sql',setup(build){
  build.onResolve({filter:/^@neondatabase\/serverless$/},()=>({path:'sql',namespace:'fake'}));
- build.onLoad({filter:/.*/,namespace:'fake'},()=>({contents:`export function neon(){return async(strings,...values)=>{const q=strings.join('?');if(q.includes('rate_limit_counters')) return [{count:1}];if(q.includes('SELECT stream_url')) return globalThis.audioSource ? [{stream_url:globalThis.audioSource}] : [];return [];};}`}));
+ build.onLoad({filter:/.*/,namespace:'fake'},()=>({contents:`export function neon(){return async(strings,...values)=>{const q=strings.join('?');if(globalThis.fakeSql){const r=globalThis.fakeSql(q,values);if(r)return r;}if(q.includes('rate_limit_counters')) return [{count:1}];if(q.includes('SELECT stream_url')) return globalThis.audioSource ? [{stream_url:globalThis.audioSource}] : [];return [];};}`}));
 }}]});
 const {default:worker}=await import('data:text/javascript;base64,'+Buffer.from(bundle.outputFiles[0].text).toString('base64'));
 const core=await build({entryPoints:['src/audio/cache.ts'],bundle:true,write:false,platform:'node',format:'esm'});
@@ -20,10 +20,10 @@ const id='11111111-1111-4111-8111-111111111111';
 async function token(user){return new SignJWT({}).setProtectedHeader({alg:'HS256'}).setSubject(user).setExpirationTime('1h').sign(new TextEncoder().encode(secret));}
 const a=await token('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 const b=await token('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
-const objects=new Map();let writes=0;let lastPut=null;
+const objects=new Map();const metas=new Map();let writes=0;let lastPut=null;
 const bucket={
- async head(key){const value=objects.get(key);return value?{key,size:value.length}:null;},
- async put(key,body,options){writes++;lastPut={key,options};assert.equal(options.onlyIf.get('If-None-Match'),'*');if(objects.has(key))return null;objects.set(key,new Uint8Array(body));return {key};},
+ async head(key){const value=objects.get(key);return value?{key,size:value.length,customMetadata:metas.get(key)}:null;},
+ async put(key,body,options){writes++;lastPut={key,options};assert.equal(options.onlyIf.get('If-None-Match'),'*');if(objects.has(key))return null;objects.set(key,new Uint8Array(body));metas.set(key,options.customMetadata);return {key};},
  async delete(keys){for(const key of Array.isArray(keys)?keys:[keys])objects.delete(key);},
  async list({prefix}){return {objects:[...objects.keys()].filter(k=>k.startsWith(prefix)).map(key=>({key})),truncated:false};}
 };
@@ -128,4 +128,61 @@ assert.equal(served.status,200,'dubbed audio in a non-Thai language must be play
 assert.equal(served.headers.get('content-type'),'audio/mp4');
 assert.equal(new Uint8Array(await served.arrayBuffer()).length,stored.length);
 assert.equal((await worker.fetch(new Request('https://api.example/v1/media/translations/'+id+'/'+hash+'-xx-v1.m4a'),env)).status,400);
-console.log('Dubbed audio cache passed: auth, shared reuse per language, legacy Thai path, first-write concurrency, source revisions, bounded AAC validation and scoped deletion.');
+
+// ---- Reporting a bad shared dub ----
+const owner='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const ownerToken=await token(owner);
+const reportRows=new Set();const sqlLog=[];
+globalThis.owner=owner;
+globalThis.fakeSql=(q,v)=>{
+ sqlLog.push([q,v]);
+ if(q.includes('SELECT stream_url')&&q.includes('owner_user_id'))return globalThis.audioSource?[{stream_url:globalThis.audioSource,owner_user_id:globalThis.owner}]:[];
+ if(q.includes('INSERT INTO dubbed_audio_reports')){reportRows.add(v.join('|'));return [];}
+ if(q.includes('SELECT COUNT(*)')&&q.includes('dubbed_audio_reports')){const p=v.slice(0,3).join('|')+'|';return [{reports:String([...reportRows].filter(r=>r.startsWith(p)).length)}];}
+ if(q.includes('DELETE FROM dubbed_audio_reports')){const p=v.slice(0,3).join('|')+'|';for(const r of [...reportRows])if(r.startsWith(p))reportRows.delete(r);return [];}
+ return null;
+};
+const c=await token('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+async function report({auth,lang='th',supplied=hash,video=id,omitHash=false}={}){
+ const headers={};if(auth)headers.Authorization='Bearer '+auth;if(!omitHash)headers['X-Source-SHA256']=supplied;
+ return worker.fetch(new Request('https://api.example/v1/videos/'+video+'/dubbed-audio/report?lang='+lang,{method:'POST',headers}),env);
+}
+async function text(user,lang='th'){return worker.fetch(new Request('https://api.example/v1/videos/'+id+'/dubbed-audio?lang='+lang+'&kind=text',{method:'POST',headers:{Authorization:'Bearer '+user,'X-Source-SHA256':hash,'Content-Type':'text/plain'},body:'hello'}),env);}
+const textObjectKey=audioKey(id,hash,'th').replace(/\.m4a$/,'.txt');
+async function got(lang='th'){return (await request('GET',{lang})).json();}
+objects.clear();metas.clear();globalThis.audioSource=source;
+assert.equal((await report()).status,401);
+assert.equal((await report({auth:'invalid'})).status,401);
+assert.equal((await report({auth:a,lang:'xx'})).status,400);
+assert.equal((await report({auth:a,video:'not-a-uuid'})).status,400);
+assert.equal((await report({auth:a,supplied:'0'.repeat(64)})).status,409);
+assert.equal((await report({auth:a,omitHash:true})).status,409);
+globalThis.audioSource=null;assert.equal((await report({auth:a})).status,404);globalThis.audioSource=source;
+const none=await report({auth:a});assert.equal(none.status,200);assert.equal(none.headers.get('cache-control'),'no-store');assert.deepEqual(await none.json(),{status:'missing'});
+// Uploaded by A: strangers B and C need two reports.
+assert.equal((await request('POST',{auth:a,body:audio()})).status,200);assert.equal((await text(a)).status,200);
+assert.ok(objects.has(textObjectKey));
+assert.deepEqual(await (await report({auth:b})).json(),{status:'reported',reports:1});
+assert.equal((await got()).status,'ready','one stranger report keeps the audio');
+assert.deepEqual(await (await report({auth:b})).json(),{status:'reported',reports:1},'the same user twice counts once');
+assert.equal(reportRows.size,1);
+assert.deepEqual(await (await report({auth:c})).json(),{status:'removed'});
+assert.equal(objects.size,0,'audio and subtitle text are both deleted');assert.equal(reportRows.size,0,'report rows are cleared');
+assert.equal((await got()).status,'missing');
+// Replacement upload works after removal and starts with a clean report count.
+assert.equal((await request('POST',{auth:b,body:audio()})).status,200);assert.equal((await got()).status,'ready');
+assert.deepEqual(await (await report({auth:c})).json(),{status:'reported',reports:1});
+// Other languages are independent.
+assert.equal((await (await report({auth:c,lang:'es'})).json()).status,'missing');
+objects.clear();metas.clear();reportRows.clear();
+// The clip owner removes at once.
+await request('POST',{auth:a,body:audio()});await text(a);
+assert.deepEqual(await (await report({auth:ownerToken})).json(),{status:'removed'});assert.equal(objects.size,0);
+// The uploader removes at once.
+await request('POST',{auth:b,body:audio()});
+assert.deepEqual(await (await report({auth:b})).json(),{status:'removed'});assert.equal(objects.size,0);assert.equal(reportRows.size,0);
+// Rate limit scope.
+sqlLog.length=0;await report({auth:a});
+assert.ok(sqlLog.some(([q,v])=>q.includes('rate_limit_counters')&&v.some(x=>String(x).includes('dubbed-audio-report'))),'report uses the dubbed-audio-report rate-limit scope');
+globalThis.fakeSql=null;
+console.log('Dubbed audio cache passed: auth, shared reuse per language, legacy Thai path, first-write concurrency, source revisions, bounded AAC validation and scoped deletion, and reporting bad dubs.');

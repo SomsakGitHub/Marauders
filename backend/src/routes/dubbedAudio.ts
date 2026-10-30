@@ -47,6 +47,52 @@ export async function handleDubbedAudio(request: Request, env: Env, rawID: strin
   } catch { return json({error:"dubbed audio cache unavailable"},503); }
 }
 
+/** Reports needed from different signed-in users before a shared dub is removed (the owner or uploader needs one). */
+export const DUBBED_AUDIO_REPORTS_TO_REMOVE = 2;
+
+/**
+ * Report a bad shared dub. Removes the audio (and its subtitle text) at once when the reporter owns the clip or
+ * uploaded the audio, otherwise when enough different users have reported the same clip, language and source.
+ */
+export async function handleDubbedAudioReport(request: Request, env: Env, rawID: string, language: string, reporterID: string): Promise<Response> {
+  let id: string;
+  try { id = parseVideoId(rawID).toLowerCase(); } catch { return json({error:"invalid video id"},400); }
+  if (!env.DATABASE_URL || !env.VIDEOS) return json({error:"cache unavailable"},503);
+  try {
+    const sql = neon(env.DATABASE_URL);
+    const rows = await sql`SELECT stream_url, owner_user_id FROM feed_videos WHERE id = ${id}::uuid LIMIT 1`;
+    const source = rows[0]?.stream_url as string | undefined;
+    if (!source) return json({error:"video not found"},404);
+    const hash = await sourceHash(source);
+    if (request.headers.get("X-Source-SHA256") !== hash) return json({error:"clip source changed"},409);
+    const key = audioKey(id,hash,language);
+    const head = await env.VIDEOS.head(key);
+    if (!head) {
+      // No audio: drop any stale report rows and orphan subtitle so a later replacement starts clean.
+      await sql`DELETE FROM dubbed_audio_reports WHERE video_id = ${id}::uuid AND language = ${language} AND source_hash = ${hash}`;
+      await env.VIDEOS.delete(textKey(id,hash,language));
+      return json({status:"missing"});
+    }
+    const isOwner = String(rows[0]?.owner_user_id ?? "").toLowerCase() === reporterID.toLowerCase();
+    const isUploader = (head.customMetadata?.uploaderID ?? "").toLowerCase() === reporterID.toLowerCase();
+    let remove = isOwner || isUploader;
+    let reports = 0;
+    if (!remove) {
+      await sql`INSERT INTO dubbed_audio_reports (video_id, language, source_hash, reporter_user_id)
+        VALUES (${id}::uuid, ${language}, ${hash}, ${reporterID}::uuid) ON CONFLICT DO NOTHING`;
+      const counted = await sql`SELECT COUNT(*) AS reports FROM dubbed_audio_reports
+        WHERE video_id = ${id}::uuid AND language = ${language} AND source_hash = ${hash}`;
+      reports = Number(counted[0]?.reports ?? 0);
+      remove = reports >= DUBBED_AUDIO_REPORTS_TO_REMOVE;
+    }
+    if (!remove) return json({status:"reported",reports});
+    // Clear the rows first so a failure leaves the audio in place and a retry can finish the removal.
+    await sql`DELETE FROM dubbed_audio_reports WHERE video_id = ${id}::uuid AND language = ${language} AND source_hash = ${hash}`;
+    await env.VIDEOS.delete([key, textKey(id,hash,language)]);
+    return json({status:"removed"});
+  } catch { return json({error:"dubbed audio cache unavailable"},503); }
+}
+
 /** Removes every language cached for the clip (all share the `translations/<clip-id>/` prefix). */
 export async function deleteDubbedAudio(bucket: R2Bucket, id: string): Promise<void> {
   let cursor: string | undefined;
@@ -75,6 +121,11 @@ async function handleDubbedText(request: Request, env: Env, id: string, hash: st
   if (await clipSource(env,id) !== source) {
     await env.VIDEOS.delete(key);
     return json({error:"clip source changed"},409);
+  }
+  // The audio may have been removed by a report while the text was being saved; never keep an orphan subtitle.
+  if (!await env.VIDEOS.head(audioKey(id,hash,language))) {
+    await env.VIDEOS.delete(key);
+    return json({error:"dubbed audio not saved yet"},409);
   }
   return json({status:"ready",text,sourceHash:hash,language});
 }

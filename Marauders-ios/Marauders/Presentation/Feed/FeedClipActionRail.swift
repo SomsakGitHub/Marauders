@@ -16,6 +16,9 @@ struct FeedClipActionRail: View {
     var canChooseAudio = true
     var onRequireSignIn: (() -> Void)? = nil
     var onAudioSelectionChanged: (Bool) -> Void = { _ in }
+    /// Set only while an AI dubbed track is playing for this clip; the dialog then offers to report it.
+    /// The feed itself plays the original audio, so it leaves this nil.
+    var onReportAudio: (() -> Void)? = nil
 
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
@@ -46,6 +49,9 @@ struct FeedClipActionRail: View {
                     Button("Original audio") {}
                     ForEach(listening.targets(for: clip)) { target in
                         Button("Listen in \(target.sentenceName()) (AI)") { onChooseAIAudio(target) }
+                    }
+                    if let onReportAudio {
+                        Button("Report this audio", role: .destructive) { onReportAudio() }
                     }
                     Button("Change listening language…") { showingLanguagePicker = true }
                     Button("Cancel", role: .cancel) {}
