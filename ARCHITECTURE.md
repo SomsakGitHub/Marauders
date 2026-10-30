@@ -2,18 +2,20 @@
 
 Portfolio vertical-video app: **SwiftUI + AVFoundation** on iOS, **Cloudflare Workers + R2 + Neon** on the backend.
 
-**Related:** [docs/adr/](docs/adr/) (decision records) · [deployment/video-pipeline.md](deployment/video-pipeline.md) (faststart, HLS)
+**Related:** [docs/adr/](docs/adr/) (decision records) · [deployment/video-pipeline.md](deployment/video-pipeline.md) (faststart, HLS) · [deployment/AI_DUBBING.md](deployment/AI_DUBBING.md) (AI dubbing, shared audio cache, language detection) · [docs/ci-cd.md](docs/ci-cd.md) (Jenkins → TestFlight)
 
 ## System context
 
 ```mermaid
 flowchart TB
   subgraph ios [iOS]
-    UI[SwiftUI tabs Feed Map clips Upload]
+    UI[SwiftUI tabs Feed Map Profile Upload Settings]
     Paging[VerticalPagingFeedScrollView UIKit]
-    Engine[FeedPlayerEngine dual slot]
+    Engine[FeedPlayerEngine three slots]
+    Dub[On-device AI dubbing]
     UI --> Paging
     Paging --> Engine
+    UI --> Dub
   end
 
   subgraph cf [Cloudflare]
@@ -22,11 +24,12 @@ flowchart TB
   end
 
   subgraph neon [Neon]
-    DB[(feed_videos)]
+    DB[(Postgres: feed_videos, app_users, rate limits, reports)]
   end
 
-  UI -->|GET /v1/feed| API
-  UI -->|POST /v1/videos| API
+  UI -->|GET /v1/feed and /v1/map/clips| API
+  UI -->|POST /v1/videos, /v1/users/*| API
+  Dub -->|dubbed-audio cache| API
   Engine -->|GET /v1/media MP4 or HLS| API
   API --> DB
   API --> R2
@@ -34,17 +37,23 @@ flowchart TB
 
 | Surface | Responsibility |
 |---------|----------------|
-| `GET /v1/feed` | Paginated `{ items }` via `limit` + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read. `authorName` is the uploader's **live** `@handle` (`COALESCE(app_users.handle, feed_videos.author_name)`); each item also carries `authorAvatarURL` from `app_users.avatar_url` |
+| `GET /v1/feed` | Paginated `{ items, viewerID }` via `limit` (default 20, max 50) + `cursor` (last item UUID) + optional `country` (ISO-2, joins uploader's `app_users.country`); public read, ordered `sort_order DESC, created_at DESC, id DESC`. Everyone sees the same clips, the viewer's own included; a supplied `Authorization` header is still validated (bad session → 401). `authorName` is the uploader's **live** `@handle` (`COALESCE(app_users.handle, feed_videos.author_name)`); each item also carries `authorAvatarURL` from `app_users.avatar_url`, `country`, coordinates and the optional `audioAssessment` |
+| `GET /v1/map/clips` | Same handler and response as `/v1/feed`; the map tab calls it by its own path |
 | `POST /v1/auth/apple` | `{ identityToken, country? }` → verify with Apple JWKS → upsert `app_users.country` → `{ accessToken }` (HS256, 30d) |
-| `POST /v1/videos` | **Bearer** required; multipart `file` + `latitude` + `longitude` + optional `caption` (≤500) → R2 + `feed_videos.owner_user_id` |
-| `DELETE /v1/videos/:id` | **Bearer** required; deletes the caller's own video row + its R2 object |
+| `POST /v1/auth/dev` | Debug sign-in for the Simulator: `{ secret, label, country? }` → `{ accessToken }` for the stable user `dev:<label>`. Answers **404** unless the `DEV_LOGIN_SECRET` Worker secret (≥ 32 chars) is set; the app side is `#if DEBUG` and simulator-only. Shares the `auth` rate limit |
+| `POST /v1/videos` | **Bearer** required; multipart `file` (MP4/MOV, ≤ 100 MB) + `latitude` + `longitude` + optional `caption` (≤500) + optional `audioAssessment` JSON (untrusted advisory, sanitized, stored in `feed_videos.audio_assessment`) → R2 + `feed_videos.owner_user_id` |
+| `DELETE /v1/videos/:id` | **Bearer** required; deletes the caller's own video row + its R2 object + every shared dubbed-audio object for that clip |
+| `GET` / `POST /v1/videos/:id/dubbed-audio?lang=` | Shared AI dubbed-audio cache (one R2 object per clip revision and language, 22 languages). GET is public (`missing` / `ready` + URL; a bad `Authorization` header still gets 401); every call carries the clip's source hash (`?source=<sha256 of stream_url>` on GET, `X-Source-SHA256` on POST/report) and a mismatch returns 409 `clip source changed`; POST is first-write-wins, 409s if the clip changed mid-upload, and needs a **Bearer** and a raw `audio/mp4` body ≤ 4 MiB; `kind=text` (409 `dubbed audio not saved yet` until the audio exists) reads/writes the subtitle text (≤ 16 KiB). `/v1/videos/:id/thai-audio` is the legacy path (= `lang=th`). Contract in [AI_DUBBING.md](deployment/AI_DUBBING.md) |
+| `POST /v1/videos/:id/dubbed-audio/report?lang=` | **Bearer** required; reports a bad shared dub. The clip owner or the audio's uploader removes it alone, otherwise 2 different reporters do (`dubbed_audio_reports`, migration 016) |
 | `POST /v1/users/me/location` | **Bearer** required; `{ latitude, longitude }` → `app_users.latitude/longitude` |
 | `GET /v1/users/me` | **Bearer** required; `{ handle, country, latitude, longitude, videoCount, avatarURL, videos[] }` for the signed-in user |
 | `PATCH /v1/users/me` | **Bearer** required; `{ handle }` → normalize (`@lowercase`, `a-z0-9._`, 1–63, reserved names blocked) → `{ handle }`; unique violation → **409** |
 | `POST /v1/users/me/avatar` | **Bearer** required; multipart `file` (JPEG/PNG ≤ 5 MB) → R2 `avatars/{uuid}.{jpg\|png}` → `{ avatarURL }`; replaces the previous object (best-effort delete) |
 | `DELETE /v1/users/me/avatar` | **Bearer** required; clears `app_users.avatar_url`, deletes the R2 object → `{ avatarURL: null }` |
 | `GET /v1/users/{handle}` | Public; `{ handle, country, videoCount, avatarURL, videos[] }` for any account (no auth) |
-| `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**), HLS playlist + `.ts` segments, or avatar JPEG/PNG |
+| `GET /v1/media/{key}` | Progressive MP4/MOV (**Range 206**), HLS playlist + `.ts` segments, avatar JPEG/PNG, or shared dubbed audio (`translations/…`, `must-revalidate` because a removed dub can be replaced; videos and avatars are `immutable`) |
+
+A `/health` GET answers without auth. All `/v1/*` routes return JSON errors as `{ "error": … }`, except `GET`/`HEAD /v1/media/*`, whose own errors are plain text (`not found`, `invalid range`, …).
 
 ---
 
@@ -55,47 +64,52 @@ flowchart TB
 │  iOS app (untrusted client)                             │
 │  · HTTPS-only playback URLs                             │
 │  · No secrets in repo; API base URL in plist            │
+│  · Access token in Keychain; disposable caches only     │
 │  · Debug log tab: DEBUG builds only                     │
 └───────────────────────────┬─────────────────────────────┘
                             │ TLS
 ┌───────────────────────────▼─────────────────────────────┐
 │  Cloudflare Worker (validation, upload authz)           │
 │  · Reject invalid paths, MIME, size                     │
-│  · DATABASE_URL via wrangler secret                     │
+│  · DATABASE_URL, JWT_SIGNING_SECRET, APPLE_CLIENT_ID    │
+│    (and optional DEV_LOGIN_SECRET) via wrangler secret  │
 └───────────────┬─────────────────────┬───────────────────┘
                 │                     │
          ┌──────▼──────┐       ┌──────▼──────┐
          │ Neon Postgres│       │ R2 bucket   │
-         │ feed metadata│       │ video bytes │
+         │ metadata     │       │ video, audio│
          └─────────────┘       └─────────────┘
 ```
 
 | Zone | Sensitive data | Controls |
 |------|----------------|----------|
-| iOS | None stored | ATS HTTPS; fail closed on non-HTTPS `streamURL` |
-| Worker | `DATABASE_URL` | Secret binding; input validation on upload |
-| R2 | Video objects | Key allowlist `videos/{uuid}.mp4` or `videos/{uuid}/…` |
+| iOS | Access token (Keychain); disposable feed/media cache in `Caches`; on-device language models | ATS HTTPS; fail closed on non-HTTPS `streamURL`; cache keyed by session and lifetime-limited |
+| Worker | `DATABASE_URL`, `JWT_SIGNING_SECRET`, `APPLE_CLIENT_ID`, optional `DEV_LOGIN_SECRET` | Secret bindings; input validation on every write; `/v1/auth/dev` inert (404) unless its secret is set |
+| R2 | Video objects | Key allowlist `videos/{uuid}.mp4\|mov` or `videos/{uuid}/master.m3u8\|segNNN.ts` |
 | R2 | Avatar objects | Key allowlist `avatars/{uuid}.{jpg\|jpeg\|png}` |
-| Neon | `stream_url`, feed rows | Parameterized SQL; pooled connection string |
+| R2 | Shared AI dubbed audio (untrusted, user-supplied) | Key allowlist `translations/{uuid}/{sha256}-{lang}-v1.m4a`; server validates AAC/M4A structure and size; first complete write wins; removable by report |
+| Neon | `stream_url`, users, feed rows | Parameterized SQL; pooled connection string |
 
 ### Rate limiting
 
 Two layers, cheapest first:
 
-1. **Cloudflare Rate Limiting binding** (`RATE_LIMITER`, `AUTH_RATE_LIMITER` in `wrangler.toml`) — an in-runtime, per-location counter with zero added latency, applied to every `/v1/*` request except `/v1/media/*`. Best-effort only: `isRateLimited()` fails open, and the binding is per-PoP. *Note:* as of Oct 2026 this binding is unreliable on live Workers (returns `success: true` regardless — cf. workers-sdk#16097), so it is defence-in-depth, not the enforcement point.
-2. **Neon-backed limiter** (authoritative): `enforceDatabaseRateLimit` (`src/rateLimit.ts`) does an atomic fixed-window `INSERT … ON CONFLICT` into `rate_limit_counters` keyed by `scope:actor`. Counts are exact across Cloudflare locations. Applied to sensitive endpoints: sign-in (`30 / 60s` per IP) and upload (`10 / 60s` per user). Over the limit → `429` with `Retry-After`. Fails open if the database is unreachable.
+1. **Cloudflare Rate Limiting binding** (`RATE_LIMITER`, `AUTH_RATE_LIMITER` in `wrangler.toml`) — an in-runtime, per-location counter with zero added latency, applied to every `/v1/*` request except `/v1/media/*` (`AUTH_RATE_LIMITER` 30 / 60 s on the two sign-in routes, `RATE_LIMITER` 120 / 60 s elsewhere). Best-effort only: `isRateLimited()` fails open, and the binding is per-PoP. *Note:* as of Oct 2026 this binding is unreliable on live Workers (returns `success: true` regardless — cf. workers-sdk#16097), so it is defence-in-depth, not the enforcement point.
+2. **Neon-backed limiter** (authoritative): `enforceDatabaseRateLimit` (`src/rateLimit.ts`) does an atomic fixed-window `INSERT … ON CONFLICT` into `rate_limit_counters` keyed by `scope:actor`. Counts are exact across Cloudflare locations. Applied to sensitive endpoints (table below). Over the limit → `429` with `Retry-After`. Fails open if the database is unreachable.
 
 | Scope | Actor | Limit | Storage |
 |-------|-------|-------|---------|
-| `auth` | client IP | 30 / 60 s | Neon fixed window |
-| `upload` | user id | 10 / 60 s | Neon fixed window |
-| all `/v1/*` | IP / route | see `wrangler.toml` | CF binding (per-PoP, best-effort) |
+| `auth` (`/v1/auth/apple` and `/v1/auth/dev`) | client IP | 30 / 60 s | Neon fixed window |
+| `upload` (`POST /v1/videos` and `POST /v1/users/me/avatar`, one shared bucket) | user id | 10 / 60 s | Neon fixed window |
+| `dubbed-audio-upload` | user id | 10 / 60 s | Neon fixed window |
+| `dubbed-audio-report` | user id | 10 / 60 s | Neon fixed window |
+| all `/v1/*` except media | IP | 120 / 60 s (30 / 60 s on sign-in), see `wrangler.toml` | CF binding (per-PoP, best-effort) |
 
 ---
 
 ## iOS — feed playback
 
-See **[ADR-001: UIKit paging + dual AVPlayer](docs/adr/001-feed-playback-dual-player.md)** for options and tradeoffs.
+See **[ADR-001: UIKit paging + dual AVPlayer](docs/adr/001-feed-playback-dual-player.md)** for options and tradeoffs. The ADR records the original two-slot decision; the engine has since grown to **three** slots (below).
 
 ### Problem (historical)
 
@@ -105,12 +119,11 @@ Per-cell `AVPlayer` instances caused teardown races. A single player in a fixed 
 
 | Piece | Role |
 |-------|------|
-| `VerticalPagingFeedScrollView` | `UIScrollView` + `isPagingEnabled`; black page placeholders |
-| `FeedPlayerCompositorView` | Two `AVPlayerLayer` hosts (slot A / B); visible slot on top |
-| `FeedPlayerEngine` | Dual `AVPlayer`, prefetch cache, `settle(on:prefetchNeighbors:)` |
+| `VerticalPagingFeedScrollView` | SwiftUI wrapper around `VerticalFeedPagingView`: `UIScrollView` + `isPagingEnabled` on a black background; owns one `FeedPlayerLayerHostView` per player slot |
+| `FeedPlayerEngine` | **Three** `AVPlayer` slots (visible clip + up to two preview neighbors), prefetch via `FeedMediaPreparationService`, `settle(on:prefetchNeighbors:)` |
 | `VideoFeedView` | SwiftUI chrome, buffering overlay, tap → play/pause, `FeedClipCaptionOverlay` (author / caption) and `FeedClipActionRail` (tappable avatar, bottom-right) for the current page |
 
-The compositor is a **subview of the scroll view’s content**, positioned at `y = playbackPageIndex × pageHeight`, so video moves with the user during a drag.
+Each slot's layer host is a **subview of the scroll view’s content**, positioned at `y = index(of its URL) × pageHeight`, so video moves with the user during a drag; slots without a URL are hidden. Paging only selects which clip should play; surfaces are not moved on settle.
 
 ### Settle sequence (after finger release)
 
@@ -124,41 +137,42 @@ sequenceDiagram
   User->>Scroll: end drag / decelerate
   Scroll->>Feed: onPageSettled(index)
   Feed->>Engine: settle(url, prefetchNeighbors)
-  alt hidden slot has url ready
-    Engine->>Engine: playImmediately + swap visible slot
+  alt a slot already holds the url
+    Engine->>Engine: play that slot (it becomes the visible slot)
   else
     Engine->>Engine: load visible slot (prepared item or network)
   end
-  Engine->>Engine: preload hidden slot for next neighbor
+  Engine->>Engine: preview the next neighbors in the other slots
 ```
 
 ### Prefetch
 
-- `prefetch` / `warmURLs` build `AVPlayerItem` until **readyToPlay** (cached by URL).
-- On settle, visible slot prefers **prepared items**; hidden slot preloads the **next** neighbor (paused at zero).
+- `prefetch` / `warmURLs` build `AVPlayerItem` until **readyToPlay** (cached by URL, at most 5 prepared items, 6 s forward buffer).
+- On settle, the visible slot prefers **prepared items**; the other slots preview up to **two** neighbors (paused at zero).
+- **Startup cache** (`FeedStartupCache` / `SessionFeedStartupCache`): the feed list plus whole MP4s (≤ 12 MiB each, 6 h lifetime) in `Caches`, kept per signed-in session. When a cached feed was restored, the splash is dismissed without its minimum delay and a cached file is played instead of the network URL. Disabled under `UITEST`.
 - Buffering UI appears only after **~380 ms** of stall.
 
 ### UX / lifecycle
 
 - **Tap** toggles play/pause (`FeedPlayerPhase.paused` when user-initiated).
-- `AppRootView` splash (~650 ms min) + `loadIfNeeded` during splash.
+- `AppRootView` splash (~650 ms min, skipped when the startup cache restored the feed) + initial feed load during splash.
 - `scenePhase` / tab disappear → `pause()`; active → `settle` again.
 
 ### Upload path (client)
 
-`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, plus optional `caption` typed in the upload form; blank values are omitted).
+`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present; `ClipLocationPickerView` lets the user search for or adjust the place) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `FastClipAudioInspector` classifies the exported audio on-device (speech / music / mixed, advisory only, never blocks upload) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, the `audioAssessment` JSON, plus optional `caption` typed in the upload form; blank values are omitted).
 
-### Map tab (Instagram-style map)
+### Map tab
 
-- **Data:** `FeedVideo.latitude` / `longitude` from `GET /v1/feed`; `FeedVideo.mapCoordinate` when both are present. The response also carries `authorName` / `caption`, used by client-side search.
-- **Layout:** full-screen `Map` (no navigation bar) with a filters menu (country / near me / sign out) and a locate FAB. `MapView` tracks the visible region via `.onMapCameraChange(frequency: .onEnd)`.
-- **Pins & clustering:** `MapClipClustering` collapses nearby clips into `MapClipCluster`s using a grid sized from the visible span, so zooming in breaks clusters apart again; single clips render as circular thumbnail pins (`MapClipPinView`) and clusters as a count bubble (`MapClusterPinView`) — tapping a cluster zooms in, tapping a single pin plays the clip inline (`MapClipPlayerView`, looping, with a "Play in Feed" shortcut).
+- **Data:** `GET /v1/map/clips` (same response as the feed, `forMap` in `FeedAPIClient`) via `VideoFeedViewModel.loadMapClips(country:)` into `mapFilteredClips`, independent of the feed list; clips with both `latitude` / `longitude` get a `FeedVideo.mapCoordinate`. The response also carries `authorName` / `caption`, used by client-side search.
+- **Layout:** full-screen `Map` (no navigation bar) with a country filter button (flag, 🌐 for all) and a locate FAB. `MapView` tracks the visible region via `.onMapCameraChange(frequency: .onEnd)`. Sign out lives in the Profile tab.
+- **Pins & clustering:** `MapClipClustering` collapses nearby clips into `MapClipCluster`s using a grid sized from the visible span, so zooming in breaks clusters apart again; single clips render as circular thumbnail pins (`MapClipPinView`) and clusters as a count bubble (`MapClusterPinView`) — tapping a cluster zooms in, tapping a single pin opens the shared `ClipPlayerView` in a sheet (looping, with a "Play in Feed" shortcut).
 - **Search (hidden):** `MapClipSearch` filters already-loaded clips client-side by author handle, caption and country (no network round-trip) and re-fits the camera. `MapView.isSearchVisible` is `false` for now; the `MapSearchBar` pill and logic stay in place to re-enable later.
-- **Country filter:** filters menu → `MapCountryFilterSheet`; selection fetches `/v1/feed?country=<ISO2>` via `VideoFeedViewModel.loadMapClips(country:)`.
-- **Near Me:** filters menu toggles a 5 / 25 / 50 km segmented radius + camera fit (`MapClipProximity`); clip sheet shows distance from you when location is known.
-- **Open in feed:** tap pin → sheet → **Play in Feed** → `ensureVideoLoaded` paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`.
-- **Auth:** Map/Upload gate on Sign in with Apple; `identityToken` → `POST /v1/auth/apple` → access token in Keychain; upload sends `Authorization: Bearer`.
-- **Location:** Required to open the Map tab (gate + system permission). **Current Location** recenters the map after access is granted. The first fix delivered in a session is reported once to `POST /v1/users/me/location` via `ReportUserLocationUseCase` (composition root), so the account keeps a last-known location.
+- **Country filter:** filter button → `MapCountryFilterSheet`; selection re-fetches `/v1/map/clips?country=<ISO2>`.
+- **Near me:** the locate FAB recenters the camera on you (`MapClipProximity`); `MapClipProximity` also limits the pins to the visible region, and the clip player shows the distance from you when location is known.
+- **Open in feed:** tap pin → `ClipPlayerView` → **Play in Feed** → `AppCoordinator` calls `ensureVideoLoaded`, which paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`. The clip's author handle opens the public profile.
+- **Auth:** Map, Upload and Profile gate on sign-in (`SignInRequiredView` / `SignInWithAppleGateView`; the Feed is open to guests). Sign-in needs location permission and detects the country (`SignInLocationViewModel`, changeable in `CountryPickerView`); `identityToken` → `POST /v1/auth/apple` → access token in Keychain; authenticated requests send `Authorization: Bearer`. Debug builds on the Simulator can instead sign in through `/v1/auth/dev` (`DevAuthAPIClient`, secret passed via launch environment, never stored in the project).
+- **Location:** Required to open the Map tab (`MapLocationRequiredView` gate + system permission). **Current Location** recenters the map after access is granted. The first fix delivered in a session is reported once to `POST /v1/users/me/location` via `ReportUserLocationUseCase` (composition root), so the account keeps a last-known location.
 
 ### Profile tab
 
@@ -173,16 +187,27 @@ sequenceDiagram
 
 ### Public profiles (`@handle`)
 
-- **Open:** tapping the author handle in the feed caption (`FeedClipCaptionOverlay`) or the avatar in the right-edge rail (`FeedClipActionRail`) calls `AppRouter.openPublicProfile(handle:)`, which the `ContentView` `TabView` presents as a sheet.
+- **Open:** tapping the author handle in the feed caption (`FeedClipCaptionOverlay`), the avatar in the right-edge rail (`FeedClipActionRail`) or the author on a map clip calls `AppRouter.openPublicProfile(handle:)`, which the `ContentView` `TabView` presents as a sheet.
 - **Data:** `GET /v1/users/{handle}` (no auth) via `UserProfileAPIClient.fetchPublicProfile` → `PublicUserProfile` (`handle`, country, count, `avatarURL`, `[FeedVideo]`).
 - **UI/State:** `PublicProfileView` + `PublicProfileViewModel` (`Presentation/Profile`) reuse `ProfileClipThumbnail` and `ClipPlayerView`; read-only (no delete), with `Retry` on failure.
 - **Layout note:** the feed caption respects the bottom safe area so the tappable author clears the tab bar, while the video layers keep `.ignoresSafeArea()` for full-bleed playback.
+
+### Settings tab and AI dubbing
+
+Full detail (cache contract, local processing limits, language detection, Dutch/English/Spanish sources) is in **[deployment/AI_DUBBING.md](deployment/AI_DUBBING.md)**; this is only where it sits in the architecture.
+
+- **Settings tab** (`SettingsView`): the viewer's **listening language** (`ListeningLanguageStore`, one of the 22 `ListeningLanguage.codes`, mirrored by `DUBBING_LANGUAGES` in the Worker) and **Language models** (`LanguageModelsView`: on-device speech / translation models and the detection model, downloaded on demand).
+- **Dubbing runs on the viewer's iPhone** (`Presentation/Dubbing`, `DubbingViewModel`): the viewer explicitly picks original or AI audio. The player first asks the shared cache (`DubbedAudioCacheClient`: GET/POST `dubbed-audio`, subtitle text, report); on a miss it recognizes the clip's speech, translates (Apple Translation) and narrates with a system voice, then uploads the finished AAC/M4A so later viewers reuse it. Dubbing sources are English, Spanish and Dutch. Nothing about the clip's audio or transcript is sent to a third-party AI service.
+- **Language detection** is also viewer-side: when a clip declares no language, `StagedClipLanguageDetector` picks up to two speech-like windows (`SpeechWindowSelector`) and names the language with the Whisper **base** model (WhisperKit, `WhisperEngine`, downloaded once via `LanguageDetectionModelStore`), falling back to system recognizers. Results are remembered per clip on the phone only (`DetectedLanguageMemo`).
+- **Bad shared audio:** signed-in viewers can report a shared dub (`DubbedAudioReportMemory` remembers what this phone reported); the Worker removes it per the rules in the route table.
+- **Layering note:** the dubbing clients and view model live in `Presentation/Dubbing`, next to the UI that drives them, so they are an exception to the strict "ViewModels use only use cases" rule below.
 
 ### Swift 6 concurrency
 
 | Setting | Value |
 |---------|--------|
-| Language | **Swift 6** (`SWIFT_VERSION = 6`) |
+| Language | **Swift 6** (`SWIFT_VERSION = 6.0`) |
+| Deployment target | **iOS 26.5** (`IPHONEOS_DEPLOYMENT_TARGET`) |
 | Default isolation | **MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION`) |
 | Strictness | Approachable concurrency (`SWIFT_APPROACHABLE_CONCURRENCY`) |
 
@@ -200,7 +225,7 @@ See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.
 
 ### MVVM + Clean Architecture
 
-See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-004](docs/adr/004-single-app-target.md)** (single Xcode target, folder boundaries; SPM deferred).
+See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-004](docs/adr/004-single-app-target.md)** (single Xcode target, folder boundaries; splitting into local SPM modules deferred). The target does use remote SwiftPM packages: POC_MyLibrary, Alamofire, waypointsdk (private JFrog registry), lottie-spm and WhisperKit (pinned to 1.1.1).
 
 | Layer | Folder | Role |
 |-------|--------|------|
@@ -266,8 +291,8 @@ See **[ADR-005](docs/adr/005-coordinator-router.md)**.
 
 | Type | Role |
 |------|------|
-| `AppRouter` | Observable tab state (`MainTab`); views bind `TabView(selection:)` |
-| `AppCoordinator` | Cross-tab flows: splash feed load, upload finished → reload feed + show feed tab |
+| `AppRouter` | Observable tab state (`MainTab`: feed, map, profile, upload, settings, and log in DEBUG); views bind `TabView(selection:)`; also presents the public-profile sheet (`openPublicProfile(handle:)`) |
+| `AppCoordinator` | Cross-tab flows: splash feed load, upload finished → reload feed + show feed tab, map **Play in Feed** → load clip + focus it + show feed tab |
 | ViewModels | Feature logic only; no direct tab switching |
 
 ```mermaid
@@ -344,17 +369,23 @@ sequenceDiagram
 ```text
 Marauders-ios/Marauders/
   App/              MaraudersApp
-  Composition/      AppDependencyContainer
-  Domain/           Entities, Repositories (protocols), UseCases
-  Data/             API/, Repositories/, Services/, Photos/
+  Composition/      AppDependencyContainer, AppRuntimeConfiguration, UITestFeedMode, MyLibraryIntegration, WaypointJourneyIntegration
+  Domain/           Entities, Repositories (protocols), Services (protocols), UseCases, Auth
+  Data/             API/, Auth/ (Keychain stores), Repositories/, Services/ (export, caches, speech, Whisper), Photos/
   Presentation/
     Navigation/     AppRouter, AppCoordinator, MainTab
     Main/           ContentView
     Splash/         AppRootView, SplashView
-    Feed/           VideoFeedView, VideoFeedViewModel
-    Feed/Playback/  FeedPlayerEngine, VerticalPagingFeedScrollView, …
-    Upload/         UploadVideoView, UploadVideoViewModel
-    Debug/          AppLog, DebugLogView (#if DEBUG)
+    Auth/           AuthViewModel, sign-in gate, country picker
+    Feed/           VideoFeedView, VideoFeedViewModel, FeedClipActionRail
+    Feed/Playback/  FeedPlayerEngine, VerticalPagingFeedScrollView, FeedMediaPreparationService, …
+    Map/            MapView, MapViewModel, clustering, proximity, search, country filter
+    Profile/        ProfileView, PublicProfileView + view models
+    Upload/         UploadVideoView, UploadVideoViewModel, ClipLocationPicker
+    Settings/       SettingsView, listening-language picker, language models
+    Dubbing/        DubbingViewModel, DubbingClient, DubbedAudioCacheClient, language-detection memo
+    Common/         AvatarView, ClipPlayerView
+    Debug/          AppLogStore, DebugLogView (#if DEBUG)
 ```
 
 ### iOS — HTTP API contract
@@ -363,9 +394,9 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 
 | Endpoint | Client | Method | Timeout | Client-side validation | Success | Error mapping |
 |----------|--------|--------|---------|------------------------|---------|----------------|
-| `/v1/feed?limit=` | `FeedAPIClient` | GET | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `[FeedVideo]` | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
-| `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
-| `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 30s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
+| `/v1/feed?limit=&cursor=&country=` (map: `/v1/map/clips`) | `FeedAPIClient` | GET (Bearer when signed in) | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `FeedPage` (`[FeedVideo]` + `hasMore`) | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
+| `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude`, optional `caption`, `audioAssessment` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
+| `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 15s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
 | `/v1/users/me` | `UserProfileAPIClient` | GET (Bearer) | 15s | none | `UserProfile` (handle, country, coords, count, `avatarURL`, `[FeedVideo]`) | `notAuthenticated`, `notFound`, `serverError(status)`, `invalidResponse` |
 | `/v1/users/me` | `UserProfileAPIClient` | PATCH JSON `{ handle }` (Bearer) | 15s | handle `a-z0-9._`, 1–63 | `{ handle }` (normalized) | `notAuthenticated`, `handleTaken` (409), `invalidHandle` (400), `serverError(status)`, `invalidResponse` |
 | `/v1/users/me/avatar` | `UserProfileAPIClient` | POST multipart `file` (Bearer) | 60s | image downscaled ≤ 512px, JPEG `image/jpeg` | `{ avatarURL }` | `notAuthenticated`, `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, `invalidResponse` |
@@ -373,9 +404,11 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 | `/v1/users/{handle}` | `UserProfileAPIClient` | GET (public) | 15s | none | `PublicUserProfile` (handle, country, count, `avatarURL`, `[FeedVideo]`) | `notFound`, `invalidHandle` (400), `serverError(status)`, `invalidResponse` |
 | `/v1/videos/:id` | `UserProfileAPIClient` | DELETE (Bearer) | 15s | video id is a UUID | 204/200 | `notAuthenticated`, `notFound`, `serverError(status)`, `invalidResponse` |
 
+Not in the table: `POST /v1/auth/apple` and the debug-only `/v1/auth/dev` (`AuthAPIClient`, `DevAuthAPIClient`, 30s) and the dubbed-audio routes (`DubbedAudioCacheClient`, see [AI_DUBBING.md](deployment/AI_DUBBING.md)).
+
 **Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests`, `UserProfileAPIClientTests` use `StubURLProtocol` (no live network in CI).
 
-**Not in MVP:** auth headers, automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only).
+**Not implemented:** automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only). Authorization is attached through `APIAuthorization` (Keychain access token).
 
 ### iOS — upload file lifecycle (staging)
 
@@ -417,15 +450,31 @@ flowchart LR
 
 ### Media GET
 
-- Keys: `videos/{uuid}.mp4|mov`, `videos/{uuid}/master.m3u8`, `videos/{uuid}/segNNN.ts`
+- Keys: `videos/{uuid}.mp4|mov`, `videos/{uuid}/master.m3u8`, `videos/{uuid}/segNNN.ts`, `avatars/{uuid}.jpg|jpeg|png`, `translations/{clip-uuid}/{sha256}-{lang}-v1.m4a` (shared dubbed audio)
 - `Accept-Ranges: bytes`, `ETag` / `304`, `Content-Disposition: inline`
 
 ### Operational scripts
 
 | Script | Purpose |
 |--------|---------|
-| `npm run db:purge` | Clear `feed_videos` + delete R2 objects referenced by URLs |
+| `npm run dev` / `npm run deploy` | `wrangler dev` / `wrangler deploy`; secrets are set with `wrangler secret put` (see `wrangler.toml`) |
+| `npm run db:migrate` | Apply `sql/001`…`016` in order (`IF NOT EXISTS` statements; `004_purge_feed_videos.sql` is not in the list) |
+| `npm run db:purge` | (`db:migrate` and `db:purge` read `DATABASE_URL` from `backend/.dev.vars`; purge also accepts the env var) Clear `feed_videos` + delete R2 objects referenced by URLs |
 | `npm run video:hls` | ffmpeg HLS from feed row → R2 + update `stream_url` |
+| `npm run test:feed` / `test:dubbed-audio` / `test:dev-auth` | Backend checks, see **Tests** |
+
+### Data model
+
+Migrations live in `backend/sql/` (`001`…`016`); `scripts/reset-all-data.sql` is a manual wipe script, not a migration.
+
+| Table | Purpose | Notable columns / migration |
+|-------|---------|------------------------------|
+| `feed_videos` | One row per clip | `id`, `stream_url` (HTTPS check), `author_name`, `caption` (≤ 500), `sort_order`, `created_at`; `latitude` / `longitude` (005); `owner_user_id` → `app_users` (006); `audio_assessment jsonb` (015); `music_title` dropped (013) |
+| `app_users` | Accounts (Apple `sub`, or `dev:<label>`) | `apple_sub` unique (006); `country` + index (007, 008); `latitude` / `longitude` / `location_updated_at` (009); `handle` (011, backfilled into feed rows by 012); `avatar_url` (014) |
+| `rate_limit_counters` | Neon fixed-window limiter | `bucket_key` PK, `window_start`, `count` (010) |
+| `dubbed_audio_reports` | Reports against shared AI dubs | PK (`video_id`, `language`, `source_hash`, `reporter_user_id`), cascades with clip and user (016) |
+
+R2 (`marauders-videos`) holds `videos/`, `avatars/` and `translations/` objects (see Media GET). Dubbed audio and its subtitle text are keyed by clip id, SHA-256 of the clip's `stream_url` and language, so a changed source never reuses an old dub.
 
 ---
 
@@ -434,8 +483,9 @@ flowchart LR
 | Symptom | Likely cause | Mitigation |
 |---------|----------------|------------|
 | Spinner forever | Bad `stream_url`, 404 media | In-app retry; fix DB/R2; `db:purge` |
-| Hitch on release only | Next clip not in hidden slot | Wait on clip for prefetch; HLS; `video:hls` |
-| Scroll smooth but black gap | Empty feed | Empty-state UX (planned) |
+| Hitch on release only | Next clip not yet preloaded in a neighbor slot | Wait on clip for prefetch; HLS; `video:hls` |
+| Scroll smooth but black gap | Empty feed | Feed shows an empty-state error (`feed.error`) with retry |
+| Bad AI dubbed audio | Machine translation / narration error | Viewer reports it; owner/uploader (1) or two viewers remove the shared file |
 | Slow MP4 start | No faststart / large file | Re-upload; HLS script |
 | Mixed HLS + MP4 in feed | By design during migration | Convert remaining rows with `video:hls` |
 
@@ -443,7 +493,6 @@ flowchart LR
 
 ## Future (not implemented)
 
-- Empty-state feed UI when `items.length === 0`
 - Per-user upload quotas and feed visibility policies (global feed today; `owner_user_id` stored on upload)
 - Automatic HLS transcode queue (Worker Queue + ffmpeg worker)
 - Metrics: time-to-first-frame after settle, rebuffer count
@@ -454,10 +503,11 @@ flowchart LR
 
 ## Tests
 
-- `MaraudersTests/FeedPlayerEngineTests.swift` — HTTPS policy, pause semantics, retry (no network).
-- `MaraudersTests/MapViewModelTests.swift` / `UploadVideoViewModelTests.swift` — location permission flow via `FakeLocationManager` (an in-memory `LocationManaging`): not-determined → pre-prompt, denied → alert, authorized → fix request, granted-after-prompt → fix request, location delivered → coordinate/clip location.
-- `MaraudersUITests/MaraudersUITests.swift` — smoke tests (feed tab, upload tab, empty-feed error) with deterministic mock data.
-- Run: Xcode **Product → Test** or `xcodebuild test -scheme Marauders`.
+- **Unit (`MaraudersTests`, Swift Testing, ~400 `@Test` cases across 44 files):** feed engine and media preparation (`FeedPlayerEngineTests`, `FeedMediaPreparationServiceTests`, `FeedPagingGestureTests`), feed view model and startup cache, API clients on `StubURLProtocol` (no network), map (clustering, proximity, search, view model with `FakeLocationManager`), profile / public profile view models, sign-in + location, upload use cases, and the dubbing stack (listening languages, dubbing plan and sources, shared cache, reports, language detection, speech-window selection, model store, Settings language models). A few `*DeviceTests` files target real-device behavior.
+- **UI (`MaraudersUITests`, XCTest):** smoke and flow tests with deterministic mock data: feed / map / upload / profile tabs, empty feed, delete own clip, place search, public profile from feed avatar and map clip, avatar control, streaming feed swipes, guest sign-in gates, country change at sign-in, location-denied, and the AI-audio choice.
+- **Backend (`backend/scripts`, plain Node):** `npm run test:feed` (real router, auth and SQL builder against a database spy), `npm run test:dubbed-audio` (shared audio cache, reports), `npm run test:dev-auth` (esbuild-bundled `test/authDev.test.ts` on `node:test` with a fake users module). `test-upload.mjs` and `test-audio-assessment.mjs` exist but have no npm script. `npm run typecheck` runs `tsc --noEmit`.
+- Run iOS tests: Xcode **Product → Test** or `xcodebuild test -scheme Marauders` (the fastlane `test` lane runs `MaraudersTests` only and emits JUnit + Cobertura coverage).
+- **CI state:** the `Jenkinsfile` currently runs Checkout → Install dependencies → Resolve Swift packages → Deploy to TestFlight (`main` only). The **Unit tests** and **Coverage report** stages are commented out ("temporarily disabled to keep the TestFlight build fast"), so CI does not run any tests today. [docs/ci-cd.md](docs/ci-cd.md) still describes the older flow with unit tests and should be read with that caveat.
 
 ### UI test launch flags (`UITEST`)
 
@@ -465,9 +515,12 @@ Pass these via `XCUIApplication.launchArguments` (and matching `launchEnvironmen
 
 | Flag / env | Effect |
 |------------|--------|
-| `UITEST` (`UITEST=1` in env) | Composition root uses `UITestFeedRepository` instead of `DefaultFeedRepository`; splash skips the 650 ms minimum delay after the first feed load completes. |
+| `UITEST` (`UITEST=1` in env) | Composition root uses `UITestFeedRepository` (and a stub profile repository) instead of the real ones; the startup cache is off and the splash skips its 650 ms minimum after the first feed load completes. |
 | `UITEST_EMPTY_FEED` (`UITEST_EMPTY_FEED=1` in env) | Mock repository returns an empty list → feed shows the empty-state error UI (message contains `Feed is empty`). Requires `UITEST`. |
+| `UITEST_STREAMING_FEED` | Mock feed of streaming clips for the swipe / paging tests. |
+| `UITEST_GUEST` | Starts signed out, to test the sign-in gates. |
+| `UITEST_LOCATION_DENIED` | Sign-in location check reports permission denied. |
 
 Resolution lives in `UITestFeedMode` / `AppRuntimeConfiguration` and is applied when `AppDependencyContainer` wires the feed repository. Splash awaits `VideoFeedViewModel.awaitInitialLoad()` so smoke tests assert against a settled feed state.
 
-Key accessibility identifiers used by smoke tests: `feed.root`, `feed.error`, `upload.root`, `upload.pickVideo`.
+Key accessibility identifiers used by tests: `feed.root`, `feed.error`, `map.root`, `settings.root`, `upload.pickVideo`, `upload.caption`.
