@@ -18,6 +18,8 @@ struct CommentRow: View {
     @State private var showsTranslation = false
     @State private var isTranslating = false
     @State private var translationFailed = false
+    /// The language Apple Translation says it translated from, which it works out itself for a short comment.
+    @State private var translatedFrom: Locale.Language?
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
@@ -27,8 +29,8 @@ struct CommentRow: View {
         return formatter
     }()
 
-    private var sourceCode: String? {
-        CommentTranslation.sourceCode(for: comment, target: translationTarget)
+    private var source: CommentTranslation.Source? {
+        CommentTranslation.source(for: comment, target: translationTarget)
     }
 
     var body: some View {
@@ -43,6 +45,7 @@ struct CommentRow: View {
                 let response = try await session.translate(comment.body)
                 await MainActor.run {
                     translatedText = response.targetText
+                    translatedFrom = response.sourceLanguage
                     showsTranslation = true
                     isTranslating = false
                 }
@@ -87,7 +90,7 @@ struct CommentRow: View {
     /// Lines up with the comment text, to the right of the avatar.
     @ViewBuilder
     private var translationControls: some View {
-        if let sourceCode, let translationTarget {
+        if let source, let translationTarget {
             Group {
                 if isTranslating {
                     ProgressView()
@@ -101,14 +104,14 @@ struct CommentRow: View {
                             } else if translatedText != nil {
                                 showsTranslation = true
                             } else {
-                                startTranslation(from: sourceCode, to: translationTarget)
+                                startTranslation(from: source, to: translationTarget)
                             }
                         }
                         .font(.caption.weight(.semibold))
                         .buttonStyle(.borderless)
                         .accessibilityIdentifier("comments.translate")
                         if showsTranslation {
-                            Text("Translated on this iPhone from \(sourceName(sourceCode))")
+                            Text("Translated on this iPhone from \(sourceName)")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         } else if translationFailed {
@@ -124,17 +127,27 @@ struct CommentRow: View {
         }
     }
 
-    private func startTranslation(from sourceCode: String, to target: ListeningLanguage) {
+    private func startTranslation(from source: CommentTranslation.Source, to target: ListeningLanguage) {
         translationFailed = false
         isTranslating = true
-        let next = TranslationSession.Configuration(source: .init(identifier: sourceCode), target: .init(identifier: target.code))
+        let sourceLanguage: Locale.Language? = switch source {
+        case .known(let code): Locale.Language(identifier: code)
+        case .detectedByTranslation: nil
+        }
+        let next = TranslationSession.Configuration(source: sourceLanguage, target: .init(identifier: target.code))
         // Invalidating makes a retry after a failure run again although the configuration is the same.
         configuration = next
         configuration?.invalidate()
     }
 
-    private func sourceName(_ code: String) -> String {
-        ListeningLanguage(identifier: code)?.displayName() ?? code
+    private var sourceName: String {
+        let code = translatedFrom?.minimalIdentifier ?? {
+            if case .known(let code) = source { return code }
+            return ""
+        }()
+        return ListeningLanguage(identifier: code)?.displayName()
+            ?? ListeningLanguage.interfaceLocale.localizedString(forIdentifier: code)
+            ?? code
     }
 
     private var handle: some View {

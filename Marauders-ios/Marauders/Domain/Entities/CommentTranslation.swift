@@ -9,31 +9,34 @@ import NaturalLanguage
 /// Decides whether a comment offers a Translate button, and from which language. The translation itself runs on the
 /// reader's iPhone (Apple Translation); the Worker only stores the original text.
 enum CommentTranslation {
-    /// Language detection on a few characters is a guess, so shorter text is not offered for translation.
-    static let minimumDetectionCharacters = 12
-    /// How sure the on-device recognizer must be of a detected language.
-    static let minimumConfidence = 0.6
-
-    /// The language code to translate from, or nil when there is nothing to offer: the comment is already in the
-    /// viewer's language, its language is unknown, or it is not one Apple Translation handles for dubbing.
-    static func sourceCode(for comment: Comment, target: ListeningLanguage?) -> String? {
-        guard let target else { return nil }
-        guard let source = declaredOrDetectedCode(for: comment) else { return nil }
-        guard baseCode(of: source) != target.code else { return nil }
-        return source
+    /// Where a translation starts from.
+    enum Source: Equatable {
+        /// The comment declares this language, or the iPhone recognised it with confidence.
+        case known(String)
+        /// Too short or too mixed to be sure ("ok", "nice"): Apple Translation works out the language itself.
+        case detectedByTranslation
     }
 
-    private static func declaredOrDetectedCode(for comment: Comment) -> String? {
-        if let declared = comment.language, ListeningLanguage(identifier: declared) != nil { return declared }
-        let text = comment.body.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard CommentRules.characterCount(text) >= minimumDetectionCharacters else { return nil }
+    /// How sure the on-device recognizer must be before its guess is handed to Apple Translation as the source.
+    static let minimumConfidence = 0.6
+
+    /// What the Translate button translates from, or nil when there is nothing to offer: the comment is in the
+    /// viewer's language (declared, or the recognizer's best guess even when unsure), or it has no words at all.
+    static func source(for comment: Comment, target: ListeningLanguage?) -> Source? {
+        guard let target else { return nil }
+        if let declared = comment.language, ListeningLanguage(identifier: declared) != nil {
+            return baseCode(of: declared) == target.code ? nil : .known(declared)
+        }
         let recognizer = NLLanguageRecognizer()
-        recognizer.processString(text)
-        guard let best = recognizer.languageHypotheses(withMaximum: 1).first,
-              best.value >= minimumConfidence,
-              ListeningLanguage(identifier: best.key.rawValue) != nil
-        else { return nil }
-        return best.key.rawValue
+        recognizer.processString(comment.body.trimmingCharacters(in: .whitespacesAndNewlines))
+        // Emoji, numbers ("555") and punctuation give no hypothesis: there is nothing to translate.
+        guard let best = recognizer.languageHypotheses(withMaximum: 1).first else { return nil }
+        let guess = best.key.rawValue
+        // A short comment in the viewer's own language often gets an unsure guess of that language ("nice" is
+        // 20% English); it stays without a button rather than offering a translation into itself.
+        guard baseCode(of: guess) != target.code else { return nil }
+        if best.value >= minimumConfidence, ListeningLanguage(identifier: guess) != nil { return .known(guess) }
+        return .detectedByTranslation
     }
 
     /// "zh-Hans" and "es-MX" compare as "zh" and "es"; Norwegian variants share the Bokmål code the app uses.
