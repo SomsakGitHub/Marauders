@@ -112,7 +112,13 @@ struct FeedAPIClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
 
-        let response = try await client.data(request)
+        var response = try await client.data(request)
+        if response.statusCode == 401, bearer != nil {
+            // The Worker rejects a bad session even on this public read, so read as a guest instead of failing.
+            AppLog.warning("api.feed", "session rejected, reading as guest")
+            request.setValue(nil, forHTTPHeaderField: "Authorization")
+            response = try await client.data(request)
+        }
 
         AppLog.info("api.feed", "status=\(response.statusCode) bytes=\(response.data.count)")
 

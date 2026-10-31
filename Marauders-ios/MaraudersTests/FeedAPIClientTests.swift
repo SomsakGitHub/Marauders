@@ -233,6 +233,65 @@ struct FeedAPIClientTests {
         #expect(attemptCount == 1)
     }
 
+    /// The Worker rejects a bad session even on this public read, so the clips are read again as a guest.
+    @Test(arguments: [false, true])
+    func aRejectedSessionReadsTheFeedAsAGuest(forMap: Bool) async throws {
+        let videoID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
+        let body = FeedAPIClientTests.feedResponseJSON(items: [(id: videoID, streamURL: "https://cdn.example.com/v/guest.mp4")])
+        nonisolated(unsafe) var sentAuthorizations: [String?] = []
+        let session = StubURLSessionFactory.make { request in
+            let authorization = request.value(forHTTPHeaderField: "Authorization")
+            sentAuthorizations.append(authorization)
+            if authorization != nil {
+                return (StubURLSessionFactory.httpResponse(for: request, statusCode: 401), Data(#"{"error":"invalid session"}"#.utf8))
+            }
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), body)
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = FeedAPIClient(session: session, authorization: SignedInAuthorization())
+
+        let page = try await client.fetchFeed(forMap: forMap)
+
+        #expect(page.items.map(\.id) == [videoID])
+        #expect(sentAuthorizations == ["Bearer test-session-token-1234567890", nil])
+    }
+
+    @Test func theGuestReadIsAskedOnlyOnce() async {
+        nonisolated(unsafe) var sentAuthorizations: [String?] = []
+        let session = StubURLSessionFactory.make { request in
+            sentAuthorizations.append(request.value(forHTTPHeaderField: "Authorization"))
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 401), Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = FeedAPIClient(
+            session: session,
+            maxAttempts: FeedAPIClient.defaultMaxAttempts,
+            retryDelayNs: { _ in 0 },
+            authorization: SignedInAuthorization()
+        )
+
+        await #expect(throws: FeedAPIError.serverError(401)) {
+            try await client.fetchFeed()
+        }
+        // One request with the session and one as a guest; a 401 is not a transient failure, so no more.
+        #expect(sentAuthorizations == ["Bearer test-session-token-1234567890", nil])
+    }
+
+    @Test func aGuestRequestThatIsRejectedIsNotRetried() async {
+        nonisolated(unsafe) var attemptCount = 0
+        let session = StubURLSessionFactory.make { request in
+            attemptCount += 1
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 401), Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = FeedAPIClient(session: session)
+
+        await #expect(throws: FeedAPIError.serverError(401)) {
+            try await client.fetchFeed()
+        }
+        #expect(attemptCount == 1)
+    }
+
     @Test func fetchFeedRejectsMalformedJSON() async {
         let session = StubURLSessionFactory.make { request in
             let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)

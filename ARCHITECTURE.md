@@ -83,7 +83,7 @@ A `/health` GET answers without auth. All `/v1/*` routes return JSON errors as `
 
 | Zone | Sensitive data | Controls |
 |------|----------------|----------|
-| iOS | Access token (Keychain); disposable feed/media cache in `Caches`; on-device language models | ATS HTTPS; fail closed on non-HTTPS `streamURL`; cache keyed by session and lifetime-limited |
+| iOS | Access token (Keychain); disposable feed/media cache in `Caches`; on-device language models | ATS HTTPS; fail closed on non-HTTPS `streamURL`; cache keyed by session and lifetime-limited; a token past its `exp`, or one the Worker answers 401, ends the session (the device only reads `exp`, the signature stays the Worker's to check) |
 | Worker | `DATABASE_URL`, `JWT_SIGNING_SECRET`, `APPLE_CLIENT_ID`, optional `DEV_LOGIN_SECRET` | Secret bindings; input validation on every write; `/v1/auth/dev` inert (404) unless its secret is set |
 | R2 | Video objects | Key allowlist `videos/{uuid}.mp4\|mov` or `videos/{uuid}/master.m3u8\|segNNN.ts` |
 | R2 | Avatar objects | Key allowlist `avatars/{uuid}.{jpg\|jpeg\|png}` |
@@ -172,6 +172,7 @@ sequenceDiagram
 - **Near me:** the locate FAB recenters the camera on you (`MapClipProximity`); `MapClipProximity` also limits the pins to the visible region, and the clip player shows the distance from you when location is known.
 - **Open in feed:** tap pin → `ClipPlayerView` → **Play in Feed** → `AppCoordinator` calls `ensureVideoLoaded`, which paginates with `cursor` until the clip is in memory, then `requestFocus(on:)` and `router.showFeed()`; `VideoFeedView` scrolls via `focusVideoID` / `consumeFocusRequest()`. The clip's author handle opens the public profile.
 - **Auth:** Map, Upload and Profile gate on sign-in (`SignInRequiredView` / `SignInWithAppleGateView`; the Feed is open to guests). Sign-in needs location permission and detects the country (`SignInLocationViewModel`, changeable in `CountryPickerView`); `identityToken` → `POST /v1/auth/apple` → access token in Keychain; authenticated requests send `Authorization: Bearer`. Debug builds on the Simulator can instead sign in through `/v1/auth/dev` (`DevAuthAPIClient`, secret passed via launch environment, never stored in the project).
+- **Session end:** the access token is a 30-day JWT. `AuthViewModel.restoreSession()` (run whenever a tab appears, so it also catches a token that runs out while the app is open) reads its `exp` with `APIAccessTokenExpiry` and treats a token that is expired, or whose `exp` cannot be read, like a missing one: the stored session and token are cleared and the viewer is signed out, which brings up the sign-in gates. A 401 to a request that carried the token ends the session the same way (see *iOS — HTTP API contract* below). Nothing opens the sign-in screen by itself: the viewer reaches it from a gate or the feed's sign-in prompts. Guests are unaffected.
 - **Location:** Required to open the Map tab (`MapLocationRequiredView` gate + system permission). **Current Location** recenters the map after access is granted. The first fix delivered in a session is reported once to `POST /v1/users/me/location` via `ReportUserLocationUseCase` (composition root), so the account keeps a last-known location.
 
 ### Profile tab
@@ -182,7 +183,7 @@ sequenceDiagram
 - **Avatar:** the header photo is a `PhotosPicker`; the picked image is downscaled to ≤ 512px + JPEG-encoded by `DefaultAvatarImagePreparer` inside `UpdateAvatarUseCase`, then `POST /v1/users/me/avatar` via `UserProfileAPIClient` (multipart); the returned URL updates the profile and is broadcast to the feed (`onAvatarChanged` → `VideoFeedViewModel.applyAuthorAvatar`). `AvatarView` falls back to a deterministic gradient + initial when there is no photo.
 - **Delete:** long-press a clip (or tap the trash button in the player) → confirm → `DELETE /v1/videos/:id` via `DeleteUserClipUseCase`; the clip is removed from the grid optimistically and the count decremented.
 - **State:** `ProfileViewModel` (`idle → loading → loaded/failed`) loads once via `loadIfNeeded()` and re-fetches on `reload()`.
-- **Auth:** gated on Sign in with Apple (same `SignInWithAppleGateView` as Upload/Map).
+- **Auth:** gated on Sign in with Apple (same `SignInWithAppleGateView` as Upload/Map). When the session ends while the tab is open (expired token, 401 from the profile request itself), the tab falls back to this gate.
 - **`ClipPlayerView`** is shared between the map pins and the profile grid (`Presentation/Common`).
 
 ### Public profiles (`@handle`)
@@ -369,7 +370,7 @@ sequenceDiagram
 ```text
 Marauders-ios/Marauders/
   App/              MaraudersApp
-  Composition/      AppDependencyContainer, AppRuntimeConfiguration, UITestFeedMode, MyLibraryIntegration, WaypointJourneyIntegration
+  Composition/      AppDependencyContainer, AppRuntimeConfiguration, UITestFeedMode, UITestRejectedSession, MyLibraryIntegration, WaypointJourneyIntegration
   Domain/           Entities, Repositories (protocols), Services (protocols), UseCases, Auth
   Data/             API/, Auth/ (Keychain stores), Repositories/, Services/ (export, caches, speech, Whisper), Photos/
   Presentation/
@@ -394,7 +395,7 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 
 | Endpoint | Client | Method | Timeout | Client-side validation | Success | Error mapping |
 |----------|--------|--------|---------|------------------------|---------|----------------|
-| `/v1/feed?limit=&cursor=&country=` (map: `/v1/map/clips`) | `FeedAPIClient` | GET (Bearer when signed in) | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `FeedPage` (`[FeedVideo]` + `hasMore`) | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
+| `/v1/feed?limit=&cursor=&country=` (map: `/v1/map/clips`) | `FeedAPIClient` | GET (Bearer when signed in; a 401 on a request that carried a token is retried once as a guest) | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `FeedPage` (`[FeedVideo]` + `hasMore`) | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
 | `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude`, optional `caption`, `audioAssessment` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
 | `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 15s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
 | `/v1/users/me` | `UserProfileAPIClient` | GET (Bearer) | 15s | none | `UserProfile` (handle, country, coords, count, `avatarURL`, `[FeedVideo]`) | `notAuthenticated`, `notFound`, `serverError(status)`, `invalidResponse` |
@@ -406,7 +407,9 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 
 Not in the table: `POST /v1/auth/apple` and the debug-only `/v1/auth/dev` (`AuthAPIClient`, `DevAuthAPIClient`, 30s) and the dubbed-audio routes (`DubbedAudioCacheClient`, see [AI_DUBBING.md](deployment/AI_DUBBING.md)).
 
-**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests`, `UserProfileAPIClientTests` use `StubURLProtocol` (no live network in CI).
+**A 401 ends the session.** The container builds every client in the table over one `HTTPClient`, wrapped in `RejectedSessionReportingHTTPClient`. When the Worker answers 401 to a request whose `Authorization` header carried a Bearer token, the wrapper calls `AuthViewModel.handleRejectedAccessToken(_:)` with that token **before** it hands the response back, so the viewer is already signed out when the client throws. The clients keep their own error mapping above (`serverError(401)`, `notAuthenticated`) and the public read (feed, map clips) still retries once as a guest, so a session the Worker no longer accepts never keeps clips from the viewer. The report is ignored when the token is no longer the stored one, so a late answer to an old request cannot end a newer session, and a request without a token (a guest's, or the sign-in exchange itself) is never reported. `DubbedAudioCacheClient` is built outside the container and is not covered yet.
+
+**Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests`, `UserProfileAPIClientTests` use `StubURLProtocol` (no live network in CI); `RejectedSessionReportingTests` covers the wrapper and `SessionExpiryTests` the same real clients over it.
 
 **Not implemented:** automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only). Authorization is attached through `APIAuthorization` (Keychain access token).
 
@@ -486,6 +489,7 @@ R2 (`marauders-videos`) holds `videos/`, `avatars/` and `translations/` objects 
 | Hitch on release only | Next clip not yet preloaded in a neighbor slot | Wait on clip for prefetch; HLS; `video:hls` |
 | Scroll smooth but black gap | Empty feed | Feed shows an empty-state error (`feed.error`) with retry |
 | Bad AI dubbed audio | Machine translation / narration error | Viewer reports it; owner/uploader (1) or two viewers remove the shared file |
+| Signed out without tapping Sign Out | The 30-day access token ran out, or the Worker answered 401 to it (signing secret changed, account removed) | `restoreSession()` and the first 401 clear the stored session and show the sign-in gates; the viewer signs in again |
 | Slow MP4 start | No faststart / large file | Re-upload; HLS script |
 | Mixed HLS + MP4 in feed | By design during migration | Convert remaining rows with `video:hls` |
 
@@ -503,8 +507,8 @@ R2 (`marauders-videos`) holds `videos/`, `avatars/` and `translations/` objects 
 
 ## Tests
 
-- **Unit (`MaraudersTests`, Swift Testing, ~400 `@Test` cases across 44 files):** feed engine and media preparation (`FeedPlayerEngineTests`, `FeedMediaPreparationServiceTests`, `FeedPagingGestureTests`), feed view model and startup cache, API clients on `StubURLProtocol` (no network), map (clustering, proximity, search, view model with `FakeLocationManager`), profile / public profile view models, sign-in + location, upload use cases, and the dubbing stack (listening languages, dubbing plan and sources, shared cache, reports, language detection, speech-window selection, model store, Settings language models). A few `*DeviceTests` files target real-device behavior.
-- **UI (`MaraudersUITests`, XCTest):** smoke and flow tests with deterministic mock data: feed / map / upload / profile tabs, empty feed, delete own clip, place search, public profile from feed avatar and map clip, avatar control, streaming feed swipes, guest sign-in gates, country change at sign-in, location-denied, and the AI-audio choice.
+- **Unit (`MaraudersTests`, Swift Testing, ~450 `@Test` cases across 47 files):** feed engine and media preparation (`FeedPlayerEngineTests`, `FeedMediaPreparationServiceTests`, `FeedPagingGestureTests`), feed view model and startup cache, API clients on `StubURLProtocol` (no network), map (clustering, proximity, search, view model with `FakeLocationManager`), profile / public profile view models, sign-in + location, session end (`APIAccessTokenExpiryTests` for expired, valid, malformed and `exp`-less tokens; `RejectedSessionReportingTests` and `SessionExpiryTests` for `restoreSession()` and for a 401 signing the viewer out through the real API clients, with no network), upload use cases, and the dubbing stack (listening languages, dubbing plan and sources, shared cache, reports, language detection, speech-window selection, model store, Settings language models). A few `*DeviceTests` files target real-device behavior.
+- **UI (`MaraudersUITests`, XCTest):** smoke and flow tests with deterministic mock data: feed / map / upload / profile tabs, empty feed, delete own clip, place search, public profile from feed avatar and map clip, avatar control, streaming feed swipes, guest sign-in gates, country change at sign-in, location-denied, the AI-audio choice, and a rejected session (the 401 signs the viewer out: Profile and Upload fall back to the sign-in gate).
 - **Backend (`backend/scripts`, plain Node):** `npm run test:feed` (real router, auth and SQL builder against a database spy), `npm run test:dubbed-audio` (shared audio cache, reports), `npm run test:dev-auth` (esbuild-bundled `test/authDev.test.ts` on `node:test` with a fake users module). `test-upload.mjs` and `test-audio-assessment.mjs` exist but have no npm script. `npm run typecheck` runs `tsc --noEmit`.
 - Run iOS tests: Xcode **Product → Test** or `xcodebuild test -scheme Marauders` (the fastlane `test` lane runs `MaraudersTests` only and emits JUnit + Cobertura coverage).
 - **CI state:** the `Jenkinsfile` currently runs Checkout → Install dependencies → Resolve Swift packages → Deploy to TestFlight (`main` only). The **Unit tests** and **Coverage report** stages are commented out ("temporarily disabled to keep the TestFlight build fast"), so CI does not run any tests today. [docs/ci-cd.md](docs/ci-cd.md) still describes the older flow with unit tests and should be read with that caveat.
@@ -519,6 +523,7 @@ Pass these via `XCUIApplication.launchArguments` (and matching `launchEnvironmen
 | `UITEST_EMPTY_FEED` (`UITEST_EMPTY_FEED=1` in env) | Mock repository returns an empty list → feed shows the empty-state error UI (message contains `Feed is empty`). Requires `UITEST`. |
 | `UITEST_STREAMING_FEED` | Mock feed of streaming clips for the swipe / paging tests. |
 | `UITEST_GUEST` | Starts signed out, to test the sign-in gates. |
+| `UITEST_REJECTED_SESSION` | Starts signed in, but with an in-memory session (`UITestRejectedSession`, never the Keychain) whose token a stub transport (`UITestRejectingHTTPClient`) answers with 401, so the real `AuthViewModel`, `RejectedSessionReportingHTTPClient` and API clients must sign the viewer out. Requires `UITEST`. |
 | `UITEST_LOCATION_DENIED` | Sign-in location check reports permission denied. |
 
 Resolution lives in `UITestFeedMode` / `AppRuntimeConfiguration` and is applied when `AppDependencyContainer` wires the feed repository. Splash awaits `VideoFeedViewModel.awaitInitialLoad()` so smoke tests assert against a settled feed state.

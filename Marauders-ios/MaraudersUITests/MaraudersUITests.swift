@@ -313,6 +313,47 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(choose.waitForExistence(timeout: 10))
     }
 
+    /// `UITEST_REJECTED_SESSION`: the viewer is signed in, but the Worker answers 401 to every request that carries
+    /// their token. The profile is the first to ask; the 401 must sign the viewer out without any screen handling it.
+    @MainActor
+    func testARejectedSessionSignsTheViewerOutAndTheSharedSignInTakesOver() throws {
+        let app = launchApp(extraArguments: ["UITEST_REJECTED_SESSION"])
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 15))
+        profileTab.tap()
+
+        let gate = app.descendants(matching: .any)["profile.signInRequired"]
+        XCTAssertTrue(gate.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["profile.root"].exists)
+
+        // The gate leads to the shared sign-in screen, like it does for a guest.
+        let open = app.buttons["auth.openSignIn"]
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        // The gate appears while the app is still busy with the sign-out, and a tap before the button can be hit lands
+        // nowhere.
+        XCTAssertTrue(waitUntilHittable(open), app.debugDescription)
+        open.tap()
+        let close = app.buttons["auth.closeSignIn"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["signin.country"].exists)
+        close.tap()
+        XCTAssertTrue(app.tabBars.buttons["Profile"].isSelected)
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+
+        // The other tabs that need a session are gated too, and the feed carries on for a guest.
+        app.tabBars.buttons["Upload"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 10), app.debugDescription)
+        app.tabBars.buttons["Feed"].tap()
+        XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 15), app.debugDescription)
+    }
+
+    @MainActor
+    private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: element)
+        return XCTWaiter().wait(for: [hittable], timeout: timeout) == .completed
+    }
+
     @MainActor
     private func attachFeedScreenshot(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())

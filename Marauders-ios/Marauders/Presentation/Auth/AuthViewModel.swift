@@ -18,18 +18,24 @@ final class AuthViewModel {
     /// Location permission and a successful lookup are still required by the sign-in gate.
     var selectedCountryCode: String = CountryCatalog.defaultCode()
 
+    /// What Apple says about the account behind a saved session; replaced in tests.
+    typealias CredentialStateProvider = @Sendable (String) async -> ASAuthorizationAppleIDProvider.CredentialState
+
     private let sessionStore: AuthSessionStore
     private let tokenStore: APIAccessTokenStore
     private let authAPI: AuthAPIClientProtocol
+    private let credentialState: CredentialStateProvider
 
     init(
         sessionStore: AuthSessionStore = KeychainAuthSessionStore(),
         tokenStore: APIAccessTokenStore = KeychainAPIAccessTokenStore(),
-        authAPI: AuthAPIClientProtocol = AuthAPIClient()
+        authAPI: AuthAPIClientProtocol = AuthAPIClient(),
+        credentialState: @escaping CredentialStateProvider = AuthViewModel.appleCredentialState
     ) {
         self.sessionStore = sessionStore
         self.tokenStore = tokenStore
         self.authAPI = authAPI
+        self.credentialState = credentialState
         if AppRuntimeConfiguration.isUITesting {
             isSignedIn = !ProcessInfo.processInfo.arguments.contains("UITEST_GUEST")
             isCheckingCredential = false
@@ -44,13 +50,15 @@ final class AuthViewModel {
 
         defer { isCheckingCredential = false }
 
+        // A token past its `exp`, or one whose `exp` cannot be read, is a session that has ended: the Worker would
+        // answer 401 to it. It is treated like a missing token.
         guard let userID = sessionStore.loadUserID(),
               KeychainAuthSessionStore.isValidUserID(userID),
               let accessToken = tokenStore.loadAccessToken(),
-              APIAccessTokenFormat.isValid(accessToken)
+              APIAccessTokenFormat.isValid(accessToken),
+              !APIAccessTokenExpiry.isExpired(accessToken)
         else {
-            try? sessionStore.clear()
-            try? tokenStore.clearAccessToken()
+            clearStoredSession()
             isSignedIn = false
             return
         }
@@ -63,13 +71,15 @@ final class AuthViewModel {
         }
         #endif
 
-        let state = await Self.credentialState(for: userID)
+        let state = await credentialState(userID)
+        // The Worker may have rejected this token, or the viewer signed out or in again, while Apple was answering.
+        // The answer is about a session that is gone then, and must not bring it back.
+        guard tokenStore.loadAccessToken() == accessToken else { return }
         switch state {
         case .authorized:
             isSignedIn = true
         case .revoked, .notFound:
-            try? sessionStore.clear()
-            try? tokenStore.clearAccessToken()
+            clearStoredSession()
             isSignedIn = false
         case .transferred:
             isSignedIn = false
@@ -163,11 +173,27 @@ final class AuthViewModel {
     #endif
 
     func signOut() {
-        try? sessionStore.clear()
-        try? tokenStore.clearAccessToken()
+        clearStoredSession()
         isSignedIn = false
         errorMessage = nil
         AppLog.info("auth", "signed out")
+    }
+
+    /// The Worker answered 401 to a request that carried `accessToken`. When that is still the stored token the
+    /// session has ended on the server, so it ends here as well, like a sign out: the stored session and token go and
+    /// `isSignedIn` turns false, which brings up the sign-in gates that lead to the shared sign-in screen. A token that
+    /// is no longer the stored one belongs to a session that was already ended or replaced by a newer sign-in, so a
+    /// late answer to a request from before it changes nothing.
+    func handleRejectedAccessToken(_ accessToken: String) {
+        guard tokenStore.loadAccessToken() == accessToken else { return }
+        clearStoredSession()
+        isSignedIn = false
+        AppLog.warning("auth", "access token rejected by the Worker, signed out")
+    }
+
+    private func clearStoredSession() {
+        try? sessionStore.clear()
+        try? tokenStore.clearAccessToken()
     }
 
     private static func userFacingMessage(for error: Error) -> String {
@@ -177,7 +203,7 @@ final class AuthViewModel {
         return "Sign in failed. Please try again."
     }
 
-    private static func credentialState(for userID: String) async -> ASAuthorizationAppleIDProvider.CredentialState {
+    nonisolated static func appleCredentialState(for userID: String) async -> ASAuthorizationAppleIDProvider.CredentialState {
         await withCheckedContinuation { continuation in
             ASAuthorizationAppleIDProvider().getCredentialState(forUserID: userID) { state, _ in
                 continuation.resume(returning: state)
