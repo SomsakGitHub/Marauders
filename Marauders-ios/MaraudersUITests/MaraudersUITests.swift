@@ -361,7 +361,7 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
-    func testACommentInAnotherLanguageOffersTranslateAndOneInTheViewersLanguageDoesNot() throws {
+    func testACommentInAnotherLanguageGivesThePageASwitchAndNoButtonOfItsOwn() throws {
         let app = launchApp()
         let open = app.buttons["feed.comments"]
         XCTAssertTrue(open.waitForExistence(timeout: 15))
@@ -374,10 +374,10 @@ final class MaraudersUITests: XCTestCase {
         input.typeText("Este lugar es increíble, volveremos pronto")
         app.buttons["comments.send"].tap()
         XCTAssertTrue(commentRow(app, containing: "Este lugar es").waitForExistence(timeout: 10), app.debugDescription)
-        // The UI-test viewer listens in English, so the Spanish comment offers a translation, and the English
-        // comments seeded for the clip do not.
-        XCTAssertTrue(app.buttons["comments.translate"].waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertEqual(app.buttons.matching(identifier: "comments.translate").count, 1, app.debugDescription)
+        // The UI-test viewer is in the US, so the Spanish comment gives the page its Show originals switch, while
+        // the English comments seeded for the clip alone did not. No comment has a button of its own.
+        XCTAssertTrue(app.buttons["comments.pageTranslation"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(app.buttons.matching(identifier: "comments.translate").count, 0, app.debugDescription)
     }
 
     @MainActor

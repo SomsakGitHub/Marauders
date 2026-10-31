@@ -10,7 +10,7 @@ import SwiftUI
 struct CommentRow: View {
     let comment: Comment
     var isDeleting = false
-    /// The viewer's language. A Translate button shows when the comment is in another one.
+    /// The language the page translates into, when the comment is in another one.
     var translationTarget: ListeningLanguage?
     /// The page is translated: show this comment in the viewer's language, translating it the first time.
     var translatesAutomatically = false
@@ -97,45 +97,30 @@ struct CommentRow: View {
     /// Lines up with the comment text, to the right of the avatar.
     @ViewBuilder
     private var translationControls: some View {
-        if let source, let translationTarget {
+        if source != nil {
             Group {
                 if isTranslating {
                     ProgressView()
                         .controlSize(.small)
                         .accessibilityIdentifier("comments.translating")
-                } else {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Button(showsTranslation ? "Show original" : "Translate") {
-                            if showsTranslation {
-                                showsTranslation = false
-                            } else if translatedText != nil {
-                                showsTranslation = true
-                            } else {
-                                startTranslation(from: source, to: translationTarget)
-                            }
-                        }
-                        .font(.caption.weight(.semibold))
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("comments.translate")
-                        if showsTranslation {
-                            Text("Translated on this iPhone from \(sourceName)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        } else if translationFailed {
-                            Text("Couldn't translate this comment.")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .accessibilityIdentifier("comments.translateFailed")
-                        }
-                    }
+                } else if showsTranslation {
+                    Text("Translated on this iPhone from \(sourceName)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("comments.translatedFrom")
+                } else if translationFailed {
+                    Text("Couldn't translate this comment.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("comments.translateFailed")
                 }
             }
             .padding(.leading, 46)
         }
     }
 
-    /// The page switch wins over this row's own button: translating the page shows every translation, and showing
-    /// the originals hides them. A translation already made is shown again without asking Apple Translation twice.
+    /// Translating the page shows this comment's translation, and showing the originals hides it. A translation
+    /// already made is shown again without asking Apple Translation twice; one that failed is tried again.
     private func followPage(_ translates: Bool) {
         guard translates else {
             showsTranslation = false

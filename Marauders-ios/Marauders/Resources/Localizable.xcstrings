@@ -1143,26 +1143,6 @@
         }
       }
     },
-    "Translate": {
-      "localizations": {
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "แปล"
-          }
-        }
-      }
-    },
-    "Show original": {
-      "localizations": {
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ดูต้นฉบับ"
-          }
-        }
-      }
-    },
     "Translated on this iPhone from %@": {
       "localizations": {
         "th": {
