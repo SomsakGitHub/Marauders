@@ -25,17 +25,21 @@ final class AuthViewModel {
     private let tokenStore: APIAccessTokenStore
     private let authAPI: AuthAPIClientProtocol
     private let credentialState: CredentialStateProvider
+    /// Debug Simulator builds with a dev login secret: no session means becoming the test user, until a sign out.
+    private var signsInAsTestUserOnSimulator: Bool
 
     init(
         sessionStore: AuthSessionStore = KeychainAuthSessionStore(),
         tokenStore: APIAccessTokenStore = KeychainAPIAccessTokenStore(),
         authAPI: AuthAPIClientProtocol = AuthAPIClient(),
-        credentialState: @escaping CredentialStateProvider = AuthViewModel.appleCredentialState
+        credentialState: @escaping CredentialStateProvider = AuthViewModel.appleCredentialState,
+        signsInAsTestUserOnSimulator: Bool = false
     ) {
         self.sessionStore = sessionStore
         self.tokenStore = tokenStore
         self.authAPI = authAPI
         self.credentialState = credentialState
+        self.signsInAsTestUserOnSimulator = signsInAsTestUserOnSimulator
         if AppRuntimeConfiguration.isUITesting {
             isSignedIn = !ProcessInfo.processInfo.arguments.contains("UITEST_GUEST")
             isCheckingCredential = false
@@ -60,6 +64,13 @@ final class AuthViewModel {
         else {
             clearStoredSession()
             isSignedIn = false
+            #if DEBUG
+            if signsInAsTestUserOnSimulator && DevLogin.isAvailable {
+                // Once: a failure leaves the sign-in screen and its test user button, not a retry on every tab.
+                signsInAsTestUserOnSimulator = false
+                await signInAsDevUser()
+            }
+            #endif
             return
         }
 
@@ -173,6 +184,8 @@ final class AuthViewModel {
     #endif
 
     func signOut() {
+        // A Simulator test user who signs out stays out until the app is launched again.
+        signsInAsTestUserOnSimulator = false
         clearStoredSession()
         isSignedIn = false
         errorMessage = nil

@@ -13,16 +13,34 @@ enum DevLogin {
     private static let secretKey = "MARAUDERS_DEV_LOGIN_SECRET"
     private static let labelKey = "MARAUDERS_DEV_LOGIN_LABEL"
 
-    /// Present only when the debug app was launched with the secret in its environment
-    /// (`SIMCTL_CHILD_MARAUDERS_DEV_LOGIN_SECRET=… xcrun simctl launch …`); it is never stored in the project.
+    /// The debug app's launch environment (`SIMCTL_CHILD_MARAUDERS_DEV_LOGIN_SECRET=… xcrun simctl launch …`), else
+    /// the Worker's own `DEV_LOGIN_SECRET` in `backend/.dev.vars` of this checkout. It is never stored in the project.
     static var secret: String? {
         #if targetEnvironment(simulator)
-        guard let value = ProcessInfo.processInfo.environment[secretKey], !value.isEmpty else { return nil }
-        return value
+        if let value = ProcessInfo.processInfo.environment[secretKey], !value.isEmpty { return value }
+        return localWorkerSecret
         #else
         return nil
         #endif
     }
+
+    #if targetEnvironment(simulator)
+    /// A Simulator app can read the Mac's disk, and this source file's path leads to the checkout's git-ignored
+    /// `backend/.dev.vars`, so a plain Run in Xcode is enough.
+    private static let localWorkerSecret: String? = {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { root.deleteLastPathComponent() } // DevAuthAPIClient.swift, API, Data, Marauders, Marauders-ios
+        let devVars = root.appendingPathComponent("backend/.dev.vars")
+        guard let contents = try? String(contentsOf: devVars, encoding: .utf8) else { return nil }
+        for line in contents.split(whereSeparator: \.isNewline) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("DEV_LOGIN_SECRET=") else { continue }
+            let value = trimmed.dropFirst("DEV_LOGIN_SECRET=".count).trimmingCharacters(in: CharacterSet(charactersIn: "\"' "))
+            return value.isEmpty ? nil : value
+        }
+        return nil
+    }()
+    #endif
 
     /// Which test user to become; each label is one stable account.
     static var label: String {

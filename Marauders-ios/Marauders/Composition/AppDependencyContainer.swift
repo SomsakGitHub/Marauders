@@ -44,7 +44,7 @@ final class AppDependencyContainer {
             tokenStore = KeychainAPIAccessTokenStore()
             baseTransport = AlamofireHTTPClient()
         }
-        let authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore)
+        let authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore, signsInAsTestUserOnSimulator: true)
         let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
         // Every API client talks through this one, so the Worker answering 401 to a request that carried the session's
         // token ends the session in one place, AuthViewModel, instead of in each client and screen.
