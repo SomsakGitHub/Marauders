@@ -7,9 +7,9 @@ import Foundation
 
 /// UI tests only (`UITEST` plus `UITEST_REJECTED_SESSION`): a signed-in viewer whose session the Worker has rejected.
 ///
-/// The profile then goes through its real API client over `UITestRejectingHTTPClient`, so the 401 reaches the same
-/// code a real one does. Both stores live in memory: the sign-out that 401 causes must never touch the Keychain of
-/// the app installed on the device.
+/// The profile and the comments then go through their real API clients over `UITestRejectingHTTPClient`, so the 401
+/// reaches the same code a real one does. Both stores live in memory: the sign-out that 401 causes must never touch
+/// the Keychain of the app installed on the device.
 nonisolated final class UITestRejectedSession: AuthSessionStore, APIAccessTokenStore, @unchecked Sendable {
     static let launchArgument = "UITEST_REJECTED_SESSION"
     /// Long enough to pass `APIAccessTokenFormat.isValid`, so the clients attach it.
@@ -32,13 +32,17 @@ nonisolated final class UITestRejectedSession: AuthSessionStore, APIAccessTokenS
     func clearAccessToken() throws { lock.withLock { token = nil } }
 }
 
-/// Answers 401 to any request that carries a token, as the Worker does for a session it rejects, and 404 to the rest.
+/// Answers 401 to any request that carries a token, as the Worker does for a session it rejects. A guest's
+/// comments read is served a fixed page, so the retry as a guest has something to show.
 struct UITestRejectingHTTPClient: HTTPClient {
     nonisolated func data(_ request: URLRequest) async throws -> HTTPClientResponse {
         if request.value(forHTTPHeaderField: "Authorization") != nil {
             return Self.rejection
         }
-        return HTTPClientResponse(data: Data(), statusCode: 404)
+        guard request.httpMethod == "GET", request.url?.path.hasSuffix("/comments") == true else {
+            return HTTPClientResponse(data: Data(), statusCode: 404)
+        }
+        return HTTPClientResponse(data: Data(Self.guestComments.utf8), statusCode: 200)
     }
 
     nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
@@ -49,4 +53,10 @@ struct UITestRejectingHTTPClient: HTTPClient {
         data: Data(#"{"error":"invalid session"}"#.utf8),
         statusCode: 401
     )
+
+    private nonisolated static let guestComments = """
+    {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"UI test comment from a friend",\
+    "language":null,"createdAt":"2026-10-30T12:34:56.789Z","authorName":"@friend","authorAvatarURL":null,\
+    "canDelete":false}],"nextCursor":null}
+    """
 }

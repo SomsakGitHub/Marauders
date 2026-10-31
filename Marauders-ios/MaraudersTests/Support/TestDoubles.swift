@@ -169,6 +169,48 @@ final class StubUserProfileRepository: UserProfileRepository, @unchecked Sendabl
     }
 }
 
+final class StubCommentRepository: CommentRepository, @unchecked Sendable {
+    /// One result per call, in order; the last one repeats when the queue runs out.
+    var fetchResults: [Result<CommentPage, Error>]
+    var postResult: Result<Comment, Error>?
+    var deleteResult: Result<Void, Error> = .success(())
+    /// Runs before a fetch returns, so a test can interleave another action with it.
+    var beforeFetchReturns: (@Sendable () async -> Void)?
+    /// The same for a post and a delete: the request is still in flight while the hook runs.
+    var beforePostReturns: (@Sendable () async -> Void)?
+    var beforeDeleteReturns: (@Sendable () async -> Void)?
+    private(set) var fetches: [(videoID: UUID, cursor: UUID?, limit: Int)] = []
+    private(set) var posts: [(videoID: UUID, body: String, language: String?)] = []
+    private(set) var deletes: [(videoID: UUID, commentID: UUID)] = []
+
+    init(fetchResults: [Result<CommentPage, Error>] = [.success(CommentPage(items: [], nextCursor: nil))]) {
+        self.fetchResults = fetchResults
+    }
+
+    func fetchComments(videoID: UUID, cursor: UUID?, limit: Int) async throws -> CommentPage {
+        let index = min(fetches.count, fetchResults.count - 1)
+        fetches.append((videoID, cursor, limit))
+        let result = fetchResults[index]
+        await beforeFetchReturns?()
+        return try result.get()
+    }
+
+    func postComment(videoID: UUID, body: String, language: String?) async throws -> Comment {
+        posts.append((videoID, body, language))
+        await beforePostReturns?()
+        if let postResult {
+            return try postResult.get()
+        }
+        return Comment(body: body, language: language, authorName: "@me", canDelete: true)
+    }
+
+    func deleteComment(videoID: UUID, commentID: UUID) async throws {
+        deletes.append((videoID, commentID))
+        await beforeDeleteReturns?()
+        try deleteResult.get()
+    }
+}
+
 final class StubAvatarImagePreparer: AvatarImagePreparing, @unchecked Sendable {
     var result: Data?
 

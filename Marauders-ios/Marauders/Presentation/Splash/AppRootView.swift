@@ -21,7 +21,8 @@ struct AppRootView: View {
                 authViewModel: container.authViewModel,
         profileViewModel: container.profileViewModel,
         reportUserLocation: container.reportUserLocation,
-        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) }
+        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
+        makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) }
     )
             .opacity(isShowingSplash ? 0 : 1)
 

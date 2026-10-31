@@ -243,6 +243,12 @@ struct RejectedAccessTokenTests {
 @MainActor
 struct RejectedSessionEndToEndTests {
     private static let userID = "001234.abcdef.5678"
+    private static let videoID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+    private static let commentsPage = """
+    {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"Nice view","language":null,\
+    "createdAt":"2026-10-30T12:34:56.789Z","authorName":"@friend","authorAvatarURL":null,"canDelete":false}],\
+    "nextCursor":null}
+    """
 
     private struct Harness {
         let viewModel: AuthViewModel
@@ -364,6 +370,49 @@ struct RejectedSessionEndToEndTests {
         expectSignedOut(harness)
     }
 
+    @Test func aPostedCommentKeepsSignInRequiredAndTheSessionEnds() async throws {
+        let harness = await signedInHarness()
+        try #require(harness.viewModel.isSignedIn)
+        let session = StubURLSessionFactory.make { request in respond(request, 401, #"{"error":"invalid session"}"#) }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = CommentsAPIClient(
+            client: transport(session, reportingTo: harness.viewModel),
+            authorization: harness.authorization
+        )
+
+        await #expect(throws: CommentError.signInRequired) {
+            try await client.postComment(videoID: Self.videoID, body: "Hello")
+        }
+
+        expectSignedOut(harness)
+    }
+
+    /// The comments read answers a rejected token by reading again as a guest. That keeps working, and the session
+    /// still ends: the guest read is not reported because it carries no token.
+    @Test func theCommentsReadStillRetriesAsAGuestAndTheSessionEnds() async throws {
+        let harness = await signedInHarness()
+        try #require(harness.viewModel.isSignedIn)
+        var sentAuthorizations: [String?] = []
+        let session = StubURLSessionFactory.make { request in
+            let authorization = request.value(forHTTPHeaderField: "Authorization")
+            sentAuthorizations.append(authorization)
+            return authorization == nil
+                ? respond(request, 200, Self.commentsPage)
+                : respond(request, 401, #"{"error":"invalid session"}"#)
+        }
+        defer { StubURLSessionFactory.reset(session) }
+        let client = CommentsAPIClient(
+            client: transport(session, reportingTo: harness.viewModel),
+            authorization: harness.authorization
+        )
+
+        let page = try await client.fetchComments(videoID: Self.videoID)
+
+        #expect(page.items.map(\.body) == ["Nice view"])
+        #expect(sentAuthorizations == ["Bearer \(harness.token)", nil])
+        expectSignedOut(harness)
+    }
+
     @Test func aGuestIsUnaffectedByA401() async {
         let storage = MemorySessionStorage()
         let viewModel = AuthViewModel(sessionStore: storage, tokenStore: storage, authAPI: UnusedAuthAPI())
@@ -375,12 +424,12 @@ struct RejectedSessionEndToEndTests {
         defer { StubURLSessionFactory.reset(session) }
         let http = transport(session, reportingTo: viewModel)
         let feed = FeedAPIClient(client: http, authorization: SessionAPIAuthorization(tokenStore: storage))
-        let profiles = UserProfileAPIClient(client: http, authorization: SessionAPIAuthorization(tokenStore: storage))
+        let comments = CommentsAPIClient(client: http, authorization: SessionAPIAuthorization(tokenStore: storage))
 
-        // A guest read that is rejected is not retried: there is no token to blame.
         await #expect(throws: FeedAPIError.serverError(401)) { try await feed.fetchFeed() }
-        await #expect(throws: UserProfileAPIError.serverError(401)) {
-            try await profiles.fetchPublicProfile(handle: "@friend")
+        // A guest read that is rejected is not retried: there is no token to blame.
+        await #expect(throws: CommentError.serverError(401)) {
+            try await comments.fetchComments(videoID: Self.videoID)
         }
 
         #expect(sentAuthorizations == [nil, nil])

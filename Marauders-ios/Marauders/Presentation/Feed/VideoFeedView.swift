@@ -18,6 +18,8 @@ struct VideoFeedView: View {
     var signInDismissalID = 0
     /// Opens the public profile for a tapped author handle.
     var onOpenProfile: (String) -> Void = { _ in }
+    /// Builds the comments model for a clip. Without it the feed shows no comments button.
+    var makeCommentsViewModel: ((UUID) -> CommentsViewModel)?
 
     @State private var isWaitingForSignIn = false
     @State private var isChoosingAudio = false
@@ -29,6 +31,15 @@ struct VideoFeedView: View {
         var id: UUID { clip.id }
     }
     @State private var audioRoute: AudioRoute?
+    private struct CommentsRoute: Identifiable {
+        let clip: FeedVideo
+        let viewModel: CommentsViewModel
+        var id: UUID { clip.id }
+    }
+    @State private var commentsRoute: CommentsRoute?
+    @State private var resumeAfterComments = false
+    /// Set when a guest taps "Sign in to comment": the sheet closes first, then the sign-in screen opens.
+    @State private var signInAfterComments = false
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
 
@@ -65,6 +76,21 @@ struct VideoFeedView: View {
                 ClipPlayerView(clip: route.clip, onClose: { audioRoute = nil }, requestDubbingTarget: route.requestDubbingTarget)
             }
         }
+        .sheet(item: $commentsRoute, onDismiss: handleCommentsDismissed) { route in
+            CommentsView(
+                viewModel: route.viewModel,
+                isSignedIn: isSignedIn,
+                onClose: { commentsRoute = nil },
+                onSignIn: {
+                    signInAfterComments = true
+                    // The clip stays paused from this tap on, not only once the sheet has finished closing.
+                    isWaitingForSignIn = true
+                    commentsRoute = nil
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .onChange(of: signInDismissalID) { _, _ in
             guard isWaitingForSignIn else { return }
             isWaitingForSignIn = false
@@ -73,10 +99,14 @@ struct VideoFeedView: View {
                 // The session change empties and reloads the feed, so the clip the guest was choosing audio for
                 // is no longer under the pager. Never reopen it.
                 resumeAfterAudioChoice = false
+                resumeAfterComments = false
                 guard isFeedTabSelected, scenePhase == .active else { return }
                 applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
             } else {
                 resumeAfterAudioChoiceIfNeeded()
+                resumeAfterCommentsIfNeeded()
+                // The comments are over whatever the guards said; the next sheet decides afresh.
+                resumeAfterComments = false
             }
         }
         .accessibilityElement(children: .contain)
@@ -106,6 +136,8 @@ struct VideoFeedView: View {
             applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
         }
         .onChange(of: isSignedIn) { _, signedIn in
+            // The comments sheet stays: guests can read there, and a session that ends under it (a 401 on the
+            // read, or on a post) turns its composer into the Sign in to comment button.
             if !signedIn { audioRoute = nil }
         }
         .onChange(of: isFeedTabSelected) { _, isSelected in
@@ -200,13 +232,16 @@ struct VideoFeedView: View {
                         onRequireSignIn: { isWaitingForSignIn = true; onSignIn() },
                         onAudioSelectionChanged: { open in
                             if open {
-                                resumeAfterAudioChoice = playerEngine.phase == .playing
+                                resumeAfterAudioChoice = playerEngine.phase.shouldResumeAfterInterruption
                                 isChoosingAudio = true
                                 playerEngine.pause()
                             } else {
                                 isChoosingAudio = false
                                 resumeAfterAudioChoiceIfNeeded()
                             }
+                        },
+                        onOpenComments: makeCommentsViewModel.map { make in
+                            { openComments(for: video, using: make) }
                         })
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
@@ -283,8 +318,42 @@ struct VideoFeedView: View {
         applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
     }
 
+    private func openComments(for clip: FeedVideo, using make: (UUID) -> CommentsViewModel) {
+        // A second tap before the sheet shows would otherwise find the clip already paused by the first.
+        guard commentsRoute == nil else { return }
+        // A tap while the last sheet is still closing finds the clip paused by that sheet; keep what it noted.
+        resumeAfterComments = resumeAfterComments || playerEngine.phase.shouldResumeAfterInterruption
+        playerEngine.pause()
+        commentsRoute = CommentsRoute(clip: clip, viewModel: make(clip.id))
+    }
+
+    private func handleCommentsDismissed() {
+        if signInAfterComments {
+            // Playback resumes through the sign-in dismissal handler once the viewer is done there.
+            signInAfterComments = false
+            isWaitingForSignIn = true
+            onSignIn()
+        } else if commentsRoute == nil {
+            resumeAfterCommentsIfNeeded()
+            // This sheet is over, whatever the guards said; the next one decides afresh.
+            resumeAfterComments = false
+        }
+    }
+
+    private func resumeAfterCommentsIfNeeded() {
+        guard resumeAfterComments, commentsRoute == nil, !isWaitingForSignIn,
+              isFeedTabSelected, scenePhase == .active else { return }
+        resumeAfterComments = false
+        applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+    }
+
     private func applyPlayback(for videos: [FeedVideo], pageIndex: Int) {
-        guard audioRoute == nil, !isChoosingAudio else { playerEngine.pause(); return }
+        // The sign-in screen the viewer is on the way to covers the feed like a sheet does. Coming back from a system
+        // alert or the Apple sign-in sheet would otherwise start the clip, sound and all, behind it.
+        guard audioRoute == nil, !isChoosingAudio, commentsRoute == nil, !isWaitingForSignIn else {
+            playerEngine.pause()
+            return
+        }
         guard !videos.isEmpty else {
             playerEngine.pause()
             return

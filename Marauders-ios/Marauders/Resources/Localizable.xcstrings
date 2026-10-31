@@ -950,6 +950,178 @@
           }
         }
       }
+    },
+    "Add a comment…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เพิ่มความคิดเห็น…"
+          }
+        }
+      }
+    },
+    "Be the first to share what you think.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เป็นคนแรกที่แสดงความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Comments": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Comments can be up to %lld characters.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ความคิดเห็นยาวได้ไม่เกิน %lld ตัวอักษร"
+          }
+        }
+      }
+    },
+    "Couldn't delete the comment. Try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบความคิดเห็นไม่สำเร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn't load comments. Check your connection and try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โหลดความคิดเห็นไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn't post your comment. Try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โพสต์ความคิดเห็นไม่สำเร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Delete this comment?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบความคิดเห็นนี้ไหม?"
+          }
+        }
+      }
+    },
+    "No comments yet": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่มีความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Post comment": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โพสต์ความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Sign in to comment": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เข้าสู่ระบบเพื่อแสดงความคิดเห็น"
+          }
+        }
+      }
+    },
+    "This clip is no longer available.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คลิปนี้ไม่มีให้ดูแล้ว"
+          }
+        }
+      }
+    },
+    "Unknown user": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ผู้ใช้ไม่ทราบชื่อ"
+          }
+        }
+      }
+    },
+    "You're commenting too fast. Wait a moment and try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คุณแสดงความคิดเห็นถี่เกินไป รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Your session expired. Sign in again to comment.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การเข้าสู่ระบบหมดอายุแล้ว เข้าสู่ระบบอีกครั้งเพื่อแสดงความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Characters left: %lld": {
+      "comment": "VoiceOver label for the counter under the comment box; the number is how many characters can still be typed.",
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตัวอักษรที่เหลือ: %lld"
+          }
+        }
+      }
+    },
+    "Characters over the limit: %lld": {
+      "comment": "VoiceOver label for the counter under the comment box once the comment is too long; the number is how many characters must be removed.",
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตัวอักษรที่เกิน: %lld"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

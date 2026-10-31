@@ -20,12 +20,14 @@ final class AppDependencyContainer {
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
     private let profileRepository: UserProfileRepository
+    private let commentRepository: CommentRepository
 
     init(
         feedRepository: FeedRepository? = nil,
         uploadRepository: VideoUploadRepository? = nil,
         videoExporter: VideoExporting? = nil,
-        profileRepository: UserProfileRepository? = nil
+        profileRepository: UserProfileRepository? = nil,
+        commentRepository: CommentRepository? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -108,6 +110,16 @@ final class AppDependencyContainer {
             )
         )
 
+        if let commentRepository {
+            self.commentRepository = commentRepository
+        } else if AppRuntimeConfiguration.isUITesting, !usesRejectedUITestSession {
+            self.commentRepository = UITestCommentRepository()
+        } else {
+            self.commentRepository = DefaultCommentRepository(
+                apiClient: CommentsAPIClient(client: transport, authorization: apiAuthorization)
+            )
+        }
+
         coordinator = AppCoordinator(
             router: router,
             feedViewModel: feedViewModel,
@@ -129,6 +141,15 @@ final class AppDependencyContainer {
         PublicProfileViewModel(
             handle: handle,
             loadProfile: LoadPublicProfileUseCase(repository: profileRepository)
+        )
+    }
+
+    func makeCommentsViewModel(videoID: UUID) -> CommentsViewModel {
+        CommentsViewModel(
+            videoID: videoID,
+            loadComments: LoadCommentsUseCase(repository: commentRepository),
+            postComment: PostCommentUseCase(repository: commentRepository),
+            deleteComment: DeleteCommentUseCase(repository: commentRepository)
         )
     }
 

@@ -14,6 +14,7 @@ struct ContentView: View {
     @Bindable var profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
     let makePublicProfileViewModel: (String) -> PublicProfileViewModel
+    let makeCommentsViewModel: (UUID) -> CommentsViewModel
 
     @State private var languageModelsViewModel = LanguageModelsViewModel()
     @State private var showingSignIn = false
@@ -27,7 +28,8 @@ struct ContentView: View {
                 isSignedIn: authViewModel.isSignedIn,
                 onSignIn: { showingSignIn = true },
                 signInDismissalID: signInDismissalID,
-                onOpenProfile: { router.openPublicProfile(handle: $0) }
+                onOpenProfile: { router.openPublicProfile(handle: $0) },
+                makeCommentsViewModel: makeCommentsViewModel
             )
                 .tabItem {
                     Label("Feed", systemImage: "play.rectangle.fill")
@@ -135,6 +137,7 @@ struct ContentView: View {
         authViewModel: container.authViewModel,
         profileViewModel: container.profileViewModel,
         reportUserLocation: container.reportUserLocation,
-        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) }
+        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
+        makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) }
     )
 }

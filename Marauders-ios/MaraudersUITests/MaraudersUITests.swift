@@ -308,9 +308,178 @@ final class MaraudersUITests: XCTestCase {
         attachFeedScreenshot(app, name: "ai-audio-unavailable-original-remains")
         app.buttons["clip.chooseAudio"].tap()
         app.buttons["Original audio"].tap()
-        XCTAssertFalse(unavailable.exists)
+        // The notice goes once the view model has cleared it and SwiftUI has redrawn, a moment after the tap returns.
+        XCTAssertTrue(waitUntilGone(unavailable), app.debugDescription)
         app.buttons["clip.closeVideo"].tap()
         XCTAssertTrue(choose.waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testFeedCommentsCanBeReadPostedAndDeleted() throws {
+        let app = launchApp()
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 10))
+        XCTAssertTrue(commentRow(app, containing: "UI test comment from me").waitForExistence(timeout: 10), app.debugDescription)
+        let friendsRow = commentRow(app, containing: "UI test comment from a friend")
+        XCTAssertTrue(friendsRow.exists)
+        attachFeedScreenshot(app, name: "comments-sheet")
+
+        // Delete is offered on the viewer's own comments and on the ones under the viewer's clip, not on a friend's.
+        friendsRow.swipeLeft()
+        XCTAssertFalse(deleteAction(app).waitForExistence(timeout: 1), app.debugDescription)
+
+        let input = app.descendants(matching: .any)["comments.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        let send = app.buttons["comments.send"]
+        XCTAssertFalse(send.isEnabled)
+        input.tap()
+        input.typeText("Great clip!")
+        XCTAssertTrue(send.isEnabled)
+        send.tap()
+
+        let posted = commentRow(app, containing: "Great clip!")
+        XCTAssertTrue(posted.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(send.isEnabled)
+
+        posted.swipeLeft()
+        let delete = deleteAction(app)
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), app.debugDescription)
+        delete.tap()
+        // A confirmation dialog button shows up twice in the tree (the button and the label inside it).
+        let confirm = app.buttons["comments.confirmDelete"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+        confirm.tap()
+        XCTAssertTrue(waitUntilGone(posted), app.debugDescription)
+        XCTAssertTrue(commentRow(app, containing: "UI test comment from me").exists)
+
+        app.buttons["comments.close"].firstMatch.tap()
+        XCTAssertTrue(waitUntilGone(app.descendants(matching: .any)["comments.root"]))
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testSwipingTheCommentsSheetDownClosesItAndItOpensAgain() throws {
+        let app = launchApp()
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+        let root = app.descendants(matching: .any)["comments.root"]
+        XCTAssertTrue(root.waitForExistence(timeout: 10))
+
+        // Dragging the sheet down by its title closes it the way the close button does.
+        dragCommentsSheetDown(app)
+        XCTAssertTrue(waitUntilGone(root), app.debugDescription)
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+
+        open.tap()
+        XCTAssertTrue(root.waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    @MainActor
+    func testSwipingTheCommentsSheetDownClosesItWhileTheKeyboardIsUp() throws {
+        let app = launchApp()
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+        let root = app.descendants(matching: .any)["comments.root"]
+        let input = app.descendants(matching: .any)["comments.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+
+        // The control for the draft test below: the same sheet, the same keyboard and the same drags, nothing typed.
+        // Without it, that test could pass because the drag was too weak and not because the draft held the sheet.
+        XCTAssertTrue(swipeCommentsSheetAway(app, root: root), app.debugDescription)
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testAHalfTypedCommentSurvivesASwipeDown() throws {
+        let app = launchApp()
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+        let root = app.descendants(matching: .any)["comments.root"]
+        let input = app.descendants(matching: .any)["comments.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.tap()
+        input.typeText("Not sent yet")
+
+        // The same drags that close the sheet in the test above.
+        XCTAssertFalse(swipeCommentsSheetAway(app, root: root), "the sheet should stay open while a draft is typed")
+
+        // A stray swipe keeps the sheet and the draft; the close button still discards both.
+        XCTAssertEqual(input.value as? String, "Not sent yet")
+        app.buttons["comments.close"].firstMatch.tap()
+        XCTAssertTrue(waitUntilGone(root), app.debugDescription)
+    }
+
+    @MainActor
+    func testGuestCanReadCommentsButMustSignInToWrite() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+
+        XCTAssertTrue(commentRow(app, containing: "UI test comment from a friend").waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["comments.input"].exists)
+        let signIn = app.buttons["comments.signIn"].firstMatch
+        XCTAssertTrue(signIn.waitForExistence(timeout: 5))
+        signIn.tap()
+
+        // The comments sheet gives way to the shared sign-in screen; closing it returns to the feed.
+        XCTAssertTrue(app.buttons["auth.closeSignIn"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["comments.root"].exists)
+        app.buttons["auth.closeSignIn"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Feed"].isSelected)
+        // The feed's own button stays in the tree under a sheet, so only the sheet's root says it did not come back.
+        XCTAssertFalse(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2), "the sheet must stay closed")
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+
+        // Once signed in, the same sheet offers the composer instead of the sign-in button.
+        open.tap()
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10))
+        signIn.tap()
+        let complete = app.buttons["auth.completeUITestSignIn"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), app.debugDescription)
+        complete.tap()
+        // The feed behind the closing sign-in sheet also has the button; wait for the sheet to be gone first.
+        XCTAssertTrue(waitUntilGone(app.buttons["auth.closeSignIn"]), app.debugDescription)
+        // Signing in leaves the viewer on the feed, not back in the sheet that sent them to sign in.
+        XCTAssertFalse(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2), "the sheet must stay closed")
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        open.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["comments.input"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.buttons["comments.signIn"].exists)
+    }
+
+    @MainActor
+    func testTheClipStaysPausedBehindSignInFromCommentsAndPlaysAgainWhenViewerBacksOut() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        // The paused glyph is the only sign of the player's state the screen gives.
+        let paused = app.descendants(matching: .any)["feed.pausedIndicator"]
+        let closeSignIn = app.buttons["auth.closeSignIn"]
+
+        open.tap()
+        let signIn = app.buttons["comments.signIn"].firstMatch
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10), app.debugDescription)
+        signIn.tap()
+        XCTAssertTrue(closeSignIn.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(paused.waitForExistence(timeout: 5), "the clip should be paused while the viewer signs in")
+
+        // A system alert or the Apple sign-in sheet takes the app through the background and back, which asks the feed
+        // to start playing again.
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(closeSignIn.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(waitUntilGone(paused, timeout: 3), "the clip must not start behind the sign-in screen")
+
+        closeSignIn.tap()
+        XCTAssertTrue(waitUntilGone(paused), "the clip should play again once the viewer backs out of signing in")
     }
 
     /// `UITEST_REJECTED_SESSION`: the viewer is signed in, but the Worker answers 401 to every request that carries
@@ -345,7 +514,7 @@ final class MaraudersUITests: XCTestCase {
         app.tabBars.buttons["Upload"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 10), app.debugDescription)
         app.tabBars.buttons["Feed"].tap()
-        XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.buttons["feed.comments"].waitForExistence(timeout: 15), app.debugDescription)
     }
 
     /// The 401 that ends the session arrives as the profile's own load fails. Signing in again must start a new load
@@ -368,6 +537,77 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(app.buttons["profile.retry"].waitForExistence(timeout: 10), app.debugDescription)
         let old401 = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "401")).firstMatch
         XCTAssertFalse(old401.exists, app.debugDescription)
+    }
+
+    /// The comments read is the one request that is repeated as a guest after a 401. It must still show the comments,
+    /// the sheet must stay open although the 401 signed the viewer out, and the composer gives way to the sign-in button.
+    @MainActor
+    func testARejectedSessionStillLetsTheViewerReadCommentsAsAGuest() throws {
+        let app = launchApp(extraArguments: ["UITEST_REJECTED_SESSION"])
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+
+        let comment = commentRow(app, containing: "UI test comment from a friend")
+        XCTAssertTrue(comment.waitForExistence(timeout: 10), app.debugDescription)
+        let signIn = app.buttons["comments.signIn"].firstMatch
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["comments.input"].exists)
+
+        // Signing out closes nothing: the sheet and its list are still there a moment later.
+        XCTAssertTrue(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2))
+        XCTAssertTrue(comment.exists)
+
+        // From here on it is the guest flow: the button gives way to the shared sign-in screen.
+        signIn.tap()
+        XCTAssertTrue(app.buttons["auth.closeSignIn"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["comments.root"].exists)
+        app.buttons["auth.closeSignIn"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Feed"].isSelected)
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func commentRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(identifier: "comments.row")
+            .matching(NSPredicate(format: "label CONTAINS %@", text))
+            .firstMatch
+    }
+
+    /// Drags the comments sheet down by its title bar, hard and fast enough to dismiss it, as a thumb would. The
+    /// feed's own button is captioned "Comments" too, so the title is looked up inside the sheet's bar; and an
+    /// element's own `swipeDown` travels only as far as the element is tall, which for a title is not far.
+    @MainActor
+    private func dragCommentsSheetDown(_ app: XCUIApplication) {
+        let title = app.navigationBars["Comments"].staticTexts["Comments"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+        let start = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
+    }
+
+    /// Drags the comments sheet down until it closes, twice at most: a sheet open to its large size first settles at the
+    /// medium one. True when the sheet is gone.
+    @MainActor
+    private func swipeCommentsSheetAway(_ app: XCUIApplication, root: XCUIElement) -> Bool {
+        for _ in 0..<2 {
+            dragCommentsSheetDown(app)
+            if waitUntilGone(root, timeout: 3) { return true }
+        }
+        return false
+    }
+
+    /// The Delete action a swiped comment row offers, whether it is found by identifier or by its label.
+    @MainActor
+    private func deleteAction(_ app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", "comments.delete", "Delete")).firstMatch
+    }
+
+    @MainActor
+    private func waitUntilGone(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        return XCTWaiter().wait(for: [gone], timeout: timeout) == .completed
     }
 
     @MainActor

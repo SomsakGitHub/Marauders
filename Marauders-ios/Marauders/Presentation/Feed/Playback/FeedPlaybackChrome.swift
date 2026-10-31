@@ -19,6 +19,7 @@ struct FeedPlaybackChrome: View {
                         .foregroundStyle(.white.opacity(0.92))
                         .shadow(color: .black.opacity(0.35), radius: 8)
                         .allowsHitTesting(false)
+                        .accessibilityIdentifier("feed.pausedIndicator")
                         .transition(.scale.combined(with: .opacity))
                 }
             }

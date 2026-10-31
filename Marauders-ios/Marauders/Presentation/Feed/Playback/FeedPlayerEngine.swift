@@ -4,6 +4,10 @@ import Observation
 enum FeedPlayerPhase: Equatable, Sendable {
     case idle, buffering, playing, paused
     case failed(String)
+
+    /// Whether a sheet that pauses the clip should start it again when it closes. A clip sitting paused is where the
+    /// viewer's tap left it and stays there; one that is still buffering, or failed to load, was meant to play.
+    var shouldResumeAfterInterruption: Bool { self != .paused }
 }
 
 /// A surface belongs to a media URL, not to the currently selected page.

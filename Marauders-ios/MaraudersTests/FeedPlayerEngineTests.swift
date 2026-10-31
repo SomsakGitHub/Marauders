@@ -58,6 +58,31 @@ struct FeedPlayerEngineTests {
         #expect(engine.phase == .idle)
     }
 
+    @Test func aClipTheViewerPausedIsNotResumedAfterASheetCloses() {
+        let engine = FeedPlayerEngine()
+        engine.play(url: URL(string: "https://example.com/video.mp4")!)
+        engine.pause(byUser: true)
+
+        #expect(engine.phase == .paused)
+        #expect(engine.phase.shouldResumeAfterInterruption == false)
+    }
+
+    @Test func aClipStillBufferingIsResumedAfterASheetCloses() {
+        let engine = FeedPlayerEngine()
+        engine.play(url: URL(string: "https://example.com/video.mp4")!)
+
+        #expect(engine.phase == .buffering)
+        #expect(engine.phase.shouldResumeAfterInterruption)
+    }
+
+    @Test func aClipThatFailedToLoadIsRetriedAfterASheetCloses() {
+        let engine = FeedPlayerEngine()
+        engine.play(url: URL(string: "http://example.com/video.mp4")!)
+
+        #expect(engine.phase == .failed("URL is not secure"))
+        #expect(engine.phase.shouldResumeAfterInterruption)
+    }
+
     @Test func warmURLsSkipsInvalidEntries() {
         let engine = FeedPlayerEngine()
         engine.warmURLs([

@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-/// Right-edge action rail for the current clip (TikTok-style). For now it hosts
-/// the creator's avatar, which opens their public profile when tapped.
+/// Right-edge action rail for the current clip (TikTok-style). It hosts the comments button,
+/// the audio choice and the creator's avatar, which opens their public profile when tapped.
 struct FeedClipActionRail: View {
     let clip: FeedVideo
     /// Called with the language the viewer picked to hear the clip in.
@@ -19,6 +19,8 @@ struct FeedClipActionRail: View {
     /// Set only while an AI dubbed track is playing for this clip; the dialog then offers to report it.
     /// The feed itself plays the original audio, so it leaves this nil.
     var onReportAudio: (() -> Void)? = nil
+    /// Opens the clip's comments. Without it the rail has no comments button.
+    var onOpenComments: (() -> Void)? = nil
 
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
@@ -27,6 +29,16 @@ struct FeedClipActionRail: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            if let onOpenComments {
+                Button(action: onOpenComments) {
+                    VStack(spacing: 4) {
+                        Image(systemName: "bubble.right").font(.title2)
+                        Text("Comments").font(.caption)
+                    }.foregroundStyle(.white)
+                }
+                .accessibilityIdentifier("feed.comments")
+            }
+
             if let onChooseAIAudio, listening.offersDubbing(for: clip) {
                 Button {
                     onAudioSelectionChanged(true)

@@ -8,6 +8,8 @@ import Foundation
 enum APIConfiguration {
     private static let feedLimitDefault = 20
     private static let feedLimitMax = 50
+    /// The Worker's `COMMENT_LIMIT_MAX`.
+    private static let commentLimitMax = 50
     private static let configKey = "MARAUDERS_API_BASE_URL"
 
     /// HTTPS origin of the Worker (no trailing slash).
@@ -126,6 +128,39 @@ enum APIConfiguration {
     static func deleteVideoURL(id: UUID) throws -> URL {
         let base = try apiBaseURL()
         guard let url = URL(string: "v1/videos/\(id.uuidString)", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
+    /// A clip's comments: GET lists them newest first (`limit`, `cursor`), POST adds one.
+    static func commentsURL(videoID: UUID, limit: Int? = nil, cursor: UUID? = nil) throws -> URL {
+        let base = try apiBaseURL()
+        var components = URLComponents(
+            url: base.appending(path: "v1/videos/\(videoID.uuidString)/comments"),
+            resolvingAgainstBaseURL: false
+        )
+        var queryItems: [URLQueryItem] = []
+        if let limit {
+            queryItems.append(URLQueryItem(name: "limit", value: String(min(max(limit, 1), commentLimitMax))))
+        }
+        if let cursor {
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor.uuidString))
+        }
+        components?.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard let url = components?.url else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
+    /// One comment, for DELETE by its author or the clip's owner.
+    static func commentURL(videoID: UUID, commentID: UUID) throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(
+            string: "v1/videos/\(videoID.uuidString)/comments/\(commentID.uuidString)",
+            relativeTo: base
+        ) else {
             throw APIConfigurationError.invalidBaseURL
         }
         return url
