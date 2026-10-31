@@ -39,6 +39,13 @@ enum CommentTranslation {
         return .detectedByTranslation
     }
 
+    /// The language comments open in for a viewer in this country (ISO 3166-1 code): its main language, "TH" is
+    /// Thai and "US" English. Nil for an unknown country or one whose language the app cannot translate into.
+    static func language(forCountry country: String?) -> ListeningLanguage? {
+        guard let country, country.count == 2 else { return nil }
+        return ListeningLanguage(identifier: Locale.Language(identifier: "und-\(country.uppercased())").maximalIdentifier)
+    }
+
     /// "zh-Hans" and "es-MX" compare as "zh" and "es"; Norwegian variants share the Bokmål code the app uses.
     private static func baseCode(of code: String) -> String {
         ListeningLanguage(identifier: code)?.code ?? code

@@ -12,12 +12,16 @@ struct CommentRow: View {
     var isDeleting = false
     /// The viewer's language. A Translate button shows when the comment is in another one.
     var translationTarget: ListeningLanguage?
+    /// The page is translated: show this comment in the viewer's language, translating it the first time.
+    var translatesAutomatically = false
 
     @State private var configuration: TranslationSession.Configuration?
     @State private var translatedText: String?
     @State private var showsTranslation = false
     @State private var isTranslating = false
     @State private var translationFailed = false
+    /// Whether the translation on its way should be shown when it lands; showing the originals meanwhile cancels that.
+    @State private var showsWhenTranslated = false
     /// The language Apple Translation says it translated from, which it works out itself for a short comment.
     @State private var translatedFrom: Locale.Language?
 
@@ -40,13 +44,16 @@ struct CommentRow: View {
         }
         .padding(.vertical, 4)
         .opacity(isDeleting ? 0.4 : 1)
+        .onChange(of: translatesAutomatically, initial: true) { _, translates in
+            followPage(translates)
+        }
         .translationTask(configuration) { session in
             do {
                 let response = try await session.translate(comment.body)
                 await MainActor.run {
                     translatedText = response.targetText
                     translatedFrom = response.sourceLanguage
-                    showsTranslation = true
+                    showsTranslation = showsWhenTranslated
                     isTranslating = false
                 }
             } catch {
@@ -127,9 +134,26 @@ struct CommentRow: View {
         }
     }
 
+    /// The page switch wins over this row's own button: translating the page shows every translation, and showing
+    /// the originals hides them. A translation already made is shown again without asking Apple Translation twice.
+    private func followPage(_ translates: Bool) {
+        guard translates else {
+            showsTranslation = false
+            showsWhenTranslated = false
+            return
+        }
+        guard let source, let translationTarget else { return }
+        if translatedText != nil {
+            showsTranslation = true
+        } else if !isTranslating {
+            startTranslation(from: source, to: translationTarget)
+        }
+    }
+
     private func startTranslation(from source: CommentTranslation.Source, to target: ListeningLanguage) {
         translationFailed = false
         isTranslating = true
+        showsWhenTranslated = true
         let sourceLanguage: Locale.Language? = switch source {
         case .known(let code): Locale.Language(identifier: code)
         case .detectedByTranslation: nil

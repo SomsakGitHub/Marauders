@@ -12,6 +12,10 @@ struct CommentsView: View {
     var onClose: () -> Void
     /// Closes the sheet so the sign-in screen can open in its place.
     var onSignIn: () -> Void
+    /// The language of the viewer's country. Comments in another one open translated into it.
+    var translationTarget: ListeningLanguage?
+
+    @State private var showsOriginals = false
 
     @State private var pendingDeletion: Comment?
     @FocusState private var isComposing: Bool
@@ -27,6 +31,14 @@ struct CommentsView: View {
                 .navigationTitle("Comments")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    if case .loaded = viewModel.state, hasTranslatableComments {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(showsOriginals ? "Translate all" : "Show originals") {
+                                showsOriginals.toggle()
+                            }
+                            .accessibilityIdentifier("comments.pageTranslation")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(action: onClose) {
                             Image(systemName: "xmark")
@@ -80,12 +92,18 @@ struct CommentsView: View {
         }
     }
 
+    /// Whether any listed comment is in another language than the viewer's: only then is there a page to translate.
+    private var hasTranslatableComments: Bool {
+        viewModel.comments.contains { CommentTranslation.source(for: $0, target: translationTarget) != nil }
+    }
+
     private var list: some View {
         ScrollViewReader { proxy in
             List {
                 ForEach(viewModel.comments) { comment in
                     CommentRow(comment: comment, isDeleting: viewModel.isDeleting(comment),
-                               translationTarget: ListeningLanguageStore.shared.effective)
+                               translationTarget: translationTarget,
+                               translatesAutomatically: !showsOriginals)
                         .id(comment.id)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {

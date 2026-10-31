@@ -521,6 +521,16 @@
         }
       }
     },
+    "Show originals": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดูต้นฉบับทั้งหมด"
+          }
+        }
+      }
+    },
     "Speech recognition": {
       "localizations": {
         "th": {
@@ -557,6 +567,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "กำลังถอดคำพูดภาษา%@บน iPhone… %lld/%lld"
+          }
+        }
+      }
+    },
+    "Translate all": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แปลทั้งหมด"
           }
         }
       }

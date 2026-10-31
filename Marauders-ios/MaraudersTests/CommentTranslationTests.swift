@@ -74,6 +74,23 @@ struct CommentTranslationTests {
         #expect(CommentTranslation.source(for: Comment(body: "555"), target: english) == nil)
     }
 
+    @Test func commentsOpenInTheLanguageOfTheViewersCountry() {
+        #expect(CommentTranslation.language(forCountry: "TH") == .thai)
+        #expect(CommentTranslation.language(forCountry: "th") == .thai)
+        #expect(CommentTranslation.language(forCountry: "US") == .english)
+        #expect(CommentTranslation.language(forCountry: "ES") == .spanish)
+        // On the owner's iPhone (region Thailand) the English comments are translated into Thai.
+        let target = CommentTranslation.language(forCountry: "TH")
+        #expect(CommentTranslation.source(for: Comment(body: "Thanks"), target: target) == .known("en"))
+        #expect(CommentTranslation.source(for: Comment(body: "สวยมาก"), target: target) == nil)
+    }
+
+    @Test func anUnknownCountryHasNoLanguage() {
+        #expect(CommentTranslation.language(forCountry: nil) == nil)
+        #expect(CommentTranslation.language(forCountry: "") == nil)
+        #expect(CommentTranslation.language(forCountry: "THA") == nil)
+    }
+
     @Test func chineseVariantsCountAsTheSameLanguageAsTheViewers() {
         let comment = Comment(body: "这个地方太美了", language: "zh-Hans")
         let chinese = ListeningLanguage(identifier: "zh-Hant")

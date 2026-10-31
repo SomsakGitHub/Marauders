@@ -37,6 +37,13 @@ struct VideoFeedView: View {
         var id: UUID { clip.id }
     }
     @State private var commentsRoute: CommentsRoute?
+    /// The language comments open in: that of the viewer's country (the iPhone's region), else the listening
+    /// language when the app cannot translate into the country's. UI tests use a viewer in the US, so they read in
+    /// English like the rest of their fixed viewer.
+    private var commentLanguage: ListeningLanguage? {
+        let country = AppRuntimeConfiguration.isUITesting ? "US" : Locale.current.region?.identifier
+        return CommentTranslation.language(forCountry: country) ?? ListeningLanguageStore.shared.effective
+    }
     @State private var resumeAfterComments = false
     /// Set when a guest taps "Sign in to comment": the sheet closes first, then the sign-in screen opens.
     @State private var signInAfterComments = false
@@ -86,7 +93,8 @@ struct VideoFeedView: View {
                     // The clip stays paused from this tap on, not only once the sheet has finished closing.
                     isWaitingForSignIn = true
                     commentsRoute = nil
-                }
+                },
+                translationTarget: commentLanguage
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
