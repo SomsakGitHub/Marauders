@@ -18,7 +18,8 @@ final class ListeningLanguageStore {
             let suite = "marauders.uitest.listening"
             let defaults = UserDefaults(suiteName: suite) ?? .standard
             defaults.removePersistentDomain(forName: suite)
-            return ListeningLanguageStore(defaults: defaults, preferredLanguages: { ["en-US", "th-TH"] })
+            return ListeningLanguageStore(defaults: defaults, preferredLanguages: { ["en-US", "th-TH"] },
+                                          region: { "US" })
         }
         return ListeningLanguageStore()
     }()
@@ -27,16 +28,19 @@ final class ListeningLanguageStore {
 
     private let defaults: UserDefaults
     private let preferredLanguages: () -> [String]
+    private let region: () -> String?
     private let memo: DetectedLanguageMemo
     private(set) var explicit: ListeningLanguage?
 
     init(
         defaults: UserDefaults = .standard,
         preferredLanguages: @escaping () -> [String] = { Locale.preferredLanguages },
+        region: @escaping () -> String? = { Locale.current.region?.identifier },
         memo: DetectedLanguageMemo? = nil
     ) {
         self.defaults = defaults
         self.preferredLanguages = preferredLanguages
+        self.region = region
         self.memo = memo ?? DetectedLanguageMemo.shared
         explicit = defaults.string(forKey: Self.defaultsKey).flatMap { ListeningLanguage(identifier: $0) }
     }
@@ -49,8 +53,24 @@ final class ListeningLanguageStore {
             .filter { seen.insert($0.code).inserted }
     }
 
-    /// What Settings shows: the explicit choice, or the first supported device language.
-    var effective: ListeningLanguage? { explicit ?? supportedDeviceLanguages.first }
+    /// What "Automatic" means: the first supported device language, except that an iPhone set to English first in
+    /// a country whose own language is also on its list ("en-TH", "th-TH" in Thailand) reads in that language. Many
+    /// people keep the phone in English without it being the language they read best; someone who never added the
+    /// country's language (a visitor, "en-TH" alone) stays in English. Other first languages are left as they are,
+    /// so "fr-CA", "en-CA" stays French.
+    var automatic: ListeningLanguage? {
+        let languages = supportedDeviceLanguages
+        guard let first = languages.first else { return nil }
+        guard first == .english,
+              let region = region(),
+              let local = ListeningLanguage(identifier: Locale.Language(identifier: "und-\(region)").maximalIdentifier),
+              languages.contains(local)
+        else { return first }
+        return local
+    }
+
+    /// What Settings shows and comments are translated into: the explicit choice, or the automatic one.
+    var effective: ListeningLanguage? { explicit ?? automatic }
 
     /// Every language a dubbed clip might be translated into for this viewer.
     var possibleTargets: [ListeningLanguage] {

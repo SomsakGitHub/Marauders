@@ -8,9 +8,11 @@ struct ListeningLanguageTests {
         DetectedLanguageMemo(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!)
     }
 
-    private func store(preferred: [String], explicit: ListeningLanguage? = nil, memo: DetectedLanguageMemo? = nil) -> ListeningLanguageStore {
+    private func store(preferred: [String], region: String? = "US", explicit: ListeningLanguage? = nil,
+                       memo: DetectedLanguageMemo? = nil) -> ListeningLanguageStore {
         let defaults = UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
-        let store = ListeningLanguageStore(defaults: defaults, preferredLanguages: { preferred }, memo: memo ?? self.memo())
+        let store = ListeningLanguageStore(defaults: defaults, preferredLanguages: { preferred }, region: { region },
+                                           memo: memo ?? self.memo())
         if let explicit { store.choose(explicit) }
         return store
     }
@@ -59,6 +61,34 @@ struct ListeningLanguageTests {
         #expect(viewer.targets(for: clip(.chosen("es"))) == [.english, .thai])
         // Nobody knows this clip's language yet, so every language the viewer listens in is offered.
         #expect(viewer.targets(for: clip(nil)) == [.english, .thai])
+    }
+
+    @Test func anEnglishIPhoneInThailandWithThaiOnItsListReadsInThai() {
+        // The owner's iPhone: English first, Thai second, region Thailand.
+        let viewer = store(preferred: ["en-TH", "th-TH"], region: "TH")
+        #expect(viewer.automatic == .thai)
+        #expect(viewer.effective == .thai)
+        #expect(CommentTranslation.source(for: Comment(body: "Thanks"), target: viewer.effective) == .known("en"))
+        // Dubbing still offers every language the viewer listens in, in the device's order.
+        #expect(viewer.possibleTargets == [.english, .thai])
+    }
+
+    @Test func theCountrysLanguageIsNotPickedWhenItIsNotOnTheIPhone() {
+        // A visitor in Thailand who never added Thai.
+        #expect(store(preferred: ["en-TH"], region: "TH").effective == .english)
+        #expect(store(preferred: ["en-TH", "th-TH"], region: nil).effective == .english)
+        #expect(store(preferred: ["en-US", "th-TH"], region: "US").effective == .english)
+    }
+
+    @Test func onlyAnEnglishFirstLanguageGivesWayToTheCountrys() {
+        // A Thai iPhone abroad stays Thai, and a French one in Canada stays French.
+        #expect(store(preferred: ["th-TH", "en-US"], region: "US").effective == .thai)
+        #expect(store(preferred: ["fr-CA", "en-CA"], region: "CA").effective?.code == "fr")
+        #expect(store(preferred: ["en-JP", "ja-JP"], region: "JP").effective?.code == "ja")
+    }
+
+    @Test func anExplicitChoiceStillWinsOverTheCountry() {
+        #expect(store(preferred: ["en-TH", "th-TH"], region: "TH", explicit: .english).effective == .english)
     }
 
     @Test func explicitChoiceWinsAndIsNeverUsedForItsOwnLanguage() {

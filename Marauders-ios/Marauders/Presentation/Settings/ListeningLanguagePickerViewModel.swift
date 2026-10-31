@@ -34,7 +34,7 @@ final class ListeningLanguagePickerViewModel {
     var isAutomatic: Bool { store.explicit == nil }
 
     /// What "Automatic" resolves to right now, for the row's subtitle.
-    var automaticName: String? { store.supportedDeviceLanguages.first?.displayName() }
+    var automaticName: String? { store.automatic?.displayName() }
 
     /// Value shown on the Settings row.
     var summary: String {
