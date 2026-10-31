@@ -26,7 +26,7 @@ cd backend
 npm run db:migrate
 ```
 
-`db:migrate` (`scripts/migrate.mjs`) รัน `backend/sql/` ตามลำดับ: `001` → `003`, แล้ว `005` → `016` (รวม `002_seed.sql` ซึ่งตอนนี้เป็นแค่คอมเมนต์ ไม่มีข้อมูลเดโม)
+`db:migrate` (`scripts/migrate.mjs`) รัน `backend/sql/` ตามลำดับ: `001` → `003`, แล้ว `005` → `017` (รวม `002_seed.sql` ซึ่งตอนนี้เป็นแค่คอมเมนต์ ไม่มีข้อมูลเดโม)
 
 - **ไม่รัน `004_purge_feed_videos.sql`** — ลบทุกแถวใน `feed_videos` ต้องรันเองด้วยมือเมื่อจำเป็น (แนะนำ `npm run db:purge` ซึ่งลบทั้ง DB และ R2)
 - `db:migrate` อ่าน `DATABASE_URL` จาก `backend/.dev.vars` เท่านั้น (ไม่อ่าน `wrangler secret`) — ก่อน deploy ต้องให้ค่านี้ชี้ production ไม่ใช่ dev branch ของ Neon
@@ -77,6 +77,8 @@ npm run db:migrate
 
    ฟีดว่าง (`{"items":[],"viewerID":null}`) เป็นเรื่องปกติถ้ายังไม่มีใครอัปโหลด — seed ถูกปิดไว้
 
+   ความคิดเห็นของคลิปที่มีอยู่ (ต้องรัน migration `017` แล้ว): `curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/videos/<id>/comments"` ได้ `{"items":[],"nextCursor":null}` ถ้ายังไม่มีใครคอมเมนต์ ถ้าได้ 500 ให้เปิด `npx wrangler tail` แล้วยิงซ้ำ — Worker log `comments list|create|delete failed <SQLSTATE> <ข้อความของฐานข้อมูล>` (ไม่มีข้อความคอมเมนต์) เช่น `42P01` = ยังไม่ได้รัน `017` log นี้เห็นได้เฉพาะตอน `wrangler tail` เปิดอยู่ (`wrangler.toml` ไม่ได้เปิด `[observability]` จึงไม่เก็บย้อนหลัง)
+
 ### ตรวจก่อน deploy
 
 ```bash
@@ -85,6 +87,7 @@ npm run typecheck        # tsc --noEmit
 npm run test:feed
 npm run test:dubbed-audio
 npm run test:dev-auth
+npm run test:comments
 ```
 
 นอกจากนี้มี `scripts/test-audio-assessment.mjs` (ไม่มี npm script รันด้วย `node scripts/test-audio-assessment.mjs`, ทำงานในเครื่อง) ส่วน `scripts/test-upload.mjs` **ไม่ใช่เช็คก่อน deploy** — ยิง POST ไฟล์ปลอมไปที่ URL production โดยไม่มี Authorization จึงได้ 401

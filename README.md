@@ -49,7 +49,7 @@ flowchart LR
   Worker --> R2
 ```
 
-- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `rate_limit_counters`, `dubbed_audio_reports`
+- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `comments` (ความคิดเห็นใต้คลิป), `rate_limit_counters`, `dubbed_audio_reports`
 - **R2** เก็บไฟล์ `.mp4` / `.mov` (วิดีโอ), `.jpg` / `.png` (รูปโปรไฟล์ `avatars/`) และเสียงพากย์ AI `.m4a` (`translations/`)
 - **Worker** อ่าน/เขียน DB, อัปโหลด/เสิร์ฟวิดีโอ (รองรับ **HTTP Range** สำหรับ AVPlayer)
 - **iPhone** ทำงานหนักของ dubbing เอง (ตรวจภาษา, แปล, สร้างเสียง) ไม่มี AI provider ฝั่งเซิร์ฟเวอร์
@@ -71,9 +71,9 @@ Marauders/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
-│   ├── sql/                # schema, seed, migrations 001–016
+│   ├── sql/                # schema, seed, migrations 001–017
 │   ├── scripts/            # migrate, test-*, HLS/purge utilities
-│   ├── test/               # authDev.test.ts + fakes
+│   ├── test/               # authDev, comments, commentsRoutes tests + fakes (users, neon)
 │   └── wrangler.toml
 ├── deployment/             # คู่มือ deploy, AI_DUBBING.md, video-pipeline.md
 ├── docs/                   # adr/, ci-cd.md
@@ -94,7 +94,7 @@ Marauders/
 ```bash
 cd backend
 npm install
-npm run db:migrate    # รัน migration ใน backend/sql/ (001–016 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
+npm run db:migrate    # รัน migration ใน backend/sql/ (001–017 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
 ```
 
 หรือรัน SQL ใน Neon SQL Editor ตามไฟล์ใน `backend/sql/` ทีละไฟล์
@@ -152,6 +152,9 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | `GET` | `/v1/users/<handle>` | โปรไฟล์สาธารณะของคนอื่น (handle, ประเทศ, จำนวนคลิป, `avatarURL`, คลิป) — ไม่ต้องล็อกอิน |
 | `GET` / `POST` | `/v1/videos/:id/dubbed-audio?source=<sha256>&lang=<code>` | แคชเสียงพากย์ AI ที่แชร์กัน: GET (guest อ่านได้) คืน `missing` / `ready` + URL; POST (Bearer, `audio/mp4`, `X-Source-SHA256`) อัปโหลดเสียงที่สร้างบนเครื่อง; `/thai-audio` เป็น path เดิมของแอปรุ่นเก่า (= `lang=th`); `?kind=text` ใช้กับข้อความแปล/คำบรรยาย: GET อ่าน, POST (Bearer, ≤ 16 KiB) บันทึกครั้งแรกครั้งเดียว และถูกลบพร้อมเสียงเมื่อมีการรายงานจนลบ |
 | `POST` | `/v1/videos/:id/dubbed-audio/report?lang=<code>` | รายงานเสียงพากย์ที่แชร์ว่าไม่ดี (Bearer + header `X-Source-SHA256` ต้องตรงกับคลิปปัจจุบัน ไม่งั้น `409`) — ผู้รายงานต่างกัน 2 คน หรือเจ้าของคลิป/ผู้อัปโหลด 1 คน ทำให้ไฟล์ถูกลบ (migration 016) |
+| `GET` | `/v1/videos/:id/comments?limit=30&cursor=<uuid>` | ความคิดเห็นใต้คลิป เรียงใหม่สุดก่อน (ไม่ต้องล็อกอิน; ถ้าส่ง Bearer ที่ไม่ถูกต้องคืน 401) — `limit` เริ่มต้น 30 สูงสุด 50, `cursor` คือ id ของความคิดเห็นสุดท้ายในหน้าก่อน (ถ้าความคิดเห็นนั้นถูกลบไปแล้วจะได้หน้าว่างกับ `nextCursor` เป็น null แอปจึงเริ่มโหลดใหม่จากล่าสุด); คืน `{ items, nextCursor }` แต่ละรายการมี `id`, `body`, `language`, `createdAt`, `authorName`, `authorAvatarURL`, `canDelete` (จริงสำหรับความคิดเห็นของผู้ดูเอง และทุกความคิดเห็นใต้คลิปของผู้ดู) |
+| `POST` | `/v1/videos/:id/comments` | `{ body, language? }` — เขียนความคิดเห็น (Bearer) request ใหญ่ได้ไม่เกิน 16 KiB (`413`) ตัดช่องว่างหัวท้ายกับอักขระควบคุมที่ไม่ใช่ tab/ขึ้นบรรทัดออก แล้วต้องยาว 1–500 ตัวอักษร (นับเป็น code point) มีอย่างน้อยหนึ่งตัวที่มองเห็น (ข้อความที่มีแต่ช่องว่าง อักขระ zero-width ตัวเติมฮันกึล หรือ variation selector ถูกปฏิเสธ) และไม่มี surrogate เดี่ยว ไม่งั้น `422` (การขึ้นบรรทัดเก็บไว้ไม่เกิน 10 ครั้ง ครั้งที่เกินถูกเก็บเป็นช่องว่าง กันความคิดเห็นเดียวสูงเป็นร้อยบรรทัด); `language` เก็บเฉพาะภาษาที่แอปแปลได้ (22 ภาษา) นอกนั้นเป็น null; คืน `201 { comment }`; `401 account not found` เมื่อ token ยังไม่หมดอายุแต่แถวผู้ใช้ใน `app_users` ถูกลบไปแล้ว; จำกัด 10 ครั้ง / 60 วินาทีต่อผู้ใช้ (`429`) (migration 017) |
+| `DELETE` | `/v1/videos/:id/comments/:commentId` | ลบความคิดเห็น — ผู้เขียนหรือเจ้าของคลิปเท่านั้น (Bearer) คนอื่นได้ `404` |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์วิดีโอจาก R2 |
 | `GET` / `HEAD` | `/v1/media/avatars/<uuid>.{jpg,png}` | สตรีมไฟล์รูปโปรไฟล์จาก R2 |
 
@@ -176,6 +179,8 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 **Player ในฟีด:** ใช้ `AVPlayer` 3 ตัว (visible + เตรียมคลิปข้างเคียง) บน `UIScrollView` paging — ดู [ADR-001](docs/adr/001-feed-playback-dual-player.md) (ชื่อไฟล์ยังเป็น dual-player จากรุ่นแรก)
 
 **โปรไฟล์สาธารณะต่อ `@handle`:** ทุกบัญชีมี `@handle` อัตโนมัติตอนสมัคร (`@user_<hex>`) แก้ไขได้ในแท็บ Profile แตะชื่อผู้เขียนหรือรูปในฟีดเพื่อเปิดโปรไฟล์สาธารณะของคนนั้นได้แบบไม่ต้องล็อกอิน (`GET /v1/users/<handle>`) — ฟีดใช้ `handle` ของเจ้าของเป็น `authorName`
+
+**ลำดับการ deploy ความคิดเห็น:** รัน `cd backend && npm run db:migrate` (migration 017 สร้างตาราง `comments`) ก่อน แล้วค่อย `npm run deploy` Worker เพราะ route ใหม่ query ตารางนี้ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่ชีตจะอ่านความคิดเห็นไม่ได้จนกว่าจะ deploy (ชีตขึ้น *This clip is no longer available.* ทุกคลิป เพราะ Worker เก่าตอบ 404 `not found`) — Jenkins ส่งแอปขึ้น TestFlight จาก `main` โดยไม่รอ Worker ส่วน Worker deploy ด้วยมือ (ดู [docs/ci-cd.md](docs/ci-cd.md)) จึงควร migrate และ deploy Worker ก่อนที่ build จาก `main` ที่มีฟีเจอร์นี้จะถึงผู้ทดสอบ
 
 ตัวอย่าง response ฟีด:
 
@@ -203,7 +208,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
 - **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT (เก็บใน Keychain); อัปโหลดต้องมี Bearer token  
 - **Dev login:** `/v1/auth/dev` ปิดอยู่จนกว่าจะตั้ง `DEV_LOGIN_SECRET` (ปล่อยว่างใน production) และฝั่งแอป compile เฉพาะ Debug
-- **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI และรายงานเสียงพากย์อย่างละ 10 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
+- **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
 
 ## Troubleshooting
 
@@ -221,6 +226,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend (router, auth, SQL ที่สร้าง — ไม่ต่อ PostgreSQL จริง) | `cd backend && npm run test:feed` | ตามด้วย `npm run typecheck` |
 | Backend dubbed audio cache/report | `npm run test:dubbed-audio` | ใน `backend/` |
 | Backend dev login | `npm run test:dev-auth` | ใช้ `node:test` + fake users |
+| Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
 | iOS UI tests (`MaraudersUITests`) | รันจาก Xcode / `xcodebuild test` | ใช้ launch argument `UITEST` กับ feed จำลอง |

@@ -11,7 +11,8 @@
     "db:purge": "node scripts/purge-videos.mjs",
     "test:feed": "node scripts/test-feed.mjs",
     "test:dubbed-audio": "node scripts/test-dubbed-audio.mjs",
-    "test:dev-auth": "node scripts/test-dev-auth.mjs"
+    "test:dev-auth": "node scripts/test-dev-auth.mjs",
+    "test:comments": "node scripts/test-comments.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

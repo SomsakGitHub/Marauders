@@ -4,6 +4,7 @@ import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleDevAuth } from "./routes/authDev";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
+import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
 import { parseDubbingLanguage } from "./audio/cache";
 import { handleMediaGet } from "./routes/media";
@@ -274,6 +275,30 @@ export default {
     ) {
       const rawHandle = decodeURIComponent(url.pathname.slice("/v1/users/".length));
       return withCors(await handlePublicProfileGet(request, env, rawHandle), request);
+    }
+
+    const commentsMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/comments$/);
+    if (commentsMatch && request.method === "GET") {
+      const auth = request.headers.has("Authorization")
+        ? await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "") : null;
+      if (request.headers.has("Authorization") && !auth) {
+        return withCors(errorResponse(401, "invalid session"), request);
+      }
+      return withCors(await handleCommentsList(request, env, commentsMatch[1], auth?.userId ?? null), request);
+    }
+    if (commentsMatch && request.method === "POST") {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+        { scope: "comment", limit: 10, windowSeconds: 60 }, auth.userId);
+      if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      return withCors(await handleCommentCreate(request, env, commentsMatch[1], auth.userId), request);
+    }
+    const commentMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/comments\/([^/]+)$/);
+    if (commentMatch && request.method === "DELETE") {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      return withCors(await handleCommentDelete(env, commentMatch[1], commentMatch[2], auth.userId), request);
     }
 
     const dubbedReportMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/dubbed-audio\/report$/);
