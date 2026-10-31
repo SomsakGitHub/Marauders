@@ -84,7 +84,8 @@ struct CommentsView: View {
         ScrollViewReader { proxy in
             List {
                 ForEach(viewModel.comments) { comment in
-                    CommentRow(comment: comment, isDeleting: viewModel.isDeleting(comment))
+                    CommentRow(comment: comment, isDeleting: viewModel.isDeleting(comment),
+                               translationTarget: ListeningLanguageStore.shared.effective)
                         .id(comment.id)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {

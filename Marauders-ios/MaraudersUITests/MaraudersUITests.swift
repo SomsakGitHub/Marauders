@@ -361,6 +361,26 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testACommentInAnotherLanguageOffersTranslateAndOneInTheViewersLanguageDoesNot() throws {
+        let app = launchApp()
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        open.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 10))
+
+        let input = app.descendants(matching: .any)["comments.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("Este lugar es increíble, volveremos pronto")
+        app.buttons["comments.send"].tap()
+        XCTAssertTrue(commentRow(app, containing: "Este lugar es").waitForExistence(timeout: 10), app.debugDescription)
+        // The UI-test viewer listens in English, so the Spanish comment offers a translation, and the English
+        // comments seeded for the clip do not.
+        XCTAssertTrue(app.buttons["comments.translate"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(app.buttons.matching(identifier: "comments.translate").count, 1, app.debugDescription)
+    }
+
+    @MainActor
     func testSwipingTheCommentsSheetDownClosesItAndItOpensAgain() throws {
         let app = launchApp()
         let open = app.buttons["feed.comments"]

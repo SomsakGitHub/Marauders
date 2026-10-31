@@ -1122,6 +1122,46 @@
           }
         }
       }
+    },
+    "Translate": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แปล"
+          }
+        }
+      }
+    },
+    "Show original": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดูต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Translated on this iPhone from %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แปลบน iPhone เครื่องนี้จาก%@"
+          }
+        }
+      }
+    },
+    "Couldn't translate this comment.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แปลความคิดเห็นนี้ไม่สำเร็จ"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
