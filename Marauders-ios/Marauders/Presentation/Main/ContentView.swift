@@ -93,6 +93,9 @@ struct ContentView: View {
         .task { await authViewModel.restoreSession() }
         .onChange(of: authViewModel.isSignedIn) { _, signedIn in
             if signedIn { showingSignIn = false }
+            // The profile is dropped on sign-out only; after a sign-in the Profile tab may already be loading the
+            // new viewer's.
+            if !signedIn { profileViewModel.resetForSessionChange() }
             feedViewModel.resetForSessionChange()
             Task { await feedViewModel.loadIfNeeded() }
         }

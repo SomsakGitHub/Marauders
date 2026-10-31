@@ -348,6 +348,28 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["feed.root"].waitForExistence(timeout: 15), app.debugDescription)
     }
 
+    /// The 401 that ends the session arrives as the profile's own load fails. Signing in again must start a new load
+    /// instead of landing on the error the old one left behind.
+    @MainActor
+    func testSigningInAgainAfterARejectedSessionDoesNotLandOnTheOldProfileError() throws {
+        let app = launchApp(extraArguments: ["UITEST_REJECTED_SESSION"])
+        app.tabBars.buttons["Profile"].tap()
+
+        let open = app.buttons["auth.openSignIn"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilHittable(open), app.debugDescription)
+        open.tap()
+        let complete = app.buttons["auth.completeUITestSignIn"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), app.debugDescription)
+        complete.tap()
+
+        // The test sign-in stores no token, so the new load fails by itself ("Sign in required"). What matters is that
+        // it ran: the 401 of the first one must be gone.
+        XCTAssertTrue(app.buttons["profile.retry"].waitForExistence(timeout: 10), app.debugDescription)
+        let old401 = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "401")).firstMatch
+        XCTAssertFalse(old401.exists, app.debugDescription)
+    }
+
     @MainActor
     private func waitUntilHittable(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
         let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: element)
