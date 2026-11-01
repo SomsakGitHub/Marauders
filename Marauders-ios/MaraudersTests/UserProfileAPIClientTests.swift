@@ -174,6 +174,87 @@ struct UserProfileAPIClientTests {
         #expect(profile.videos.first?.caption == "Hi")
     }
 
+    @Test func fetchPublicProfileSendsTheSessionAndDecodesTheFollowFields() async throws {
+        let payload = """
+        {
+          "handle": "@friend",
+          "country": "TH",
+          "videoCount": 0,
+          "followerCount": 12,
+          "followingCount": 3,
+          "followedByViewer": true,
+          "isViewer": false,
+          "videos": []
+        }
+        """
+        var capturedRequest: URLRequest?
+        let session = StubURLSessionFactory.make { request in
+            capturedRequest = request
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = UserProfileAPIClient(session: session, authorization: Self.authorization)
+        let profile = try await client.fetchPublicProfile(handle: "@friend")
+
+        // The Worker can only say whether the viewer follows the account when it knows who is asking.
+        #expect(capturedRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
+        #expect(profile.followerCount == 12)
+        #expect(profile.followingCount == 3)
+        #expect(profile.followedByViewer == true)
+        #expect(profile.isViewer == false)
+    }
+
+    /// The Worker refuses a bad session even on this public read; the profile is still shown, as a guest sees it.
+    @Test func aRejectedSessionReadsThePublicProfileAsAGuest() async throws {
+        let payload = #"{"handle":"@friend","videoCount":0,"videos":[],"followerCount":1,"followingCount":0,"followedByViewer":false,"isViewer":false}"#
+        var sentAuthorizations: [String?] = []
+        let session = StubURLSessionFactory.make { request in
+            let authorization = request.value(forHTTPHeaderField: "Authorization")
+            sentAuthorizations.append(authorization)
+            return authorization == nil
+                ? (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
+                : (StubURLSessionFactory.httpResponse(for: request, statusCode: 401), Data(#"{"error":"invalid session"}"#.utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let profile = try await UserProfileAPIClient(session: session, authorization: Self.authorization)
+            .fetchPublicProfile(handle: "@friend")
+
+        #expect(sentAuthorizations == ["Bearer test-token", nil])
+        #expect(profile.handle == "@friend")
+        #expect(profile.followedByViewer == false)
+    }
+
+    /// A Worker that predates follows sends none of the fields.
+    @Test func fetchPublicProfileWithoutFollowFieldsStillDecodes() async throws {
+        let payload = #"{"handle":"@friend","country":null,"videoCount":0,"videos":[]}"#
+        let session = StubURLSessionFactory.make { request in
+            (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let profile = try await UserProfileAPIClient(session: session, authorization: nil).fetchPublicProfile(handle: "@friend")
+
+        #expect(profile.followerCount == nil)
+        #expect(profile.followingCount == nil)
+        #expect(profile.followedByViewer == nil)
+        #expect(profile.isViewer == nil)
+    }
+
+    @Test func fetchProfileDecodesTheFollowCounts() async throws {
+        let payload = #"{"handle":"@me","country":"TH","videoCount":0,"videos":[],"followerCount":7,"followingCount":2}"#
+        let session = StubURLSessionFactory.make { request in
+            (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let profile = try await UserProfileAPIClient(session: session, authorization: Self.authorization).fetchProfile()
+
+        #expect(profile.followerCount == 7)
+        #expect(profile.followingCount == 2)
+    }
+
     @Test func fetchPublicProfileMapsNotFound() async {
         let session = StubURLSessionFactory.make { request in
             (StubURLSessionFactory.httpResponse(for: request, statusCode: 404), Data())

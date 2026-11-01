@@ -16,6 +16,10 @@ struct UserProfile: Equatable, Sendable {
     let longitude: Double?
     let videoCount: Int
     let videos: [FeedVideo]
+    /// How many accounts follow the user; nil from a Worker that predates follows.
+    let followerCount: Int?
+    /// How many accounts the user follows; nil from a Worker that predates follows.
+    let followingCount: Int?
 
     init(
         handle: String = "@marauders",
@@ -24,7 +28,9 @@ struct UserProfile: Equatable, Sendable {
         latitude: Double? = nil,
         longitude: Double? = nil,
         videoCount: Int = 0,
-        videos: [FeedVideo] = []
+        videos: [FeedVideo] = [],
+        followerCount: Int? = nil,
+        followingCount: Int? = nil
     ) {
         self.handle = handle
         self.country = country
@@ -33,5 +39,7 @@ struct UserProfile: Equatable, Sendable {
         self.longitude = longitude
         self.videoCount = videoCount
         self.videos = videos
+        self.followerCount = followerCount
+        self.followingCount = followingCount
     }
 }

@@ -7,10 +7,21 @@ import SwiftUI
 
 /// Another user's public profile, presented when an author handle is tapped.
 struct PublicProfileView: View {
-    @Bindable var viewModel: PublicProfileViewModel
+    /// Kept for the sheet's whole life: the view is rebuilt whenever the screen under the sheet is, and a new model
+    /// would have loaded nothing.
+    @State private var viewModel: PublicProfileViewModel
+    let authViewModel: AuthViewModel
     var onClose: () -> Void
 
     @State private var selectedClip: FeedVideo?
+    /// A guest's Follow opens sign-in over the profile, so they are still on it once signed in.
+    @State private var showingSignIn = false
+
+    init(viewModel: PublicProfileViewModel, authViewModel: AuthViewModel, onClose: @escaping () -> Void) {
+        _viewModel = State(initialValue: viewModel)
+        self.authViewModel = authViewModel
+        self.onClose = onClose
+    }
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 2),
@@ -51,6 +62,14 @@ struct PublicProfileView: View {
                 onClose: { selectedClip = nil }
             )
         }
+        .sheet(isPresented: $showingSignIn) {
+            SignInSheet(authViewModel: authViewModel, onClose: { showingSignIn = false })
+        }
+        .onChange(of: authViewModel.isSignedIn) { _, signedIn in
+            if signedIn { showingSignIn = false }
+            // Whether the viewer follows this account, or is it, belongs to the session that just began or ended.
+            Task { await viewModel.reload() }
+        }
     }
 
     private var content: some View {
@@ -88,17 +107,48 @@ struct PublicProfileView: View {
                     .accessibilityIdentifier("publicProfile.country")
             }
 
-            Text(clipCountLabel)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            stats
+
+            if viewModel.canFollow {
+                followButton
+                    .padding(.top, 4)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
     }
 
-    private var clipCountLabel: String {
-        let count = viewModel.profile?.videoCount ?? 0
-        return count == 1 ? "1 clip" : "\(count) clips"
+    private var stats: some View {
+        HStack(spacing: 24) {
+            if let following = viewModel.profile?.followingCount {
+                ProfileStat(count: following, label: "Following")
+                    .accessibilityIdentifier("publicProfile.followingCount")
+            }
+            if let followers = viewModel.followerCount {
+                ProfileStat(count: followers, label: "Followers")
+                    .accessibilityIdentifier("publicProfile.followerCount")
+            }
+            ProfileStat(count: viewModel.profile?.videoCount ?? 0, label: "Clips")
+                .accessibilityIdentifier("publicProfile.clipCount")
+        }
+    }
+
+    /// Red Follow as on TikTok; once followed it turns grey, and tapping it again stops following.
+    private var followButton: some View {
+        let following = viewModel.isFollowing
+        return Button {
+            guard authViewModel.isSignedIn else { showingSignIn = true; return }
+            viewModel.toggleFollow()
+        } label: {
+            (following ? Text("Following") : Text("Follow"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(following ? Color.primary : Color.white)
+                .frame(minWidth: 140)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(following ? Color(.systemGray5) : Color.likeRed)
+        .animation(.snappy, value: following)
+        .accessibilityIdentifier("publicProfile.follow")
     }
 
     private var grid: some View {

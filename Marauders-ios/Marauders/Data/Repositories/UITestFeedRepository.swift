@@ -39,10 +39,13 @@ struct UITestFeedRepository: FeedRepository {
                 latitude: 13.7563,
                 longitude: 100.5018,
                 country: "TH",
-                authorName: "@marauders",
+                // Someone the viewer (`@marauders` in UITestUserProfileRepository) does not follow yet.
+                authorName: "@traveler",
                 caption: "UI test clip",
                 // The two comments every clip starts with in UITestCommentRepository.
-                commentCount: 2
+                commentCount: 2,
+                postedByViewer: false,
+                authorFollowedByViewer: false
             ),
         ]
         return FeedPage(items: items, hasMore: false)

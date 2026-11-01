@@ -204,9 +204,18 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile.country")
             }
 
-            Text(clipCountLabel)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 24) {
+                if let following = viewModel.profile?.followingCount {
+                    ProfileStat(count: following, label: "Following")
+                        .accessibilityIdentifier("profile.followingCount")
+                }
+                if let followers = viewModel.profile?.followerCount {
+                    ProfileStat(count: followers, label: "Followers")
+                        .accessibilityIdentifier("profile.followerCount")
+                }
+                ProfileStat(count: viewModel.profile?.videoCount ?? 0, label: "Clips")
+                    .accessibilityIdentifier("profile.clipCount")
+            }
 
             Button {
                 MyLibraryIntegration.present()
@@ -226,11 +235,6 @@ struct ProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
-    }
-
-    private var clipCountLabel: String {
-        let count = viewModel.profile?.videoCount ?? 0
-        return count == 1 ? "1 clip" : "\(count) clips"
     }
 
     private var grid: some View {

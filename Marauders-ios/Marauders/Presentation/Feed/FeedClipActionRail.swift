@@ -6,7 +6,8 @@
 import SwiftUI
 
 /// Right-edge action rail for the current clip (TikTok-style). It hosts the like and comments buttons,
-/// the audio choice and the creator's avatar, which opens their public profile when tapped.
+/// the audio choice and the creator's avatar, which opens their public profile when tapped and carries a "+" to follow
+/// them.
 struct FeedClipActionRail: View {
     let clip: FeedVideo
     /// Called with the language the viewer picked to hear the clip in.
@@ -28,6 +29,16 @@ struct FeedClipActionRail: View {
     var onToggleLike: (() -> Void)? = nil
     /// Goes up each time the viewer likes the clip, from the heart or a double tap: the heart bounces then.
     var likePops = 0
+    /// Whether the viewer follows the clip's author. Without it, or without `onFollowAuthor`, the avatar has no "+": the
+    /// clip is the viewer's own, or the feed comes from a Worker that predates follows.
+    var followsAuthor: Bool? = nil
+    var onFollowAuthor: (() -> Void)? = nil
+
+    /// The author the viewer has just followed from here: their "+" turns into a tick for a moment, then goes.
+    @State private var justFollowed: String?
+    private static let followDotSize: CGFloat = 22
+    /// Room around the dot that still counts as a tap on it.
+    private static let followHitPadding: CGFloat = 8
 
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
@@ -126,10 +137,64 @@ struct FeedClipActionRail: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("feed.avatar")
                 .accessibilityLabel("Open \(handle) profile")
+                // Half over the avatar's lower edge, as on TikTok.
+                .overlay(alignment: .bottom) {
+                    followBadge(for: handle)
+                        .offset(y: Self.followDotSize / 2 + Self.followHitPadding)
+                }
             }
         }
         .padding(.trailing, 16)
         .padding(.bottom, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .onChange(of: FollowBadgeKey(handle: clip.authorName, following: followsAuthor)) { old, new in
+            // Only a follow of the author already on screen: a swipe to someone the viewer follows shows no tick.
+            guard let handle = new.handle, old.handle == handle, old.following == false, new.following == true else { return }
+            withAnimation(.snappy) { justFollowed = handle }
+            Task {
+                try? await Task.sleep(for: .seconds(1))
+                withAnimation(.snappy) { if justFollowed == handle { justFollowed = nil } }
+            }
+        }
+    }
+
+    private struct FollowBadgeKey: Equatable {
+        let handle: String?
+        let following: Bool?
+    }
+
+    /// The extra room to tap goes to the sides and below the dot only: above it is the avatar, whose tap opens the profile.
+    @ViewBuilder
+    private func followBadge(for handle: String) -> some View {
+        if justFollowed == handle, followsAuthor == true {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(Color.likeRed)
+                .frame(width: Self.followDotSize, height: Self.followDotSize)
+                .background(.white, in: Circle())
+                .padding([.horizontal, .bottom], Self.followHitPadding)
+                .transition(.scale.combined(with: .opacity))
+                // A tap on the tick is a tap on the avatar under it.
+                .allowsHitTesting(false)
+                .accessibilityLabel(Text("Following"))
+                .accessibilityIdentifier("feed.followed")
+        } else if followsAuthor == false, let onFollowAuthor {
+            Button(action: onFollowAuthor) {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: Self.followDotSize, height: Self.followDotSize)
+                    .background(Color.likeRed, in: Circle())
+                    // Keeps the dot apart from an avatar of much the same red.
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                    .padding([.horizontal, .bottom], Self.followHitPadding)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .transition(.scale.combined(with: .opacity))
+            .accessibilityIdentifier("feed.follow")
+            .accessibilityLabel(Text("Follow \(handle)"))
+        }
     }
 }

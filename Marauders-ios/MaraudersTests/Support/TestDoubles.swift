@@ -236,6 +236,33 @@ final class StubClipLikeRepository: ClipLikeRepository, @unchecked Sendable {
     }
 }
 
+final class StubUserFollowRepository: UserFollowRepository, @unchecked Sendable {
+    /// One result per call, in order; the last one repeats when the queue runs out.
+    var results: [Result<UserFollowChange, Error>]
+    /// Runs before a call returns, with the number of calls made so far: the request is still in flight while it runs.
+    var beforeReturn: (@Sendable (Int) async -> Void)?
+    private(set) var calls: [(following: Bool, handle: String)] = []
+    /// The most requests that were out at the same moment.
+    private(set) var peakConcurrency = 0
+    private var outNow = 0
+
+    init(results: [Result<UserFollowChange, Error>] = [
+        .success(UserFollowChange(following: true, followerCount: 1, viewerFollowingCount: 1)),
+    ]) {
+        self.results = results
+    }
+
+    func setFollowing(_ following: Bool, handle: String) async throws -> UserFollowChange {
+        let index = min(calls.count, results.count - 1)
+        calls.append((following, handle))
+        outNow += 1
+        peakConcurrency = max(peakConcurrency, outNow)
+        defer { outNow -= 1 }
+        await beforeReturn?(calls.count)
+        return try results[index].get()
+    }
+}
+
 final class StubAvatarImagePreparer: AvatarImagePreparing, @unchecked Sendable {
     var result: Data?
 

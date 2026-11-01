@@ -17,6 +17,7 @@ final class AppDependencyContainer {
     let profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
     let clipLikesViewModel: ClipLikesViewModel
+    let followsViewModel: UserFollowsViewModel
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -29,7 +30,8 @@ final class AppDependencyContainer {
         videoExporter: VideoExporting? = nil,
         profileRepository: UserProfileRepository? = nil,
         commentRepository: CommentRepository? = nil,
-        clipLikeRepository: ClipLikeRepository? = nil
+        clipLikeRepository: ClipLikeRepository? = nil,
+        userFollowRepository: UserFollowRepository? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -91,11 +93,25 @@ final class AppDependencyContainer {
         )
         self.authViewModel = authViewModel
 
+        // UI tests share one in-memory set of follows between the follow button and the profiles that report them.
+        let uiTestFollows = UITestUserFollowRepository()
+        let resolveUserFollowRepository: UserFollowRepository
+        if let userFollowRepository {
+            resolveUserFollowRepository = userFollowRepository
+        } else if AppRuntimeConfiguration.isUITesting, !usesRejectedUITestSession {
+            resolveUserFollowRepository = uiTestFollows
+        } else {
+            resolveUserFollowRepository = DefaultUserFollowRepository(
+                apiClient: FollowsAPIClient(client: transport, authorization: apiAuthorization)
+            )
+        }
+        followsViewModel = UserFollowsViewModel(setFollow: SetUserFollowUseCase(repository: resolveUserFollowRepository))
+
         let resolveProfileRepository: UserProfileRepository
         if let profileRepository {
             resolveProfileRepository = profileRepository
         } else if AppRuntimeConfiguration.isUITesting, !usesRejectedUITestSession {
-            resolveProfileRepository = UITestUserProfileRepository()
+            resolveProfileRepository = UITestUserProfileRepository(follows: uiTestFollows)
         } else {
             resolveProfileRepository = DefaultUserProfileRepository(
                 apiClient: UserProfileAPIClient(client: transport, authorization: apiAuthorization)
@@ -149,12 +165,16 @@ final class AppDependencyContainer {
         profileViewModel.onClipDeleted = { [weak feedViewModel] clipID in
             Task { @MainActor in await feedViewModel?.removeClip(id: clipID) }
         }
+        followsViewModel.onViewerFollowingCountChange = { [weak profileViewModel] count in
+            profileViewModel?.applyFollowingCount(count)
+        }
     }
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {
         PublicProfileViewModel(
             handle: handle,
-            loadProfile: LoadPublicProfileUseCase(repository: profileRepository)
+            loadProfile: LoadPublicProfileUseCase(repository: profileRepository),
+            follows: followsViewModel
         )
     }
 

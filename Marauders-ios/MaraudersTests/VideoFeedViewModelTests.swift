@@ -96,6 +96,25 @@ struct VideoFeedViewModelTests {
         #expect(viewModel.videos[0].audioAssessment == advisory)
     }
 
+    /// Renaming rebuilds the viewer's clips: they must stay the viewer's own, or the avatar would offer to follow them.
+    @Test func renameAndAvatarChangeKeepWhatTheAuthorIsToTheViewer() async {
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!, authorName: "@old",
+            likeCount: 2, likedByViewer: true, commentCount: 1, postedByViewer: true, authorFollowedByViewer: false
+        )
+        let repo = MockFeedRepository(result: .success(FeedPage(items: [mine], hasMore: false)))
+        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
+        await viewModel.reload()
+
+        viewModel.replaceAuthorName(from: "@old", to: "@new")
+        viewModel.applyAuthorAvatar(url: URL(string: "https://example.com/a.jpg"), for: "@new")
+
+        let clip = viewModel.videos[0]
+        #expect(clip.postedByViewer == true)
+        #expect(clip.authorFollowedByViewer == false)
+        #expect(clip.likeCount == 2 && clip.likedByViewer == true && clip.commentCount == 1)
+    }
+
     @Test func removeClipTakesItOutOfTheFeedTheMapAndAPendingFocus() async {
         let mine = FeedVideo(streamURL: URL(string: "https://example.com/mine.mp4")!, latitude: 1, longitude: 2, authorName: "@me")
         let other = FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!, latitude: 3, longitude: 4, authorName: "@other")

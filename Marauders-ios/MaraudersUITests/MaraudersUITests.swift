@@ -727,6 +727,121 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertEqual(like.label, "Like")
     }
 
+    /// The "+" on the author's avatar follows them, as on TikTok; their profile then says Following and counts the
+    /// viewer, and Following there stops the follow, which brings the "+" back.
+    @MainActor
+    func testTheAvatarsPlusFollowsTheAuthorAndTheirProfileCanStopIt() throws {
+        let app = launchApp()
+        let follow = app.buttons["feed.follow"]
+        XCTAssertTrue(follow.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(follow.label, "Follow @traveler")
+
+        follow.tap()
+        XCTAssertTrue(waitUntilGone(follow), "the + goes once the viewer follows the author")
+        attachFeedScreenshot(app, name: "feed-followed-author")
+
+        app.buttons["feed.avatar"].tap()
+        let profileFollow = app.buttons["publicProfile.follow"]
+        XCTAssertTrue(profileFollow.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilLabel(profileFollow, is: "Following"), app.debugDescription)
+        let followers = app.descendants(matching: .any)["publicProfile.followerCount"]
+        XCTAssertTrue(waitUntilValue(followers, is: "1"), app.debugDescription)
+        attachFeedScreenshot(app, name: "profile-following")
+
+        profileFollow.tap()
+        XCTAssertTrue(waitUntilLabel(profileFollow, is: "Follow"), app.debugDescription)
+        XCTAssertTrue(waitUntilValue(followers, is: "0"), app.debugDescription)
+
+        app.buttons["publicProfile.close"].tap()
+        XCTAssertTrue(follow.waitForExistence(timeout: 10), "the + is back once the viewer stopped following")
+    }
+
+    /// The "+" overlaps the avatar's lower edge; a tap on the face above the dot is still a tap on the avatar.
+    @MainActor
+    func testTappingTheLowerPartOfTheAvatarOpensTheProfileInsteadOfFollowing() throws {
+        let app = launchApp()
+        let avatar = app.buttons["feed.avatar"]
+        let follow = app.buttons["feed.follow"]
+        XCTAssertTrue(follow.waitForExistence(timeout: 15), app.debugDescription)
+
+        // 16 points above the bottom of the 48-point avatar, clear of the red dot.
+        avatar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 32.0 / 48.0)).tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15), app.debugDescription)
+        let profileFollow = app.buttons["publicProfile.follow"]
+        XCTAssertTrue(profileFollow.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(profileFollow.label, "Follow", "the tap opened the profile and followed nobody")
+    }
+
+    /// Following from the profile also takes the "+" off the author's clips in the feed, and the viewer's own profile
+    /// counts the account they now follow without a reload.
+    @MainActor
+    func testFollowingFromAProfileReachesTheFeedAndTheViewersOwnProfile() throws {
+        let app = launchApp()
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 15))
+        profileTab.tap()
+        let following = app.descendants(matching: .any)["profile.followingCount"]
+        XCTAssertTrue(following.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(following.value as? String, "0")
+
+        app.tabBars.buttons["Feed"].tap()
+        let avatar = app.buttons["feed.avatar"]
+        XCTAssertTrue(avatar.waitForExistence(timeout: 15))
+        avatar.tap()
+        let profileFollow = app.buttons["publicProfile.follow"]
+        XCTAssertTrue(profileFollow.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(profileFollow.label, "Follow")
+        profileFollow.tap()
+        XCTAssertTrue(waitUntilLabel(profileFollow, is: "Following"), app.debugDescription)
+        app.buttons["publicProfile.close"].tap()
+
+        XCTAssertTrue(avatar.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["feed.follow"].exists, "the feed must not offer to follow someone the viewer follows")
+
+        profileTab.tap()
+        XCTAssertTrue(waitUntilValue(following, is: "1"), app.debugDescription)
+    }
+
+    @MainActor
+    func testGuestFollowFromTheFeedAsksToSignInInstead() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let follow = app.buttons["feed.follow"]
+        XCTAssertTrue(follow.waitForExistence(timeout: 15), app.debugDescription)
+
+        follow.tap()
+        let closeSignIn = app.buttons["auth.closeSignIn"]
+        XCTAssertTrue(closeSignIn.waitForExistence(timeout: 10), app.debugDescription)
+        closeSignIn.tap()
+
+        XCTAssertTrue(waitUntilGone(closeSignIn), app.debugDescription)
+        XCTAssertTrue(follow.waitForExistence(timeout: 5), "a guest's tap asked to sign in, it followed nobody")
+    }
+
+    /// A guest's Follow on a profile opens sign-in over it, so once signed in they are still on the profile and can
+    /// follow from there.
+    @MainActor
+    func testGuestSignsInFromAProfileAndStaysOnItToFollow() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let avatar = app.buttons["feed.avatar"]
+        XCTAssertTrue(avatar.waitForExistence(timeout: 15), app.debugDescription)
+        avatar.tap()
+        let profileFollow = app.buttons["publicProfile.follow"]
+        XCTAssertTrue(profileFollow.waitForExistence(timeout: 15), app.debugDescription)
+
+        profileFollow.tap()
+        let complete = app.buttons["auth.completeUITestSignIn"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), app.debugDescription)
+        complete.tap()
+        XCTAssertTrue(waitUntilGone(app.buttons["auth.closeSignIn"]), app.debugDescription)
+
+        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].exists, "the viewer is still on the profile")
+        XCTAssertTrue(waitUntilLabel(profileFollow, is: "Follow"), "signing in follows nobody on the viewer's behalf")
+        XCTAssertTrue(waitUntilHittable(profileFollow), app.debugDescription)
+        profileFollow.tap()
+        XCTAssertTrue(waitUntilLabel(profileFollow, is: "Following"), app.debugDescription)
+    }
+
     /// A point on the clip itself: above the middle, clear of the card a clip that cannot play shows, the caption and
     /// the rail.
     @MainActor

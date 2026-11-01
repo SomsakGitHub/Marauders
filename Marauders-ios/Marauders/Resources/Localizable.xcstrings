@@ -191,6 +191,16 @@
         }
       }
     },
+    "Clips": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คลิป"
+          }
+        }
+      }
+    },
     "Clips in other languages can be dubbed into this language with AI on your iPhone.": {
       "localizations": {
         "th": {
@@ -327,6 +337,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ การตั้งค่า › โมเดลภาษา"
+          }
+        }
+      }
+    },
+    "Follow": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ติดตาม"
+          }
+        }
+      }
+    },
+    "Follow %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ติดตาม %@"
+          }
+        }
+      }
+    },
+    "Followers": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ผู้ติดตาม"
+          }
+        }
+      }
+    },
+    "Following": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังติดตาม"
           }
         }
       }

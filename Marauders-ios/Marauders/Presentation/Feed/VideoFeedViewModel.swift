@@ -173,7 +173,9 @@ final class VideoFeedViewModel {
             audioAssessment: video.audioAssessment,
             likeCount: video.likeCount,
             likedByViewer: video.likedByViewer,
-            commentCount: video.commentCount
+            commentCount: video.commentCount,
+            postedByViewer: video.postedByViewer,
+            authorFollowedByViewer: video.authorFollowedByViewer
         )
     }
 
@@ -198,7 +200,9 @@ final class VideoFeedViewModel {
             audioAssessment: video.audioAssessment,
             likeCount: video.likeCount,
             likedByViewer: video.likedByViewer,
-            commentCount: video.commentCount
+            commentCount: video.commentCount,
+            postedByViewer: video.postedByViewer,
+            authorFollowedByViewer: video.authorFollowedByViewer
         )
     }
 

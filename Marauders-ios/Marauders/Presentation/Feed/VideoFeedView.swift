@@ -22,6 +22,8 @@ struct VideoFeedView: View {
     var makeCommentsViewModel: ((UUID) -> CommentsViewModel)?
     /// The viewer's likes. Without it the feed shows no like button.
     var likesViewModel: ClipLikesViewModel?
+    /// The viewer's follows. Without it the author's avatar has no "+".
+    var followsViewModel: UserFollowsViewModel?
 
     @State private var isWaitingForSignIn = false
     @State private var isChoosingAudio = false
@@ -267,7 +269,11 @@ struct VideoFeedView: View {
                         onToggleLike: likesViewModel.map { likes in
                             { toggleLike(video, using: likes) }
                         },
-                        likePops: likePops)
+                        likePops: likePops,
+                        followsAuthor: followsAuthor(of: video),
+                        onFollowAuthor: followsViewModel.map { follows in
+                            { followAuthor(of: video, using: follows) }
+                        })
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
@@ -349,7 +355,7 @@ struct VideoFeedView: View {
     }
 
     private func toggleLike(_ clip: FeedVideo, using likes: ClipLikesViewModel) {
-        guard isSignedIn else { askGuestToSignInToLike(); return }
+        guard isSignedIn else { askGuestToSignIn(); return }
         if !likes.state(for: clip).liked { likePops += 1 }
         likes.toggle(clip)
     }
@@ -358,7 +364,7 @@ struct VideoFeedView: View {
     /// back, and every further quick tap adds another heart.
     private func likeByDoubleTap(at point: CGPoint, using likes: ClipLikesViewModel) {
         guard let clip = currentVideo else { return }
-        guard isSignedIn else { askGuestToSignInToLike(); return }
+        guard isSignedIn else { askGuestToSignIn(); return }
         let burst = FeedHeartBurst(location: point)
         heartBursts.append(burst)
         Task {
@@ -369,9 +375,24 @@ struct VideoFeedView: View {
         likes.like(clip)
     }
 
-    /// A guest's like opens the sign-in screen instead. It covers the feed like the audio choice does, so the clip stops
-    /// the same way and comes back through the same flag when the viewer is done there.
-    private func askGuestToSignInToLike() {
+    /// Whether the viewer follows the clip's author, for the "+" on the avatar. Nil leaves it off: the clip is the
+    /// viewer's own, or the feed comes from a Worker (or a startup cache) that predates follows.
+    private func followsAuthor(of clip: FeedVideo) -> Bool? {
+        guard let follows = followsViewModel, let handle = clip.authorName,
+              let followed = clip.authorFollowedByViewer, clip.postedByViewer != true else { return nil }
+        return follows.isFollowing(handle, fallback: followed)
+    }
+
+    /// The "+" only ever follows, as on TikTok; the profile is where the viewer stops following.
+    private func followAuthor(of clip: FeedVideo, using follows: UserFollowsViewModel) {
+        guard let handle = clip.authorName else { return }
+        guard isSignedIn else { askGuestToSignIn(); return }
+        follows.follow(handle, fallback: clip.authorFollowedByViewer ?? false)
+    }
+
+    /// A guest's like or follow opens the sign-in screen instead. It covers the feed like the audio choice does, so the
+    /// clip stops the same way and comes back through the same flag when the viewer is done there.
+    private func askGuestToSignIn() {
         resumeAfterAudioChoice = resumeAfterAudioChoice || playerEngine.phase.shouldResumeAfterInterruption
         playerEngine.pause()
         isWaitingForSignIn = true

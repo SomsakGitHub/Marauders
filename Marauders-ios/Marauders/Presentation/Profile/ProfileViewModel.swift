@@ -25,6 +25,10 @@ final class ProfileViewModel {
 
     /// Bumped whenever the session ends, so a request that was still out then can tell its answer is stale.
     private var sessionGeneration = 0
+    /// How many accounts the viewer follows, from the latest follow or unfollow the Worker answered, and how many such
+    /// answers came in: a load that was out while one did brings an older count than this.
+    private var followingCountFromFollows: Int?
+    private var followingCountChanges = 0
 
     /// Called with (oldHandle, newHandle) after a @handle change succeeds, so other tabs can update.
     var onHandleChanged: ((_ oldHandle: String, _ newHandle: String) -> Void)?
@@ -77,10 +81,14 @@ final class ProfileViewModel {
 
     func reload() async {
         let generation = sessionGeneration
+        let changes = followingCountChanges
         state = .loading
         do {
-            let loaded = try await loadProfile.execute()
+            var loaded = try await loadProfile.execute()
             guard generation == sessionGeneration else { return }
+            if changes != followingCountChanges, let count = followingCountFromFollows {
+                loaded = Self.profile(loaded, followingCount: count)
+            }
             profile = loaded
             state = .loaded
         } catch {
@@ -90,10 +98,33 @@ final class ProfileViewModel {
         }
     }
 
+    /// Shows how many accounts the viewer follows after a follow or an unfollow, without a reload.
+    func applyFollowingCount(_ count: Int) {
+        followingCountChanges += 1
+        followingCountFromFollows = count
+        guard let current = profile else { return }
+        profile = Self.profile(current, followingCount: count)
+    }
+
+    private static func profile(_ profile: UserProfile, followingCount: Int) -> UserProfile {
+        UserProfile(
+            handle: profile.handle,
+            country: profile.country,
+            avatarURL: profile.avatarURL,
+            latitude: profile.latitude,
+            longitude: profile.longitude,
+            videoCount: profile.videoCount,
+            videos: profile.videos,
+            followerCount: profile.followerCount,
+            followingCount: followingCount
+        )
+    }
+
     /// Forgets what the ended session loaded, so the next sign-in fetches its own profile, and drops the answer of
     /// any request that was still out.
     func resetForSessionChange() {
         sessionGeneration += 1
+        followingCountFromFollows = nil
         profile = nil
         state = .idle
         deleteErrorMessage = nil
@@ -125,7 +156,9 @@ final class ProfileViewModel {
                     latitude: current.latitude,
                     longitude: current.longitude,
                     videoCount: current.videoCount,
-                    videos: current.videos
+                    videos: current.videos,
+                    followerCount: current.followerCount,
+                    followingCount: current.followingCount
                 )
             }
             handleErrorMessage = nil
@@ -159,7 +192,9 @@ final class ProfileViewModel {
                     latitude: current.latitude,
                     longitude: current.longitude,
                     videoCount: current.videoCount,
-                    videos: current.videos
+                    videos: current.videos,
+                    followerCount: current.followerCount,
+                    followingCount: current.followingCount
                 )
             }
             onAvatarChanged?(url, profile?.handle ?? "")
@@ -188,7 +223,9 @@ final class ProfileViewModel {
                 latitude: current.latitude,
                 longitude: current.longitude,
                 videoCount: max(0, current.videoCount - 1),
-                videos: current.videos.filter { $0.id != clip.id }
+                videos: current.videos.filter { $0.id != clip.id },
+                followerCount: current.followerCount,
+                followingCount: current.followingCount
             )
         } catch {
             guard generation == sessionGeneration else { return }

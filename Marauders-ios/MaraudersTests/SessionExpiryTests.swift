@@ -438,7 +438,8 @@ struct RejectedSessionEndToEndTests {
         #expect(storage.accessToken == nil)
     }
 
-    /// A request that carries no token cannot have a token rejected, even for a viewer who is signed in.
+    /// A request that carries no token cannot have a token rejected, even for a viewer who is signed in. (The public
+    /// profile now sends the session when there is one, so this client is given none.)
     @Test func aTokenlessRequestOfASignedInViewerDoesNotEndTheSession() async throws {
         let harness = await signedInHarness()
         try #require(harness.viewModel.isSignedIn)
@@ -450,7 +451,7 @@ struct RejectedSessionEndToEndTests {
         defer { StubURLSessionFactory.reset(session) }
         let client = UserProfileAPIClient(
             client: transport(session, reportingTo: harness.viewModel),
-            authorization: harness.authorization
+            authorization: nil
         )
 
         await #expect(throws: UserProfileAPIError.serverError(401)) {

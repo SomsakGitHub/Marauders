@@ -125,6 +125,16 @@ enum APIConfiguration {
         return url
     }
 
+    /// The viewer's follow of the account with `handle`: PUT follows it, DELETE stops following it.
+    static func followURL(handle: String) throws -> URL {
+        let base = try apiBaseURL()
+        let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? handle
+        guard let url = URL(string: "v1/users/\(encoded)/follow", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     static func deleteVideoURL(id: UUID) throws -> URL {
         let base = try apiBaseURL()
         guard let url = URL(string: "v1/videos/\(id.uuidString)", relativeTo: base) else {

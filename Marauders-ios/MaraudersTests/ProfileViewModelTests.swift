@@ -435,6 +435,63 @@ struct ProfileViewModelTests {
         #expect(deleted == [clip.id])
         #expect(viewModel.profile?.videoCount == 3)
     }
+
+    // MARK: - Follow counts
+
+    @Test func aFollowOrUnfollowShowsTheNewFollowingCountWithoutAReload() async {
+        let (viewModel, repository) = makeSUT(result: .success(UserProfile(handle: "@me", followerCount: 4, followingCount: 2)))
+        await viewModel.loadIfNeeded()
+
+        viewModel.applyFollowingCount(3)
+
+        #expect(viewModel.profile?.followingCount == 3)
+        #expect(viewModel.profile?.followerCount == 4)
+        #expect(viewModel.profile?.handle == "@me")
+        #expect(repository.fetchCount == 1)
+    }
+
+    @Test func aHandleAvatarOrClipChangeKeepsTheFollowCounts() async {
+        let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
+        let (viewModel, _) = makeSUT(result: .success(
+            UserProfile(handle: "@me", videoCount: 1, videos: [clip], followerCount: 4, followingCount: 2)
+        ))
+        await viewModel.loadIfNeeded()
+
+        _ = await viewModel.updateHandle("@new")
+        _ = await viewModel.updateAvatar(rawImageData: Data([0xAA]))
+        await viewModel.delete(clip)
+
+        #expect(viewModel.profile?.handle == "@new")
+        #expect(viewModel.profile?.videoCount == 0)
+        #expect(viewModel.profile?.followerCount == 4)
+        #expect(viewModel.profile?.followingCount == 2)
+    }
+
+    /// The load was read before the follow was written, so its count is the older one.
+    @Test func aFollowAnsweredWhileTheProfileLoadsIsNotUndoneByTheLoad() async {
+        let gate = ProfileRequestGate()
+        let (viewModel, _) = makeSUT(result: .success(UserProfile(handle: "@me", followingCount: 2)), gate: gate)
+
+        await gate.holdNextRequest()
+        let load = Task { await viewModel.loadIfNeeded() }
+        await gate.waitUntilHeld()
+        viewModel.applyFollowingCount(3)
+        await gate.release()
+        await load.value
+
+        #expect(viewModel.profile?.followingCount == 3)
+    }
+
+    @Test func aLoadAfterTheFollowBringsTheWorkersCount() async {
+        let (viewModel, repository) = makeSUT(result: .success(UserProfile(handle: "@me", followingCount: 2)))
+        await viewModel.loadIfNeeded()
+        viewModel.applyFollowingCount(3)
+
+        repository.result = .success(UserProfile(handle: "@me", followingCount: 7))
+        await viewModel.reload()
+
+        #expect(viewModel.profile?.followingCount == 7)
+    }
 }
 
 /// Holds the next profile request until the test lets it finish, so a test can end the session while a request is out.

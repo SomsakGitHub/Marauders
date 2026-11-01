@@ -16,6 +16,7 @@ struct ContentView: View {
     let makePublicProfileViewModel: (String) -> PublicProfileViewModel
     let makeCommentsViewModel: (UUID) -> CommentsViewModel
     let clipLikesViewModel: ClipLikesViewModel
+    let followsViewModel: UserFollowsViewModel
 
     @State private var languageModelsViewModel = LanguageModelsViewModel()
     @State private var showingSignIn = false
@@ -31,7 +32,8 @@ struct ContentView: View {
                 signInDismissalID: signInDismissalID,
                 onOpenProfile: { router.openPublicProfile(handle: $0) },
                 makeCommentsViewModel: makeCommentsViewModel,
-                likesViewModel: clipLikesViewModel
+                likesViewModel: clipLikesViewModel,
+                followsViewModel: followsViewModel
             )
                 .tabItem {
                     Label("Feed", systemImage: "play.rectangle.fill")
@@ -101,30 +103,18 @@ struct ContentView: View {
             // new viewer's.
             if !signedIn { profileViewModel.resetForSessionChange() }
             feedViewModel.resetForSessionChange()
-            // What the previous viewer liked is not what the reloaded feed says about the new one.
+            // What the previous viewer liked and followed is not what the reloaded feed says about the new one.
             clipLikesViewModel.reset()
+            followsViewModel.reset()
             Task { await feedViewModel.loadIfNeeded() }
         }
         .sheet(isPresented: $showingSignIn, onDismiss: { signInDismissalID += 1 }) {
-            SignInWithAppleGateView(
-                authViewModel: authViewModel,
-                navigationTitle: "Sign in",
-                systemImage: "person.crop.circle.fill",
-                title: "Welcome to Marauders",
-                subtitle: "Sign in with Apple to continue.",
-                accessibilityIdentifier: "auth.signIn"
-            )
-            .overlay(alignment: .topTrailing) {
-                Button { showingSignIn = false } label: {
-                    Image(systemName: "xmark.circle.fill").font(.title2).padding()
-                }
-                .accessibilityLabel("Close sign in")
-                .accessibilityIdentifier("auth.closeSignIn")
-            }
+            SignInSheet(authViewModel: authViewModel, onClose: { showingSignIn = false })
         }
         .sheet(item: $router.publicProfileRoute) { route in
             PublicProfileView(
                 viewModel: makePublicProfileViewModel(route.handle),
+                authViewModel: authViewModel,
                 onClose: { router.publicProfileRoute = nil }
             )
         }
@@ -143,6 +133,7 @@ struct ContentView: View {
         reportUserLocation: container.reportUserLocation,
         makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
         makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
-        clipLikesViewModel: container.clipLikesViewModel
+        clipLikesViewModel: container.clipLikesViewModel,
+        followsViewModel: container.followsViewModel
     )
 }

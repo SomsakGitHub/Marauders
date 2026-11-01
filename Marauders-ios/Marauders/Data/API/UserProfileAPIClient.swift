@@ -74,17 +74,19 @@ struct UserProfileAPIClient: Sendable {
         }
     }
 
-    /// Fetches another user's public profile. No authentication required.
+    /// Fetches another user's public profile. No authentication required; a signed-in viewer's session goes along so
+    /// the Worker can say whether they follow the account and whether it is their own.
     func fetchPublicProfile(handle: String) async throws -> PublicUserProfile {
         let requestURL = try APIConfiguration.publicUserProfileURL(handle: handle)
         AppLog.info("api.profile", "GET \(requestURL.host ?? "?")/v1/users/<handle>")
 
-        var request = URLRequest(url: requestURL)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 15
-
-        let response = try await client.data(request)
+        let bearer = authorization?.bearerAuthorizationHeader()
+        var response = try await client.data(Self.publicProfileRequest(url: requestURL, bearer: bearer))
+        if response.statusCode == 401, bearer != nil {
+            // The Worker rejects a bad session even on this public read, so read as a guest instead of failing.
+            AppLog.warning("api.profile", "session rejected, reading as guest")
+            response = try await client.data(Self.publicProfileRequest(url: requestURL, bearer: nil))
+        }
         if response.statusCode == 404 {
             throw UserProfileAPIError.notFound
         }
@@ -101,6 +103,15 @@ struct UserProfileAPIClient: Sendable {
             AppLog.error("api.profile", "decode failed: \(error.localizedDescription)")
             throw UserProfileAPIError.invalidResponse
         }
+    }
+
+    private static func publicProfileRequest(url: URL, bearer: String?) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let bearer { request.setValue(bearer, forHTTPHeaderField: "Authorization") }
+        request.timeoutInterval = 15
+        return request
     }
 
     /// Updates the signed-in user's public handle and returns the normalized value.
@@ -237,6 +248,8 @@ struct UserProfileAPIClient: Sendable {
         let longitude: Double?
         let videoCount: Int
         let videos: [FeedVideo]
+        let followerCount: Int?
+        let followingCount: Int?
 
         var profile: UserProfile {
             UserProfile(
@@ -246,7 +259,9 @@ struct UserProfileAPIClient: Sendable {
                 latitude: latitude,
                 longitude: longitude,
                 videoCount: videoCount,
-                videos: videos
+                videos: videos,
+                followerCount: followerCount.map { max(0, $0) },
+                followingCount: followingCount.map { max(0, $0) }
             )
         }
     }
@@ -257,6 +272,10 @@ struct UserProfileAPIClient: Sendable {
         let avatarURL: URL?
         let videoCount: Int
         let videos: [FeedVideo]
+        let followerCount: Int?
+        let followingCount: Int?
+        let followedByViewer: Bool?
+        let isViewer: Bool?
 
         var profile: PublicUserProfile {
             PublicUserProfile(
@@ -264,7 +283,11 @@ struct UserProfileAPIClient: Sendable {
                 country: country,
                 avatarURL: avatarURL,
                 videoCount: videoCount,
-                videos: videos
+                videos: videos,
+                followerCount: followerCount.map { max(0, $0) },
+                followingCount: followingCount.map { max(0, $0) },
+                followedByViewer: followedByViewer,
+                isViewer: isViewer
             )
         }
     }
