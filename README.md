@@ -51,7 +51,7 @@ flowchart LR
   Worker --> R2
 ```
 
-- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `comments` (ความคิดเห็นใต้คลิป), `video_likes` (ไลก์ของคลิป), `user_follows` (ใครติดตามใคร), `rate_limit_counters`, `dubbed_audio_reports`
+- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์, สวิตช์แชร์ตำแหน่ง `shares_location`), `comments` (ความคิดเห็นใต้คลิป), `video_likes` (ไลก์ของคลิป), `user_follows` (ใครติดตามใคร), `rate_limit_counters`, `dubbed_audio_reports`
 - **R2** เก็บไฟล์ `.mp4` / `.mov` (วิดีโอ), `.jpg` / `.png` (รูปโปรไฟล์ `avatars/`) และเสียงพากย์ AI `.m4a` (`translations/`)
 - **Worker** อ่าน/เขียน DB, อัปโหลด/เสิร์ฟวิดีโอ (รองรับ **HTTP Range** สำหรับ AVPlayer)
 - **iPhone** ทำงานหนักของ dubbing เอง (ตรวจภาษา, แปล, สร้างเสียง) ไม่มี AI provider ฝั่งเซิร์ฟเวอร์
@@ -73,9 +73,9 @@ Marauders/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
-│   ├── sql/                # schema, seed, migrations 001–019
+│   ├── sql/                # schema, seed, migrations 001–020
 │   ├── scripts/            # migrate, test-*, HLS/purge utilities
-│   ├── test/               # authDev, comments, commentsRoutes, likes, follows tests + fakes (users, neon)
+│   ├── test/               # authDev, comments, commentsRoutes, likes, follows, friendLocations tests + fakes (users, neon)
 │   └── wrangler.toml
 ├── deployment/             # คู่มือ deploy, AI_DUBBING.md, video-pipeline.md
 ├── docs/                   # adr/, ci-cd.md
@@ -147,7 +147,9 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption` (ไม่บังคับ) + `audioAssessment` (JSON ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
-| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (handle, ประเทศ, พิกัดล่าสุด, จำนวนคลิป, `avatarURL`, `followerCount`, `followingCount`) + คลิปของตัวเอง (Bearer) |
+| `GET` | `/v1/users/me/friend-locations` | ตำแหน่งล่าสุดของคนที่ผู้ใช้ติดตามและติดตามกลับ (ติดตามกัน) ซึ่งเปิดแชร์ตำแหน่ง → `{ sharing, located, items: [{ handle, avatarURL, latitude, longitude, locationUpdatedAt }] }` เรียงตามเวลาอัปเดตล่าสุด สูงสุด 500 คน พิกัดปัดเหลือทศนิยม 3 ตำแหน่ง (ประมาณ 100 เมตร) (Bearer) — ถ้าผู้ใช้เองไม่ได้เปิดแชร์ หรือยังไม่มีตำแหน่งของตัวเองในระบบ (`located: false`) จะได้ `items: []` เสมอ; บัญชีที่ถูกลบไปแล้วได้ `401` |
+| `PUT` | `/v1/users/me/location-sharing` | `{ enabled: true \| false }` — เปิด / ปิดการแชร์ตำแหน่งกับคนที่ติดตามกัน → `{ sharesLocation }` ตอนเปิดจะลบตำแหน่งเดิมที่เก็บไว้ก่อนผู้ใช้ยินยอมทิ้ง (Bearer; ค่าอื่นที่ไม่ใช่ boolean ได้ `400`, เกิน 20 ครั้ง/นาทีต่อ user ได้ `429`; migration 020) |
+| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (handle, ประเทศ, พิกัดล่าสุด, จำนวนคลิป, `avatarURL`, `followerCount`, `followingCount`, `sharesLocation`) + คลิปของตัวเอง (Bearer) |
 | `PATCH` | `/v1/users/me` | `{ handle }` — เปลี่ยน `@handle` ของตัวเอง (ตัวพิมพ์เล็ก, `a-z0-9._`, 1–63 ตัว, ตรวจคำสงวน) → `{ handle }`; ซ้ำคืน `409` (Bearer) |
 | `POST` | `/v1/users/me/avatar` | `multipart/form-data`: `file` (JPEG/PNG ≤ 5 MB) → อัปโหลด R2 แล้วคืน `{ avatarURL }` (Bearer) |
 | `DELETE` | `/v1/users/me/avatar` | ลบรูปโปรไฟล์ของตัวเอง (ลบไฟล์ใน R2) → `{ avatarURL: null }` (Bearer) |
@@ -170,7 +172,11 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **แผนที่สไตล์ Instagram:** แท็บ Map เป็นแผนที่เต็มจอ ไม่มี navigation bar มีเมนูตัวกรอง (ประเทศ / ใกล้ฉัน) โดยเริ่มต้นแสดงทุกประเทศ และปุ่มหาตำแหน่ง หมุดวงกลมถูกจัดกลุ่มอัตโนมัติ (clustering) ตามระยะ zoom — แตะกลุ่มเพื่อซูมเข้า แตะหมุดเดี่ยวเพื่อเล่นวิดีโอทันที (วนซ้ำ มีปุ่มไปเล่นในฟีด) (แถบค้นหาแบบ client-side ยังซ่อนไว้ เปิดใช้ได้ด้วย `MapView.isSearchVisible`)
 
-**บันทึกตำแหน่งผู้ใช้:** เมื่อผู้ใช้ให้สิทธิ์และแอปได้พิกัดครั้งแรกในเซสชัน หน้า Map จะส่งพิกัดไปที่ `POST /v1/users/me/location` (ครั้งเดียวต่อการเปิดแอป) → เก็บใน `app_users.latitude/longitude`
+**บันทึกตำแหน่งผู้ใช้:** เมื่อผู้ใช้ให้สิทธิ์และแอปได้พิกัดครั้งแรกในเซสชัน หน้า Map จะส่งพิกัดไปที่ `POST /v1/users/me/location` (ครั้งเดียวต่อการเปิดแอป) → เก็บใน `app_users.latitude/longitude` ส่วนผู้ที่เปิดแชร์ตำแหน่ง แอปจะส่งพิกัดเพิ่มอีกระหว่างที่ใช้แอปด้วย (ดูหัวข้อแชร์ตำแหน่ง)
+
+**แชร์ตำแหน่งกับคนที่ติดตามกัน:** ในแท็บ Map มีปุ่ม **แชร์ตำแหน่ง** ค่าเริ่มต้นปิด กดแล้วแอปจะถามยืนยันก่อน (บอกว่าใครจะเห็นอะไร) เมื่อเปิดแล้วปุ่มเปลี่ยนเป็น **กำลังแชร์ตำแหน่ง** ขอบสีเขียว และกดครั้งเดียวก็ปิดได้ทันทีโดยไม่ต้องยืนยัน การแชร์เป็นแบบแลกกัน: ผู้ใช้จะเห็นตำแหน่งของคนที่ตัวเองติดตามและติดตามกลับเฉพาะเมื่อ**ทั้งสองฝ่าย**เปิดแชร์ และตัวเองต้องมีตำแหน่งในระบบแล้วด้วย (ไม่มีใครแอบดูคนอื่นโดยที่ตัวเองไม่ถูกเห็นได้) คนที่ปิดแชร์จะไม่เห็นใครเลย และเลิกติดตามฝ่ายใดฝ่ายหนึ่งก็หยุดเห็นกันทันที ตอนเปิดแชร์ Worker จะลบตำแหน่งเดิมที่แท็บ Map เคยเก็บไว้ก่อนผู้ใช้ยินยอม คนอื่นจึงเห็นเฉพาะตำแหน่งหลังจากเปิดแชร์ (แอปส่งตำแหน่งใหม่ทันที ระหว่างรอแผนที่ขึ้นว่า "กำลังหาตำแหน่งของคุณ…") หน้า Settings ก็มีสวิตช์เดียวกัน จึงปิดได้แม้ปิดสิทธิ์ตำแหน่งไปแล้ว (แท็บ Map จะถูกปิดไว้) และหน้าขอสิทธิ์ตำแหน่งของแท็บ Map มีปุ่ม "หยุดแชร์ตำแหน่ง" ให้ด้วย แอปถามสถานะการแชร์ใหม่ทุกครั้งที่กลับเข้าแอป ระหว่างที่ยังไม่รู้สถานะ ปุ่มจะขึ้นวงหมุนแทนเปิด / ปิด บนแผนที่ คนที่ติดตามกันแสดงเป็นรูปโปรไฟล์ในวงสีเขียว พร้อม handle และเวลาที่อัปเดตล่าสุด (เช่น "5 นาทีที่แล้ว") โดยแสดงตำแหน่งล่าสุดเสมอไม่ว่าจะเก่าแค่ไหน แตะแล้วเปิดโปรไฟล์ แผนที่ถามตำแหน่งเพื่อนใหม่ทุก 60 วินาทีระหว่างที่เปิดอยู่ ถ้าถามไม่สำเร็จติดกันเกิน 5 นาที หมุดเพื่อนจะถูกเอาออกจนกว่าจะถามสำเร็จ ผู้ที่เปิดแชร์จะส่งพิกัดเมื่อเปิดแอปหรือกลับเข้าแอป และไม่บ่อยกว่าทุก 5 นาทีระหว่างที่แอปเปิดอยู่ (ความแม่นยำประมาณ 100 เมตร) ไม่ส่งตอนแอปอยู่เบื้องหลัง และไม่ขอสิทธิ์ตำแหน่งเพิ่ม ตำแหน่งที่ขอไว้ก่อนผู้ใช้ปิดแชร์หรือออกจากระบบจะถูกทิ้งไม่ส่ง ข้อควรรู้: การออกจากระบบหรือลบแอปไม่ได้ปิดการแชร์ และเพราะไม่จำกัดอายุตำแหน่ง ตำแหน่งสุดท้ายจะยังแสดงให้คนที่ติดตามกันเห็นจนกว่าจะปิดแชร์ ข้อความขอสิทธิ์ตำแหน่งของ iOS บอกแล้วว่าตำแหน่งจะแสดงให้คนอื่นเห็นเฉพาะเมื่อเปิดแชร์ และเฉพาะคนที่ติดตามกัน
+
+**ลำดับการ deploy การแชร์ตำแหน่ง:** รัน `cd backend && npm run db:migrate` (migration 020 เพิ่มคอลัมน์ `app_users.shares_location` ค่าเริ่มต้น `false`) ก่อน แล้วค่อย `npm run deploy` เพราะ `GET /v1/users/me` อ่านคอลัมน์นี้ — **ถ้า deploy Worker ก่อน แท็บ Profile จะโหลดไม่ได้ (500)** แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง แอปรุ่นใหม่กับ Worker เก่าจะไม่มีปุ่มให้กด (ปุ่มรอคำตอบจาก Worker ก่อน)
 
 **แท็บของแอป:** Feed · Map · Profile · Upload · Settings (และ Log เฉพาะ Debug build)
 
@@ -229,7 +235,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
 - **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT (เก็บใน Keychain); อัปโหลดต้องมี Bearer token  
 - **Dev login:** `/v1/auth/dev` ปิดอยู่จนกว่าจะตั้ง `DEV_LOGIN_SECRET` (ปล่อยว่างใน production) และฝั่งแอป compile เฉพาะ Debug
-- **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user, ติดตาม / เลิกติดตาม 30 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
+- **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user, ติดตาม / เลิกติดตาม 30 ครั้ง/นาทีต่อ user, เปิด / ปิดแชร์ตำแหน่ง 20 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
 
 ## Troubleshooting
 
@@ -248,7 +254,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend dubbed audio cache/report | `npm run test:dubbed-audio` | ใน `backend/` |
 | Backend dev login | `npm run test:dev-auth` | ใช้ `node:test` + fake users |
 | Backend likes | `npm run test:likes` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route like/unlike (auth, 404/401/429, ไม่นับซ้ำ) และ `likeCount` / `likedByViewer` ในฟีด |
-| Backend follows | `npm run test:follows` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route follow/unfollow (auth, handle ที่ใช้ไม่ได้, 404/401/422/429, ไม่นับซ้ำ), จำนวนผู้ติดตามกับ `followedByViewer` / `isViewer` ในโปรไฟล์ และ `postedByViewer` / `authorFollowedByViewer` ในฟีด (guest ไม่ถามเรื่องการติดตามเลย) |
+| Backend follows | `npm run test:follows` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route follow/unfollow (auth, handle ที่ใช้ไม่ได้, 404/401/422/429, ไม่นับซ้ำ), จำนวนผู้ติดตามกับ `followedByViewer` / `isViewer` ในโปรไฟล์ และ `postedByViewer` / `authorFollowedByViewer` ในฟีด (guest ไม่ถามเรื่องการติดตามเลย) รวมทั้ง `test/friendLocations.test.ts` ที่ตรวจ route แชร์ตำแหน่ง (ต้องติดตามกันและเปิดแชร์ทั้งสองฝ่าย, ผู้ที่ไม่แชร์ไม่เห็นใคร, 400/401/429) |
 | Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) รวมทั้ง `commentCount` ในทุก query ที่ list คลิป (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
@@ -267,6 +273,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - [x] ความคิดเห็นใต้คลิป (อ่าน / เขียน / ลบ)  
 - [x] Like (ปุ่มหัวใจ + จำนวนไลก์บนฟีด)  
 - [x] ติดตาม (ปุ่ม "+" บนรูปคนโพสต์, ปุ่มติดตามในโปรไฟล์, จำนวนผู้ติดตาม / กำลังติดตาม)  
+- [x] แชร์ตำแหน่งกับคนที่ติดตามกัน (เปิดเอง, ต้องแชร์ทั้งสองฝ่าย, แสดงบนแผนที่)  
 - [ ] ฟีด Following และรายชื่อผู้ติดตาม / กำลังติดตาม  
 - [x] ซ่อนแท็บ Log ใน Release build  
 - [x] Jenkins → TestFlight  

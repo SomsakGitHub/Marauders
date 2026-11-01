@@ -7,6 +7,7 @@ import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
 import { authorRelations, handleFollowChange } from "./routes/follows";
+import { handleFriendLocations, handleLocationSharingUpdate } from "./routes/friendLocations";
 import { handleLikeChange, likedVideoIDs } from "./routes/likes";
 import { parseDubbingLanguage } from "./audio/cache";
 import { handleMediaGet } from "./routes/media";
@@ -285,6 +286,21 @@ export default {
         await handleAvatarDelete(request, env, auth.userId),
         request,
       );
+    }
+
+    if (url.pathname === "/v1/users/me/friend-locations" && request.method === "GET") {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      return withCors(await handleFriendLocations(env, auth.userId), request);
+    }
+
+    if (url.pathname === "/v1/users/me/location-sharing" && request.method === "PUT") {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+        { scope: "location-sharing", limit: 20, windowSeconds: 60 }, auth.userId);
+      if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      return withCors(await handleLocationSharingUpdate(request, env, auth.userId), request);
     }
 
     const followMatch = url.pathname.match(/^\/v1\/users\/([^/]+)\/follow$/);

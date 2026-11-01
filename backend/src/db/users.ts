@@ -13,6 +13,7 @@ type UserProfileRow = {
   video_count: number;
   follower_count: number;
   following_count: number;
+  shares_location: boolean;
 };
 
 export type UserProfileJson = {
@@ -26,6 +27,8 @@ export type UserProfileJson = {
   videoCount: number;
   followerCount: number;
   followingCount: number;
+  /** Whether the user shows their last location to mutual followers who share theirs. */
+  sharesLocation: boolean;
 };
 
 export type PublicAccountJson = {
@@ -158,7 +161,8 @@ export async function getUserProfile(
       u.location_updated_at,
       (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count,
       (SELECT count(*) FROM user_follows f WHERE f.followed_user_id = u.id)::int AS follower_count,
-      (SELECT count(*) FROM user_follows f WHERE f.follower_user_id = u.id)::int AS following_count
+      (SELECT count(*) FROM user_follows f WHERE f.follower_user_id = u.id)::int AS following_count,
+      u.shares_location
     FROM app_users u
     WHERE u.id = ${userId}::uuid
   `) as UserProfileRow[];
@@ -179,6 +183,7 @@ export async function getUserProfile(
     videoCount: Number(row.video_count),
     followerCount: Number(row.follower_count ?? 0),
     followingCount: Number(row.following_count ?? 0),
+    sharesLocation: row.shares_location === true,
   };
 }
 
