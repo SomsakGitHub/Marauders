@@ -6,6 +6,7 @@ import { handleDevAuth } from "./routes/authDev";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
+import { handleLikeChange, likedVideoIDs } from "./routes/likes";
 import { parseDubbingLanguage } from "./audio/cache";
 import { handleMediaGet } from "./routes/media";
 import { handlePublicProfileGet } from "./routes/publicProfile";
@@ -64,7 +65,7 @@ function withCors(response: Response, request: Request): Response {
     headers.set("access-control-allow-origin", origin);
     headers.set("vary", "Origin");
   }
-  headers.set("access-control-allow-methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  headers.set("access-control-allow-methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   headers.set("access-control-allow-headers", "Content-Type, Authorization, X-Source-SHA256");
   return new Response(response.body, {
     status: response.status,
@@ -105,6 +106,11 @@ async function handleFeed(request: Request, env: Env): Promise<Response> {
     }
     // Everyone sees the same clips, the viewer's own included.
     const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country);
+    // Which clips the viewer likes is a second question, so the feed query itself stays the same for everyone.
+    if (auth) {
+      const liked = await likedVideoIDs(env.DATABASE_URL, auth.userId, items.map(item => item.id));
+      for (const item of items) item.likedByViewer = liked.has(item.id.toLowerCase());
+    }
     // `viewerID` stays in the answer: app builds from 8d3657d (feed without own clips) until this change refuse a
     // signed-in feed that lacks it.
     return jsonResponse({ items, viewerID: auth?.userId ?? null });
@@ -299,6 +305,16 @@ export default {
       const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
       if (!auth) return withCors(errorResponse(401, "authentication required"), request);
       return withCors(await handleCommentDelete(env, commentMatch[1], commentMatch[2], auth.userId), request);
+    }
+
+    const likeMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/like$/);
+    if (likeMatch && (request.method === "PUT" || request.method === "DELETE")) {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+        { scope: "like", limit: 60, windowSeconds: 60 }, auth.userId);
+      if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      return withCors(await handleLikeChange(env, likeMatch[1], auth.userId, request.method === "PUT"), request);
     }
 
     const dubbedReportMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/dubbed-audio\/report$/);

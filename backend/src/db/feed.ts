@@ -11,6 +11,7 @@ type FeedRow = {
   avatar_url?: string | null;
   caption?: string | null;
   audio_assessment?: Record<string, unknown> | null;
+  like_count?: number | null;
 };
 
 export type FeedItemJson = {
@@ -23,6 +24,9 @@ export type FeedItemJson = {
   authorAvatarURL: string | null;
   caption: string | null;
   audioAssessment: Record<string, unknown> | null;
+  likeCount: number;
+  /** Whether the viewer who asked likes the clip; false for a guest and wherever the viewer is not looked up. */
+  likedByViewer: boolean;
 };
 
 /** Fallback author name when an owner row is missing (should not happen post-auth). */
@@ -38,7 +42,8 @@ export async function listFeedVideos(
 
   const rows = (cursor
     ? await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country,
+          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -49,7 +54,8 @@ export async function listFeedVideos(
         LIMIT ${limit}
       `
     : await sql`
-        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country
+        SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country,
+          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -68,7 +74,8 @@ export async function listUserFeedVideos(
   const sql = neon(databaseUrl);
 
   const rows = (await sql`
-    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country,
+          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count
     FROM feed_videos v
     LEFT JOIN app_users u ON u.id = v.owner_user_id
     WHERE v.owner_user_id = ${userId}::uuid
@@ -107,6 +114,8 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
       authorAvatarURL: row.avatar_url ?? null,
       caption: row.caption ?? null,
     audioAssessment: row.audio_assessment ?? null,
+      likeCount: Number(row.like_count ?? 0),
+      likedByViewer: false,
     };
   });
 }
@@ -164,5 +173,7 @@ export async function insertFeedVideo(
     authorAvatarURL: row.avatar_url ?? null,
     caption: row.caption ?? null,
     audioAssessment: row.audio_assessment ?? null,
+    likeCount: 0,
+    likedByViewer: false,
   };
 }

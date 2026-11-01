@@ -12,7 +12,8 @@
     "test:feed": "node scripts/test-feed.mjs",
     "test:dubbed-audio": "node scripts/test-dubbed-audio.mjs",
     "test:dev-auth": "node scripts/test-dev-auth.mjs",
-    "test:comments": "node scripts/test-comments.mjs"
+    "test:comments": "node scripts/test-comments.mjs",
+    "test:likes": "node scripts/test-likes.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

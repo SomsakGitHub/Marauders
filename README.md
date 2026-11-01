@@ -13,6 +13,7 @@
 | **อัปโหลด** | เลือกวิดีโอจากคลัง → เติมตำแหน่งจาก metadata ของวีดีโอให้อัตโนมัติ (ISO 6709) หรือปักหมุดเอง → ตรวจเสียงในคลิปบนเครื่อง (SoundAnalysis, เป็นข้อมูลประกอบ ไม่บล็อกการอัปโหลด) → ส่ง multipart ไป API → โผล่บนฟีด |
 | **โปรไฟล์** | โปรไฟล์ของตัวเอง (เปลี่ยนรูป/`@handle`, ลบคลิป) และโปรไฟล์สาธารณะของคนอื่นต่อ `@handle` |
 | **ความคิดเห็น** | อ่าน / เขียน / ลบความคิดเห็นใต้คลิปจากชีตที่เปิดด้วยปุ่ม Comments บน rail ของฟีด ผู้เยี่ยมชมอ่านได้ ต้องล็อกอินก่อนเขียน |
+| **ไลก์** | ปุ่มหัวใจบน rail ของฟีดกดถูกใจ / เลิกถูกใจคลิป พร้อมจำนวนไลก์ ผู้เยี่ยมชมเห็นจำนวนแต่ต้องล็อกอินก่อนกด |
 | **Settings** | เลือก **ภาษาที่ฟัง** (listening language) และดาวน์โหลด/จัดการโมเดลภาษา (Whisper base สำหรับตรวจภาษาในคลิป) |
 | **AI dubbing** | ผู้ชมเลือกฟังเสียงต้นฉบับหรือเสียงพากย์ AI ในภาษาของตัวเอง; แปลและสร้างเสียงบน iPhone ของผู้ชม แล้วแชร์ไฟล์ผ่านแคชบน R2 — รายละเอียดใน [deployment/AI_DUBBING.md](deployment/AI_DUBBING.md) |
 | **Auth** | Sign in with Apple → แลก identity token เป็น session; เลือกประเทศตอน login (Debug build บน Simulator ใช้ `/v1/auth/dev` แทนได้) |
@@ -50,7 +51,7 @@ flowchart LR
   Worker --> R2
 ```
 
-- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `comments` (ความคิดเห็นใต้คลิป), `rate_limit_counters`, `dubbed_audio_reports`
+- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `comments` (ความคิดเห็นใต้คลิป), `video_likes` (ไลก์ของคลิป), `rate_limit_counters`, `dubbed_audio_reports`
 - **R2** เก็บไฟล์ `.mp4` / `.mov` (วิดีโอ), `.jpg` / `.png` (รูปโปรไฟล์ `avatars/`) และเสียงพากย์ AI `.m4a` (`translations/`)
 - **Worker** อ่าน/เขียน DB, อัปโหลด/เสิร์ฟวิดีโอ (รองรับ **HTTP Range** สำหรับ AVPlayer)
 - **iPhone** ทำงานหนักของ dubbing เอง (ตรวจภาษา, แปล, สร้างเสียง) ไม่มี AI provider ฝั่งเซิร์ฟเวอร์
@@ -72,9 +73,9 @@ Marauders/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
-│   ├── sql/                # schema, seed, migrations 001–017
+│   ├── sql/                # schema, seed, migrations 001–018
 │   ├── scripts/            # migrate, test-*, HLS/purge utilities
-│   ├── test/               # authDev, comments, commentsRoutes tests + fakes (users, neon)
+│   ├── test/               # authDev, comments, commentsRoutes, likes tests + fakes (users, neon)
 │   └── wrangler.toml
 ├── deployment/             # คู่มือ deploy, AI_DUBBING.md, video-pipeline.md
 ├── docs/                   # adr/, ci-cd.md
@@ -95,7 +96,7 @@ Marauders/
 ```bash
 cd backend
 npm install
-npm run db:migrate    # รัน migration ใน backend/sql/ (001–017 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
+npm run db:migrate    # รัน migration ใน backend/sql/ (001–018 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
 ```
 
 หรือรัน SQL ใน Neon SQL Editor ตามไฟล์ใน `backend/sql/` ทีละไฟล์
@@ -156,6 +157,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | `GET` | `/v1/videos/:id/comments?limit=30&cursor=<uuid>` | ความคิดเห็นใต้คลิป เรียงใหม่สุดก่อน (ไม่ต้องล็อกอิน; ถ้าส่ง Bearer ที่ไม่ถูกต้องคืน 401) — `limit` เริ่มต้น 30 สูงสุด 50, `cursor` คือ id ของความคิดเห็นสุดท้ายในหน้าก่อน (ถ้าความคิดเห็นนั้นถูกลบไปแล้วจะได้หน้าว่างกับ `nextCursor` เป็น null แอปจึงเริ่มโหลดใหม่จากล่าสุด); คืน `{ items, nextCursor }` แต่ละรายการมี `id`, `body`, `language`, `createdAt`, `authorName`, `authorAvatarURL`, `canDelete` (จริงสำหรับความคิดเห็นของผู้ดูเอง และทุกความคิดเห็นใต้คลิปของผู้ดู) |
 | `POST` | `/v1/videos/:id/comments` | `{ body, language? }` — เขียนความคิดเห็น (Bearer) request ใหญ่ได้ไม่เกิน 16 KiB (`413`) ตัดช่องว่างหัวท้ายกับอักขระควบคุมที่ไม่ใช่ tab/ขึ้นบรรทัดออก แล้วต้องยาว 1–500 ตัวอักษร (นับเป็น code point) มีอย่างน้อยหนึ่งตัวที่มองเห็น (ข้อความที่มีแต่ช่องว่าง อักขระ zero-width ตัวเติมฮันกึล หรือ variation selector ถูกปฏิเสธ) และไม่มี surrogate เดี่ยว ไม่งั้น `422` (การขึ้นบรรทัดเก็บไว้ไม่เกิน 10 ครั้ง ครั้งที่เกินถูกเก็บเป็นช่องว่าง กันความคิดเห็นเดียวสูงเป็นร้อยบรรทัด); `language` เก็บเฉพาะภาษาที่แอปแปลได้ (22 ภาษา) นอกนั้นเป็น null; คืน `201 { comment }`; `401 account not found` เมื่อ token ยังไม่หมดอายุแต่แถวผู้ใช้ใน `app_users` ถูกลบไปแล้ว; จำกัด 10 ครั้ง / 60 วินาทีต่อผู้ใช้ (`429`) (migration 017) |
 | `DELETE` | `/v1/videos/:id/comments/:commentId` | ลบความคิดเห็น — ผู้เขียนหรือเจ้าของคลิปเท่านั้น (Bearer) คนอื่นได้ `404` |
+| `PUT` / `DELETE` | `/v1/videos/:id/like` | กดถูกใจ / เลิกถูกใจคลิป (Bearer; ทำซ้ำได้ ไม่นับซ้ำ) คืน `{ liked, likeCount }` หลังเปลี่ยนแล้ว; คลิปที่ไม่มีได้ `404`, บัญชีที่หายไปแล้วได้ `401`, เกิน 60 ครั้ง/นาทีต่อ user ได้ `429` (`video_likes`, migration 018) |
 | `GET` / `HEAD` | `/v1/media/videos/<uuid>.{mp4,mov}` | สตรีมไฟล์วิดีโอจาก R2 |
 | `GET` / `HEAD` | `/v1/media/avatars/<uuid>.{jpg,png}` | สตรีมไฟล์รูปโปรไฟล์จาก R2 |
 
@@ -181,9 +183,13 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **โปรไฟล์สาธารณะต่อ `@handle`:** ทุกบัญชีมี `@handle` อัตโนมัติตอนสมัคร (`@user_<hex>`) แก้ไขได้ในแท็บ Profile แตะชื่อผู้เขียนหรือรูปในฟีดเพื่อเปิดโปรไฟล์สาธารณะของคนนั้นได้แบบไม่ต้องล็อกอิน (`GET /v1/users/<handle>`) — ฟีดใช้ `handle` ของเจ้าของเป็น `authorName`
 
-**ความคิดเห็น:** ปุ่ม Comments บน rail ขวาของฟีดเปิดชีตความคิดเห็นของคลิปที่กำลังดู (ฟีดหยุดเล่นระหว่างเปิดชีตและเล่นต่อเมื่อปิด ยกเว้นผู้ใช้หยุดคลิปไว้เอง) ผู้เยี่ยมชมอ่านได้ แต่ต้องล็อกอินก่อนเขียน — ปุ่ม *Sign in to comment* จะปิดชีตแล้วเปิดหน้า sign-in เดียวกับที่ใช้ทั้งแอป (คลิปหยุดค้างอยู่หลังหน้า sign-in จนผู้ใช้กดย้อนกลับ ถ้า sign-in สำเร็จฟีดจะโหลดใหม่และเริ่มที่คลิปแรก ไม่ใช่คลิปที่กำลังจะคอมเมนต์) ผู้ที่ล็อกอินเขียนได้ไม่เกิน 500 ตัวอักษร (ระหว่างที่มีข้อความร่างค้างอยู่ ปัดชีตลงไม่ปิด ต้องกดปุ่ม ✕) และลบของตัวเองได้ด้วยการปัดแถวไปทางซ้าย (เจ้าของคลิปลบความคิดเห็นใดๆ ใต้คลิปของตัวเองได้) โหลดทีละ 30 รายการ ใหม่สุดก่อน ยังไม่ได้ทำ: แปลความคิดเห็นบน iPhone ของผู้อ่าน, จำนวนความคิดเห็นบน rail, like, รายงาน/บล็อก
+**ความคิดเห็น:** ปุ่ม Comments บน rail ขวาของฟีดเปิดชีตความคิดเห็นของคลิปที่กำลังดู (ฟีดหยุดเล่นระหว่างเปิดชีตและเล่นต่อเมื่อปิด ยกเว้นผู้ใช้หยุดคลิปไว้เอง) ผู้เยี่ยมชมอ่านได้ แต่ต้องล็อกอินก่อนเขียน — ปุ่ม *Sign in to comment* จะปิดชีตแล้วเปิดหน้า sign-in เดียวกับที่ใช้ทั้งแอป (คลิปหยุดค้างอยู่หลังหน้า sign-in จนผู้ใช้กดย้อนกลับ ถ้า sign-in สำเร็จฟีดจะโหลดใหม่และเริ่มที่คลิปแรก ไม่ใช่คลิปที่กำลังจะคอมเมนต์) ผู้ที่ล็อกอินเขียนได้ไม่เกิน 500 ตัวอักษร (ระหว่างที่มีข้อความร่างค้างอยู่ ปัดชีตลงไม่ปิด ต้องกดปุ่ม ✕) และลบของตัวเองได้ด้วยการปัดแถวไปทางซ้าย (เจ้าของคลิปลบความคิดเห็นใดๆ ใต้คลิปของตัวเองได้) โหลดทีละ 30 รายการ ใหม่สุดก่อน ยังไม่ได้ทำ: แปลความคิดเห็นบน iPhone ของผู้อ่าน, จำนวนความคิดเห็นบน rail, รายงาน/บล็อก
 
 **ลำดับการ deploy ความคิดเห็น:** รัน `cd backend && npm run db:migrate` (migration 017 สร้างตาราง `comments`) ก่อน แล้วค่อย `npm run deploy` Worker เพราะ route ใหม่ query ตารางนี้ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่ชีตจะอ่านความคิดเห็นไม่ได้จนกว่าจะ deploy (ชีตขึ้น *This clip is no longer available.* ทุกคลิป เพราะ Worker เก่าตอบ 404 `not found`) — Jenkins ส่งแอปขึ้น TestFlight จาก `main` โดยไม่รอ Worker ส่วน Worker deploy ด้วยมือ (ดู [docs/ci-cd.md](docs/ci-cd.md)) จึงควร migrate และ deploy Worker ก่อนที่ build จาก `main` ที่มีฟีเจอร์นี้จะถึงผู้ทดสอบ
+
+**ไลก์:** ปุ่มหัวใจบน rail ขวาของฟีด (เหนือปุ่ม Comments) กดแล้วหัวใจเปลี่ยนและจำนวนเปลี่ยนทันที จากนั้นใช้จำนวนที่ Worker ตอบกลับแทนค่าที่เดา ถ้าส่งไม่สำเร็จจะย้อนกลับเป็นค่าล่าสุดที่ Worker บอก กดรัวระหว่างรอ request จะส่งทีละ request และ request สุดท้ายเป็นตัวตัดสิน ผู้เยี่ยมชมเห็นจำนวนไลก์แต่การกดจะพาไปหน้า sign-in เดียวกับทั้งแอป (คลิปหยุดค้างหลังหน้า sign-in และเล่นต่อเมื่อผู้ใช้กดย้อนกลับ; sign-in สำเร็จแล้วฟีดโหลดใหม่ ต้องกดหัวใจอีกครั้ง) ฟีดส่ง `likeCount` กับ `likedByViewer` มากับทุกคลิป — `likedByViewer` เป็น `false` เสมอสำหรับ guest และถูกตัดสินจากคำขอที่ส่ง Bearer เท่านั้น (query ของฟีดเองยังเหมือนกันทุกคน) ไลก์ที่ผู้ใช้กดวางแยกจากรายการคลิป (ไม่แก้ `videos`) และยอมให้ข้อมูลที่ฟีดโหลดใหม่ทีหลังชนะ
+
+**ลำดับการ deploy ไลก์:** รัน `cd backend && npm run db:migrate` (migration 018 สร้างตาราง `video_likes`) ก่อน แล้วค่อย `npm run deploy` เพราะ query ของฟีดนับไลก์จากตารางนี้ — **ถ้า deploy Worker ก่อน ฟีดจะตอบ 500 ทุกคำขอ** (ต่างจากความคิดเห็นที่พังแค่ชีต) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป) ส่วนแอปรุ่นใหม่กับ Worker เก่าแสดงหัวใจ 0 และกดแล้วย้อนกลับ (Worker เก่าตอบ `405` กับ PUT และ `400 invalid video id` กับ DELETE โดยไม่ลบอะไร)
 
 ตัวอย่าง response ฟีด:
 
@@ -198,7 +204,9 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
       "country": "TH",
       "authorName": "@marauders",
       "authorAvatarURL": "https://.../v1/media/avatars/....jpg",
-      "caption": "Sunset over the river"
+      "caption": "Sunset over the river",
+      "likeCount": 12,
+      "likedByViewer": false
     }
   ]
 }
@@ -229,6 +237,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend (router, auth, SQL ที่สร้าง — ไม่ต่อ PostgreSQL จริง) | `cd backend && npm run test:feed` | ตามด้วย `npm run typecheck` |
 | Backend dubbed audio cache/report | `npm run test:dubbed-audio` | ใน `backend/` |
 | Backend dev login | `npm run test:dev-auth` | ใช้ `node:test` + fake users |
+| Backend likes | `npm run test:likes` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route like/unlike (auth, 404/401/429, ไม่นับซ้ำ) และ `likeCount` / `likedByViewer` ในฟีด |
 | Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
@@ -245,7 +254,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - [x] Rate limiting ที่ Worker  
 - [x] โปรไฟล์สาธารณะต่อ `@handle` (แก้ไขได้)  
 - [x] ความคิดเห็นใต้คลิป (อ่าน / เขียน / ลบ)  
-- [ ] Like  
+- [x] Like (ปุ่มหัวใจ + จำนวนไลก์บนฟีด)  
 - [x] ซ่อนแท็บ Log ใน Release build  
 - [x] Jenkins → TestFlight  
 - [ ] เปิด unit test stage ใน CI อีกครั้ง + `npm run typecheck`  

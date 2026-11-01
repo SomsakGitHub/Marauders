@@ -43,6 +43,7 @@ for (const file of [
     "../sql/015_video_audio_assessment.sql",
     "../sql/016_dubbed_audio_reports.sql",
     "../sql/017_comments.sql",
+    "../sql/018_video_likes.sql",
 ]) {
   for (const statement of statementsFromFile(file)) {
     await pool.query(statement);
