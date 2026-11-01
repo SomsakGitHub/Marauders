@@ -231,6 +231,16 @@
         }
       }
     },
+    "Couldn't change location sharing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปลี่ยนการแชร์ตำแหน่งไม่สำเร็จ"
+          }
+        }
+      }
+    },
     "Couldn't play the AI audio. Using the original audio.": {
       "localizations": {
         "th": {
@@ -327,6 +337,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "กำลังดาวน์โหลด… %lld%%"
+          }
+        }
+      }
+    },
+    "Finding your location…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังหาตำแหน่งของคุณ…"
           }
         }
       }
@@ -441,6 +461,16 @@
         }
       }
     },
+    "Location sharing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การแชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
     "Models run on this device. Audio and transcripts are not uploaded. Downloads need a network connection and free storage.": {
       "localizations": {
         "th": {
@@ -457,6 +487,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ยังไม่มีเสียงภาษา%@บน iPhone เครื่องนี้ เพิ่มได้ที่ การตั้งค่า › การช่วยการเข้าถึง › เนื้อหาที่พูด › เสียง"
+          }
+        }
+      }
+    },
+    "No mutual followers are sharing their location yet": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่มีคนที่ติดตามกันเปิดแชร์ตำแหน่ง"
           }
         }
       }
@@ -531,6 +571,26 @@
         }
       }
     },
+    "People you follow who follow you back and share their location too will see where you last used the app, and you'll see where they are. You can turn it off any time.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คนที่คุณติดตามและติดตามคุณกลับ ซึ่งเปิดแชร์ตำแหน่งอยู่ด้วย จะเห็นตำแหน่งล่าสุดที่คุณใช้แอป และคุณจะเห็นตำแหน่งของพวกเขา ปิดได้ทุกเมื่อ"
+          }
+        }
+      }
+    },
+    "People you follow who follow you back see where you last used the app while you both share. Turning it off takes you off their maps at once.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คนที่คุณติดตามและติดตามคุณกลับจะเห็นตำแหน่งล่าสุดที่คุณใช้แอป ขณะที่ทั้งสองฝ่ายเปิดแชร์อยู่ ปิดแล้วคุณจะหายไปจากแผนที่ของพวกเขาทันที"
+          }
+        }
+      }
+    },
     "Preparing %@ and %@ on this iPhone…": {
       "localizations": {
         "th": {
@@ -581,6 +641,46 @@
         }
       }
     },
+    "Share location": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "Share location with mutual followers": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์ตำแหน่งกับคนที่ติดตามกัน"
+          }
+        }
+      }
+    },
+    "Share your location?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์ตำแหน่งของคุณไหม?"
+          }
+        }
+      }
+    },
+    "Sharing location": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังแชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
     "Show originals": {
       "localizations": {
         "th": {
@@ -597,6 +697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "การรู้จำเสียงพูด"
+          }
+        }
+      }
+    },
+    "Stop sharing location": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดแชร์ตำแหน่ง"
           }
         }
       }
@@ -1177,6 +1287,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "คุณแสดงความคิดเห็นถี่เกินไป รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "You're sharing your last location with mutual followers.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คุณกำลังแชร์ตำแหน่งล่าสุดกับคนที่ติดตามกัน"
           }
         }
       }

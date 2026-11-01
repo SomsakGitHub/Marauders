@@ -18,6 +18,7 @@ final class AppDependencyContainer {
     let reportUserLocation: ReportUserLocationUseCase
     let clipLikesViewModel: ClipLikesViewModel
     let followsViewModel: UserFollowsViewModel
+    let friendLocationsViewModel: FriendLocationsViewModel
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -31,7 +32,8 @@ final class AppDependencyContainer {
         profileRepository: UserProfileRepository? = nil,
         commentRepository: CommentRepository? = nil,
         clipLikeRepository: ClipLikeRepository? = nil,
-        userFollowRepository: UserFollowRepository? = nil
+        userFollowRepository: UserFollowRepository? = nil,
+        locationSharingRepository: LocationSharingRepository? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -106,6 +108,24 @@ final class AppDependencyContainer {
             )
         }
         followsViewModel = UserFollowsViewModel(setFollow: SetUserFollowUseCase(repository: resolveUserFollowRepository))
+
+        let resolveLocationSharingRepository: LocationSharingRepository
+        if let locationSharingRepository {
+            resolveLocationSharingRepository = locationSharingRepository
+        } else if AppRuntimeConfiguration.isUITesting {
+            // The rejected-session UI tests too: the check at launch would end their session before what they test.
+            resolveLocationSharingRepository = UITestLocationSharingRepository(follows: uiTestFollows)
+        } else {
+            resolveLocationSharingRepository = DefaultLocationSharingRepository(
+                apiClient: LocationSharingAPIClient(client: transport, authorization: apiAuthorization)
+            )
+        }
+        friendLocationsViewModel = FriendLocationsViewModel(
+            loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
+            setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),
+            // UI tests have no location to send; the map there uses a fixed one.
+            reporter: AppRuntimeConfiguration.isUITesting ? nil : ForegroundLocationReporter(report: reportUserLocation)
+        )
 
         let resolveProfileRepository: UserProfileRepository
         if let profileRepository {

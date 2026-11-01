@@ -12,6 +12,8 @@ struct MapView: View {
     @Bindable var feedViewModel: VideoFeedViewModel
     var onOpenClipInFeed: (UUID) -> Void
     var onOpenProfile: (String) -> Void = { _ in }
+    /// The viewer's location sharing and the mutual followers it shows. Without it the map has no sharing switch.
+    var friendLocations: FriendLocationsViewModel? = nil
 
     @Environment(\.openURL) private var openURL
     @State private var position = MapCameraPosition.region(Self.defaultRegion)
@@ -20,6 +22,10 @@ struct MapView: View {
     @State private var profileHandleAfterDismiss: String?
     @State private var isCountryFilterPresented = false
     @State private var searchText = ""
+    @State private var isConfirmingSharing = false
+    @State private var sharingError: String?
+    /// How often the map asks again where mutual followers are while it is on screen.
+    private static let friendsRefreshInterval: Duration = .seconds(60)
 
     /// All clips available on the map, honoring the country filter.
     private var allClips: [FeedVideo] {
@@ -53,6 +59,13 @@ struct MapView: View {
                         }
                     }
                 }
+                ForEach(friendLocations?.friends ?? []) { friend in
+                    Annotation("", coordinate: friend.coordinate) {
+                        FriendPinView(friend: friend) {
+                            onOpenProfile(friend.handle)
+                        }
+                    }
+                }
             }
             .mapStyle(.standard(elevation: .realistic))
             .ignoresSafeArea()
@@ -67,12 +80,35 @@ struct MapView: View {
                 .padding(.trailing, 16)
                 .padding(.bottom, 24)
         }
+        // A container, so the controls keep their own identifiers instead of taking this one.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("map.root")
         .onAppear {
             viewModel.onMapTabBecameActive()
         }
         .task(id: "\(feedViewModel.sessionGeneration):\(viewModel.countryFilter ?? "all")") {
             await feedViewModel.loadMapClips(country: viewModel.countryFilter)
+        }
+        .task {
+            // Mutual followers move while the map is open; their iPhones report every few minutes at most.
+            guard let friendLocations else { return }
+            while !Task.isCancelled {
+                await friendLocations.refresh()
+                try? await Task.sleep(for: Self.friendsRefreshInterval)
+            }
+        }
+        .alert("Share your location?", isPresented: $isConfirmingSharing) {
+            Button("Share location") {
+                Task { sharingError = await friendLocations?.setSharing(true) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("People you follow who follow you back and share their location too will see where you last used the app, and you'll see where they are. You can turn it off any time.")
+        }
+        .alert("Couldn't change location sharing", isPresented: sharingErrorBinding) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(sharingError ?? "")
         }
         .onChange(of: searchText) { _, _ in
             guard let region = Self.regionFitting(mapClips) else { return }
@@ -131,7 +167,27 @@ struct MapView: View {
                 } else {
                     Spacer()
                 }
+                if friendLocations != nil {
+                    sharingButton
+                }
                 filtersMenu
+            }
+
+            if friendLocations?.sharing == true, friendLocations?.located == false {
+                Text("Finding your location…")
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .accessibilityIdentifier("map.findingLocation")
+            } else if friendLocations?.sharing == true, friendLocations?.friends.isEmpty == true {
+                Text("No mutual followers are sharing their location yet")
+                    .font(.subheadline.weight(.medium))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .accessibilityIdentifier("map.friendsEmpty")
             }
 
             if visibleClips.isEmpty, !allClips.isEmpty {
@@ -160,6 +216,51 @@ struct MapView: View {
         }
         .accessibilityLabel("Map filters")
         .accessibilityIdentifier("map.filters")
+    }
+
+    /// Off: asks before sharing, since mutual followers will see where the viewer is. On: one tap stops it.
+    private var sharingButton: some View {
+        let isSharing = friendLocations?.sharing == true
+        return Button {
+            if isSharing {
+                Task { sharingError = await friendLocations?.setSharing(false) }
+            } else {
+                isConfirmingSharing = true
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if friendLocations?.sharing == nil || friendLocations?.isChangingSharing == true {
+                    // Not known yet, or a change is on its way: neither on nor off.
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: isSharing ? "location.circle.fill" : "location.circle")
+                        .font(.headline)
+                        .foregroundStyle(isSharing ? Color.green : Color.primary)
+                }
+                (isSharing ? Text("Sharing location") : Text("Share location"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .frame(minHeight: 44)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay { Capsule().strokeBorder(isSharing ? Color.green : Color.secondary.opacity(0.3), lineWidth: isSharing ? 1.5 : 0.5) }
+            .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+        }
+        .disabled(friendLocations?.sharing == nil || friendLocations?.isChangingSharing == true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(isSharing ? Text("Sharing location") : Text("Share location"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("map.shareLocation")
+    }
+
+    private var sharingErrorBinding: Binding<Bool> {
+        Binding(
+            get: { sharingError != nil },
+            set: { if !$0 { sharingError = nil } }
+        )
     }
 
     private var countryFilterMenuFlag: String {

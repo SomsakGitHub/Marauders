@@ -439,7 +439,7 @@ private struct CommentsTestAuthorization: APIAuthorization {
     func bearerAuthorizationHeader() -> String? { "Bearer test-token" }
 }
 
-private extension URLRequest {
+extension URLRequest {
     /// A URLSession hands a stub protocol the body as a stream rather than as `httpBody`.
     func readBody() -> Data? {
         if let httpBody { return httpBody }

@@ -125,6 +125,24 @@ enum APIConfiguration {
         return url
     }
 
+    /// Where the viewer's mutual followers who share their location were last (GET, Bearer).
+    static func friendLocationsURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/users/me/friend-locations", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
+    /// The viewer's location sharing switch (PUT `{ enabled }`, Bearer).
+    static func locationSharingURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/users/me/location-sharing", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     /// The viewer's follow of the account with `handle`: PUT follows it, DELETE stops following it.
     static func followURL(handle: String) throws -> URL {
         let base = try apiBaseURL()

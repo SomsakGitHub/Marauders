@@ -24,7 +24,8 @@ struct AppRootView: View {
         makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
         makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
         clipLikesViewModel: container.clipLikesViewModel,
-        followsViewModel: container.followsViewModel
+        followsViewModel: container.followsViewModel,
+        friendLocationsViewModel: container.friendLocationsViewModel
     )
             .opacity(isShowingSplash ? 0 : 1)
 

@@ -153,7 +153,7 @@ struct CommentsAPIClient: Sendable {
         let canDelete: Bool
 
         func comment() throws -> Comment {
-            guard let date = CommentDateParser.date(from: createdAt) else {
+            guard let date = WorkerDateParser.date(from: createdAt) else {
                 throw CommentError.invalidResponse
             }
             return Comment(
@@ -166,15 +166,5 @@ struct CommentsAPIClient: Sendable {
                 canDelete: canDelete
             )
         }
-    }
-}
-
-/// The Worker writes `Date.toISOString()`, which carries milliseconds; `JSONDecoder.iso8601` rejects those.
-private enum CommentDateParser {
-    static func date(from string: String) -> Date? {
-        if let date = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string) {
-            return date
-        }
-        return try? Date.ISO8601FormatStyle().parse(string)
     }
 }

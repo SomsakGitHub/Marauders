@@ -842,6 +842,131 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(waitUntilLabel(profileFollow, is: "Following"), app.debugDescription)
     }
 
+    /// Location sharing works both ways between mutual followers. `@traveler` follows the viewer back and shares in the
+    /// UI-test world, so once the viewer follows them and shares too, they show on the map and their pin opens their
+    /// profile; one tap on the switch stops sharing and takes them off at once.
+    @MainActor
+    func testSharingLocationShowsAMutualFollowerOnTheMap() throws {
+        let app = launchApp()
+        let follow = app.buttons["feed.follow"]
+        XCTAssertTrue(follow.waitForExistence(timeout: 15), app.debugDescription)
+        follow.tap()
+        XCTAssertTrue(waitUntilGone(follow), app.debugDescription)
+
+        app.tabBars.buttons["Map"].tap()
+        let share = app.descendants(matching: .any)["map.shareLocation"]
+        XCTAssertTrue(share.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilLabel(share, is: "Share location"), app.debugDescription)
+        let friend = app.descendants(matching: .any)["map.friend"]
+        XCTAssertFalse(friend.exists, "nobody shows before the viewer shares")
+
+        XCTAssertTrue(waitUntilHittable(share), app.debugDescription)
+        share.tap()
+        let confirm = app.alerts.buttons["Share location"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+        confirm.tap()
+
+        XCTAssertTrue(friend.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(waitUntilLabel(share, is: "Sharing location"), app.debugDescription)
+        attachFeedScreenshot(app, name: "map-mutual-follower")
+        friend.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15), app.debugDescription)
+        let handle = app.staticTexts["publicProfile.handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(handle.label, "@traveler")
+        app.buttons["publicProfile.close"].tap()
+
+        XCTAssertTrue(waitUntilHittable(share), app.debugDescription)
+        share.tap()
+        XCTAssertTrue(waitUntilGone(friend), "stopping sharing takes the friend off the map at once")
+        XCTAssertTrue(waitUntilLabel(share, is: "Share location"), app.debugDescription)
+    }
+
+    /// Sharing alone shows nobody: only someone the viewer follows who follows them back can appear.
+    @MainActor
+    func testSharingWithoutAMutualFollowShowsNobody() throws {
+        let app = launchApp()
+        let mapTab = app.tabBars.buttons["Map"]
+        XCTAssertTrue(mapTab.waitForExistence(timeout: 15))
+        mapTab.tap()
+        let share = app.descendants(matching: .any)["map.shareLocation"]
+        XCTAssertTrue(share.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilHittable(share), app.debugDescription)
+
+        share.tap()
+        let confirm = app.alerts.buttons["Share location"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+        confirm.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["map.friendsEmpty"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["map.friend"].exists)
+    }
+
+    /// Settings has the same switch, so sharing can be stopped even when location access is off and the map stays shut.
+    @MainActor
+    func testSettingsTurnsLocationSharingOnAndOffAndTheMapAgrees() throws {
+        let app = launchApp()
+        openSettings(app)
+        let toggle = app.switches["settings.locationSharing"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilValue(toggle, is: "0"), app.debugDescription)
+
+        XCTAssertTrue(waitUntilHittable(toggle), app.debugDescription)
+        toggle.switches.firstMatch.tap()
+        let confirm = app.alerts.buttons["Share location"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "turning sharing on asks first")
+        confirm.tap()
+        XCTAssertTrue(waitUntilValue(toggle, is: "1"), app.debugDescription)
+
+        app.tabBars.buttons["Map"].tap()
+        let share = app.descendants(matching: .any)["map.shareLocation"]
+        XCTAssertTrue(share.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilLabel(share, is: "Sharing location"), app.debugDescription)
+
+        openSettings(app)
+        XCTAssertTrue(waitUntilHittable(toggle), app.debugDescription)
+        toggle.switches.firstMatch.tap()
+        XCTAssertTrue(waitUntilValue(toggle, is: "0"), "turning it off needs no confirmation")
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+    }
+
+    @MainActor
+    func testDecliningTheSharingPromptSharesNothing() throws {
+        let app = launchApp()
+        let mapTab = app.tabBars.buttons["Map"]
+        XCTAssertTrue(mapTab.waitForExistence(timeout: 15))
+        mapTab.tap()
+        let share = app.descendants(matching: .any)["map.shareLocation"]
+        XCTAssertTrue(share.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilHittable(share), app.debugDescription)
+
+        share.tap()
+        let cancel = app.alerts.buttons["Cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+        cancel.tap()
+
+        XCTAssertTrue(waitUntilLabel(share, is: "Share location"), app.debugDescription)
+        XCTAssertFalse(app.descendants(matching: .any)["map.friendsEmpty"].exists)
+    }
+
+    /// Settings is a tab of its own, or under More when the tab bar has no room for it (Debug builds add Log).
+    @MainActor
+    private func openSettings(_ app: XCUIApplication) {
+        let settingsTab = app.tabBars.buttons["Settings"]
+        if settingsTab.waitForExistence(timeout: 5) {
+            settingsTab.tap()
+            return
+        }
+        app.tabBars.buttons["More"].tap()
+        let row = app.cells.staticTexts["Settings"].firstMatch
+        if row.waitForExistence(timeout: 5) {
+            row.tap()
+        } else {
+            // More keeps the last screen it showed: Settings is open already.
+            XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5), app.debugDescription)
+        }
+    }
+
     /// A point on the clip itself: above the middle, clear of the card a clip that cannot play shows, the caption and
     /// the rail.
     @MainActor

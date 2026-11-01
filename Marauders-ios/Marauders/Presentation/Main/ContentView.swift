@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Bindable var router: AppRouter
     let coordinator: AppCoordinator
     @Bindable var feedViewModel: VideoFeedViewModel
@@ -17,6 +18,7 @@ struct ContentView: View {
     let makeCommentsViewModel: (UUID) -> CommentsViewModel
     let clipLikesViewModel: ClipLikesViewModel
     let followsViewModel: UserFollowsViewModel
+    let friendLocationsViewModel: FriendLocationsViewModel
 
     @State private var languageModelsViewModel = LanguageModelsViewModel()
     @State private var showingSignIn = false
@@ -48,7 +50,8 @@ struct ContentView: View {
                 onOpenClipInFeed: { videoID in
                     await coordinator.openClipInFeed(videoID: videoID)
                 },
-                onOpenProfile: { router.openPublicProfile(handle: $0) }
+                onOpenProfile: { router.openPublicProfile(handle: $0) },
+                friendLocations: friendLocationsViewModel
             )
                 .tabItem {
                     Label("Map", systemImage: "map.fill")
@@ -75,7 +78,11 @@ struct ContentView: View {
                 }
                 .tag(MainTab.upload)
 
-            SettingsView(languageModels: languageModelsViewModel)
+            SettingsView(
+                languageModels: languageModelsViewModel,
+                friendLocations: friendLocationsViewModel,
+                isSignedIn: authViewModel.isSignedIn
+            )
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
@@ -97,6 +104,21 @@ struct ContentView: View {
         // The feed is the first tab, so the saved session is restored here instead of waiting for
         // the viewer to open Map, Upload or Profile.
         .task { await authViewModel.restoreSession() }
+        // Whether the viewer shares their location decides whether the app sends it while in use. It is asked again each
+        // time the app comes to the foreground: the viewer may have changed it on another device, or the last ask failed.
+        .task(id: authViewModel.isSignedIn && scenePhase == .active) {
+            guard authViewModel.isSignedIn, scenePhase == .active else { return }
+            await friendLocationsViewModel.refresh()
+        }
+        // A viewer who shares sends their location when the app comes to the foreground, then every few minutes while
+        // it stays there; never in the background.
+        .task(id: scenePhase == .active && friendLocationsViewModel.sharing == true) {
+            guard scenePhase == .active, friendLocationsViewModel.sharing == true else { return }
+            while !Task.isCancelled {
+                friendLocationsViewModel.reportLocationIfDue()
+                try? await Task.sleep(for: .seconds(ForegroundLocationReporter.interval))
+            }
+        }
         .onChange(of: authViewModel.isSignedIn) { _, signedIn in
             if signedIn { showingSignIn = false }
             // The profile is dropped on sign-out only; after a sign-in the Profile tab may already be loading the
@@ -106,6 +128,7 @@ struct ContentView: View {
             // What the previous viewer liked and followed is not what the reloaded feed says about the new one.
             clipLikesViewModel.reset()
             followsViewModel.reset()
+            friendLocationsViewModel.reset()
             Task { await feedViewModel.loadIfNeeded() }
         }
         .sheet(isPresented: $showingSignIn, onDismiss: { signInDismissalID += 1 }) {
@@ -134,6 +157,7 @@ struct ContentView: View {
         makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
         makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
         clipLikesViewModel: container.clipLikesViewModel,
-        followsViewModel: container.followsViewModel
+        followsViewModel: container.followsViewModel,
+        friendLocationsViewModel: container.friendLocationsViewModel
     )
 }
