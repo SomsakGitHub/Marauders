@@ -45,6 +45,8 @@ function script(s: Script = {}): void {
       return s.likeRow === null ? [] : [s.likeRow ?? { video_exists: 1, like_count: 1 }];
     }
     if (/FROM video_likes WHERE user_id/.test(query.text)) return s.likedRows ?? [];
+    // What each author is to the viewer: test/follows.test.ts covers it.
+    if (/AS posted_by_viewer/.test(query.text)) return [];
     if (/FROM feed_videos v/.test(query.text)) return s.feedRows ?? [];
     throw new Error(`unexpected statement: ${query.text}`);
   });

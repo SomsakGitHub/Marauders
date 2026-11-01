@@ -51,7 +51,7 @@ flowchart LR
   Worker --> R2
 ```
 
-- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `comments` (ความคิดเห็นใต้คลิป), `video_likes` (ไลก์ของคลิป), `rate_limit_counters`, `dubbed_audio_reports`
+- **Neon** เก็บ `feed_videos` (`stream_url`, caption, พิกัด, `audio_assessment`), `app_users` (`@handle`, ประเทศ, พิกัดล่าสุด, รูปโปรไฟล์), `comments` (ความคิดเห็นใต้คลิป), `video_likes` (ไลก์ของคลิป), `user_follows` (ใครติดตามใคร), `rate_limit_counters`, `dubbed_audio_reports`
 - **R2** เก็บไฟล์ `.mp4` / `.mov` (วิดีโอ), `.jpg` / `.png` (รูปโปรไฟล์ `avatars/`) และเสียงพากย์ AI `.m4a` (`translations/`)
 - **Worker** อ่าน/เขียน DB, อัปโหลด/เสิร์ฟวิดีโอ (รองรับ **HTTP Range** สำหรับ AVPlayer)
 - **iPhone** ทำงานหนักของ dubbing เอง (ตรวจภาษา, แปล, สร้างเสียง) ไม่มี AI provider ฝั่งเซิร์ฟเวอร์
@@ -73,9 +73,9 @@ Marauders/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
-│   ├── sql/                # schema, seed, migrations 001–018
+│   ├── sql/                # schema, seed, migrations 001–019
 │   ├── scripts/            # migrate, test-*, HLS/purge utilities
-│   ├── test/               # authDev, comments, commentsRoutes, likes tests + fakes (users, neon)
+│   ├── test/               # authDev, comments, commentsRoutes, likes, follows tests + fakes (users, neon)
 │   └── wrangler.toml
 ├── deployment/             # คู่มือ deploy, AI_DUBBING.md, video-pipeline.md
 ├── docs/                   # adr/, ci-cd.md
@@ -147,11 +147,12 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption` (ไม่บังคับ) + `audioAssessment` (JSON ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
 | `POST` | `/v1/users/me/location` | `{ latitude, longitude }` — บันทึกพิกัดล่าสุดของผู้ใช้ที่ล็อกอิน (Bearer) |
-| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (handle, ประเทศ, พิกัดล่าสุด, จำนวนคลิป, `avatarURL`) + คลิปของตัวเอง (Bearer) |
+| `GET` | `/v1/users/me` | โปรไฟล์ผู้ใช้ที่ล็อกอิน (handle, ประเทศ, พิกัดล่าสุด, จำนวนคลิป, `avatarURL`, `followerCount`, `followingCount`) + คลิปของตัวเอง (Bearer) |
 | `PATCH` | `/v1/users/me` | `{ handle }` — เปลี่ยน `@handle` ของตัวเอง (ตัวพิมพ์เล็ก, `a-z0-9._`, 1–63 ตัว, ตรวจคำสงวน) → `{ handle }`; ซ้ำคืน `409` (Bearer) |
 | `POST` | `/v1/users/me/avatar` | `multipart/form-data`: `file` (JPEG/PNG ≤ 5 MB) → อัปโหลด R2 แล้วคืน `{ avatarURL }` (Bearer) |
 | `DELETE` | `/v1/users/me/avatar` | ลบรูปโปรไฟล์ของตัวเอง (ลบไฟล์ใน R2) → `{ avatarURL: null }` (Bearer) |
-| `GET` | `/v1/users/<handle>` | โปรไฟล์สาธารณะของคนอื่น (handle, ประเทศ, จำนวนคลิป, `avatarURL`, คลิป) — ไม่ต้องล็อกอิน |
+| `GET` | `/v1/users/<handle>` | โปรไฟล์สาธารณะของคนอื่น (handle, ประเทศ, จำนวนคลิป, `avatarURL`, คลิป, `followerCount`, `followingCount`) — ไม่ต้องล็อกอิน; ถ้าส่ง Bearer มาจะได้ `followedByViewer` (ผู้ดูติดตามบัญชีนี้อยู่ไหม) กับ `isViewer` (เป็นโปรไฟล์ของผู้ดูเองไหม) ด้วย ส่วน guest ได้ `false` ทั้งคู่ และถ้าส่ง Bearer ที่ไม่ถูกต้องจะคืน 401 เหมือนฟีด |
+| `PUT` / `DELETE` | `/v1/users/<handle>/follow` | ติดตาม / เลิกติดตามบัญชีนั้น (Bearer; ทำซ้ำได้ ไม่นับซ้ำ) คืน `{ following, followerCount, viewerFollowingCount }` หลังเปลี่ยนแล้ว (`followerCount` ของบัญชีนั้น, `viewerFollowingCount` จำนวนบัญชีที่ผู้ดูติดตามอยู่); handle ผิดรูปแบบได้ `400`, บัญชีที่ไม่มีได้ `404`, ติดตามตัวเองได้ `422`, บัญชีของผู้ดูที่ถูกลบไปแล้วได้ `401`, เกิน 30 ครั้ง/นาทีต่อ user ได้ `429` (`user_follows`, migration 019) |
 | `GET` / `POST` | `/v1/videos/:id/dubbed-audio?source=<sha256>&lang=<code>` | แคชเสียงพากย์ AI ที่แชร์กัน: GET (guest อ่านได้) คืน `missing` / `ready` + URL; POST (Bearer, `audio/mp4`, `X-Source-SHA256`) อัปโหลดเสียงที่สร้างบนเครื่อง; `/thai-audio` เป็น path เดิมของแอปรุ่นเก่า (= `lang=th`); `?kind=text` ใช้กับข้อความแปล/คำบรรยาย: GET อ่าน, POST (Bearer, ≤ 16 KiB) บันทึกครั้งแรกครั้งเดียว และถูกลบพร้อมเสียงเมื่อมีการรายงานจนลบ |
 | `POST` | `/v1/videos/:id/dubbed-audio/report?lang=<code>` | รายงานเสียงพากย์ที่แชร์ว่าไม่ดี (Bearer + header `X-Source-SHA256` ต้องตรงกับคลิปปัจจุบัน ไม่งั้น `409`) — ผู้รายงานต่างกัน 2 คน หรือเจ้าของคลิป/ผู้อัปโหลด 1 คน ทำให้ไฟล์ถูกลบ (migration 016) |
 | `GET` | `/v1/videos/:id/comments?limit=30&cursor=<uuid>` | ความคิดเห็นใต้คลิป เรียงใหม่สุดก่อน (ไม่ต้องล็อกอิน; ถ้าส่ง Bearer ที่ไม่ถูกต้องคืน 401) — `limit` เริ่มต้น 30 สูงสุด 50, `cursor` คือ id ของความคิดเห็นสุดท้ายในหน้าก่อน (ถ้าความคิดเห็นนั้นถูกลบไปแล้วจะได้หน้าว่างกับ `nextCursor` เป็น null แอปจึงเริ่มโหลดใหม่จากล่าสุด); คืน `{ items, nextCursor }` แต่ละรายการมี `id`, `body`, `language`, `createdAt`, `authorName`, `authorAvatarURL`, `canDelete` (จริงสำหรับความคิดเห็นของผู้ดูเอง และทุกความคิดเห็นใต้คลิปของผู้ดู) |
@@ -175,7 +176,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **แท็บ Settings:** เลือกภาษาที่ฟัง (22 ภาษา) และจัดการโมเดลภาษาที่ดาวน์โหลดไว้ (รวม Whisper base ที่ใช้ตรวจภาษาพูดของคลิปบนเครื่อง ผ่าน WhisperKit โดยเลือกช่วงที่มีเสียงพูดมากที่สุดมาตรวจ); ต้นทางที่พากย์ได้คืออังกฤษ สเปน และดัตช์ — ดู [deployment/AI_DUBBING.md](deployment/AI_DUBBING.md)
 
-**แท็บ Profile:** เรียก `GET /v1/users/me` (Bearer) เพื่อโชว์รูปโปรไฟล์ + `@handle` + ประเทศ + จำนวนคลิป และกริดคลิปที่ตัวเองอัปโหลด (แตะเพื่อเล่นวนซ้ำ) พร้อมปุ่มออกจากระบบ — แตะรูปเพื่อเปลี่ยนรูปโปรไฟล์ (ย่อภาพ ≤ 512px แล้ว `POST /v1/users/me/avatar`), แตะ handle เพื่อแก้ไข (`PATCH /v1/users/me`) และลบคลิปของตัวเองได้ด้วยการกดค้างที่คลิปหรือกดถังขยะตอนเล่น (ยืนยันก่อนลบ → `DELETE /v1/videos/:id`)
+**แท็บ Profile:** เรียก `GET /v1/users/me` (Bearer) เพื่อโชว์รูปโปรไฟล์ + `@handle` + ประเทศ + จำนวนกำลังติดตาม / ผู้ติดตาม / คลิป และกริดคลิปที่ตัวเองอัปโหลด (แตะเพื่อเล่นวนซ้ำ) พร้อมปุ่มออกจากระบบ — แตะรูปเพื่อเปลี่ยนรูปโปรไฟล์ (ย่อภาพ ≤ 512px แล้ว `POST /v1/users/me/avatar`), แตะ handle เพื่อแก้ไข (`PATCH /v1/users/me`) และลบคลิปของตัวเองได้ด้วยการกดค้างที่คลิปหรือกดถังขยะตอนเล่น (ยืนยันก่อนลบ → `DELETE /v1/videos/:id`)
 
 **รูปโปรไฟล์ (avatar):** ฟีดคืน `authorAvatarURL` (ของเจ้าของโพสต์) และโปรไฟล์คืน `avatarURL` — แสดงเป็นวงกลมมุมขวาล่างของคลิปแบบ TikTok (แตะเพื่อเปิดโปรไฟล์สาธารณะ) ถ้าไม่มีรูปจะแสดงวงกลมสีไล่เฉดพร้อมอักษรแรกของ handle
 
@@ -190,6 +191,10 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 **ไลก์:** ปุ่มหัวใจบน rail ขวาของฟีด (เหนือปุ่ม Comments) กดแล้วหัวใจเปลี่ยนและจำนวนเปลี่ยนทันที จากนั้นใช้จำนวนที่ Worker ตอบกลับแทนค่าที่เดา ถ้าส่งไม่สำเร็จจะย้อนกลับเป็นค่าล่าสุดที่ Worker บอก กดรัวระหว่างรอ request จะส่งทีละ request และ request สุดท้ายเป็นตัวตัดสิน ผู้เยี่ยมชมเห็นจำนวนไลก์แต่การกดจะพาไปหน้า sign-in เดียวกับทั้งแอป (คลิปหยุดค้างหลังหน้า sign-in และเล่นต่อเมื่อผู้ใช้กดย้อนกลับ; sign-in สำเร็จแล้วฟีดโหลดใหม่ ต้องกดหัวใจอีกครั้ง) ฟีดส่ง `likeCount` กับ `likedByViewer` มากับทุกคลิป — `likedByViewer` เป็น `false` เสมอสำหรับ guest และถูกตัดสินจากคำขอที่ส่ง Bearer เท่านั้น (query ของฟีดเองยังเหมือนกันทุกคน) ไลก์ที่ผู้ใช้กดวางแยกจากรายการคลิป (ไม่แก้ `videos`) และยอมให้ข้อมูลที่ฟีดโหลดใหม่ทีหลังชนะ
 
 **แตะสองครั้งเพื่อไลก์ (แบบ TikTok):** แตะคลิปสองครั้งเร็ว ๆ จะไลก์คลิปพร้อมหัวใจใหญ่เด้งขึ้นตรงจุดที่แตะ (เอียงเล็กน้อย ลอยขึ้นแล้วจางหายในหนึ่งวินาที ถ้าเปิด Reduce Motion จะแค่จางเข้าออก) แตะต่อเร็ว ๆ ได้หัวใจเพิ่มทุกครั้ง การแตะสองครั้งไม่ยกเลิกไลก์ (ยกเลิกได้ที่ปุ่มหัวใจเท่านั้น) และส่ง request ครั้งเดียวไม่ว่าจะแตะกี่ครั้ง ปุ่มหัวใจบน rail เป็นหัวใจทึบสีขาว พอไลก์จะเป็นสีแดง (#FE2C55) เด้ง และสั่นเบา ๆ ส่วนการแตะครั้งเดียวยังหยุด / เล่นคลิปเหมือนเดิม แต่จะรอ 0.3 วินาทีเพื่อดูว่ามีแตะที่สองตามมาหรือไม่ ผู้เยี่ยมชมที่แตะสองครั้งจะไปหน้า sign-in เหมือนกดปุ่มหัวใจ
+
+**ติดตาม (follow):** มุมล่างของรูปคนโพสต์บน rail ของฟีดมีปุ่ม "+" สีแดงแบบ TikTok กดแล้วติดตามคนนั้นทันที ปุ่ม "+" กลายเป็นเครื่องหมายถูกครู่หนึ่งแล้วหายไป (และหายจากทุกคลิปของคนนั้น) ปุ่ม "+" ใช้ติดตามอย่างเดียว ถ้าจะเลิกติดตามต้องไปที่โปรไฟล์ คลิปของตัวเองไม่มีปุ่ม "+" ส่วนโปรไฟล์สาธารณะแสดงจำนวน *กำลังติดตาม* / *ผู้ติดตาม* / *คลิป* และปุ่ม **ติดตาม** สีแดง (กดแล้วเปลี่ยนเป็น **กำลังติดตาม** สีเทา กดอีกครั้งเพื่อเลิกติดตาม) ซึ่งไม่แสดงในโปรไฟล์ของตัวเอง แท็บ Profile แสดงจำนวนกำลังติดตามกับผู้ติดตามของตัวเอง และอัปเดตจำนวนกำลังติดตามทันทีหลังติดตามหรือเลิกติดตามโดยไม่ต้องโหลดใหม่ ผู้เยี่ยมชมที่กด "+" บนฟีดจะไปหน้า sign-in เหมือนกดไลก์ ส่วนการกดติดตามในโปรไฟล์จะเปิดหน้า sign-in ซ้อนบนโปรไฟล์ เมื่อ sign-in เสร็จจึงยังอยู่ที่โปรไฟล์เดิมและกดติดตามต่อได้ (ไม่มีการติดตามแทนผู้ใช้) กดแล้วเห็นผลทันที จากนั้นใช้จำนวนที่ Worker ตอบกลับ ถ้าส่งไม่สำเร็จจะย้อนกลับ request การติดตามออกไปทีละอันแม้จะต่างบัญชีกัน (ไม่งั้นจำนวน "กำลังติดตาม" ที่ Worker ตอบอาจขาดไปหนึ่ง) สิ่งที่ผู้ใช้ทำชนะข้อมูลที่ฟีดโหลดไว้ก่อน และโปรไฟล์ที่เริ่มโหลดหลังจาก Worker ตอบครั้งล่าสุดถือเป็นข้อมูลใหม่กว่า ซึ่งปุ่ม "+" ในฟีดก็ใช้ด้วย ฟีดส่ง `postedByViewer` กับ `authorFollowedByViewer` มากับทุกคลิป (`authorFollowedByViewer` เป็น `null` สำหรับคลิปที่ไม่มีบัญชีเจ้าของ ซึ่งติดตามไม่ได้ จึงไม่มีปุ่ม "+"; ทั้งคู่เป็น `false` สำหรับ guest และมาจาก query ที่สองซึ่งรันเฉพาะคำขอที่ส่ง Bearer query ของฟีดเองยังเหมือนกันทุกคน) ยังไม่ได้ทำ: ฟีดเฉพาะคนที่ติดตาม (Following), รายชื่อผู้ติดตาม / กำลังติดตาม
+
+**ลำดับการ deploy การติดตาม:** รัน `cd backend && npm run db:migrate` (migration 019 สร้างตาราง `user_follows`) ก่อน แล้วค่อย `npm run deploy` เพราะ query ของโปรไฟล์ทั้งสองแบบนับผู้ติดตามจากตารางนี้ และฟีดของผู้ที่ล็อกอินก็ถามตารางนี้ — **ถ้า deploy Worker ก่อน โปรไฟล์จะตอบ 500 ทุกคำขอ และฟีดของผู้ที่ล็อกอินก็ตอบ 500** (ฟีดของ guest ยังใช้ได้) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป และไม่ได้ส่ง Bearer ไปกับโปรไฟล์สาธารณะ) ส่วนแอปรุ่นใหม่กับ Worker เก่าจะไม่แสดงปุ่ม "+" ปุ่มติดตาม และจำนวนผู้ติดตาม เพราะ Worker เก่าไม่ส่ง field เหล่านี้มา
 
 **ลำดับการ deploy ไลก์:** รัน `cd backend && npm run db:migrate` (migration 018 สร้างตาราง `video_likes`) ก่อน แล้วค่อย `npm run deploy` เพราะ query ของฟีดนับไลก์จากตารางนี้ — **ถ้า deploy Worker ก่อน ฟีดจะตอบ 500 ทุกคำขอ** (ต่างจากความคิดเห็นที่พังแค่ชีต) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป) ส่วนแอปรุ่นใหม่กับ Worker เก่าแสดงหัวใจ 0 และกดแล้วย้อนกลับ (Worker เก่าตอบ `405` กับ PUT และ `400 invalid video id` กับ DELETE โดยไม่ลบอะไร)
 
@@ -209,7 +214,9 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
       "caption": "Sunset over the river",
       "likeCount": 12,
       "likedByViewer": false,
-      "commentCount": 3
+      "commentCount": 3,
+      "postedByViewer": false,
+      "authorFollowedByViewer": true
     }
   ]
 }
@@ -222,7 +229,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
 - **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT (เก็บใน Keychain); อัปโหลดต้องมี Bearer token  
 - **Dev login:** `/v1/auth/dev` ปิดอยู่จนกว่าจะตั้ง `DEV_LOGIN_SECRET` (ปล่อยว่างใน production) และฝั่งแอป compile เฉพาะ Debug
-- **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
+- **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user, ติดตาม / เลิกติดตาม 30 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
 
 ## Troubleshooting
 
@@ -241,6 +248,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend dubbed audio cache/report | `npm run test:dubbed-audio` | ใน `backend/` |
 | Backend dev login | `npm run test:dev-auth` | ใช้ `node:test` + fake users |
 | Backend likes | `npm run test:likes` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route like/unlike (auth, 404/401/429, ไม่นับซ้ำ) และ `likeCount` / `likedByViewer` ในฟีด |
+| Backend follows | `npm run test:follows` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route follow/unfollow (auth, handle ที่ใช้ไม่ได้, 404/401/422/429, ไม่นับซ้ำ), จำนวนผู้ติดตามกับ `followedByViewer` / `isViewer` ในโปรไฟล์ และ `postedByViewer` / `authorFollowedByViewer` ในฟีด (guest ไม่ถามเรื่องการติดตามเลย) |
 | Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) รวมทั้ง `commentCount` ในทุก query ที่ list คลิป (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
@@ -258,6 +266,8 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - [x] โปรไฟล์สาธารณะต่อ `@handle` (แก้ไขได้)  
 - [x] ความคิดเห็นใต้คลิป (อ่าน / เขียน / ลบ)  
 - [x] Like (ปุ่มหัวใจ + จำนวนไลก์บนฟีด)  
+- [x] ติดตาม (ปุ่ม "+" บนรูปคนโพสต์, ปุ่มติดตามในโปรไฟล์, จำนวนผู้ติดตาม / กำลังติดตาม)  
+- [ ] ฟีด Following และรายชื่อผู้ติดตาม / กำลังติดตาม  
 - [x] ซ่อนแท็บ Log ใน Release build  
 - [x] Jenkins → TestFlight  
 - [ ] เปิด unit test stage ใน CI อีกครั้ง + `npm run typecheck`  

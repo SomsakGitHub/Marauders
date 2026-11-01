@@ -11,6 +11,8 @@ type UserProfileRow = {
   longitude: number | null;
   location_updated_at: string | null;
   video_count: number;
+  follower_count: number;
+  following_count: number;
 };
 
 export type UserProfileJson = {
@@ -22,6 +24,8 @@ export type UserProfileJson = {
   longitude: number | null;
   locationUpdatedAt: string | null;
   videoCount: number;
+  followerCount: number;
+  followingCount: number;
 };
 
 export type PublicAccountJson = {
@@ -30,6 +34,10 @@ export type PublicAccountJson = {
   country: string | null;
   avatarURL: string | null;
   videoCount: number;
+  followerCount: number;
+  followingCount: number;
+  /** Whether the viewer the account was looked up for follows it; false for a guest. */
+  followedByViewer: boolean;
 };
 
 export class HandleConflictError extends Error {
@@ -148,7 +156,9 @@ export async function getUserProfile(
       u.latitude,
       u.longitude,
       u.location_updated_at,
-      (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count
+      (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count,
+      (SELECT count(*) FROM user_follows f WHERE f.followed_user_id = u.id)::int AS follower_count,
+      (SELECT count(*) FROM user_follows f WHERE f.follower_user_id = u.id)::int AS following_count
     FROM app_users u
     WHERE u.id = ${userId}::uuid
   `) as UserProfileRow[];
@@ -167,12 +177,16 @@ export async function getUserProfile(
     longitude: row.longitude,
     locationUpdatedAt: row.location_updated_at,
     videoCount: Number(row.video_count),
+    followerCount: Number(row.follower_count ?? 0),
+    followingCount: Number(row.following_count ?? 0),
   };
 }
 
+/** `viewerID` is the signed-in viewer asking, or null for a guest; it only decides `followedByViewer`. */
 export async function getPublicAccountByHandle(
   databaseUrl: string,
   handle: string,
+  viewerID: string | null = null,
 ): Promise<PublicAccountJson | null> {
   const sql = neon(databaseUrl);
   const rows = (await sql`
@@ -181,7 +195,11 @@ export async function getPublicAccountByHandle(
       u.handle,
       u.country,
       u.avatar_url,
-      (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count
+      (SELECT COUNT(*) FROM feed_videos v WHERE v.owner_user_id = u.id) AS video_count,
+      (SELECT count(*) FROM user_follows f WHERE f.followed_user_id = u.id)::int AS follower_count,
+      (SELECT count(*) FROM user_follows f WHERE f.follower_user_id = u.id)::int AS following_count,
+      EXISTS (SELECT 1 FROM user_follows f
+        WHERE f.follower_user_id = ${viewerID}::uuid AND f.followed_user_id = u.id) AS followed_by_viewer
     FROM app_users u
     WHERE u.handle = ${handle}
   `) as {
@@ -190,6 +208,9 @@ export async function getPublicAccountByHandle(
     country: string | null;
     avatar_url: string | null;
     video_count: number;
+    follower_count: number;
+    following_count: number;
+    followed_by_viewer: boolean;
   }[];
 
   const row = rows[0];
@@ -203,6 +224,9 @@ export async function getPublicAccountByHandle(
     country: row.country,
     avatarURL: row.avatar_url,
     videoCount: Number(row.video_count),
+    followerCount: Number(row.follower_count ?? 0),
+    followingCount: Number(row.following_count ?? 0),
+    followedByViewer: row.followed_by_viewer === true,
   };
 }
 

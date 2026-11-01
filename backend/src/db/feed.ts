@@ -29,6 +29,13 @@ export type FeedItemJson = {
   /** Whether the viewer who asked likes the clip; false for a guest and wherever the viewer is not looked up. */
   likedByViewer: boolean;
   commentCount: number;
+  /** Whether the viewer who asked posted the clip; false for a guest and wherever the viewer is not looked up. */
+  postedByViewer: boolean;
+  /**
+   * Whether the viewer who asked follows the clip's author; false for a guest and wherever not looked up, null for a
+   * signed-in viewer when the clip has no owner account to follow.
+   */
+  authorFollowedByViewer: boolean | null;
 };
 
 /** Fallback author name when an owner row is missing (should not happen post-auth). */
@@ -122,6 +129,8 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
       likeCount: Number(row.like_count ?? 0),
       likedByViewer: false,
       commentCount: Number(row.comment_count ?? 0),
+      postedByViewer: false,
+      authorFollowedByViewer: false,
     };
   });
 }
@@ -182,5 +191,8 @@ export async function insertFeedVideo(
     likeCount: 0,
     likedByViewer: false,
     commentCount: 0,
+    // Only the uploader is answered with the new clip.
+    postedByViewer: true,
+    authorFollowedByViewer: false,
   };
 }

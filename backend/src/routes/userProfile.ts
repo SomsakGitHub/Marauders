@@ -29,6 +29,7 @@ export async function handleUserProfileGet(
       userId,
       PROFILE_VIDEO_LIMIT,
     );
+    for (const video of videos) video.postedByViewer = true;
 
     return jsonResponse({ ...profile, videos });
   } catch {

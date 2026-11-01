@@ -6,6 +6,7 @@ import { handleDevAuth } from "./routes/authDev";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
+import { authorRelations, handleFollowChange } from "./routes/follows";
 import { handleLikeChange, likedVideoIDs } from "./routes/likes";
 import { parseDubbingLanguage } from "./audio/cache";
 import { handleMediaGet } from "./routes/media";
@@ -106,10 +107,21 @@ async function handleFeed(request: Request, env: Env): Promise<Response> {
     }
     // Everyone sees the same clips, the viewer's own included.
     const items = await listFeedVideos(env.DATABASE_URL, limit, cursor, country);
-    // Which clips the viewer likes is a second question, so the feed query itself stays the same for everyone.
+    // Which clips the viewer likes, and what each author is to them, are further questions, so the feed query itself
+    // stays the same for everyone.
     if (auth) {
-      const liked = await likedVideoIDs(env.DATABASE_URL, auth.userId, items.map(item => item.id));
-      for (const item of items) item.likedByViewer = liked.has(item.id.toLowerCase());
+      const ids = items.map(item => item.id);
+      const [liked, relations] = await Promise.all([
+        likedVideoIDs(env.DATABASE_URL, auth.userId, ids),
+        authorRelations(env.DATABASE_URL, auth.userId, ids),
+      ]);
+      for (const item of items) {
+        item.likedByViewer = liked.has(item.id.toLowerCase());
+        const relation = relations.get(item.id.toLowerCase());
+        item.postedByViewer = relation?.postedByViewer ?? false;
+        // Not `??`: null (an author nobody can follow) has to reach the app as null.
+        item.authorFollowedByViewer = relation ? relation.authorFollowedByViewer : false;
+      }
     }
     // `viewerID` stays in the answer: app builds from 8d3657d (feed without own clips) until this change refuse a
     // signed-in feed that lacks it.
@@ -275,12 +287,35 @@ export default {
       );
     }
 
+    const followMatch = url.pathname.match(/^\/v1\/users\/([^/]+)\/follow$/);
+    if (followMatch && (request.method === "PUT" || request.method === "DELETE")) {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+        { scope: "follow", limit: 30, windowSeconds: 60 }, auth.userId);
+      if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      let rawHandle: string;
+      try { rawHandle = decodeURIComponent(followMatch[1]); } catch { return withCors(errorResponse(400, "invalid handle"), request); }
+      return withCors(await handleFollowChange(env, rawHandle, auth.userId, request.method === "PUT"), request);
+    }
+
     if (
       url.pathname.startsWith("/v1/users/") &&
       request.method === "GET"
     ) {
-      const rawHandle = decodeURIComponent(url.pathname.slice("/v1/users/".length));
-      return withCors(await handlePublicProfileGet(request, env, rawHandle), request);
+      // Like the feed's, a supplied session is checked: a bad one is an error, not a profile seen as a guest.
+      const auth = request.headers.has("Authorization")
+        ? await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "") : null;
+      if (request.headers.has("Authorization") && !auth) {
+        return withCors(errorResponse(401, "invalid session"), request);
+      }
+      let rawHandle: string;
+      try {
+        rawHandle = decodeURIComponent(url.pathname.slice("/v1/users/".length));
+      } catch {
+        return withCors(errorResponse(400, "invalid handle"), request);
+      }
+      return withCors(await handlePublicProfileGet(request, env, rawHandle, auth?.userId ?? null), request);
     }
 
     const commentsMatch = url.pathname.match(/^\/v1\/videos\/([^/]+)\/comments$/);

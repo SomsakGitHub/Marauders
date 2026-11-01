@@ -242,7 +242,7 @@ Jenkins ดูแลเฉพาะแอป iOS. Worker (`backend/`) **deploy �
 - secrets ตั้งด้วย `wrangler secret put`: `DATABASE_URL`, `JWT_SIGNING_SECRET`,
   `APPLE_CLIENT_ID` และ `DEV_LOGIN_SECRET` (optional)
 - เทสต์ backend: `npm run typecheck` (`tsc --noEmit`), `npm run test:feed`,
-  `npm run test:dubbed-audio`, `npm run test:dev-auth`, `npm run test:comments`, `npm run test:likes` (ทั้งหมดเป็น node script) และมี `node scripts/test-audio-assessment.mjs` กับ
+  `npm run test:dubbed-audio`, `npm run test:dev-auth`, `npm run test:comments`, `npm run test:likes`, `npm run test:follows` (ทั้งหมดเป็น node script) และมี `node scripts/test-audio-assessment.mjs` กับ
   `node scripts/test-upload.mjs` ที่ไม่มี npm script (`test-upload.mjs` ยิง endpoint workers.dev จริง ไม่ใช่เทสต์ในเครื่อง)
 - bindings ใน `wrangler.toml`: R2 `VIDEOS` → bucket `marauders-videos` (prefix `videos/`, `avatars/`, `translations/`) และ rate limit `RATE_LIMITER`, `AUTH_RATE_LIMITER`
 

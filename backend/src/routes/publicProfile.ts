@@ -5,11 +5,15 @@ import { FeedValidationError, parseHandle } from "../validation";
 
 const PROFILE_VIDEO_LIMIT = 50;
 
-/** Public profile by handle — viewable without authentication (TikTok-style). */
+/**
+ * Public profile by handle — viewable without authentication (TikTok-style). `viewerID` is the signed-in viewer asking,
+ * or null for a guest: it decides only `followedByViewer` and `isViewer`, everyone sees the same profile.
+ */
 export async function handlePublicProfileGet(
   _request: Request,
   env: Env,
   rawHandle: string,
+  viewerID: string | null = null,
 ): Promise<Response> {
   if (!env.DATABASE_URL || env.DATABASE_URL.length > 2048) {
     return jsonError(503, "service configuration incomplete");
@@ -26,7 +30,7 @@ export async function handlePublicProfileGet(
   }
 
   try {
-    const account = await getPublicAccountByHandle(env.DATABASE_URL, handle);
+    const account = await getPublicAccountByHandle(env.DATABASE_URL, handle, viewerID);
     if (!account) {
       return jsonError(404, "profile not found");
     }
@@ -36,12 +40,22 @@ export async function handlePublicProfileGet(
       account.userId,
       PROFILE_VIDEO_LIMIT,
     );
+    const isViewer = viewerID !== null && account.userId.toLowerCase() === viewerID.toLowerCase();
+    // Every clip here is the account's, so what the account is to the viewer holds for each of them.
+    for (const video of videos) {
+      video.postedByViewer = isViewer;
+      video.authorFollowedByViewer = account.followedByViewer;
+    }
 
     return jsonResponse({
       handle: account.handle,
       country: account.country,
       avatarURL: account.avatarURL,
       videoCount: account.videoCount,
+      followerCount: account.followerCount,
+      followingCount: account.followingCount,
+      followedByViewer: account.followedByViewer,
+      isViewer,
       videos,
     });
   } catch {
