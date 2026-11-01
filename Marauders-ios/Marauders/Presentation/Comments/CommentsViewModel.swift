@@ -30,6 +30,9 @@ final class CommentsViewModel {
     var draft = ""
     /// Whether the server holds comments older than the last one listed.
     private(set) var hasMore = false
+    /// Told +1 for each comment the viewer posts and -1 for each one that leaves the list through a delete, so the
+    /// count on the feed's rail can follow.
+    @ObservationIgnored var onCountChange: (Int) -> Void = { _ in }
 
     /// Bumped by every reload so a slow page from before it cannot overwrite newer rows.
     private var loadGeneration = 0
@@ -225,6 +228,7 @@ final class CommentsViewModel {
         do {
             let comment = try await postComment.execute(videoID: videoID, body: body)
             changeCount += 1
+            onCountChange(1)
             // The viewer can refresh and delete the comment before its own answer comes back.
             if !comments.contains(where: { $0.id == comment.id }), !deletedIDs.contains(comment.id) {
                 comments.insert(comment, at: 0)
@@ -257,10 +261,12 @@ final class CommentsViewModel {
         await refillIfEmptied()
     }
 
+    /// Also used when someone else removed the comment first: the viewer saw it, so the count they saw held it too.
     private func removeFromList(_ comment: Comment) {
         comments.removeAll { $0.id == comment.id }
         deletedIDs.insert(comment.id)
         changeCount += 1
+        onCountChange(-1)
     }
 
     /// Deleting every comment on screen while older ones exist would say "No comments yet"; fetch the older ones instead.

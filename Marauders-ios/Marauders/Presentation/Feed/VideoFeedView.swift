@@ -47,6 +47,8 @@ struct VideoFeedView: View {
         return CommentTranslation.language(forCountry: country) ?? ListeningLanguageStore.shared.effective
     }
     @State private var resumeAfterComments = false
+    /// The comments the viewer posted and deleted here, on top of the counts the feed brought.
+    @State private var commentCounts = ClipCommentCounts()
     /// Set when a guest taps "Sign in to comment": the sheet closes first, then the sign-in screen opens.
     @State private var signInAfterComments = false
     @State private var currentPageIndex = 0
@@ -260,6 +262,7 @@ struct VideoFeedView: View {
                         onOpenComments: makeCommentsViewModel.map { make in
                             { openComments(for: video, using: make) }
                         },
+                        commentCount: commentCounts.count(for: video),
                         like: likesViewModel?.state(for: video),
                         onToggleLike: likesViewModel.map { likes in
                             { toggleLike(video, using: likes) }
@@ -381,7 +384,13 @@ struct VideoFeedView: View {
         // A tap while the last sheet is still closing finds the clip paused by that sheet; keep what it noted.
         resumeAfterComments = resumeAfterComments || playerEngine.phase.shouldResumeAfterInterruption
         playerEngine.pause()
-        commentsRoute = CommentsRoute(clip: clip, viewModel: make(clip.id))
+        let comments = make(clip.id)
+        comments.onCountChange = { change in
+            // The feed can reload while the sheet is open: count against the clip as the feed has it now.
+            guard let current = viewModel.videos.first(where: { $0.id == clip.id }) else { return }
+            commentCounts.record(change, on: current)
+        }
+        commentsRoute = CommentsRoute(clip: clip, viewModel: comments)
     }
 
     private func handleCommentsDismissed() {

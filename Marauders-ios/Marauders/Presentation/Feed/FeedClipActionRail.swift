@@ -21,6 +21,8 @@ struct FeedClipActionRail: View {
     var onReportAudio: (() -> Void)? = nil
     /// Opens the clip's comments. Without it the rail has no comments button.
     var onOpenComments: (() -> Void)? = nil
+    /// How many comments the clip has, shown under the comments button; without it the button says "Comments".
+    var commentCount: Int? = nil
     /// What the viewer sees on the like button. Without it, or without `onToggleLike`, the rail has no like button.
     var like: ClipLikeState? = nil
     var onToggleLike: (() -> Void)? = nil
@@ -56,10 +58,16 @@ struct FeedClipActionRail: View {
                 Button(action: onOpenComments) {
                     VStack(spacing: 4) {
                         Image(systemName: "bubble.right").font(.title2)
-                        Text("Comments").font(.caption)
+                        if let commentCount {
+                            Text(commentCount.formatted(.number.notation(.compactName))).font(.caption)
+                        } else {
+                            Text("Comments").font(.caption)
+                        }
                     }.foregroundStyle(.white)
                 }
                 .accessibilityIdentifier("feed.comments")
+                .accessibilityLabel(Text("Comments"))
+                .accessibilityValue(commentCount?.formatted() ?? "")
             }
 
             if let onChooseAIAudio, listening.offersDubbing(for: clip) {

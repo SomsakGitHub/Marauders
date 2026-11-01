@@ -40,7 +40,9 @@ struct UITestFeedRepository: FeedRepository {
                 longitude: 100.5018,
                 country: "TH",
                 authorName: "@marauders",
-                caption: "UI test clip"
+                caption: "UI test clip",
+                // The two comments every clip starts with in UITestCommentRepository.
+                commentCount: 2
             ),
         ]
         return FeedPage(items: items, hasMore: false)

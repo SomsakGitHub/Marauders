@@ -361,6 +361,44 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testTheCommentsButtonCountsWhatTheViewerPostsAndDeletes() throws {
+        let app = launchApp()
+        let open = app.buttons["feed.comments"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(open.label, "Comments")
+        XCTAssertEqual(open.value as? String, "2")
+
+        open.tap()
+        let root = app.descendants(matching: .any)["comments.root"]
+        XCTAssertTrue(root.waitForExistence(timeout: 10))
+        let input = app.descendants(matching: .any)["comments.input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("Counted")
+        app.buttons["comments.send"].tap()
+        let posted = commentRow(app, containing: "Counted")
+        XCTAssertTrue(posted.waitForExistence(timeout: 10), app.debugDescription)
+        app.buttons["comments.close"].firstMatch.tap()
+        XCTAssertTrue(waitUntilGone(root))
+        XCTAssertTrue(waitUntilValue(open, is: "3"), app.debugDescription)
+        attachFeedScreenshot(app, name: "clip-comment-count")
+
+        open.tap()
+        XCTAssertTrue(posted.waitForExistence(timeout: 10), app.debugDescription)
+        posted.swipeLeft()
+        let delete = deleteAction(app)
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), app.debugDescription)
+        delete.tap()
+        let confirm = app.buttons["comments.confirmDelete"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+        confirm.tap()
+        XCTAssertTrue(waitUntilGone(posted), app.debugDescription)
+        app.buttons["comments.close"].firstMatch.tap()
+        XCTAssertTrue(waitUntilGone(root))
+        XCTAssertTrue(waitUntilValue(open, is: "2"), app.debugDescription)
+    }
+
+    @MainActor
     func testACommentInAnotherLanguageGivesThePageASwitchAndNoButtonOfItsOwn() throws {
         let app = launchApp()
         let open = app.buttons["feed.comments"]
@@ -742,6 +780,12 @@ final class MaraudersUITests: XCTestCase {
     @MainActor
     private func waitUntilLabel(_ element: XCUIElement, is label: String, timeout: TimeInterval = 10) -> Bool {
         let matches = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: element)
+        return XCTWaiter().wait(for: [matches], timeout: timeout) == .completed
+    }
+
+    @MainActor
+    private func waitUntilValue(_ element: XCUIElement, is value: String, timeout: TimeInterval = 10) -> Bool {
+        let matches = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
         return XCTWaiter().wait(for: [matches], timeout: timeout) == .completed
     }
 

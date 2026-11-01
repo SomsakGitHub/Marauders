@@ -1500,6 +1500,84 @@ struct CommentsViewModelTests {
         #expect(repository.deletes.count == 1)
         #expect(viewModel.comments.isEmpty)
     }
+
+    // MARK: - The count on the feed's rail
+
+    @Test func aPostTellsTheRailThereIsOneMoreComment() async {
+        let (viewModel, _) = await loadedSUT([comment("old")])
+        var changes: [Int] = []
+        viewModel.onCountChange = { changes.append($0) }
+        viewModel.draft = "Hello"
+
+        await viewModel.post()
+
+        #expect(changes == [1])
+    }
+
+    @Test func aFailedPostLeavesTheRailAlone() async {
+        let (viewModel, repository) = await loadedSUT([comment("old")])
+        var changes: [Int] = []
+        viewModel.onCountChange = { changes.append($0) }
+        repository.postResult = .failure(CommentError.rateLimited)
+        viewModel.draft = "Hello"
+
+        await viewModel.post()
+
+        #expect(changes.isEmpty)
+    }
+
+    @Test func aDeleteTellsTheRailThereIsOneFewer() async {
+        let mine = comment("mine", canDelete: true)
+        let (viewModel, _) = await loadedSUT([mine, comment("other")])
+        var changes: [Int] = []
+        viewModel.onCountChange = { changes.append($0) }
+
+        await viewModel.delete(mine)
+
+        #expect(changes == [-1])
+    }
+
+    @Test func aCommentSomeoneElseRemovedFirstAlsoCountsAsOneFewer() async {
+        let mine = comment("mine", canDelete: true)
+        let (viewModel, repository) = await loadedSUT([mine])
+        var changes: [Int] = []
+        viewModel.onCountChange = { changes.append($0) }
+        repository.deleteResult = .failure(CommentError.notFound)
+
+        await viewModel.delete(mine)
+
+        #expect(changes == [-1])
+    }
+
+    @Test func aDeleteThatFailsOrIsNeverSentLeavesTheRailAlone() async {
+        let mine = comment("mine", canDelete: true)
+        let theirs = comment("theirs", canDelete: false)
+        let (viewModel, repository) = await loadedSUT([mine, theirs])
+        var changes: [Int] = []
+        viewModel.onCountChange = { changes.append($0) }
+        repository.deleteResult = .failure(StubError.uploadFailed)
+
+        await viewModel.delete(mine)
+        await viewModel.delete(theirs)
+
+        #expect(changes.isEmpty)
+    }
+
+    @Test func aSecondDeleteWhileOneIsInFlightCountsOnce() async {
+        let mine = comment("mine", canDelete: true)
+        let (viewModel, repository) = await loadedSUT([mine])
+        var changes: [Int] = []
+        viewModel.onCountChange = { changes.append($0) }
+        let interleave = OneShot()
+        repository.beforeDeleteReturns = { [viewModel] in
+            guard interleave.claim() else { return }
+            await viewModel.delete(mine)
+        }
+
+        await viewModel.delete(mine)
+
+        #expect(changes == [-1])
+    }
 }
 
 @MainActor
