@@ -183,7 +183,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **โปรไฟล์สาธารณะต่อ `@handle`:** ทุกบัญชีมี `@handle` อัตโนมัติตอนสมัคร (`@user_<hex>`) แก้ไขได้ในแท็บ Profile แตะชื่อผู้เขียนหรือรูปในฟีดเพื่อเปิดโปรไฟล์สาธารณะของคนนั้นได้แบบไม่ต้องล็อกอิน (`GET /v1/users/<handle>`) — ฟีดใช้ `handle` ของเจ้าของเป็น `authorName`
 
-**ความคิดเห็น:** ปุ่ม Comments บน rail ขวาของฟีดเปิดชีตความคิดเห็นของคลิปที่กำลังดู (ฟีดหยุดเล่นระหว่างเปิดชีตและเล่นต่อเมื่อปิด ยกเว้นผู้ใช้หยุดคลิปไว้เอง) ผู้เยี่ยมชมอ่านได้ แต่ต้องล็อกอินก่อนเขียน — ปุ่ม *Sign in to comment* จะปิดชีตแล้วเปิดหน้า sign-in เดียวกับที่ใช้ทั้งแอป (คลิปหยุดค้างอยู่หลังหน้า sign-in จนผู้ใช้กดย้อนกลับ ถ้า sign-in สำเร็จฟีดจะโหลดใหม่และเริ่มที่คลิปแรก ไม่ใช่คลิปที่กำลังจะคอมเมนต์) ผู้ที่ล็อกอินเขียนได้ไม่เกิน 500 ตัวอักษร (ระหว่างที่มีข้อความร่างค้างอยู่ ปัดชีตลงไม่ปิด ต้องกดปุ่ม ✕) และลบของตัวเองได้ด้วยการปัดแถวไปทางซ้าย (เจ้าของคลิปลบความคิดเห็นใดๆ ใต้คลิปของตัวเองได้) โหลดทีละ 30 รายการ ใหม่สุดก่อน ยังไม่ได้ทำ: แปลความคิดเห็นบน iPhone ของผู้อ่าน, จำนวนความคิดเห็นบน rail, รายงาน/บล็อก
+**ความคิดเห็น:** ปุ่ม Comments บน rail ขวาของฟีดเปิดชีตความคิดเห็นของคลิปที่กำลังดู (ฟีดหยุดเล่นระหว่างเปิดชีตและเล่นต่อเมื่อปิด ยกเว้นผู้ใช้หยุดคลิปไว้เอง) ผู้เยี่ยมชมอ่านได้ แต่ต้องล็อกอินก่อนเขียน — ปุ่ม *Sign in to comment* จะปิดชีตแล้วเปิดหน้า sign-in เดียวกับที่ใช้ทั้งแอป (คลิปหยุดค้างอยู่หลังหน้า sign-in จนผู้ใช้กดย้อนกลับ ถ้า sign-in สำเร็จฟีดจะโหลดใหม่และเริ่มที่คลิปแรก ไม่ใช่คลิปที่กำลังจะคอมเมนต์) ผู้ที่ล็อกอินเขียนได้ไม่เกิน 500 ตัวอักษร (ระหว่างที่มีข้อความร่างค้างอยู่ ปัดชีตลงไม่ปิด ต้องกดปุ่ม ✕) และลบของตัวเองได้ด้วยการปัดแถวไปทางซ้าย (เจ้าของคลิปลบความคิดเห็นใดๆ ใต้คลิปของตัวเองได้) โหลดทีละ 30 รายการ ใหม่สุดก่อน ใต้ปุ่มแสดงจำนวนความคิดเห็นของคลิป (`commentCount` จากฟีด) และนับเพิ่ม / ลดทันทีเมื่อผู้ใช้โพสต์หรือลบ ความคิดเห็นที่คนอื่นเขียนจะขึ้นเมื่อโหลดฟีดใหม่ ถ้า Worker ยังไม่ส่งจำนวนมา ปุ่มจะเขียนว่า Comments แทน ยังไม่ได้ทำ: แปลความคิดเห็นบน iPhone ของผู้อ่าน, รายงาน/บล็อก
 
 **ลำดับการ deploy ความคิดเห็น:** รัน `cd backend && npm run db:migrate` (migration 017 สร้างตาราง `comments`) ก่อน แล้วค่อย `npm run deploy` Worker เพราะ route ใหม่ query ตารางนี้ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่ชีตจะอ่านความคิดเห็นไม่ได้จนกว่าจะ deploy (ชีตขึ้น *This clip is no longer available.* ทุกคลิป เพราะ Worker เก่าตอบ 404 `not found`) — Jenkins ส่งแอปขึ้น TestFlight จาก `main` โดยไม่รอ Worker ส่วน Worker deploy ด้วยมือ (ดู [docs/ci-cd.md](docs/ci-cd.md)) จึงควร migrate และ deploy Worker ก่อนที่ build จาก `main` ที่มีฟีเจอร์นี้จะถึงผู้ทดสอบ
 
@@ -208,7 +208,8 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
       "authorAvatarURL": "https://.../v1/media/avatars/....jpg",
       "caption": "Sunset over the river",
       "likeCount": 12,
-      "likedByViewer": false
+      "likedByViewer": false,
+      "commentCount": 3
     }
   ]
 }
@@ -240,7 +241,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend dubbed audio cache/report | `npm run test:dubbed-audio` | ใน `backend/` |
 | Backend dev login | `npm run test:dev-auth` | ใช้ `node:test` + fake users |
 | Backend likes | `npm run test:likes` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route like/unlike (auth, 404/401/429, ไม่นับซ้ำ) และ `likeCount` / `likedByViewer` ในฟีด |
-| Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) (ไม่ได้รัน SQL บน Postgres จริง) |
+| Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) รวมทั้ง `commentCount` ในทุก query ที่ list คลิป (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
 | iOS UI tests (`MaraudersUITests`) | รันจาก Xcode / `xcodebuild test` | ใช้ launch argument `UITEST` กับ feed จำลอง (`UITEST_GUEST` เริ่มแบบยังไม่ล็อกอิน, `UITEST_REJECTED_SESSION` จำลอง session ที่ Worker ตอบ 401 — ดู [ARCHITECTURE.md](ARCHITECTURE.md)) |

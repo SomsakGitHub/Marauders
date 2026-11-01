@@ -12,6 +12,7 @@ type FeedRow = {
   caption?: string | null;
   audio_assessment?: Record<string, unknown> | null;
   like_count?: number | null;
+  comment_count?: number | null;
 };
 
 export type FeedItemJson = {
@@ -27,6 +28,7 @@ export type FeedItemJson = {
   likeCount: number;
   /** Whether the viewer who asked likes the clip; false for a guest and wherever the viewer is not looked up. */
   likedByViewer: boolean;
+  commentCount: number;
 };
 
 /** Fallback author name when an owner row is missing (should not happen post-auth). */
@@ -43,7 +45,8 @@ export async function listFeedVideos(
   const rows = (cursor
     ? await sql`
         SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country,
-          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count
+          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count,
+          (SELECT count(*) FROM comments c WHERE c.video_id = v.id)::int AS comment_count
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -55,7 +58,8 @@ export async function listFeedVideos(
       `
     : await sql`
         SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country,
-          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count
+          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count,
+          (SELECT count(*) FROM comments c WHERE c.video_id = v.id)::int AS comment_count
         FROM feed_videos v
         LEFT JOIN app_users u ON u.id = v.owner_user_id
         WHERE (${country}::text IS NULL OR u.country = ${country})
@@ -75,7 +79,8 @@ export async function listUserFeedVideos(
 
   const rows = (await sql`
     SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment, u.country,
-          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count
+          (SELECT count(*) FROM video_likes l WHERE l.video_id = v.id)::int AS like_count,
+          (SELECT count(*) FROM comments c WHERE c.video_id = v.id)::int AS comment_count
     FROM feed_videos v
     LEFT JOIN app_users u ON u.id = v.owner_user_id
     WHERE v.owner_user_id = ${userId}::uuid
@@ -116,6 +121,7 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
     audioAssessment: row.audio_assessment ?? null,
       likeCount: Number(row.like_count ?? 0),
       likedByViewer: false,
+      commentCount: Number(row.comment_count ?? 0),
     };
   });
 }
@@ -175,5 +181,6 @@ export async function insertFeedVideo(
     audioAssessment: row.audio_assessment ?? null,
     likeCount: 0,
     likedByViewer: false,
+    commentCount: 0,
   };
 }

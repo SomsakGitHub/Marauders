@@ -4,6 +4,7 @@ import { beforeEach, describe, it, mock } from "node:test";
 import { SignJWT } from "jose";
 
 import worker from "../src/index";
+import { insertFeedVideo, listFeedVideos, listUserFeedVideos } from "../src/db/feed";
 import { COMMENT_REQUEST_MAX_BYTES } from "../src/routes/comments";
 import { queries, resetFakeNeon, respondWith } from "./fakes/neon";
 
@@ -618,5 +619,61 @@ describe("the statements the comments routes run", () => {
       "AND (c.author_user_id = ?::uuid OR v.owner_user_id = ?::uuid)",
       "RETURNING c.id",
     ].join(" "));
+  });
+});
+
+describe("comment counts in the feed", () => {
+  beforeEach(() => resetFakeNeon());
+  const DATABASE = "postgres://fake.invalid/test";
+  const COUNT_SUBQUERY = /\(SELECT count\(\*\) FROM comments c WHERE c\.video_id = v\.id\)::int AS comment_count/;
+  const folded = () => queries.map(query => query.text.replace(/\s+/g, " "));
+
+  function feedRow(commentCount: unknown) {
+    return {
+      id: VIDEO, stream_url: "https://media.test/clip.m3u8", latitude: null, longitude: null, country: "TH",
+      author_name: "alice", avatar_url: null, caption: null, audio_assessment: null, like_count: 0,
+      comment_count: commentCount,
+    };
+  }
+
+  it("give every clip of GET /v1/feed its number of comments, for a guest too", async () => {
+    respondWith(() => [feedRow(3)]);
+    const res = await call("GET", "/v1/feed?limit=2");
+    assert.equal(res.status, 200);
+    const items = ((await res.json()) as { items: { commentCount: number }[] }).items;
+    assert.deepEqual(items.map(item => item.commentCount), [3]);
+  });
+
+  it("are counted for every clip the feed lists, with or without a cursor", async () => {
+    for (const cursor of [null, VIDEO]) {
+      resetFakeNeon();
+      respondWith(() => [feedRow(7)]);
+      const items = await listFeedVideos(DATABASE, 5, cursor);
+      assert.equal(queries.length, 1);
+      assert.match(folded()[0], COUNT_SUBQUERY, `cursor=${cursor}`);
+      assert.equal(items[0].commentCount, 7);
+    }
+  });
+
+  it("are counted for every clip on a profile", async () => {
+    respondWith(() => [feedRow(2)]);
+    const items = await listUserFeedVideos(DATABASE, VIEWER, 50);
+    assert.match(folded()[0], COUNT_SUBQUERY);
+    assert.equal(items[0].commentCount, 2);
+  });
+
+  it("read a count the database sends as text as a number, and a missing one as none", async () => {
+    respondWith(() => [feedRow("12"), { ...feedRow(0), comment_count: undefined }, feedRow(null)]);
+    const items = await listFeedVideos(DATABASE, 5, null);
+    assert.deepEqual(items.map(item => item.commentCount), [12, 0, 0]);
+  });
+
+  it("start a new upload with none", async () => {
+    respondWith(() => [{
+      id: VIDEO, stream_url: "https://media.test/clip.mp4", latitude: 1, longitude: 2,
+      author_name: "alice", avatar_url: null, caption: "", audio_assessment: null,
+    }]);
+    const item = await insertFeedVideo(DATABASE, "https://media.test/clip.mp4", 1, 2, VIEWER);
+    assert.equal(item.commentCount, 0);
   });
 });
