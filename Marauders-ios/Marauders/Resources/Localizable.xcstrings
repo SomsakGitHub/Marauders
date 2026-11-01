@@ -361,6 +361,16 @@
         }
       }
     },
+    "Like": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ถูกใจ"
+          }
+        }
+      }
+    },
     "Listen in %@ (AI)": {
       "localizations": {
         "th": {
@@ -1097,6 +1107,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ผู้ใช้ไม่ทราบชื่อ"
+          }
+        }
+      }
+    },
+    "Unlike": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลิกถูกใจ"
           }
         }
       }

@@ -588,6 +588,78 @@ final class MaraudersUITests: XCTestCase {
     }
 
     @MainActor
+    func testFeedClipCanBeLikedAndUnliked() throws {
+        let app = launchApp()
+        let like = app.buttons["feed.like"]
+        XCTAssertTrue(like.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(like.label, "Like")
+        XCTAssertEqual(like.value as? String, "0")
+
+        like.tap()
+        XCTAssertTrue(waitUntilLabel(like, is: "Unlike"), app.debugDescription)
+        XCTAssertEqual(like.value as? String, "1")
+        attachFeedScreenshot(app, name: "clip-liked")
+
+        like.tap()
+        XCTAssertTrue(waitUntilLabel(like, is: "Like"), app.debugDescription)
+        XCTAssertEqual(like.value as? String, "0")
+    }
+
+    @MainActor
+    func testGuestLikeRequiresSignInAndTheClipPlaysAgainWhenViewerBacksOut() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let like = app.buttons["feed.like"]
+        XCTAssertTrue(like.waitForExistence(timeout: 15))
+        let paused = app.descendants(matching: .any)["feed.pausedIndicator"]
+        let closeSignIn = app.buttons["auth.closeSignIn"]
+
+        like.tap()
+        XCTAssertTrue(closeSignIn.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(paused.waitForExistence(timeout: 5), "the clip should be paused while the viewer signs in")
+        // The tap asked for sign-in, not for a like.
+        XCTAssertEqual(like.label, "Like")
+
+        closeSignIn.tap()
+        XCTAssertTrue(waitUntilGone(paused), "the clip should play again once the viewer backs out of signing in")
+        XCTAssertEqual(like.label, "Like")
+        XCTAssertEqual(like.value as? String, "0")
+
+        // After signing in the next tap is a like.
+        like.tap()
+        let complete = app.buttons["auth.completeUITestSignIn"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), app.debugDescription)
+        complete.tap()
+        XCTAssertTrue(waitUntilGone(closeSignIn), app.debugDescription)
+        XCTAssertTrue(like.waitForExistence(timeout: 10))
+        XCTAssertEqual(like.label, "Like")
+        like.tap()
+        XCTAssertTrue(waitUntilLabel(like, is: "Unlike"), app.debugDescription)
+    }
+
+    /// The Worker rejects the session on the like itself: the viewer is signed out, the heart is empty again, and the
+    /// next tap is a guest's.
+    @MainActor
+    func testARejectedSessionOnALikeSignsTheViewerOutAndTakesTheLikeBack() throws {
+        let app = launchApp(extraArguments: ["UITEST_REJECTED_SESSION"])
+        let like = app.buttons["feed.like"]
+        XCTAssertTrue(like.waitForExistence(timeout: 15))
+
+        like.tap()
+        // Nothing else asks the Worker anything here, so a gated Upload tab shows the 401 to the like ended the session.
+        app.tabBars.buttons["Upload"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 15), app.debugDescription)
+
+        // The feed has reloaded for the guest: the heart is empty and a tap asks to sign in.
+        app.tabBars.buttons["Feed"].tap()
+        XCTAssertTrue(like.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilLabel(like, is: "Like"), app.debugDescription)
+        XCTAssertEqual(like.value as? String, "0")
+        XCTAssertTrue(waitUntilHittable(like), app.debugDescription)
+        like.tap()
+        XCTAssertTrue(app.buttons["auth.closeSignIn"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    @MainActor
     private func commentRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(identifier: "comments.row")
@@ -628,6 +700,12 @@ final class MaraudersUITests: XCTestCase {
     private func waitUntilGone(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
         return XCTWaiter().wait(for: [gone], timeout: timeout) == .completed
+    }
+
+    @MainActor
+    private func waitUntilLabel(_ element: XCUIElement, is label: String, timeout: TimeInterval = 10) -> Bool {
+        let matches = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: element)
+        return XCTWaiter().wait(for: [matches], timeout: timeout) == .completed
     }
 
     @MainActor

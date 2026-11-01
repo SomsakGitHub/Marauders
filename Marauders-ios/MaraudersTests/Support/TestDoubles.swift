@@ -211,6 +211,31 @@ final class StubCommentRepository: CommentRepository, @unchecked Sendable {
     }
 }
 
+final class StubClipLikeRepository: ClipLikeRepository, @unchecked Sendable {
+    /// One result per call, in order; the last one repeats when the queue runs out.
+    var results: [Result<ClipLikeState, Error>]
+    /// Runs before a call returns, with the number of calls made so far: the request is still in flight while it runs.
+    var beforeReturn: (@Sendable (Int) async -> Void)?
+    private(set) var calls: [(liked: Bool, videoID: UUID)] = []
+    /// The most requests that were out at the same moment.
+    private(set) var peakConcurrency = 0
+    private var outNow = 0
+
+    init(results: [Result<ClipLikeState, Error>] = [.success(ClipLikeState(liked: true, count: 1))]) {
+        self.results = results
+    }
+
+    func setLiked(_ liked: Bool, videoID: UUID) async throws -> ClipLikeState {
+        let index = min(calls.count, results.count - 1)
+        calls.append((liked, videoID))
+        outNow += 1
+        peakConcurrency = max(peakConcurrency, outNow)
+        defer { outNow -= 1 }
+        await beforeReturn?(calls.count)
+        return try results[index].get()
+    }
+}
+
 final class StubAvatarImagePreparer: AvatarImagePreparing, @unchecked Sendable {
     var result: Data?
 

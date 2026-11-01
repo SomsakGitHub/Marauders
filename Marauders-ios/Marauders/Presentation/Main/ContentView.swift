@@ -15,6 +15,7 @@ struct ContentView: View {
     let reportUserLocation: ReportUserLocationUseCase
     let makePublicProfileViewModel: (String) -> PublicProfileViewModel
     let makeCommentsViewModel: (UUID) -> CommentsViewModel
+    let clipLikesViewModel: ClipLikesViewModel
 
     @State private var languageModelsViewModel = LanguageModelsViewModel()
     @State private var showingSignIn = false
@@ -29,7 +30,8 @@ struct ContentView: View {
                 onSignIn: { showingSignIn = true },
                 signInDismissalID: signInDismissalID,
                 onOpenProfile: { router.openPublicProfile(handle: $0) },
-                makeCommentsViewModel: makeCommentsViewModel
+                makeCommentsViewModel: makeCommentsViewModel,
+                likesViewModel: clipLikesViewModel
             )
                 .tabItem {
                     Label("Feed", systemImage: "play.rectangle.fill")
@@ -99,6 +101,8 @@ struct ContentView: View {
             // new viewer's.
             if !signedIn { profileViewModel.resetForSessionChange() }
             feedViewModel.resetForSessionChange()
+            // What the previous viewer liked is not what the reloaded feed says about the new one.
+            clipLikesViewModel.reset()
             Task { await feedViewModel.loadIfNeeded() }
         }
         .sheet(isPresented: $showingSignIn, onDismiss: { signInDismissalID += 1 }) {
@@ -138,6 +142,7 @@ struct ContentView: View {
         profileViewModel: container.profileViewModel,
         reportUserLocation: container.reportUserLocation,
         makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
-        makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) }
+        makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
+        clipLikesViewModel: container.clipLikesViewModel
     )
 }

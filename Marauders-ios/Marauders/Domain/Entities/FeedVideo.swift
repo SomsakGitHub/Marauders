@@ -19,6 +19,10 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     /// Caption text shown with the clip, when known.
     let audioAssessment: ClipAudioAssessment?
     let caption: String?
+    /// How many viewers like the clip; nil from a Worker or a cached feed that predates likes.
+    let likeCount: Int?
+    /// Whether the viewer who asked for the feed likes the clip; nil where it was not looked up.
+    let likedByViewer: Bool?
 
     /// Music-only advisories keep original playback without an AI generation entry point.
     var allowsAIAudio: Bool { audioAssessment?.content != .music }
@@ -43,7 +47,9 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         authorName: String? = nil,
         authorAvatarURL: URL? = nil,
         caption: String? = nil,
-        audioAssessment: ClipAudioAssessment? = nil
+        audioAssessment: ClipAudioAssessment? = nil,
+        likeCount: Int? = nil,
+        likedByViewer: Bool? = nil
     ) {
         self.id = id
         self.streamURL = streamURL
@@ -54,5 +60,7 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
         self.authorAvatarURL = authorAvatarURL
         self.caption = caption
         self.audioAssessment = audioAssessment
+        self.likeCount = likeCount
+        self.likedByViewer = likedByViewer
     }
 }

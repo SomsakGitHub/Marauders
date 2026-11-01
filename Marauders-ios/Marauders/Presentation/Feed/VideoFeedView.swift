@@ -20,6 +20,8 @@ struct VideoFeedView: View {
     var onOpenProfile: (String) -> Void = { _ in }
     /// Builds the comments model for a clip. Without it the feed shows no comments button.
     var makeCommentsViewModel: ((UUID) -> CommentsViewModel)?
+    /// The viewer's likes. Without it the feed shows no like button.
+    var likesViewModel: ClipLikesViewModel?
 
     @State private var isWaitingForSignIn = false
     @State private var isChoosingAudio = false
@@ -250,6 +252,10 @@ struct VideoFeedView: View {
                         },
                         onOpenComments: makeCommentsViewModel.map { make in
                             { openComments(for: video, using: make) }
+                        },
+                        like: likesViewModel?.state(for: video),
+                        onToggleLike: likesViewModel.map { likes in
+                            { toggleLike(video, using: likes) }
                         })
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
@@ -324,6 +330,19 @@ struct VideoFeedView: View {
               isFeedTabSelected, scenePhase == .active else { return }
         resumeAfterAudioChoice = false
         applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+    }
+
+    private func toggleLike(_ clip: FeedVideo, using likes: ClipLikesViewModel) {
+        guard isSignedIn else {
+            // The sign-in screen covers the feed like the audio choice does, so the clip stops the same way and
+            // comes back through the same flag when the viewer is done there.
+            resumeAfterAudioChoice = resumeAfterAudioChoice || playerEngine.phase.shouldResumeAfterInterruption
+            playerEngine.pause()
+            isWaitingForSignIn = true
+            onSignIn()
+            return
+        }
+        likes.toggle(clip)
     }
 
     private func openComments(for clip: FeedVideo, using make: (UUID) -> CommentsViewModel) {

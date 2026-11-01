@@ -166,6 +166,15 @@ enum APIConfiguration {
         return url
     }
 
+    /// The viewer's like on a clip: PUT adds it, DELETE takes it back.
+    static func likeURL(videoID: UUID) throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/videos/\(videoID.uuidString)/like", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     private static func resolveBaseURLString() -> String? {
         if let fromPlist = bundledConfigValue() {
             AppLog.info("config", "loaded base URL from APIConfiguration.plist")

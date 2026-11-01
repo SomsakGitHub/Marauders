@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// Right-edge action rail for the current clip (TikTok-style). It hosts the comments button,
+/// Right-edge action rail for the current clip (TikTok-style). It hosts the like and comments buttons,
 /// the audio choice and the creator's avatar, which opens their public profile when tapped.
 struct FeedClipActionRail: View {
     let clip: FeedVideo
@@ -21,6 +21,9 @@ struct FeedClipActionRail: View {
     var onReportAudio: (() -> Void)? = nil
     /// Opens the clip's comments. Without it the rail has no comments button.
     var onOpenComments: (() -> Void)? = nil
+    /// What the viewer sees on the like button. Without it, or without `onToggleLike`, the rail has no like button.
+    var like: ClipLikeState? = nil
+    var onToggleLike: (() -> Void)? = nil
 
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
@@ -29,6 +32,20 @@ struct FeedClipActionRail: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            if let like, let onToggleLike {
+                Button(action: onToggleLike) {
+                    VStack(spacing: 4) {
+                        Image(systemName: like.liked ? "heart.fill" : "heart")
+                            .font(.title2)
+                            .foregroundStyle(like.liked ? Color.red : Color.white)
+                        Text(like.count.formatted(.number.notation(.compactName))).font(.caption)
+                    }.foregroundStyle(.white)
+                }
+                .accessibilityIdentifier("feed.like")
+                .accessibilityLabel(like.liked ? Text("Unlike") : Text("Like"))
+                .accessibilityValue(like.count.formatted())
+            }
+
             if let onOpenComments {
                 Button(action: onOpenComments) {
                     VStack(spacing: 4) {

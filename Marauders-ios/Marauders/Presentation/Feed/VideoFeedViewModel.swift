@@ -170,7 +170,9 @@ final class VideoFeedViewModel {
             authorName: newValue,
             authorAvatarURL: video.authorAvatarURL,
             caption: video.caption,
-            audioAssessment: video.audioAssessment
+            audioAssessment: video.audioAssessment,
+            likeCount: video.likeCount,
+            likedByViewer: video.likedByViewer
         )
     }
 
@@ -192,7 +194,9 @@ final class VideoFeedViewModel {
             authorName: video.authorName,
             authorAvatarURL: url,
             caption: video.caption,
-            audioAssessment: video.audioAssessment
+            audioAssessment: video.audioAssessment,
+            likeCount: video.likeCount,
+            likedByViewer: video.likedByViewer
         )
     }
 

@@ -16,6 +16,7 @@ final class AppDependencyContainer {
     let authViewModel: AuthViewModel
     let profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
+    let clipLikesViewModel: ClipLikesViewModel
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -27,7 +28,8 @@ final class AppDependencyContainer {
         uploadRepository: VideoUploadRepository? = nil,
         videoExporter: VideoExporting? = nil,
         profileRepository: UserProfileRepository? = nil,
-        commentRepository: CommentRepository? = nil
+        commentRepository: CommentRepository? = nil,
+        clipLikeRepository: ClipLikeRepository? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -119,6 +121,18 @@ final class AppDependencyContainer {
                 apiClient: CommentsAPIClient(client: transport, authorization: apiAuthorization)
             )
         }
+
+        let resolveClipLikeRepository: ClipLikeRepository
+        if let clipLikeRepository {
+            resolveClipLikeRepository = clipLikeRepository
+        } else if AppRuntimeConfiguration.isUITesting, !usesRejectedUITestSession {
+            resolveClipLikeRepository = UITestClipLikeRepository()
+        } else {
+            resolveClipLikeRepository = DefaultClipLikeRepository(
+                apiClient: LikesAPIClient(client: transport, authorization: apiAuthorization)
+            )
+        }
+        clipLikesViewModel = ClipLikesViewModel(setLike: SetClipLikeUseCase(repository: resolveClipLikeRepository))
 
         coordinator = AppCoordinator(
             router: router,
