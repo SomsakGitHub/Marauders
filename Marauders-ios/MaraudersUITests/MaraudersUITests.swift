@@ -659,6 +659,43 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(app.buttons["auth.closeSignIn"].waitForExistence(timeout: 10), app.debugDescription)
     }
 
+    /// A double tap on the clip likes it, as on TikTok, and another one never takes the like back.
+    @MainActor
+    func testDoubleTapOnTheClipLikesItAndNeverTakesTheLikeBack() throws {
+        let app = launchApp()
+        let like = app.buttons["feed.like"]
+        XCTAssertTrue(like.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(like.label, "Like")
+        let clip = clipArea(app)
+
+        clip.doubleTap()
+        XCTAssertTrue(waitUntilLabel(like, is: "Unlike"), app.debugDescription)
+        attachFeedScreenshot(app, name: "double-tap-heart")
+        XCTAssertEqual(like.value as? String, "1")
+
+        clip.doubleTap()
+        XCTAssertFalse(waitUntilLabel(like, is: "Like", timeout: 2), "a double tap never takes the like back")
+        XCTAssertEqual(like.value as? String, "1")
+    }
+
+    @MainActor
+    func testGuestDoubleTapAsksToSignInInsteadOfLiking() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let like = app.buttons["feed.like"]
+        XCTAssertTrue(like.waitForExistence(timeout: 15), app.debugDescription)
+
+        clipArea(app).doubleTap()
+        XCTAssertTrue(app.buttons["auth.closeSignIn"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(like.label, "Like")
+    }
+
+    /// A point on the clip itself: above the middle, clear of the card a clip that cannot play shows, the caption and
+    /// the rail.
+    @MainActor
+    private func clipArea(_ app: XCUIApplication) -> XCUICoordinate {
+        app.otherElements["feed.root"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+    }
+
     @MainActor
     private func commentRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
         app.descendants(matching: .any)

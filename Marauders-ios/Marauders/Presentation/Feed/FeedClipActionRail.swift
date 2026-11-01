@@ -24,6 +24,8 @@ struct FeedClipActionRail: View {
     /// What the viewer sees on the like button. Without it, or without `onToggleLike`, the rail has no like button.
     var like: ClipLikeState? = nil
     var onToggleLike: (() -> Void)? = nil
+    /// Goes up each time the viewer likes the clip, from the heart or a double tap: the heart bounces then.
+    var likePops = 0
 
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
@@ -35,9 +37,13 @@ struct FeedClipActionRail: View {
             if let like, let onToggleLike {
                 Button(action: onToggleLike) {
                     VStack(spacing: 4) {
-                        Image(systemName: like.liked ? "heart.fill" : "heart")
+                        // A filled heart either way, as on TikTok: white until the viewer likes the clip.
+                        Image(systemName: "heart.fill")
                             .font(.title2)
-                            .foregroundStyle(like.liked ? Color.red : Color.white)
+                            .foregroundStyle(like.liked ? Color.likeRed : Color.white)
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                            .symbolEffect(.bounce, value: likePops)
+                            .animation(.snappy, value: like.liked)
                         Text(like.count.formatted(.number.notation(.compactName))).font(.caption)
                     }.foregroundStyle(.white)
                 }

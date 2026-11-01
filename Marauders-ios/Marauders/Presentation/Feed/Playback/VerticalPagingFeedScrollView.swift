@@ -7,6 +7,8 @@ struct VerticalPagingFeedScrollView: UIViewRepresentable {
     let engine: FeedPlayerEngine
     var onPageSettled: (Int) -> Void
     var onTap: () -> Void
+    /// A double tap, or a further quick tap after one, at a point in the feed. Without it a tap pauses at once.
+    var onDoubleTap: ((CGPoint) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
     func makeUIView(context: Context) -> VerticalFeedPagingView {
@@ -17,6 +19,7 @@ struct VerticalPagingFeedScrollView: UIViewRepresentable {
     }
     func updateUIView(_ view: VerticalFeedPagingView, context: Context) {
         context.coordinator.parent = self
+        view.onDoubleTap = onDoubleTap
         view.setVideos(streamURLs, scrollToIndex: currentPageIndex)
         view.syncPresentations(engine.presentations)
     }
@@ -37,6 +40,10 @@ protocol VerticalFeedPagingViewDelegate: AnyObject { func pagingViewDidSettle(on
 final class VerticalFeedPagingView: UIView {
     weak var delegate: VerticalFeedPagingViewDelegate?
     var onTap: (() -> Void)?
+    /// Set to tell double taps from single ones: a single tap then waits a moment before it reaches `onTap`.
+    var onDoubleTap: ((CGPoint) -> Void)?
+    private var taps = FeedTapSequence()
+    private var waitingTap: Task<Void, Never>?
     private let scrollView = UIScrollView()
     private var streamURLs: [URL] = []
     private var presentations: [FeedPlayerPresentation] = []
@@ -55,7 +62,7 @@ final class VerticalFeedPagingView: UIView {
         scrollView.alwaysBounceVertical = true
         scrollView.delegate = self
         addSubview(scrollView)
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         tap.cancelsTouchesInView = false
         scrollView.addGestureRecognizer(tap)
     }
@@ -121,10 +128,36 @@ final class VerticalFeedPagingView: UIView {
         delegate?.pagingViewDidSettle(on: settledIndex)
         // No surface is moved here. Paging only selects which audio/video should play.
     }
-    @objc private func handleTap() { onTap?() }
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+        handleTap(at: recognizer.location(in: self), time: CACurrentMediaTime())
+    }
+
+    func handleTap(at point: CGPoint, time: TimeInterval) {
+        guard let onDoubleTap else { onTap?(); return }
+        waitingTap?.cancel()
+        waitingTap = nil
+        switch taps.tap(at: time) {
+        case .heart:
+            onDoubleTap(point)
+        case .waitForSecondTap:
+            waitingTap = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(FeedTapSequence.doubleTapInterval))
+                guard !Task.isCancelled, let self else { return }
+                waitingTap = nil
+                onTap?()
+            }
+        }
+    }
 }
 
 extension VerticalFeedPagingView: UIScrollViewDelegate {
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        // A swipe starts the taps afresh: a tap still waiting for a second one does not pause the clip being swiped
+        // away from, and hearts do not run on into the next clip.
+        waitingTap?.cancel()
+        waitingTap = nil
+        taps = FeedTapSequence()
+    }
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { settle() }
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         if !decelerate { settle() }

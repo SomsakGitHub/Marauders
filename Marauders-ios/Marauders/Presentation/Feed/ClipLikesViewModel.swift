@@ -74,6 +74,13 @@ final class ClipLikesViewModel {
         Task { await send(clip.id, generation: generation) }
     }
 
+    /// Likes `clip` unless the viewer already does: a double tap only ever likes, as on TikTok. The caller makes sure
+    /// the viewer is signed in.
+    func like(_ clip: FeedVideo) {
+        guard !state(for: clip).liked else { return }
+        toggle(clip)
+    }
+
     /// Forgets what the viewer did: after a sign-in or sign-out the feed reloads with the new viewer's likes.
     func reset() {
         generation += 1

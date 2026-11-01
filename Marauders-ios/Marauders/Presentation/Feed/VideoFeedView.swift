@@ -51,6 +51,10 @@ struct VideoFeedView: View {
     @State private var signInAfterComments = false
     @State private var currentPageIndex = 0
     @State private var playerEngine = FeedPlayerEngine()
+    /// The hearts double taps have left on the clip that are still fading.
+    @State private var heartBursts: [FeedHeartBurst] = []
+    /// Goes up each time the viewer likes a clip here: the rail's heart bounces and the phone gives a light tap.
+    @State private var likePops = 0
 
     var body: some View {
         Group {
@@ -221,6 +225,9 @@ struct VideoFeedView: View {
                     },
                     onTap: {
                         playerEngine.togglePlayPause()
+                    },
+                    onDoubleTap: likesViewModel.map { likes in
+                        { point in likeByDoubleTap(at: point, using: likes) }
                     }
                 )
                 .ignoresSafeArea()
@@ -256,14 +263,20 @@ struct VideoFeedView: View {
                         like: likesViewModel?.state(for: video),
                         onToggleLike: likesViewModel.map { likes in
                             { toggleLike(video, using: likes) }
-                        })
+                        },
+                        likePops: likePops)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
                 playbackOverlay
+
+                // Laid out like the pager, over the whole screen, so a heart lands where the finger was.
+                FeedHeartBurstLayer(bursts: heartBursts)
+                    .ignoresSafeArea()
             }
         }
         .background(Color.black)
+        .sensoryFeedback(.impact(weight: .light), trigger: likePops)
     }
 
     @ViewBuilder
@@ -333,16 +346,33 @@ struct VideoFeedView: View {
     }
 
     private func toggleLike(_ clip: FeedVideo, using likes: ClipLikesViewModel) {
-        guard isSignedIn else {
-            // The sign-in screen covers the feed like the audio choice does, so the clip stops the same way and
-            // comes back through the same flag when the viewer is done there.
-            resumeAfterAudioChoice = resumeAfterAudioChoice || playerEngine.phase.shouldResumeAfterInterruption
-            playerEngine.pause()
-            isWaitingForSignIn = true
-            onSignIn()
-            return
-        }
+        guard isSignedIn else { askGuestToSignInToLike(); return }
+        if !likes.state(for: clip).liked { likePops += 1 }
         likes.toggle(clip)
+    }
+
+    /// A double tap on the clip likes it, as on TikTok, with a big heart where the finger was. It never takes a like
+    /// back, and every further quick tap adds another heart.
+    private func likeByDoubleTap(at point: CGPoint, using likes: ClipLikesViewModel) {
+        guard let clip = currentVideo else { return }
+        guard isSignedIn else { askGuestToSignInToLike(); return }
+        let burst = FeedHeartBurst(location: point)
+        heartBursts.append(burst)
+        Task {
+            try? await Task.sleep(for: .seconds(FeedHeartBurst.duration))
+            heartBursts.removeAll { $0.id == burst.id }
+        }
+        if !likes.state(for: clip).liked { likePops += 1 }
+        likes.like(clip)
+    }
+
+    /// A guest's like opens the sign-in screen instead. It covers the feed like the audio choice does, so the clip stops
+    /// the same way and comes back through the same flag when the viewer is done there.
+    private func askGuestToSignInToLike() {
+        resumeAfterAudioChoice = resumeAfterAudioChoice || playerEngine.phase.shouldResumeAfterInterruption
+        playerEngine.pause()
+        isWaitingForSignIn = true
+        onSignIn()
     }
 
     private func openComments(for clip: FeedVideo, using make: (UUID) -> CommentsViewModel) {

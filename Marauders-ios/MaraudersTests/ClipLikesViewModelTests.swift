@@ -415,6 +415,71 @@ struct ClipLikesViewModelTests {
         #expect(repository.calls.count == 1)
         #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4))
     }
+
+    // MARK: - Double tap
+
+    @Test func aDoubleTapLikesAClipTheViewerDoesNotLikeYet() async {
+        let (viewModel, repository) = makeSUT([.success(ClipLikeState(liked: true, count: 7))])
+        let clip = clip(3, liked: false)
+
+        viewModel.like(clip)
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4))
+
+        await finish(viewModel)
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 7))
+        #expect(repository.calls.map(\.liked) == [true])
+    }
+
+    @Test func aDoubleTapNeverTakesALikeBack() {
+        let (viewModel, repository) = makeSUT()
+        let clip = clip(5, liked: true)
+
+        viewModel.like(clip)
+
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 5))
+        #expect(!viewModel.isBusy)
+        #expect(repository.calls.isEmpty)
+    }
+
+    /// A run of hearts on a clip the viewer has just liked sends the one like, not one per heart.
+    @Test func moreDoubleTapsAfterALikeSendNothingMore() async {
+        let (viewModel, repository) = makeSUT([.success(ClipLikeState(liked: true, count: 4))])
+        let request = Gate()
+        repository.beforeReturn = { _ in await request.wait() }
+        let clip = clip(3, liked: false)
+
+        viewModel.like(clip)
+        await waitUntil { repository.calls.count == 1 }
+        viewModel.like(clip)
+        viewModel.like(clip)
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4))
+
+        await request.open()
+        await finish(viewModel)
+        #expect(repository.calls.map(\.liked) == [true])
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4))
+    }
+
+    /// The viewer took the like back with the heart and double-tapped before the Worker answered: the clip ends liked.
+    @Test func aDoubleTapWhileAnUnlikeIsOutLikesTheClipAgain() async {
+        let (viewModel, repository) = makeSUT([
+            .success(ClipLikeState(liked: false, count: 4)),
+            .success(ClipLikeState(liked: true, count: 5)),
+        ])
+        let firstRequest = Gate()
+        repository.beforeReturn = { call in if call == 1 { await firstRequest.wait() } }
+        let clip = clip(5, liked: true)
+
+        viewModel.toggle(clip)
+        await waitUntil { repository.calls.count == 1 }
+        viewModel.like(clip)
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 5))
+
+        await firstRequest.open()
+        await finish(viewModel)
+        #expect(repository.calls.map(\.liked) == [false, true])
+        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 5))
+    }
 }
 
 /// Holds a stubbed request in flight until the test lets it go.
