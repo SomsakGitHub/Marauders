@@ -66,7 +66,6 @@ Marauders/
 │   │   ├── Domain/              # Entities, UseCases, Repositories/Services (protocol)
 │   │   ├── Data/                # API clients, Auth, Repositories, Services (cache, Whisper, ...)
 │   │   ├── Presentation/        # Feed, Map, Upload, Profile, Settings, Dubbing, Auth, Debug (Log), ...
-│   │   ├── Resources/           # Localizable.xcstrings
 │   │   └── APIConfiguration.plist   # Base URL ของ Worker (HTTPS)
 │   ├── MaraudersTests/     # unit tests (Swift Testing)
 │   ├── MaraudersUITests/   # XCUITest
