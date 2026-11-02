@@ -10,6 +10,7 @@ final class LocationManagerDelegateBridge: NSObject, CLLocationManagerDelegate {
     var onAuthorizationChange: (@MainActor () -> Void)?
     var onLocations: (@MainActor ([CLLocation]) -> Void)?
     var onFailure: (@MainActor (Error) -> Void)?
+    var onVisit: (@MainActor (CLVisit) -> Void)?
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         onAuthorizationChange?()
@@ -21,5 +22,9 @@ final class LocationManagerDelegateBridge: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         onFailure?(error)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
+        onVisit?(visit)
     }
 }

@@ -39,6 +39,45 @@ struct UserLocationAPIClientTests {
         )
         #expect(json["latitude"] as? Double == 13.7563)
         #expect(json["longitude"] as? Double == 100.5018)
+        #expect(json["whileClosed"] == nil, "only what the app sends while closed says so")
+    }
+
+    @Test(arguments: [
+        ("{\"latitude\":1,\"longitude\":2,\"sharesLocation\":false}", false as Bool?),
+        ("{\"latitude\":1,\"longitude\":2,\"sharesLocation\":true}", true),
+        ("{\"latitude\":1,\"longitude\":2}", nil),
+        ("not json", nil),
+    ])
+    func aReportWhileClosedSaysSoAndAnswersWhetherTheViewerStillShares(answer: String, expected: Bool?) async throws {
+        var capturedBody: Data?
+        let session = StubURLSessionFactory.make { request in
+            capturedBody = Self.bodyData(from: request)
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 200)
+            return (response, Data(answer.utf8))
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = UserLocationAPIClient(session: session, authorization: Self.authorization)
+        let stillShares = try await client.reportWhileClosed(location: Self.bangkok)
+
+        #expect(stillShares == expected)
+        let body = try #require(capturedBody)
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        #expect(json["whileClosed"] as? Bool == true)
+        #expect(json["latitude"] as? Double == 13.7563)
+    }
+
+    @Test func aReportWhileClosedThrowsServerErrorOnFailure() async {
+        let session = StubURLSessionFactory.make { request in
+            let response = StubURLSessionFactory.httpResponse(for: request, statusCode: 401)
+            return (response, Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        let client = UserLocationAPIClient(session: session, authorization: Self.authorization)
+        await #expect(throws: UserLocationAPIError.serverError(401)) {
+            _ = try await client.reportWhileClosed(location: Self.bangkok)
+        }
     }
 
     @Test func reportThrowsWhenNotAuthenticated() async {

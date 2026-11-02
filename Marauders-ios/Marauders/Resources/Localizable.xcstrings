@@ -91,6 +91,16 @@
         }
       }
     },
+    "Allow location access Always": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อนุญาตให้เข้าถึงตำแหน่ง “เสมอ”"
+          }
+        }
+      }
+    },
     "Allow speech recognition in Settings so the clip's speech can be transcribed.": {
       "localizations": {
         "th": {
@@ -461,6 +471,16 @@
         }
       }
     },
+    "Location access isn't set to Always, so they see where you last used the app, not where you are while it's closed.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "สิทธิ์เข้าถึงตำแหน่งไม่ได้ตั้งเป็น “เสมอ” พวกเขาจึงเห็นแค่ตำแหน่งล่าสุดที่คุณใช้แอป ไม่ใช่ตำแหน่งตอนที่ปิดแอปอยู่"
+          }
+        }
+      }
+    },
     "Location sharing": {
       "localizations": {
         "th": {
@@ -571,22 +591,22 @@
         }
       }
     },
-    "People you follow who follow you back and share their location too will see where you last used the app, and you'll see where they are. You can turn it off any time.": {
+    "People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time.": {
       "localizations": {
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "คนที่คุณติดตามและติดตามคุณกลับ ซึ่งเปิดแชร์ตำแหน่งอยู่ด้วย จะเห็นตำแหน่งล่าสุดที่คุณใช้แอป และคุณจะเห็นตำแหน่งของพวกเขา ปิดได้ทุกเมื่อ"
+            "value": "คนที่คุณติดตามและติดตามคุณกลับ ซึ่งเปิดแชร์ตำแหน่งอยู่ด้วย จะเห็นว่าคุณอยู่ที่ไหน แม้ตอนปิด Marauders อยู่ และคุณจะเห็นตำแหน่งของพวกเขา ปิดได้ทุกเมื่อ"
           }
         }
       }
     },
-    "People you follow who follow you back see where you last used the app while you both share. Turning it off takes you off their maps at once.": {
+    "People you follow who follow you back see where you are while you both share, also while Marauders is closed. Turning it off takes you off their maps at once.": {
       "localizations": {
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "คนที่คุณติดตามและติดตามคุณกลับจะเห็นตำแหน่งล่าสุดที่คุณใช้แอป ขณะที่ทั้งสองฝ่ายเปิดแชร์อยู่ ปิดแล้วคุณจะหายไปจากแผนที่ของพวกเขาทันที"
+            "value": "คนที่คุณติดตามและติดตามคุณกลับจะเห็นว่าคุณอยู่ที่ไหน ขณะที่ทั้งสองฝ่ายเปิดแชร์อยู่ แม้ตอนปิด Marauders อยู่ ปิดแล้วคุณจะหายไปจากแผนที่ของพวกเขาทันที"
           }
         }
       }

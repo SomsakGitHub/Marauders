@@ -103,7 +103,7 @@ struct MapView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("People you follow who follow you back and share their location too will see where you last used the app, and you'll see where they are. You can turn it off any time.")
+            Text("People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time.")
         }
         .alert("Couldn't change location sharing", isPresented: sharingErrorBinding) {
             Button("OK", role: .cancel) {}

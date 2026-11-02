@@ -18,3 +18,13 @@ protocol LocationManaging: AnyObject {
 }
 
 extension CLLocationManager: LocationManaging {}
+
+/// What `BackgroundLocationMonitor` needs on top: the two services that keep working while the app is closed.
+protocol BackgroundLocationManaging: LocationManaging {
+    func startMonitoringSignificantLocationChanges()
+    func stopMonitoringSignificantLocationChanges()
+    func startMonitoringVisits()
+    func stopMonitoringVisits()
+}
+
+extension CLLocationManager: BackgroundLocationManaging {}

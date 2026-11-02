@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Bindable var languageModels: LanguageModelsViewModel
@@ -13,6 +14,7 @@ struct SettingsView: View {
     @State private var listeningPicker = ListeningLanguagePickerViewModel()
     @State private var isConfirmingSharing = false
     @State private var sharingError: String?
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -50,10 +52,23 @@ struct SettingsView: View {
                         }
                         .disabled(friendLocations.sharing == nil || friendLocations.isChangingSharing)
                         .accessibilityIdentifier("settings.locationSharing")
+                        if friendLocations.sharing == true, friendLocations.lacksAlwaysAccess {
+                            // Sign-in asks for Always, but it can be lowered in Settings since.
+                            Button("Allow location access Always") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    openURL(url)
+                                }
+                            }
+                            .accessibilityIdentifier("settings.allowAlwaysLocation")
+                        }
                     } header: {
                         Text("Location sharing")
                     } footer: {
-                        Text("People you follow who follow you back see where you last used the app while you both share. Turning it off takes you off their maps at once.")
+                        if friendLocations.sharing == true, friendLocations.lacksAlwaysAccess {
+                            Text("Location access isn't set to Always, so they see where you last used the app, not where you are while it's closed.")
+                        } else {
+                            Text("People you follow who follow you back see where you are while you both share, also while Marauders is closed. Turning it off takes you off their maps at once.")
+                        }
                     }
                 }
             }
@@ -65,7 +80,7 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("People you follow who follow you back and share their location too will see where you last used the app, and you'll see where they are. You can turn it off any time.")
+                Text("People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time.")
             }
             .alert("Couldn't change location sharing", isPresented: sharingErrorBinding) {
                 Button("OK", role: .cancel) {}

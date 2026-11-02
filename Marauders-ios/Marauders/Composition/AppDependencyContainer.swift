@@ -124,7 +124,8 @@ final class AppDependencyContainer {
             loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
             setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),
             // UI tests have no location to send; the map there uses a fixed one.
-            reporter: AppRuntimeConfiguration.isUITesting ? nil : ForegroundLocationReporter(report: reportUserLocation)
+            reporter: AppRuntimeConfiguration.isUITesting ? nil : ForegroundLocationReporter(report: reportUserLocation),
+            backgroundMonitor: AppRuntimeConfiguration.isUITesting ? nil : Self.backgroundLocationMonitor
         )
 
         let resolveProfileRepository: UserProfileRepository
@@ -189,6 +190,21 @@ final class AppDependencyContainer {
             profileViewModel?.applyFollowingCount(count)
         }
     }
+
+    /// The one monitor that sends the viewer's location while the app is closed. `MaraudersApp` starts it at launch,
+    /// before any container exists (iOS may launch the app in the background just to hand over a location), so it
+    /// reaches the Worker on its own: a 401 there stops it instead of ending the session, which the next launch's own
+    /// requests do.
+    static let backgroundLocationMonitor = BackgroundLocationMonitor(
+        report: ReportUserLocationUseCase(
+            repository: DefaultUserLocationRepository(
+                apiClient: UserLocationAPIClient(
+                    client: AlamofireHTTPClient(),
+                    authorization: SessionAPIAuthorization(tokenStore: KeychainAPIAccessTokenStore())
+                )
+            )
+        )
+    )
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {
         PublicProfileViewModel(

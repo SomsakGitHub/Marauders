@@ -36,6 +36,17 @@ struct UserLocationAPIClient: Sendable {
     }
 
     func report(location: ClipLocation) async throws {
+        _ = try await post(location: location, whileClosed: false)
+    }
+
+    /// Sent while the app is closed: the Worker stores it only while the viewer shares, and answers whether they still
+    /// do. nil when the answer does not say (an older Worker).
+    func reportWhileClosed(location: ClipLocation) async throws -> Bool? {
+        let response = try await post(location: location, whileClosed: true)
+        return (try? JSONDecoder().decode(Answer.self, from: response.data))?.sharesLocation
+    }
+
+    private func post(location: ClipLocation, whileClosed: Bool) async throws -> HTTPClientResponse {
         guard let authHeader = authorization?.bearerAuthorizationHeader() else {
             throw UserLocationAPIError.notAuthenticated
         }
@@ -49,17 +60,24 @@ struct UserLocationAPIClient: Sendable {
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
         request.httpBody = try JSONEncoder().encode(
-            Body(latitude: location.latitude, longitude: location.longitude)
+            Body(latitude: location.latitude, longitude: location.longitude, whileClosed: whileClosed ? true : nil)
         )
 
         let response = try await client.data(request)
         guard response.isSuccess else {
             throw UserLocationAPIError.serverError(response.statusCode)
         }
+        return response
     }
 
     private struct Body: Encodable {
         let latitude: Double
         let longitude: Double
+        /// Left out of what the app sends while in use.
+        let whileClosed: Bool?
+    }
+
+    private struct Answer: Decodable {
+        let sharesLocation: Bool?
     }
 }

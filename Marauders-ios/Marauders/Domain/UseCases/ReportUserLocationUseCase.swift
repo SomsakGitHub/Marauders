@@ -15,4 +15,9 @@ struct ReportUserLocationUseCase: Sendable {
     func execute(location: ClipLocation) async throws {
         try await repository.report(location: location)
     }
+
+    /// Answers whether the viewer still shares their location, nil when the Worker does not say.
+    func executeWhileClosed(location: ClipLocation) async throws -> Bool? {
+        try await repository.reportWhileClosed(location: location)
+    }
 }

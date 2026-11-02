@@ -103,7 +103,12 @@ struct ContentView: View {
         }
         // The feed is the first tab, so the saved session is restored here instead of waiting for
         // the viewer to open Map, Upload or Profile.
-        .task { await authViewModel.restoreSession() }
+        .task {
+            await authViewModel.restoreSession()
+            // A saved session that did not come back (expired or revoked) ended without a sign-out, so the iPhone stops
+            // sending that account's location while the app is closed.
+            if !authViewModel.isSignedIn { friendLocationsViewModel.reset(signedOut: true) }
+        }
         // Whether the viewer shares their location decides whether the app sends it while in use. It is asked again each
         // time the app comes to the foreground: the viewer may have changed it on another device, or the last ask failed.
         .task(id: authViewModel.isSignedIn && scenePhase == .active) {
@@ -111,7 +116,7 @@ struct ContentView: View {
             await friendLocationsViewModel.refresh()
         }
         // A viewer who shares sends their location when the app comes to the foreground, then every few minutes while
-        // it stays there; never in the background.
+        // it stays there. While it is closed, BackgroundLocationMonitor sends it when the iPhone moves.
         .task(id: scenePhase == .active && friendLocationsViewModel.sharing == true) {
             guard scenePhase == .active, friendLocationsViewModel.sharing == true else { return }
             while !Task.isCancelled {
@@ -128,7 +133,7 @@ struct ContentView: View {
             // What the previous viewer liked and followed is not what the reloaded feed says about the new one.
             clipLikesViewModel.reset()
             followsViewModel.reset()
-            friendLocationsViewModel.reset()
+            friendLocationsViewModel.reset(signedOut: !signedIn)
             Task { await feedViewModel.loadIfNeeded() }
         }
         .sheet(isPresented: $showingSignIn, onDismiss: { signInDismissalID += 1 }) {

@@ -15,4 +15,8 @@ struct DefaultUserLocationRepository: UserLocationRepository {
     func report(location: ClipLocation) async throws {
         try await apiClient.report(location: location)
     }
+
+    func reportWhileClosed(location: ClipLocation) async throws -> Bool? {
+        try await apiClient.reportWhileClosed(location: location)
+    }
 }

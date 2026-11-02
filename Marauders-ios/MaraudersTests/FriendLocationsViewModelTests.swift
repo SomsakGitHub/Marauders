@@ -214,12 +214,111 @@ struct FriendLocationsViewModelTests {
         let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
         await sut.viewModel.refresh()
 
-        sut.viewModel.reset()
+        sut.viewModel.reset(signedOut: true)
         sut.viewModel.reportLocationIfDue()
 
         #expect(sut.viewModel.sharing == nil)
         #expect(sut.viewModel.friends.isEmpty)
         #expect(sut.manager.locationRequestCount == 0)
+    }
+
+    // MARK: Sharing while closed
+
+    private struct MonitoredSUT {
+        let viewModel: FriendLocationsViewModel
+        let repository: StubLocationSharingRepository
+        let manager: FakeLocationManager
+        let defaults: UserDefaults
+        let suiteName: String
+    }
+
+    private func makeMonitoredSUT(
+        _ repository: StubLocationSharingRepository = StubLocationSharingRepository()
+    ) -> MonitoredSUT {
+        let manager = FakeLocationManager(authorizationStatus: .authorizedAlways)
+        let suiteName = "FriendLocationsViewModelTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let monitor = BackgroundLocationMonitor(
+            locationManager: manager,
+            report: ReportUserLocationUseCase(repository: RecordingUserLocationRepository()),
+            defaults: defaults,
+            holdAwake: { _ in {} }
+        )
+        let viewModel = FriendLocationsViewModel(
+            loadFriends: LoadFriendLocationsUseCase(repository: repository),
+            setSharing: SetLocationSharingUseCase(repository: repository),
+            backgroundMonitor: monitor
+        )
+        return MonitoredSUT(viewModel: viewModel, repository: repository, manager: manager, defaults: defaults, suiteName: suiteName)
+    }
+
+    @Test func theWorkerSayingTheViewerSharesStartsSharingWhileClosed() async {
+        let sut = makeMonitoredSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
+        defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
+
+        await sut.viewModel.refresh()
+        #expect(sut.manager.significantChangeStarts == 1)
+        #expect(sut.manager.visitStarts == 1)
+
+        sut.repository.friends = .success(FriendLocations(sharing: false, friends: []))
+        await sut.viewModel.refresh()
+        #expect(sut.manager.significantChangeStops == 1, "turned off on another device")
+    }
+
+    @Test func turningSharingOnAndOffStartsAndStopsSharingWhileClosed() async {
+        let sut = makeMonitoredSUT()
+        defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
+
+        await sut.viewModel.setSharing(true)
+        #expect(sut.manager.significantChangeStarts == 1)
+
+        await sut.viewModel.setSharing(false)
+        #expect(sut.manager.significantChangeStops == 1)
+        #expect(sut.manager.visitStops == 1)
+    }
+
+    /// Turning it off stops the location going out before the Worker has answered.
+    @Test func turningSharingOffStopsSharingWhileClosedAtOnce() async {
+        let repository = StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [])))
+        let sut = makeMonitoredSUT(repository)
+        defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
+        await sut.viewModel.refresh()
+        repository.change = .failure(URLError(.notConnectedToInternet))
+
+        await sut.viewModel.setSharing(false)
+
+        #expect(sut.manager.significantChangeStops == 1)
+    }
+
+    /// The saved session coming back at launch is a sign-in, and must not stop what a launch in the background sends.
+    @Test func onlyASignOutStopsSharingWhileClosed() async {
+        let sut = makeMonitoredSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
+        defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
+        await sut.viewModel.refresh()
+
+        sut.viewModel.reset(signedOut: false)
+        #expect(sut.manager.significantChangeStops == 0)
+
+        sut.viewModel.reset(signedOut: true)
+        #expect(sut.manager.significantChangeStops == 1)
+    }
+
+    @Test func lacksAlwaysAccessFollowsTheLocationPermission() async {
+        let sut = makeMonitoredSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
+        defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
+        await sut.viewModel.refresh()
+        #expect(!sut.viewModel.lacksAlwaysAccess)
+
+        sut.manager.authorizationStatus = .authorizedWhenInUse
+        sut.manager.simulateAuthorizationChange()
+
+        #expect(sut.viewModel.lacksAlwaysAccess)
+    }
+
+    @Test func withoutAMonitorAlwaysAccessIsNotAsked() {
+        let sut = makeSUT()
+
+        #expect(!sut.viewModel.lacksAlwaysAccess)
     }
 
     @Test func anAnswerThatArrivesAfterAResetChangesNothing() async {
@@ -230,7 +329,7 @@ struct FriendLocationsViewModelTests {
 
         let refresh = Task { await sut.viewModel.refresh() }
         await waitUntil { repository.friendRequests == 1 }
-        sut.viewModel.reset()
+        sut.viewModel.reset(signedOut: true)
         await gate.open()
         await refresh.value
 

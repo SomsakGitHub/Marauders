@@ -277,7 +277,10 @@ final class StubAvatarImagePreparer: AvatarImagePreparing, @unchecked Sendable {
 
 final class RecordingUserLocationRepository: UserLocationRepository, @unchecked Sendable {
     var result: Result<Void, Error>
+    /// What a report sent while closed answers about the viewer's sharing.
+    var sharesLocation: Bool? = true
     private(set) var reportedLocations: [ClipLocation] = []
+    private(set) var whileClosedCount = 0
 
     var reportCount: Int { reportedLocations.count }
     var lastReported: ClipLocation? { reportedLocations.last }
@@ -290,16 +293,27 @@ final class RecordingUserLocationRepository: UserLocationRepository, @unchecked 
         reportedLocations.append(location)
         try result.get()
     }
+
+    func reportWhileClosed(location: ClipLocation) async throws -> Bool? {
+        reportedLocations.append(location)
+        whileClosedCount += 1
+        try result.get()
+        return sharesLocation
+    }
 }
 
 @MainActor
-final class FakeLocationManager: LocationManaging {
+final class FakeLocationManager: @MainActor BackgroundLocationManaging {
     var authorizationStatus: CLAuthorizationStatus
     var desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyHundredMeters
     var delegate: CLLocationManagerDelegate?
     private(set) var authorizationRequestCount = 0
     private(set) var alwaysAuthorizationRequestCount = 0
     private(set) var locationRequestCount = 0
+    private(set) var significantChangeStarts = 0
+    private(set) var significantChangeStops = 0
+    private(set) var visitStarts = 0
+    private(set) var visitStops = 0
 
     init(authorizationStatus: CLAuthorizationStatus = .notDetermined) {
         self.authorizationStatus = authorizationStatus
@@ -323,5 +337,25 @@ final class FakeLocationManager: LocationManaging {
 
     func simulateLocations(_ locations: [CLLocation]) {
         delegate?.locationManager?(CLLocationManager(), didUpdateLocations: locations)
+    }
+
+    func startMonitoringSignificantLocationChanges() {
+        significantChangeStarts += 1
+    }
+
+    func stopMonitoringSignificantLocationChanges() {
+        significantChangeStops += 1
+    }
+
+    func startMonitoringVisits() {
+        visitStarts += 1
+    }
+
+    func stopMonitoringVisits() {
+        visitStops += 1
+    }
+
+    func simulateVisit(_ visit: CLVisit) {
+        delegate?.locationManager?(CLLocationManager(), didVisit: visit)
     }
 }

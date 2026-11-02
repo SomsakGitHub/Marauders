@@ -8,7 +8,9 @@ import Observation
 
 /// The viewer's location sharing and the mutual followers it shows on the map. Sharing works both ways: the Worker shows
 /// the viewer's last location to the people they follow who follow them back, and theirs to the viewer, only while both
-/// share and the viewer's own location is on file. It is off until the viewer turns it on.
+/// share and the viewer's own location is on file. It is off until the viewer turns it on. While on, the viewer's
+/// iPhone sends its location while the app is in use (`ForegroundLocationReporter`) and while it is closed
+/// (`BackgroundLocationMonitor`).
 @MainActor
 @Observable
 final class FriendLocationsViewModel {
@@ -27,6 +29,7 @@ final class FriendLocationsViewModel {
     private let loadFriends: LoadFriendLocationsUseCase
     private let changeSharing: SetLocationSharingUseCase
     private let reporter: ForegroundLocationReporter?
+    private let backgroundMonitor: BackgroundLocationMonitor?
     private let now: () -> Date
     /// Bumped when the session ends, so an answer that was still out then changes nothing.
     @ObservationIgnored private var generation = 0
@@ -39,11 +42,13 @@ final class FriendLocationsViewModel {
         loadFriends: LoadFriendLocationsUseCase,
         setSharing: SetLocationSharingUseCase,
         reporter: ForegroundLocationReporter? = nil,
+        backgroundMonitor: BackgroundLocationMonitor? = nil,
         now: @escaping () -> Date = Date.init
     ) {
         self.loadFriends = loadFriends
         self.changeSharing = setSharing
         self.reporter = reporter
+        self.backgroundMonitor = backgroundMonitor
         self.now = now
         reporter?.shouldSend = { [weak self] in self?.sharing == true }
         reporter?.onReported = { [weak self] in
@@ -61,6 +66,7 @@ final class FriendLocationsViewModel {
             let result = try await loadFriends.execute()
             guard generation == self.generation, revision == sharingRevision else { return }
             sharing = result.sharing
+            backgroundMonitor?.setSharing(result.sharing)
             located = result.located
             friends = result.sharing ? result.friends : []
             lastLoadedAt = now()
@@ -80,12 +86,16 @@ final class FriendLocationsViewModel {
         let generation = generation
         sharingRevision += 1
         isChangingSharing = true
-        if !enabled { reporter?.reset() }
+        if !enabled {
+            reporter?.reset()
+            backgroundMonitor?.setSharing(false)
+        }
         do {
             let stored = try await changeSharing.execute(enabled: enabled)
             guard generation == self.generation else { return nil }
             sharingRevision += 1
             sharing = stored
+            backgroundMonitor?.setSharing(stored)
             isChangingSharing = false
             if stored {
                 reporter?.reportIfDue(force: true)
@@ -109,8 +119,16 @@ final class FriendLocationsViewModel {
         reporter?.reportIfDue()
     }
 
-    /// Forgets the ended session's sharing and friends, and drops a location still on its way.
-    func reset() {
+    /// True while location access is not Always: mutual followers then see where the viewer last used the app, not
+    /// where they are while it is closed.
+    var lacksAlwaysAccess: Bool {
+        backgroundMonitor.map { !$0.isAlwaysAuthorized } ?? false
+    }
+
+    /// Forgets the ended session's sharing and friends, and drops a location still on its way. A sign-out also stops the
+    /// location going out while the app is closed. A sign-in leaves that to the refresh that follows: the saved session
+    /// coming back at launch is one too, and a launch in the background must keep sending.
+    func reset(signedOut: Bool) {
         generation += 1
         sharing = nil
         located = true
@@ -118,5 +136,6 @@ final class FriendLocationsViewModel {
         isChangingSharing = false
         lastLoadedAt = nil
         reporter?.reset()
+        if signedOut { backgroundMonitor?.setSharing(false) }
     }
 }
