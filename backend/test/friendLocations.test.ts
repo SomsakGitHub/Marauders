@@ -205,6 +205,65 @@ describe("PUT /v1/users/me/location-sharing", () => {
   });
 });
 
+describe("POST /v1/users/me/location", () => {
+  beforeEach(() => resetFakeNeon());
+
+  function answer(sharesLocation: boolean) {
+    respondWith((query) => {
+      if (/UPDATE app_users\s+SET latitude/.test(query.text)) return [{ id: VIEWER, shares_location: sharesLocation }];
+      throw new Error(`unexpected statement: ${query.text}`);
+    });
+  }
+
+  const update = () => statement(/UPDATE app_users\s+SET latitude/)!;
+
+  it("stores a location sent while the app is open whether or not the viewer shares", async () => {
+    answer(false);
+    const res = await call("POST", "/v1/users/me/location", await tokenFor(VIEWER), '{"latitude":13.75,"longitude":100.5}');
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { latitude: 13.75, longitude: 100.5, sharesLocation: false });
+    assert.deepEqual(update().values, [false, 13.75, false, 100.5, false, VIEWER]);
+  });
+
+  it("keeps the old location when one sent while closed comes from a viewer who no longer shares", async () => {
+    answer(false);
+    const body = '{"latitude":13.75,"longitude":100.5,"whileClosed":true}';
+    const res = await call("POST", "/v1/users/me/location", await tokenFor(VIEWER), body);
+    assert.equal(res.status, 200);
+    assert.equal(((await res.json()) as { sharesLocation: boolean }).sharesLocation, false);
+    assert.deepEqual(update().values, [true, 13.75, true, 100.5, true, VIEWER]);
+    const text = folded(update().text);
+    for (const [column, fresh] of [["latitude", "\\?"], ["longitude", "\\?"], ["location_updated_at", "now\\(\\)"]]) {
+      assert.match(text, new RegExp(`${column} = CASE WHEN \\? AND NOT shares_location THEN ${column} ELSE ${fresh} END`), column);
+    }
+    assert.match(text, /RETURNING id, shares_location/);
+  });
+
+  it("says when a viewer sharing while closed still shares", async () => {
+    answer(true);
+    const body = '{"latitude":13.75,"longitude":100.5,"whileClosed":true}';
+    const res = await call("POST", "/v1/users/me/location", await tokenFor(VIEWER), body);
+    assert.equal(((await res.json()) as { sharesLocation: boolean }).sharesLocation, true);
+  });
+
+  it("takes only a JSON true as sent while closed", async () => {
+    const token = await tokenFor(VIEWER);
+    for (const whileClosed of ['"true"', "1", "null", "false"]) {
+      resetFakeNeon();
+      answer(true);
+      const body = `{"latitude":13.75,"longitude":100.5,"whileClosed":${whileClosed}}`;
+      assert.equal((await call("POST", "/v1/users/me/location", token, body)).status, 200, whileClosed);
+      assert.equal(update().values[0], false, whileClosed);
+    }
+  });
+
+  it("needs a signed-in viewer", async () => {
+    answer(true);
+    assert.equal((await call("POST", "/v1/users/me/location", null, '{"latitude":1,"longitude":2}')).status, 401);
+    assert.equal(queries.length, 0);
+  });
+});
+
 describe("GET /v1/users/me sharing flag", () => {
   beforeEach(() => resetFakeNeon());
 

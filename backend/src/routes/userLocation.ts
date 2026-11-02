@@ -29,9 +29,12 @@ export async function handleUserLocationUpdate(
     return jsonError(400, "invalid request");
   }
 
+  // Sent by the app while it is closed: stored only while the user shares, and the answer tells the app to stop if not.
+  const whileClosed = (body as { whileClosed?: unknown }).whileClosed === true;
+
   try {
-    await updateUserLocation(env.DATABASE_URL, userId, latitude, longitude);
-    return jsonResponse({ latitude, longitude });
+    const sharesLocation = await updateUserLocation(env.DATABASE_URL, userId, latitude, longitude, whileClosed);
+    return jsonResponse({ latitude, longitude, sharesLocation });
   } catch {
     return jsonError(500, "failed to store location");
   }

@@ -97,25 +97,32 @@ export async function upsertUserByAppleSub(
   throw new Error("user upsert failed");
 }
 
+/**
+ * Stores the user's location and answers whether they share it with mutual followers. `onlyIfSharing` is for what the
+ * app sends while it is closed: the user agreed to that only while sharing, so without it the location on file stays.
+ */
 export async function updateUserLocation(
   databaseUrl: string,
   userId: string,
   latitude: number,
   longitude: number,
-): Promise<void> {
+  onlyIfSharing = false,
+): Promise<boolean> {
   const sql = neon(databaseUrl);
+  // Every expression reads the row as it was.
   const rows = (await sql`
     UPDATE app_users
-    SET latitude = ${latitude},
-        longitude = ${longitude},
-        location_updated_at = now()
+    SET latitude = CASE WHEN ${onlyIfSharing} AND NOT shares_location THEN latitude ELSE ${latitude} END,
+        longitude = CASE WHEN ${onlyIfSharing} AND NOT shares_location THEN longitude ELSE ${longitude} END,
+        location_updated_at = CASE WHEN ${onlyIfSharing} AND NOT shares_location THEN location_updated_at ELSE now() END
     WHERE id = ${userId}
-    RETURNING id
-  `) as UserRow[];
+    RETURNING id, shares_location
+  `) as (UserRow & { shares_location: boolean })[];
 
   if (!rows[0]?.id) {
     throw new Error("user not found");
   }
+  return rows[0].shares_location === true;
 }
 
 export async function updateUserHandle(
