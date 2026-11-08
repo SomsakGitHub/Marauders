@@ -8,6 +8,7 @@ import SwiftUI
 struct ProfileTabView: View {
     @Bindable var authViewModel: AuthViewModel
     @Bindable var profileViewModel: ProfileViewModel
+    let navigation: ProfileNavigation
 
     var onSignIn: () -> Void = {}
 
@@ -19,6 +20,7 @@ struct ProfileTabView: View {
             } else if authViewModel.isSignedIn {
                 ProfileView(
                     viewModel: profileViewModel,
+                    navigation: navigation,
                     onSignOut: { authViewModel.signOut() }
                 )
             } else {
@@ -36,6 +38,7 @@ struct ProfileTabView: View {
     let container = AppDependencyContainer()
     ProfileTabView(
         authViewModel: container.authViewModel,
-        profileViewModel: container.profileViewModel
+        profileViewModel: container.profileViewModel,
+        navigation: container.profileNavigation
     )
 }

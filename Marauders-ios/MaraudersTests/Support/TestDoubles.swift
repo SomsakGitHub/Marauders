@@ -263,6 +263,25 @@ final class StubUserFollowRepository: UserFollowRepository, @unchecked Sendable 
     }
 }
 
+final class StubFollowListRepository: FollowListRepository, @unchecked Sendable {
+    /// One result per call, in order; the last one repeats when the queue runs out.
+    var fetchResults: [Result<FollowListPage, Error>]
+    /// Runs with the number of calls made so far while the request is "in flight", so a test can interleave another action.
+    var beforeFetchReturns: (@Sendable (Int) async -> Void)?
+    private(set) var fetches: [(handle: String, kind: FollowListKind, cursor: String?, limit: Int)] = []
+
+    init(fetchResults: [Result<FollowListPage, Error>] = [.success(FollowListPage(entries: [], nextCursor: nil))]) {
+        self.fetchResults = fetchResults
+    }
+
+    func fetchList(handle: String, kind: FollowListKind, cursor: String?, limit: Int) async throws -> FollowListPage {
+        let index = min(fetches.count, fetchResults.count - 1)
+        fetches.append((handle, kind, cursor, limit))
+        await beforeFetchReturns?(fetches.count)
+        return try fetchResults[index].get()
+    }
+}
+
 final class StubAvatarImagePreparer: AvatarImagePreparing, @unchecked Sendable {
     var result: Data?
 

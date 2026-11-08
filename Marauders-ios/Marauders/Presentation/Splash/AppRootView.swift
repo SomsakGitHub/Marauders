@@ -21,7 +21,7 @@ struct AppRootView: View {
                 authViewModel: container.authViewModel,
         profileViewModel: container.profileViewModel,
         reportUserLocation: container.reportUserLocation,
-        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
+        profileNavigation: container.profileNavigation,
         makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
         clipLikesViewModel: container.clipLikesViewModel,
         followsViewModel: container.followsViewModel,

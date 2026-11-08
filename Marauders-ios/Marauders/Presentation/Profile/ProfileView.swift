@@ -8,6 +8,7 @@ import PhotosUI
 
 struct ProfileView: View {
     @Bindable var viewModel: ProfileViewModel
+    let navigation: ProfileNavigation
     var onSignOut: () -> Void
 
     @State private var selectedClip: FeedVideo?
@@ -50,6 +51,9 @@ struct ProfileView: View {
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: ProfileRoute.self) { route in
+                ProfileRouteDestination(route: route, navigation: navigation)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Sign Out", action: onSignOut)
@@ -205,13 +209,22 @@ struct ProfileView: View {
             }
 
             HStack(spacing: 24) {
+                // This screen is only shown to a signed-in viewer, so the counts always open their lists.
                 if let following = viewModel.profile?.followingCount {
-                    ProfileStat(count: following, label: "Following")
-                        .accessibilityIdentifier("profile.followingCount")
+                    ProfileCountLink(
+                        count: following,
+                        label: "Following",
+                        route: .followList(handle: viewModel.handle, kind: .following)
+                    )
+                    .accessibilityIdentifier("profile.followingCount")
                 }
                 if let followers = viewModel.profile?.followerCount {
-                    ProfileStat(count: followers, label: "Followers")
-                        .accessibilityIdentifier("profile.followerCount")
+                    ProfileCountLink(
+                        count: followers,
+                        label: "Followers",
+                        route: .followList(handle: viewModel.handle, kind: .followers)
+                    )
+                    .accessibilityIdentifier("profile.followerCount")
                 }
                 ProfileStat(count: viewModel.profile?.videoCount ?? 0, label: "Clips")
                     .accessibilityIdentifier("profile.clipCount")

@@ -16,6 +16,9 @@ final class UITestUserFollowRepository: UserFollowRepository, @unchecked Sendabl
 
     var followedCount: Int { followed.count }
 
+    /// The accounts the viewer follows, normalized and in a fixed order, for the viewer's Following list.
+    var followedHandles: [String] { followed.sorted() }
+
     func setFollowing(_ following: Bool, handle: String) async throws -> UserFollowChange {
         let key = UserHandle.normalized(handle)
         if following { followed.insert(key) } else { followed.remove(key) }

@@ -14,7 +14,7 @@ struct ContentView: View {
     @Bindable var authViewModel: AuthViewModel
     @Bindable var profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
-    let makePublicProfileViewModel: (String) -> PublicProfileViewModel
+    let profileNavigation: ProfileNavigation
     let makeCommentsViewModel: (UUID) -> CommentsViewModel
     let clipLikesViewModel: ClipLikesViewModel
     let followsViewModel: UserFollowsViewModel
@@ -61,6 +61,7 @@ struct ContentView: View {
             ProfileTabView(
                 authViewModel: authViewModel,
                 profileViewModel: profileViewModel,
+                navigation: profileNavigation,
                 onSignIn: { showingSignIn = true }
             )
                 .tabItem {
@@ -141,8 +142,8 @@ struct ContentView: View {
         }
         .sheet(item: $router.publicProfileRoute) { route in
             PublicProfileView(
-                viewModel: makePublicProfileViewModel(route.handle),
-                authViewModel: authViewModel,
+                viewModel: profileNavigation.makePublicProfileViewModel(route.handle),
+                navigation: profileNavigation,
                 onClose: { router.publicProfileRoute = nil }
             )
         }
@@ -159,7 +160,7 @@ struct ContentView: View {
         authViewModel: container.authViewModel,
         profileViewModel: container.profileViewModel,
         reportUserLocation: container.reportUserLocation,
-        makePublicProfileViewModel: { container.makePublicProfileViewModel(handle: $0) },
+        profileNavigation: container.profileNavigation,
         makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
         clipLikesViewModel: container.clipLikesViewModel,
         followsViewModel: container.followsViewModel,

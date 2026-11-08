@@ -492,6 +492,27 @@ struct UserFollowsViewModelTests {
         #expect(viewModel.followerCount(of: "@alice", fallback: nil) == 6)
         #expect(repository.calls.count == 2)
     }
+
+    // MARK: - A follower or following list
+
+    /// A list's rows carry whether the viewer followed each account when the list loaded. That word is only the
+    /// fallback: once the viewer has touched an account, what they did wins over anything a list says afterwards.
+    @Test func aListsWordIsOnlyTheFallbackForAnAccountTheViewerHasNotTouched() async {
+        let (viewModel, repository) = makeSUT([.success(change(false, followers: 0, viewerFollows: 0))])
+
+        // Nothing is known yet: the list's word is all there is, and "@Bob" is the same account as "@bob".
+        #expect(viewModel.isFollowing("@bob", fallback: true))
+        #expect(!viewModel.isFollowing("@Bob", fallback: false))
+
+        viewModel.toggle("@bob", fallback: true)
+        #expect(!viewModel.isFollowing("@bob", fallback: true))
+
+        // A list loaded afterwards still says the viewer follows @bob. The tap beats it, before the answer and after.
+        #expect(!viewModel.isFollowing("@bob", fallback: true))
+        await finish(viewModel)
+        #expect(!viewModel.isFollowing("@bob", fallback: true))
+        #expect(repository.calls.map(\.following) == [false])
+    }
 }
 
 /// Holds a stubbed request in flight until the test lets it go.

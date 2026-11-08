@@ -10,6 +10,8 @@ enum APIConfiguration {
     private static let feedLimitMax = 50
     /// The Worker's `COMMENT_LIMIT_MAX`.
     private static let commentLimitMax = 50
+    /// The Worker's `FEED_LIMIT_MAX`, which the follower and following lists share.
+    private static let followListLimitMax = 50
     private static let configKey = "MARAUDERS_API_BASE_URL"
 
     /// HTTPS origin of the Worker (no trailing slash).
@@ -148,6 +150,31 @@ enum APIConfiguration {
         let base = try apiBaseURL()
         let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? handle
         guard let url = URL(string: "v1/users/\(encoded)/follow", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
+    /// The accounts that follow `handle` (`.followers`) or that it follows (`.following`): GET, newest first (`limit`,
+    /// `cursor`), signed-in viewers only.
+    static func followListURL(handle: String, kind: FollowListKind, cursor: String? = nil, limit: Int? = nil) throws -> URL {
+        let base = try apiBaseURL()
+        let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? handle
+        guard
+            let pathURL = URL(string: "v1/users/\(encoded)/\(kind.rawValue)", relativeTo: base),
+            var components = URLComponents(url: pathURL, resolvingAgainstBaseURL: true)
+        else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        var queryItems: [URLQueryItem] = []
+        if let limit {
+            queryItems.append(URLQueryItem(name: "limit", value: String(min(max(limit, 1), followListLimitMax))))
+        }
+        if let cursor {
+            queryItems.append(URLQueryItem(name: "cursor", value: cursor))
+        }
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard let url = components.url else {
             throw APIConfigurationError.invalidBaseURL
         }
         return url

@@ -842,6 +842,172 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(waitUntilLabel(profileFollow, is: "Following"), app.debugDescription)
     }
 
+    /// The viewer's own Followers and Following open from the Profile tab's header. In the UI-test world nobody follows
+    /// the viewer and the viewer follows nobody yet, so both lists start empty.
+    @MainActor
+    func testTheViewersOwnListsOpenFromTheProfileHeaderAndStartEmpty() throws {
+        let app = launchApp()
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 15))
+        profileTab.tap()
+        let followers = app.descendants(matching: .any)["profile.followerCount"]
+        XCTAssertTrue(followers.waitForExistence(timeout: 15), app.debugDescription)
+
+        followers.tap()
+        let empty = app.descendants(matching: .any)["followList.empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(empty.label, "No followers yet")
+        // The guest test below relies on this identifier being absent when no list is open, so it must be present when one is.
+        XCTAssertTrue(app.descendants(matching: .any)["followList.root"].exists, app.debugDescription)
+        attachFeedScreenshot(app, name: "follow-list-empty")
+
+        app.segmentedControls["followList.tabs"].buttons["Following"].tap()
+        XCTAssertTrue(waitUntilLabel(empty, is: "Not following anyone yet"), app.debugDescription)
+
+        goBack(app)
+        XCTAssertTrue(followers.waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    /// An account the viewer follows is listed with a Following button, and its row opens its profile; Back returns to
+    /// the list.
+    @MainActor
+    func testAFollowedAccountIsListedAndItsRowOpensItsProfile() throws {
+        let app = launchApp()
+        _ = openFollowingListAfterFollowingTheFeedAuthor(app)
+
+        let row = app.buttons["followList.row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(row.label, "@traveler")
+        XCTAssertEqual(app.buttons["followList.follow"].firstMatch.label, "Following")
+        attachFeedScreenshot(app, name: "follow-list-following")
+
+        row.tap()
+        XCTAssertTrue(app.buttons["publicProfile.follow"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(app.staticTexts["publicProfile.handle"].label, "@traveler")
+
+        goBack(app)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    /// The button in a row follows and unfollows like every other Follow button; the row stays on screen when the viewer
+    /// stops following, as on TikTok, and the count on the viewer's profile follows each change.
+    @MainActor
+    func testFollowingAndUnfollowingFromARowKeepsTheProfileCountInStep() throws {
+        let app = launchApp()
+        let following = openFollowingListAfterFollowingTheFeedAuthor(app)
+
+        let rowButton = app.buttons["followList.follow"].firstMatch
+        XCTAssertTrue(rowButton.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(rowButton.label, "Following")
+
+        rowButton.tap()
+        XCTAssertTrue(waitUntilLabel(rowButton, is: "Follow"), app.debugDescription)
+        XCTAssertTrue(app.buttons["followList.row"].firstMatch.exists, "the row stays after an unfollow")
+        rowButton.tap()
+        XCTAssertTrue(waitUntilLabel(rowButton, is: "Following"), app.debugDescription)
+
+        goBack(app)
+        XCTAssertTrue(waitUntilValue(following, is: "1"), app.debugDescription)
+        following.tap()
+        XCTAssertTrue(rowButton.waitForExistence(timeout: 10), app.debugDescription)
+        rowButton.tap()
+        XCTAssertTrue(waitUntilLabel(rowButton, is: "Follow"), app.debugDescription)
+
+        goBack(app)
+        XCTAssertTrue(waitUntilValue(following, is: "0"), app.debugDescription)
+        following.tap()
+        // The next load drops the account the viewer stopped following.
+        XCTAssertTrue(app.descendants(matching: .any)["followList.empty"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    /// Another account's Followers open from its profile sheet, list the viewer on their own row without a Follow
+    /// button, and a row opens its profile in the same sheet.
+    @MainActor
+    func testAPublicProfileListsItsFollowersAndTheViewersOwnRowHasNoFollowButton() throws {
+        let app = launchApp()
+        let avatar = app.buttons["feed.avatar"]
+        XCTAssertTrue(avatar.waitForExistence(timeout: 15), app.debugDescription)
+        avatar.tap()
+        let profileFollow = app.buttons["publicProfile.follow"]
+        XCTAssertTrue(profileFollow.waitForExistence(timeout: 15), app.debugDescription)
+        profileFollow.tap()
+        XCTAssertTrue(waitUntilLabel(profileFollow, is: "Following"), app.debugDescription)
+        let followers = app.descendants(matching: .any)["publicProfile.followerCount"]
+        XCTAssertTrue(waitUntilValue(followers, is: "1"), app.debugDescription)
+
+        followers.tap()
+        let row = app.buttons["followList.row"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(row.label, "@marauders")
+        XCTAssertFalse(app.buttons["followList.follow"].exists, "the viewer's own row has no Follow button")
+        attachFeedScreenshot(app, name: "follow-list-followers")
+
+        let tabs = app.segmentedControls["followList.tabs"]
+        tabs.buttons["Following"].tap()
+        let empty = app.descendants(matching: .any)["followList.empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(empty.label, "Not following anyone yet")
+        tabs.buttons["Followers"].tap()
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+
+        row.tap()
+        let handle = app.staticTexts["publicProfile.handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(handle.label, "@marauders")
+        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.clipCount"].exists)
+        XCTAssertFalse(app.buttons["publicProfile.follow"].exists, "the viewer cannot follow themself")
+
+        goBack(app)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
+        goBack(app)
+        XCTAssertTrue(profileFollow.waitForExistence(timeout: 10), app.debugDescription)
+        app.buttons["publicProfile.close"].tap()
+    }
+
+    /// A guest sees the counts; a tap on one asks to sign in, and signing in opens nothing by itself.
+    @MainActor
+    func testAGuestsTapOnACountAsksToSignInAndOpensNothingAfterwards() throws {
+        let app = launchApp(extraArguments: ["UITEST_GUEST"])
+        let avatar = app.buttons["feed.avatar"]
+        XCTAssertTrue(avatar.waitForExistence(timeout: 15), app.debugDescription)
+        avatar.tap()
+        XCTAssertTrue(app.buttons["publicProfile.follow"].waitForExistence(timeout: 15), app.debugDescription)
+        let followers = app.descendants(matching: .any)["publicProfile.followerCount"]
+        XCTAssertTrue(followers.waitForExistence(timeout: 10), app.debugDescription)
+
+        followers.tap()
+        let complete = app.buttons["auth.completeUITestSignIn"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), app.debugDescription)
+        complete.tap()
+        XCTAssertTrue(waitUntilGone(app.buttons["auth.closeSignIn"]), app.debugDescription)
+
+        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].exists, "the viewer is still on the profile")
+        XCTAssertFalse(app.descendants(matching: .any)["followList.root"].exists, "signing in opens no list by itself")
+    }
+
+    /// Follows the feed's author (`@traveler`) from the "+", then opens the Following list on the viewer's own profile.
+    /// Returns the profile's Following count, so a test can read it again after going back.
+    @MainActor
+    private func openFollowingListAfterFollowingTheFeedAuthor(_ app: XCUIApplication) -> XCUIElement {
+        let follow = app.buttons["feed.follow"]
+        XCTAssertTrue(follow.waitForExistence(timeout: 15), app.debugDescription)
+        follow.tap()
+        XCTAssertTrue(waitUntilGone(follow), "the + goes once the viewer follows the author")
+
+        app.tabBars.buttons["Profile"].tap()
+        let following = app.descendants(matching: .any)["profile.followingCount"]
+        XCTAssertTrue(following.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilValue(following, is: "1"), app.debugDescription)
+        following.tap()
+        return following
+    }
+
+    /// Inside a pushed screen the navigation bar's leading button is Back.
+    @MainActor
+    private func goBack(_ app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+    }
+
     /// Location sharing works both ways between mutual followers. `@traveler` follows the viewer back and shares in the
     /// UI-test world, so once the viewer follows them and shares too, they show on the map and their pin opens their
     /// profile; one tap on the switch stops sharing and takes them off at once.

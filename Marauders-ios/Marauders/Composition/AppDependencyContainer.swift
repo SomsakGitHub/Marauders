@@ -24,6 +24,7 @@ final class AppDependencyContainer {
     private let videoExporter: VideoExporting
     private let profileRepository: UserProfileRepository
     private let commentRepository: CommentRepository
+    private let followListRepository: FollowListRepository
 
     init(
         feedRepository: FeedRepository? = nil,
@@ -33,7 +34,8 @@ final class AppDependencyContainer {
         commentRepository: CommentRepository? = nil,
         clipLikeRepository: ClipLikeRepository? = nil,
         userFollowRepository: UserFollowRepository? = nil,
-        locationSharingRepository: LocationSharingRepository? = nil
+        locationSharingRepository: LocationSharingRepository? = nil,
+        followListRepository: FollowListRepository? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -159,6 +161,16 @@ final class AppDependencyContainer {
             )
         }
 
+        if let followListRepository {
+            self.followListRepository = followListRepository
+        } else if AppRuntimeConfiguration.isUITesting, !usesRejectedUITestSession {
+            self.followListRepository = UITestFollowListRepository(follows: uiTestFollows)
+        } else {
+            self.followListRepository = DefaultFollowListRepository(
+                apiClient: FollowListAPIClient(client: transport, authorization: apiAuthorization)
+            )
+        }
+
         let resolveClipLikeRepository: ClipLikeRepository
         if let clipLikeRepository {
             resolveClipLikeRepository = clipLikeRepository
@@ -211,6 +223,25 @@ final class AppDependencyContainer {
             handle: handle,
             loadProfile: LoadPublicProfileUseCase(repository: profileRepository),
             follows: followsViewModel
+        )
+    }
+
+    func makeFollowListViewModel(handle: String, kind: FollowListKind) -> FollowListViewModel {
+        FollowListViewModel(
+            handle: handle,
+            kind: kind,
+            loadList: LoadFollowListUseCase(repository: followListRepository)
+        )
+    }
+
+    /// What the screens that push profiles and follower lists need, in one value for the Profile tab and the profile
+    /// sheet, so both push the same screens against the same follows and the same session.
+    var profileNavigation: ProfileNavigation {
+        ProfileNavigation(
+            authViewModel: authViewModel,
+            followsViewModel: followsViewModel,
+            makePublicProfileViewModel: { [self] in makePublicProfileViewModel(handle: $0) },
+            makeFollowListViewModel: { [self] in makeFollowListViewModel(handle: $0, kind: $1) }
         )
     }
 
