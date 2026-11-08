@@ -1,6 +1,6 @@
-// Runs the follows and friend-location tests (test/follows.test.ts, test/friendLocations.test.ts) with node:test. The tests and the
-// Worker code are bundled with esbuild into the OS temp directory, and @neondatabase/serverless is swapped for a
-// programmable fake so no database connection is ever made.
+// Runs the follows, follower-list and friend-location tests (test/follows.test.ts, test/followLists.test.ts,
+// test/friendLocations.test.ts) with node:test. The tests and the Worker code are bundled with esbuild into the OS
+// temp directory, and @neondatabase/serverless is swapped for a programmable fake so no database connection is ever made.
 //
 // Usage: npm run test:follows
 
@@ -28,6 +28,7 @@ try {
   await build({
     entryPoints: [
       path.join(root, "test", "follows.test.ts"),
+      path.join(root, "test", "followLists.test.ts"),
       path.join(root, "test", "friendLocations.test.ts"),
     ],
     outdir: outDir,
@@ -42,7 +43,12 @@ try {
   });
   const result = spawnSync(
     process.execPath,
-    ["--test", path.join(outDir, "follows.test.mjs"), path.join(outDir, "friendLocations.test.mjs")],
+    [
+      "--test",
+      path.join(outDir, "follows.test.mjs"),
+      path.join(outDir, "followLists.test.mjs"),
+      path.join(outDir, "friendLocations.test.mjs"),
+    ],
     { stdio: "inherit" },
   );
   exitCode = result.status ?? 1;

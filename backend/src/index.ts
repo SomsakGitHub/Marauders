@@ -7,6 +7,7 @@ import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
 import { authorRelations, handleFollowChange } from "./routes/follows";
+import { handleFollowList, type FollowListKind } from "./routes/followLists";
 import { handleFriendLocations, handleLocationSharingUpdate } from "./routes/friendLocations";
 import { handleLikeChange, likedVideoIDs } from "./routes/likes";
 import { parseDubbingLanguage } from "./audio/cache";
@@ -313,6 +314,19 @@ export default {
       let rawHandle: string;
       try { rawHandle = decodeURIComponent(followMatch[1]); } catch { return withCors(errorResponse(400, "invalid handle"), request); }
       return withCors(await handleFollowChange(env, rawHandle, auth.userId, request.method === "PUT"), request);
+    }
+
+    // Before the catch-all below, which would take "@bob/followers" as a handle and answer 400.
+    const followListMatch = url.pathname.match(/^\/v1\/users\/([^/]+)\/(followers|following)$/);
+    if (followListMatch && request.method === "GET") {
+      const auth = await authenticateBearerRequest(request, env.JWT_SIGNING_SECRET ?? "");
+      if (!auth) return withCors(errorResponse(401, "authentication required"), request);
+      const decision = await enforceDatabaseRateLimit(env.DATABASE_URL,
+        { scope: "follow-list", limit: 60, windowSeconds: 60 }, auth.userId);
+      if (!decision.allowed) return withCors(rateLimitedResponse(decision.retryAfterSeconds), request);
+      let rawHandle: string;
+      try { rawHandle = decodeURIComponent(followListMatch[1]); } catch { return withCors(errorResponse(400, "invalid handle"), request); }
+      return withCors(await handleFollowList(request, env, rawHandle, followListMatch[2] as FollowListKind, auth.userId), request);
     }
 
     if (
