@@ -433,8 +433,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Marauders never uses the camera. This notice exists only because a library it includes contains code that can ask for camera or microphone access, which the app does not call.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Marauders requires Always location permission to identify your country before sign-in. Where you are is shown to others only if you turn on location sharing, and only to people you follow who follow you back. While it is on, Marauders sends your location when you move, also while the app is closed.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to identify your country before sign-in and show your position on the map. If you turn on location sharing, people you follow who follow you back see where you are. Sign-in requires Always location permission.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Marauders never uses the microphone. This notice exists only because the on-device speech model it includes contains a microphone permission request that the app does not call.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a video from your library to upload to the Marauders feed";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize a clip's speech on your iPhone to detect its language and dub it into the language you listen in.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -473,8 +475,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Marauders never uses the camera. This notice exists only because a library it includes contains code that can ask for camera or microphone access, which the app does not call.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Marauders requires Always location permission to identify your country before sign-in. Where you are is shown to others only if you turn on location sharing, and only to people you follow who follow you back. While it is on, Marauders sends your location when you move, also while the app is closed.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to identify your country before sign-in and show your position on the map. If you turn on location sharing, people you follow who follow you back see where you are. Sign-in requires Always location permission.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Marauders never uses the microphone. This notice exists only because the on-device speech model it includes contains a microphone permission request that the app does not call.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a video from your library to upload to the Marauders feed";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Recognize a clip's speech on your iPhone to detect its language and dub it into the language you listen in.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
