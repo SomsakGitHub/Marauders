@@ -36,6 +36,7 @@ Layer boundaries are enforced by:
 | **Composition root** | `AppDependencyContainer` is the only place that wires `Default*` repositories to use cases and ViewModels |
 | **Use cases** | Presentation calls `FetchFeedUseCase` / `UploadFeedVideoUseCase`, not `FeedAPIClient` |
 | **Tests** | `MockFeedRepository` in unit tests proves Domain-facing seams |
+| **Layer check** (added 2026-11-14) | `Marauders-ios/Scripts/check-layers.sh` runs as a Debug-only build phase and warns in Xcode when a file imports, or names a type of, a layer it must not use. Rules and what is not checked: [ARCHITECTURE.md](../../ARCHITECTURE.md), "Dependency rules". Breaks accepted for now are listed with their reasons in `Marauders-ios/Scripts/layer-exceptions.txt`; the script warns about a list line that no longer matches, so the list only shrinks |
 
 Xcode uses a **synchronized root group** on `Marauders/` — new files under the correct folder are picked up automatically without manual `project.pbxproj` file entries.
 
@@ -54,7 +55,7 @@ Re-open this ADR if **any** of the following become true:
 
 1. **Second app target** (e.g. admin app, widget extension) needs the same Domain/Data.
 2. **Domain grows** beyond feed/upload (auth, profiles, moderation) with multiple teams touching it.
-3. **CI policy**: we add a failing check for forbidden imports (e.g. `SwiftUI` in `Domain/`) and still see repeated violations without compile errors.
+3. **CI policy**: we add a failing check for forbidden imports (e.g. `SwiftUI` in `Domain/`) and still see repeated violations without compile errors. (`check-layers.sh --strict` is such a check; today it only warns and no CI job runs it with `--strict`.)
 4. **Extracted playback SDK** — if `FeedPlayerEngine` is reused outside Marauders.
 
 Suggested first split order if triggered:
@@ -73,7 +74,7 @@ Suggested first split order if triggered:
 
 **Negative**
 
-- A developer *can* `import` Data from a ViewModel and the compiler will allow it — discipline and review (or future CI grep) required.
+- A developer *can* `import` Data from a ViewModel and the compiler will allow it. The layer check warns about it in Xcode, but a warning does not stop a build, so discipline and review are still required.
 - `public` access control is not exercised; APIs between layers are `internal` to the app module.
 
 **Neutral**

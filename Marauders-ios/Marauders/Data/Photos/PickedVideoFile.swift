@@ -3,8 +3,8 @@
 //  Marauders
 //
 
+import CoreTransferable
 import Foundation
-import SwiftUI
 import UniformTypeIdentifiers
 
 struct PickedVideoFile: Transferable {

@@ -107,6 +107,7 @@
 			buildConfigurationList = 06BC2C4D3075A7FC0064F635 /* Build configuration list for PBXNativeTarget "Marauders" */;
 			buildPhases = (
 				0636E9AB30A85A01009BE879 /* Run Script lint */,
+				2E9462A1B3154CEBB37F5495 /* Run Script layer check */,
 				06BC2C263075A7FB0064F635 /* Sources */,
 				06BC2C273075A7FB0064F635 /* Frameworks */,
 				06BC2C283075A7FB0064F635 /* Resources */,
@@ -264,6 +265,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# ข้ามตอน Release/archive เพื่อไม่ให้ build ช้าและไม่ให้ Jenkins พัง\nif [ \"$CONFIGURATION\" = \"Release\" ]; then exit 0; fi\nxcrun swift-format lint -r \"$SRCROOT/Marauders\" \"$SRCROOT/MaraudersTests\" \"$SRCROOT/MaraudersUITests\" 2>&1\n";
+		};
+		2E9462A1B3154CEBB37F5495 /* Run Script layer check */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script layer check";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Warns when code breaks the layer rules of ARCHITECTURE.md (Scripts/check-layers.sh). Skipped for Release/archive like the lint phase.\nif [ \"$CONFIGURATION\" = \"Release\" ]; then exit 0; fi\nsh \"$SRCROOT/Scripts/check-layers.sh\" 2>&1\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -65,10 +65,12 @@ Marauders/
 │   │   ├── App/, Composition/   # entry point, dependency container
 │   │   ├── Domain/              # Entities, UseCases, Repositories/Services (protocol)
 │   │   ├── Data/                # API clients, Auth, Repositories, Services (cache, Whisper, ...)
+│   │   ├── Shared/              # AppLog, AppRuntimeConfiguration (small helpers every layer may use)
 │   │   ├── Presentation/        # Feed, Map, Upload, Profile, Settings, Dubbing, Auth, Debug (Log), ...
 │   │   └── APIConfiguration.plist   # Base URL ของ Worker (HTTPS)
 │   ├── MaraudersTests/     # unit tests (Swift Testing)
 │   ├── MaraudersUITests/   # XCUITest
+│   ├── Scripts/            # check-layers.sh (layer rules, warns in Debug builds), layer-exceptions.txt, tests/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/

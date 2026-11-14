@@ -18,6 +18,7 @@ Marauders/
   Composition/         AppDependencyContainer (wiring)
   Domain/              Entities, repository protocols, use cases
   Data/                API clients, repository implementations, export
+  Shared/              AppLog, AppRuntimeConfiguration (helpers every layer may use; added later, see ADR-004)
   Presentation/        SwiftUI Views + ViewModels (+ Playback UIKit)
 ```
 

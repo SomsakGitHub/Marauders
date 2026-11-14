@@ -290,6 +290,7 @@ See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-00
 | Composition | `Composition/` | `AppDependencyContainer` wires use cases |
 | Domain | `Domain/` | `FeedVideo`, repository protocols, use cases |
 | Data | `Data/` | API clients, `Default*Repository`, export |
+| Shared | `Shared/` | Small helpers every layer may use, with no UI framework and no other layer's types: `AppLog` / `AppLogStore` (`Logging/`), `AppRuntimeConfiguration` / `UITestFeedMode` (`Configuration/`) |
 | Presentation | `Presentation/` | SwiftUI Views + ViewModels; `Feed/Playback/` for AVFoundation |
 
 #### Dependency rules
@@ -335,13 +336,25 @@ flowchart LR
 
 | Layer | May import / call | Must not |
 |-------|-------------------|----------|
-| **Domain** | `Foundation` only | SwiftUI, UIKit, AVFoundation, PhotosUI, `URLSession` in use cases |
-| **Data** | Domain (+ Apple frameworks needed for I/O) | SwiftUI; Presentation types |
-| **Presentation (ViewModel)** | Domain use cases and entities | `FeedAPIClient`, `VideoUploadAPIClient`, concrete `Default*Repository` |
-| **Presentation (View)** | ViewModels; playback types in `Feed/Playback/` | Use cases or repositories directly (except wiring in previews) |
-| **Composition** | Domain, Data, Presentation ViewModels | UI layout |
+| **Domain** | `Foundation` only | SwiftUI, UIKit, AVFoundation, PhotosUI, `URLSession` in use cases; Data, Presentation or Shared types |
+| **Data** | Domain, Shared (+ Apple frameworks needed for I/O) | SwiftUI; Presentation types |
+| **Presentation (ViewModel)** | Domain use cases and entities, Shared | Data types (`FeedAPIClient`, `VideoUploadAPIClient`, concrete `Default*Repository`, …); Composition types |
+| **Presentation (View)** | ViewModels; playback types in `Feed/Playback/`; Shared | Use cases or repositories directly (except wiring in previews) |
+| **Shared** | `Foundation` and other non-UI frameworks (`os`, `Observation`) | SwiftUI, UIKit; types of any other layer |
+| **Composition** | Domain, Data, Shared, Presentation ViewModels | UI layout |
 
 **Playback exception:** `FeedPlayerEngine` is presentation infrastructure. `VideoFeedView` drives it for scroll/settle; it is not a domain use case.
+
+**Enforcement.** `Marauders-ios/Scripts/check-layers.sh` checks the rules above and reports each break as an Xcode warning. It runs as the *Run Script layer check* build phase of the app target, in Debug builds only (Release and archive skip it, like the swift-format lint phase), and a rule break never fails the build; `--strict` makes it exit 1, for a CI job. A type belongs to the folder that declares it at the top level. The script flags:
+
+- a Domain file that imports anything but `Foundation`, or names a Data, Presentation or Shared type;
+- a Data file that imports `SwiftUI` or names a Presentation type;
+- a Presentation file that names a Data or Composition type, and a `*View.swift` file that also names a Domain use case or repository;
+- a Shared file that imports `SwiftUI` or `UIKit`, or names a type of another layer.
+
+Comments, string literals and `#Preview` blocks are skipped, and `Composition/` and `App/` are not restricted. Not checked: that a ViewModel reaches Domain through use cases rather than repositories, and `URLSession` inside a use case (review only).
+
+Findings accepted for now are listed, one per line with the reason, in `Marauders-ios/Scripts/layer-exceptions.txt` (for example the Dubbing exception under *Settings tab and AI dubbing*). The script also warns about a line that no longer matches anything, so the list only shrinks: fix the dependency, then delete its line, and never add a line just to silence a new warning. The script's own tests: `sh Marauders-ios/Scripts/tests/check-layers-tests.sh`.
 
 #### Navigation (Coordinator / Router)
 
@@ -427,9 +440,10 @@ sequenceDiagram
 ```text
 Marauders-ios/Marauders/
   App/              MaraudersApp
-  Composition/      AppDependencyContainer, AppRuntimeConfiguration, UITestFeedMode, UITestRejectedSession
+  Composition/      AppDependencyContainer, UITestRejectedSession
   Domain/           Entities, Repositories (protocols), Services (protocols), UseCases, Auth
   Data/             API/, Auth/ (Keychain stores), Repositories/, Services/ (export, caches, speech, Whisper), Photos/
+  Shared/           Logging/ (AppLog, AppLogStore), Configuration/ (AppRuntimeConfiguration, UITestFeedMode)
   Presentation/
     Navigation/     AppRouter, AppCoordinator, MainTab
     Main/           ContentView
@@ -444,7 +458,7 @@ Marauders-ios/Marauders/
     Settings/       SettingsView, listening-language picker, language models
     Dubbing/        DubbingViewModel, NarrationFileWriter, language-detection memo, the \.dubbedAudioCache environment key
     Common/         AvatarView, ClipPlayerView
-    Debug/          AppLogStore, DebugLogView (#if DEBUG)
+    Debug/          DebugLogView (the log tab of DEBUG builds), CopyableStatusBanner
 ```
 
 ### iOS — HTTP API contract
@@ -585,6 +599,7 @@ R2 (`marauders-videos`) holds `videos/`, `avatars/` and `translations/` objects 
 - **Unit (`MaraudersTests`, Swift Testing, 826 `@Test` functions across 67 files):** feed engine and media preparation (`FeedPlayerEngineTests`, `FeedMediaPreparationServiceTests`, `FeedPagingGestureTests`), feed view model and startup cache, API clients on `StubURLProtocol` (no network), map (clustering, proximity, search, view model with `FakeLocationManager`), profile / public profile view models, comments (`CommentRulesTests`, `CommentsAPIClientTests`, `PostCommentUseCaseTests`, `CommentsViewModelTests`), likes (`LikesAPIClientTests`, `ClipLikesViewModelTests` on a gated stub repository: optimistic count, failure rollback, one request at a time, reload and session-change handling; `FeedVideoLikeFieldsTests`), follow lists (`FollowListAPIClientTests` on `StubURLProtocol`: the Bearer guard before any request, the URL and its limit, the status mapping, an avatar that is missing or not an http(s) address; `FollowListUseCaseTests`; `FollowListViewModelTests` on a gated stub repository: paging and the prefetch distance, a Worker that repeats the cursor or a row, a refresh, a sign-in or a sign-out overtaking a request, a failure keeping the rows already shown, a cancelled request that is not a failure, the sign-in rule), sign-in + location, session end (`APIAccessTokenExpiryTests` for expired, valid, malformed and `exp`-less tokens; `RejectedSessionReportingTests` and `SessionExpiryTests` for `restoreSession()` and for a 401 signing the viewer out through the real API clients, with no network), upload use cases, and the dubbing stack (listening languages, dubbing plan and sources, shared cache, reports, language detection, speech-window selection, model store, Settings language models). A few `*DeviceTests` files target real-device behavior.
 - **UI (`MaraudersUITests`, XCTest):** smoke and flow tests with deterministic mock data: feed / map / upload / profile tabs, empty feed, delete own clip, place search, public profile from feed avatar and map clip, avatar control, streaming feed swipes, guest sign-in gates, country change at sign-in, location-denied, the AI-audio choice, and the comments sheet (read, post, delete offered only on comments the viewer may delete, guest sign-in gate that leaves the viewer on the feed (signing in swaps the button for the composer; the clip stays paused behind the sign-in screen and plays again when the viewer backs out of it), closing it with the button or a swipe, with or without the keyboard up, and a half-written comment surviving a swipe), and a rejected session (the 401 signs the viewer out: Profile and Upload fall back to the sign-in gate, and the comments sheet stays open and readable as a guest). Likes: the heart likes and unlikes a clip, a guest's tap opens sign-in with the clip paused (and plays again on back), and a like the Worker rejects with 401 signs the viewer out and takes the heart back. Follow lists: both lists open from the counts on the Profile tab and start empty; a followed account is listed and its row opens its profile (Back returns to the list); the button on a row follows and unfollows with the profile's count in step and the row stays; another account's Followers list the viewer on a row without a Follow button, and that row opens the viewer's own profile; a guest's tap on a count asks to sign in and opens nothing afterwards (`UITestFollowListRepository`: nobody follows the viewer, the viewer's Following is what they followed in the run, one page, no cursor).
 - **Backend (`backend/scripts`, plain Node):** `npm run test:feed` (real router, auth and SQL builder against a database spy), `npm run test:dubbed-audio` (shared audio cache, reports), `npm run test:dev-auth` (esbuild-bundled `test/authDev.test.ts` on `node:test` with a fake users module), `npm run test:comments` (`test/comments.test.ts` for text and language normalization and `test/commentsRoutes.test.ts` for the real `worker.fetch` router with a recording fake of the Neon driver, on the same esbuild + `node:test` setup: auth, validation, the 16 KiB request cap (announced length, streamed pieces), status codes, the text of each statement (pinned whole, so any edit to it needs the test changed too) and the values bound to it, the generic 500 and what is logged for it (SQLSTATE and message, never the comment), and `commentCount` in every query that lists clips; it does not run the SQL itself, which has not been executed against a real Postgres). `test-upload.mjs` and `test-audio-assessment.mjs` exist but have no npm script. `npm run typecheck` runs `tsc --noEmit`. `npm run test:follows` (`test/follows.test.ts`, `test/followLists.test.ts` and `test/friendLocations.test.ts` through the same esbuild + `node:test` setup; `followLists.test.ts` covers `GET /v1/users/{handle}/followers` and `/following` in 15 tests: the page's shape and order, the limit's default and the extra row read to decide `nextCursor`, continuing after a cursor (the exact timestamp text and the handle it names) and the cursor's round trip, `followedByViewer` / `isViewer`, the route being reached before the profile catch-all, 401 / 429 / 503 / 404 / 400 / 500 with the database message never sent and its SQLSTATE logged, and handles in any case with or without `@`; the list SQL was also run against PGlite 0.5.8 (PostgreSQL 18.3 in WASM) through the real Worker, 13 of 13 checks passing in a throwaway harness that is not kept in the repo: both orders with equal follow times broken by account id, three pages in a row with equal times across a page edge, a cursor whose row was unfollowed, renamed or deleted, rows one microsecond apart, `followedByViewer` / `isViewer`, a list as long as the profile's count, an unknown handle, `@Alice` and `alice`; with 5,000 followers a followers page reads `limit + 1` entries of `user_follows_followed_idx` and has no sort node, while a Following page sorts the account's follows in memory (about 3 ms for 2,000 accounts); `friendLocations.test.ts` covers the two location-sharing routes, their auth, validation, rate limit and SQL shape, and `sharesLocation` on `/me`; `follows.test.ts`: auth on both verbs, handle parsing (case, `@`, reserved, undecodable escapes), the count SQL shape, 404 / 401 / 422 / 429 / 500 mapping that never leaks the database message, follower counts and `followedByViewer` / `isViewer` on both profiles and `postedByViewer` / `authorFollowedByViewer` in the feed and map, with no follow lookup for a guest or an empty page; the follow SQL has not been run on a real Postgres). `npm run test:likes` (`test/likes.test.ts` through the same esbuild + `node:test` setup: auth on both verbs, the count SQL shape, 404 / 401 / 429 / 500 mapping that never leaks the database message, and `likeCount` / `likedByViewer` in the feed, with no like lookup for a guest). The like SQL was also run against PGlite 0.5.8 (PostgreSQL 18.3 in WASM): repeats count once, unlike of a missing like changes nothing, a vanished clip is 404, an unknown user breaks `video_likes_user_id_fkey`, and the rows go with the clip.
+- **Layer checker (`Marauders-ios/Scripts/tests`, plain `sh`, no Xcode needed):** `sh Marauders-ios/Scripts/tests/check-layers-tests.sh` runs `check-layers.sh` on a small fake source tree per case: one case per rule, plus comments and strings, nested and private types, `#if` blocks, `#Preview` blocks, a name declared in two layers, the exceptions list (including a line that no longer matches) and the exit statuses. It prints every failed expectation with the checker's output and exits 1 when any failed.
 - Run iOS tests: Xcode **Product → Test** or `xcodebuild test -scheme Marauders` (the fastlane `test` lane runs `MaraudersTests` only and emits JUnit + Cobertura coverage).
 - **CI state:** the `Jenkinsfile` currently runs Checkout → Install dependencies → Resolve Swift packages → Deploy to TestFlight (`main` only). The **Unit tests** and **Coverage report** stages are commented out ("temporarily disabled to keep the TestFlight build fast"), so CI does not run any tests today. [docs/ci-cd.md](docs/ci-cd.md) still describes the older flow with unit tests and should be read with that caveat.
 
@@ -601,6 +616,6 @@ Pass these via `XCUIApplication.launchArguments` (and matching `launchEnvironmen
 | `UITEST_REJECTED_SESSION` | Starts signed in, but with an in-memory session (`UITestRejectedSession`, never the Keychain) whose token a stub transport (`UITestRejectingHTTPClient`) answers with 401, so the real `AuthViewModel`, `RejectedSessionReportingHTTPClient` and API clients must sign the viewer out. A guest's comments read gets one canned comment. Requires `UITEST`. |
 | `UITEST_LOCATION_DENIED` | Sign-in location check reports permission denied. |
 
-Resolution lives in `UITestFeedMode` / `AppRuntimeConfiguration` and is applied when `AppDependencyContainer` wires the feed repository. Splash awaits `VideoFeedViewModel.awaitInitialLoad()` so smoke tests assert against a settled feed state.
+Resolution lives in `UITestFeedMode` / `AppRuntimeConfiguration` (`Shared/Configuration/`) and is applied when `AppDependencyContainer` wires the feed repository. Splash awaits `VideoFeedViewModel.awaitInitialLoad()` so smoke tests assert against a settled feed state.
 
 Key accessibility identifiers used by tests: `feed.root`, `feed.error`, `feed.comments`, `feed.like`, `feed.pausedIndicator`, `comments.root`, `comments.input`, `comments.send`, `comments.row`, `comments.close`, `comments.signIn`, `comments.delete`, `comments.confirmDelete`, `map.root`, `settings.root`, `upload.pickVideo`, `upload.caption`.
