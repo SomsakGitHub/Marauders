@@ -22,7 +22,8 @@ private final class MemoryStartupCache: FeedStartupCaching {
     }
 }
 
-private actor StartupRefreshGate: FeedRepository {
+// A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+private final class StartupRefreshGate: FeedRepository, @unchecked Sendable {
     let page: FeedPage
     private var waiting: CheckedContinuation<Void, Never>?
     private var started: CheckedContinuation<Void, Never>?
@@ -57,7 +58,7 @@ struct CachedFeedStartupTests {
         await viewModel.loadIfNeeded()
         #expect(viewModel.videos == [stale])
         await repository.waitForRequest()
-        await repository.release()
+        repository.release()
         let deadline = ContinuousClock.now + .seconds(2)
         while viewModel.videos.count == 1 && ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(20))
@@ -77,7 +78,7 @@ struct CachedFeedStartupTests {
         #expect(viewModel.restoredStartupCache)
         #expect(viewModel.loadState == .loaded)
         await repository.waitForRequest()
-        await repository.release()
+        repository.release()
         let deadline = ContinuousClock.now + .seconds(2)
         while viewModel.videos.count == 1 && ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))

@@ -8,7 +8,8 @@ struct DubbedAudioCacheTests {
     private struct Authorization: APIAuthorization {
         func bearerAuthorizationHeader() -> String? { "Bearer fixture-session" }
     }
-    private actor HTTP: HTTPClient {
+    // A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+    private final class HTTP: HTTPClient, @unchecked Sendable {
         private(set) var requests: [URLRequest] = []
         let body: Data
         init(_ body: String) { self.body = Data(body.utf8) }
@@ -25,7 +26,7 @@ struct DubbedAudioCacheTests {
         let api = DubbedAudioCacheClient(client: http, authorization: Authorization())
         #expect(try await api.lookup(videoID: id, sourceURL: source, language: .thai) == audio)
         try await api.store(videoID: id, sourceURL: source, language: .thai, audio: Data([1,2,3]))
-        let requests = await http.requests
+        let requests = http.requests
         #expect(requests.count == 2)
         #expect(requests[0].httpMethod == "GET")
         #expect(requests[0].url?.path.hasSuffix("/dubbed-audio") == true)
@@ -56,10 +57,11 @@ struct DubbedAudioCacheTests {
         let http = HTTP("{}")
         let api = DubbedAudioCacheClient(client: http, authorization: NoAPIAuthorization())
         do { try await api.store(videoID: UUID(), sourceURL: URL(string: "https://example.com/v.mp4")!, language: .thai, audio: Data([1])); Issue.record("Guest upload accepted") }
-        catch { #expect(await http.requests.isEmpty) }
+        catch { #expect(http.requests.isEmpty) }
     }
     @Test func deselectingDubbingDiscardsLateCacheResponse() async {
-        actor DeferredCache: DubbedAudioCaching {
+        // A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+        final class DeferredCache: DubbedAudioCaching, @unchecked Sendable {
             var continuation: CheckedContinuation<URL?, Never>?
             var started: CheckedContinuation<Void, Never>?
             func lookup(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async throws -> URL? {
@@ -75,7 +77,7 @@ struct DubbedAudioCacheTests {
         let pending = Task { await model.prepare(clip: clip, target: .thai) }
         await cache.wait()
         model.useOriginal()
-        await cache.finish()
+        cache.finish()
         #expect(await pending.value == .unavailable)
         #expect(model.message == nil)
         #expect(!model.isProcessing)
@@ -84,7 +86,8 @@ struct DubbedAudioCacheTests {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
         defer { try? FileManager.default.removeItem(at: file) }
         try SpeechAudioPreparation.wave(Data(repeating: 0, count: 32000)).write(to: file)
-        actor Cache: DubbedAudioCaching {
+        // A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+        final class Cache: DubbedAudioCaching, @unchecked Sendable {
             let url: URL
             init(_ url: URL) { self.url = url }
             func lookup(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async throws -> URL? { url }

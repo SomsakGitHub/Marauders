@@ -114,7 +114,7 @@ struct RejectedSessionReportingTests {
 
         _ = try await client.data(original)
 
-        #expect(await base.requests == [original])
+        #expect(base.requests == [original])
     }
 }
 
@@ -125,7 +125,8 @@ actor RejectionLog {
     func add(_ token: String) { tokens.append(token) }
 }
 
-actor ScriptedHTTP: HTTPClient {
+// A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+final class ScriptedHTTP: HTTPClient, @unchecked Sendable {
     private let outcome: Result<HTTPClientResponse, Error>
     private(set) var requests: [URLRequest] = []
 

@@ -495,7 +495,9 @@ private func respond(_ request: URLRequest, _ status: Int, _ body: String = "") 
     (StubURLSessionFactory.httpResponse(for: request, statusCode: status), Data(body.utf8))
 }
 
-private final class MemorySessionStorage: AuthSessionStore, APIAccessTokenStore, @unchecked Sendable {
+// nonisolated: Swift 6.4 would make a class that conforms to these MainActor-isolated protocols MainActor-isolated, but
+// the tests change the token from `@Sendable` closures and from the stub's URLProtocol thread, which the lock makes safe.
+nonisolated private final class MemorySessionStorage: AuthSessionStore, APIAccessTokenStore, @unchecked Sendable {
     private let lock = NSLock()
     private var storedUserID: String?
     private var storedAccessToken: String?

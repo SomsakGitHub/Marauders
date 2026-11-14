@@ -46,7 +46,8 @@ struct UploadVideoViewModelTests {
         #expect(!model.canUpload)
     }
     @Test func resetDuringAudioInspectionCannotRestoreDiscardedFile() async throws {
-        actor DeferredInspector: ClipAudioInspecting {
+        // A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+        final class DeferredInspector: ClipAudioInspecting, @unchecked Sendable {
             var continuation: CheckedContinuation<ClipAudioAssessment, Never>?
             var waiter: CheckedContinuation<Void, Never>?
             func inspect(fileURL: URL) async -> ClipAudioAssessment {
@@ -63,7 +64,7 @@ struct UploadVideoViewModelTests {
         await inspector.waitUntilInspecting()
         #expect(model.isCheckingAudio)
         model.resetPickedFile()
-        await inspector.finish()
+        inspector.finish()
         await task.value
         #expect(model.uploadFileURL == nil)
         #expect(model.audioAssessment == nil)

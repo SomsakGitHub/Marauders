@@ -18,7 +18,8 @@ private struct MockFeedRepository: FeedRepository {
 @MainActor
 struct VideoFeedViewModelTests {
     @Test func concurrentInitialLoadsShareOneRequest() async {
-        actor CountingRepository: FeedRepository {
+        // A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+        final class CountingRepository: FeedRepository, @unchecked Sendable {
             var calls = 0
             let page: FeedPage
 
@@ -42,7 +43,7 @@ struct VideoFeedViewModelTests {
         }
         for caller in callers { await caller.value }
         await viewModel.awaitInitialLoad()
-        #expect(await repository.calls == 1)
+        #expect(repository.calls == 1)
     }
 
     @Test func reloadEmptyPersonalFeedIsValidEmptyState() async {

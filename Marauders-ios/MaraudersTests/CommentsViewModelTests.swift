@@ -963,8 +963,10 @@ struct CommentsViewModelTests {
         repository.beforeFetchReturns = { [viewModel, repository] in
             let call = calls.next()
             guard call <= posted.count else { return }
-            repository.postResult = .success(posted[call - 1])
-            await MainActor.run { viewModel.draft = "post \(call)" }
+            await MainActor.run {
+                repository.postResult = .success(posted[call - 1])
+                viewModel.draft = "post \(call)"
+            }
             await viewModel.post()
         }
 
@@ -980,8 +982,10 @@ struct CommentsViewModelTests {
         repository.beforeFetchReturns = { [viewModel, repository] in
             let call = calls.next()
             guard call <= posted.count else { return }
-            repository.postResult = .success(posted[call - 1])
-            await MainActor.run { viewModel.draft = "post \(call)" }
+            await MainActor.run {
+                repository.postResult = .success(posted[call - 1])
+                viewModel.draft = "post \(call)"
+            }
             await viewModel.post()
             if call == posted.count { await viewModel.delete(posted[call - 1]) }
         }
@@ -1000,8 +1004,10 @@ struct CommentsViewModelTests {
         let interleave = OneShot()
         repository.beforeFetchReturns = { [viewModel, repository] in
             guard interleave.claim() else { return }
-            repository.postResult = .success(mine)
-            await MainActor.run { viewModel.draft = "mine" }
+            await MainActor.run {
+                repository.postResult = .success(mine)
+                viewModel.draft = "mine"
+            }
             await viewModel.post()
         }
 

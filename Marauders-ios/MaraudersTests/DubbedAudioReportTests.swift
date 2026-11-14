@@ -7,7 +7,8 @@ struct DubbedAudioReportTests {
     private struct Authorization: APIAuthorization {
         func bearerAuthorizationHeader() -> String? { "Bearer fixture-session" }
     }
-    private actor HTTP: HTTPClient {
+    // A class, not an actor: Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+    private final class HTTP: HTTPClient, @unchecked Sendable {
         private(set) var requests: [URLRequest] = []
         let body: Data
         let status: Int
@@ -37,7 +38,7 @@ struct DubbedAudioReportTests {
         let http = HTTP("{\"status\":\"reported\",\"reports\":1}")
         let api = DubbedAudioCacheClient(client: http, authorization: Authorization())
         #expect(try await api.report(videoID: id, sourceURL: source, language: .thai) == .reported)
-        let request = try #require(await http.requests.first)
+        let request = try #require(http.requests.first)
         #expect(request.httpMethod == "POST")
         #expect(request.url?.path.hasSuffix("/v1/videos/\(id.uuidString.lowercased())/dubbed-audio/report") == true)
         let query = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -78,7 +79,7 @@ struct DubbedAudioReportTests {
         let http = HTTP("{\"status\":\"removed\"}")
         let api = DubbedAudioCacheClient(client: http, authorization: NoAPIAuthorization())
         do { _ = try await api.report(videoID: UUID(), sourceURL: source, language: .thai); Issue.record("Guest report sent") }
-        catch { #expect(await http.requests.isEmpty) }
+        catch { #expect(http.requests.isEmpty) }
     }
 
     @Test func defaultImplementationFails() async {
