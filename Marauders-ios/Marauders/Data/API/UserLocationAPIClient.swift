@@ -5,23 +5,6 @@
 
 import Foundation
 
-enum UserLocationAPIError: LocalizedError, Equatable {
-    case notAuthenticated
-    case serverError(Int)
-    case invalidResponse
-
-    var errorDescription: String? {
-        switch self {
-        case .notAuthenticated:
-            return "Sign in required"
-        case .serverError(let code):
-            return "Location report failed (status \(code))"
-        case .invalidResponse:
-            return "Invalid server response"
-        }
-    }
-}
-
 struct UserLocationAPIClient: Sendable {
     private let client: HTTPClient
     private let authorization: APIAuthorization?

@@ -6,8 +6,8 @@
 # anything, so this list can only shrink: when you fix one, delete its line. Do not add a line to silence a new
 # violation; fix the dependency, or write down here why it has to stay.
 #
-# A type belongs to the folder that declares it, so most lines below are types that sit in Data/ but are used by
-# Presentation/. Moving such a type to the layer that really owns it (or to Shared/) removes its lines.
+# A type belongs to the folder that declares it, so a finding usually means a type sits in the wrong layer. Moving it to
+# the layer that really owns it (or to Shared/) removes its lines; what is listed below is accepted on purpose.
 
 
 # --- Domain imports a framework other than Foundation ----------------------------------------------------------------
@@ -30,28 +30,3 @@ Presentation/Splash/AppRootView.swift: AppDependencyContainer  # the root view o
 Presentation/Main/ContentView.swift: ReportUserLocationUseCase  # only handed down to the Map tab, no view calls it
 Presentation/Map/MapTabView.swift: ReportUserLocationUseCase  # only handed down to the location reporters, no view calls it
 
-
-# --- Presentation names a Data type: location -------------------------------------------------------------------------
-# LocationManagerDelegateBridge (Data/Services) turns CLLocationManagerDelegate callbacks into closures; only
-# Presentation uses it, so it is a candidate to move there.
-Presentation/Auth/SignInLocationViewModel.swift: LocationManagerDelegateBridge  # the view model owns its location delegate bridge
-Presentation/Map/BackgroundLocationMonitor.swift: LocationManagerDelegateBridge  # the monitor owns its location delegate bridge
-Presentation/Map/ForegroundLocationReporter.swift: LocationManagerDelegateBridge  # the reporter owns its location delegate bridge
-Presentation/Map/MapViewModel.swift: LocationManagerDelegateBridge  # the view model owns its location delegate bridge
-Presentation/Upload/UploadVideoViewModel.swift: LocationManagerDelegateBridge  # the view model owns its location delegate bridge
-Presentation/Map/BackgroundLocationMonitor.swift: UserLocationAPIError  # reads the API error to see whether the session has ended
-
-
-# --- Presentation names a Data type: feed caches ---------------------------------------------------------------------
-# Data/Services/FeedStartupCache.swift declares the cache protocols and the shared cache the feed uses as its seam.
-Presentation/Feed/Playback/FeedMediaPreparationService.swift: FeedMediaCaching  # the cache seam, declared in Data/Services
-Presentation/Feed/Playback/FeedPlayerEngine.swift: FeedStartupCache  # the engine's default cache is the shared one
-Presentation/Feed/VideoFeedViewModel.swift: FeedMediaCaching  # the cache seam, declared in Data/Services
-Presentation/Feed/VideoFeedViewModel.swift: FeedStartupCaching  # the cache seam, declared in Data/Services
-
-
-# --- Presentation names a Data type: Upload and sign-in ----------------------------------------------------------------
-Presentation/Upload/UploadVideoView.swift: PickedVideoFile  # the type PhotosPicker loads (loadTransferable)
-Presentation/Upload/UploadVideoViewModel.swift: TemporaryFileCleanup  # deletes the picked clip's temporary copy
-Presentation/Auth/AuthViewModel.swift: DevLogin  # Debug-only sign-in shortcut (Data/API/DevAuthAPIClient.swift)
-Presentation/Auth/SignInWithAppleGateView.swift: DevLogin  # Debug-only sign-in shortcut (Data/API/DevAuthAPIClient.swift)

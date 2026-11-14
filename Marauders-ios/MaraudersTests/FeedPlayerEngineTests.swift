@@ -106,6 +106,23 @@ struct FeedPlayerEngineTests {
         #expect(phaseAfterFirst == .buffering)
         #expect(engine.phase != .failed("URL is not secure"))
     }
+
+    @Test func theEngineLooksForAClipInTheMediaCacheItWasGiven() async {
+        let cache = LookupRecordingMediaCache()
+        let engine = FeedPlayerEngine(mediaCache: cache)
+        let url = URL(string: "https://example.com/video.mp4")!
+
+        engine.play(url: url)
+
+        // The engine asks from a task it starts, so wait for the lookup instead of sleeping a fixed time.
+        var waited = 0
+        while cache.lookups.isEmpty, waited < 300 {
+            try? await Task.sleep(for: .milliseconds(10))
+            waited += 1
+        }
+        #expect(cache.lookups == [url])
+    }
+
     @Test func preloadKeepsFirstNeighborEvenWhenAlreadyWarm() {
         let current = URL(string: "https://example.com/current.mp4")!
         let next = URL(string: "https://example.com/next.mp4")!
@@ -124,4 +141,17 @@ struct FeedPlayerEngineTests {
                 ]) == next)
         #expect(FeedPlayerEngine.preloadTarget(currentURL: next, neighbors: [next]) == nil)
     }
+}
+
+/// A media cache that holds no files and writes down which clips the engine asked it about. A class, not an actor:
+/// Swift 6.4 does not let an actor conform to this MainActor-isolated protocol.
+private final class LookupRecordingMediaCache: FeedMediaCaching, @unchecked Sendable {
+    private(set) var lookups: [URL] = []
+
+    func localURL(for remote: URL) async -> URL? {
+        lookups.append(remote)
+        return nil
+    }
+
+    func invalidate(_ remote: URL) async {}
 }

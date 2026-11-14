@@ -54,11 +54,36 @@ struct VideoFeedView: View {
     /// Set when a guest taps "Sign in to comment": the sheet closes first, then the sign-in screen opens.
     @State private var signInAfterComments = false
     @State private var currentPageIndex = 0
-    @State private var playerEngine = FeedPlayerEngine()
+    @State private var playerEngine: FeedPlayerEngine
     /// The hearts double taps have left on the clip that are still fading.
     @State private var heartBursts: [FeedHeartBurst] = []
     /// Goes up each time the viewer likes a clip here: the rail's heart bounces and the phone gives a light tap.
     @State private var likePops = 0
+
+    init(
+        viewModel: VideoFeedViewModel,
+        isFeedTabSelected: Bool,
+        isSignedIn: Bool,
+        onSignIn: @escaping () -> Void = {},
+        signInDismissalID: Int = 0,
+        onOpenProfile: @escaping (String) -> Void = { _ in },
+        makeCommentsViewModel: ((UUID) -> CommentsViewModel)? = nil,
+        likesViewModel: ClipLikesViewModel? = nil,
+        followsViewModel: UserFollowsViewModel? = nil
+    ) {
+        self.viewModel = viewModel
+        self.isFeedTabSelected = isFeedTabSelected
+        self.isSignedIn = isSignedIn
+        self.onSignIn = onSignIn
+        self.signInDismissalID = signInDismissalID
+        self.onOpenProfile = onOpenProfile
+        self.makeCommentsViewModel = makeCommentsViewModel
+        self.likesViewModel = likesViewModel
+        self.followsViewModel = followsViewModel
+        // The player plays from the media cache the feed's view model carries, which a `@State` initial value cannot
+        // reach on its own.
+        _playerEngine = State(initialValue: FeedPlayerEngine(mediaCache: viewModel.mediaCache))
+    }
 
     var body: some View {
         Group {

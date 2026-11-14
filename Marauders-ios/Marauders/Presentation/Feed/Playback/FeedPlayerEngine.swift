@@ -35,12 +35,13 @@ final class FeedPlayerEngine {
     private var didMeasureFirstPlayback = false
     private var didMeasureFirstReady = false
     private var bufferingIndicatorTask: Task<Void, Never>?
-    private let mediaPreparation = FeedMediaPreparationService(
-        maxPreparedItems: 5, startupCache: AppRuntimeConfiguration.isUITesting ? nil : FeedStartupCache.shared
-    )
+    private let mediaPreparation: FeedMediaPreparationService
     private var visibleSlot: PlayerSlot { slots[visibleSlotIndex] }
 
-    init() {
+    /// `mediaCache` holds clip files already on this iPhone; the engine plays a clip from there before it streams it.
+    /// The composition root decides which cache the feed uses, none under UI tests.
+    init(mediaCache: (any FeedMediaCaching)? = nil) {
+        mediaPreparation = FeedMediaPreparationService(maxPreparedItems: 5, startupCache: mediaCache)
         let pool = (0..<3).map { _ in PlayerSlot() }
         slots = pool
         presentations = pool.enumerated().map {

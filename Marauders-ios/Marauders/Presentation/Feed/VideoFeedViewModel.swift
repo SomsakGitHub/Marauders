@@ -137,10 +137,14 @@ final class VideoFeedViewModel {
         videos.removeAll { $0.id == id }
         mapFilteredClips.removeAll { $0.id == id }
         if focusVideoID == id { focusVideoID = nil }
-        if let removed, let media = startupCache as? any FeedMediaCaching {
+        if let removed, let media = mediaCache {
             await media.invalidate(removed.streamURL)
         }
     }
+
+    /// The same cache seen as the store of downloaded clip files, when it is one. The feed screen builds its player
+    /// from it, so a clip the cache holds plays from disk.
+    var mediaCache: (any FeedMediaCaching)? { startupCache as? any FeedMediaCaching }
 
     func consumeFocusRequest() -> UUID? {
         let id = focusVideoID

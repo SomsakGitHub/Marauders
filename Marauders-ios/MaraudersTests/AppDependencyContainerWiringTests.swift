@@ -33,4 +33,11 @@ struct AppDependencyContainerWiringTests {
     @Test func thePickerChecksWhichLanguagesThisIPhoneCanServe() {
         #expect(AppDependencyContainer().listeningLanguageAvailability is SystemListeningLanguageAvailability)
     }
+
+    @Test func theFeedPlaysFromTheSessionCacheItStartsFrom() {
+        // The feed screen builds its player from the media cache its view model carries. Without the shared session
+        // cache there, clips the cache already holds would stream again.
+        let cache = AppDependencyContainer().feedViewModel.mediaCache
+        #expect((cache as? SessionFeedStartupCache) === FeedStartupCache.shared)
+    }
 }

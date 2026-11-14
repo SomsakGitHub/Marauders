@@ -2,16 +2,6 @@ import AVFoundation
 import CryptoKit
 import Foundation
 
-protocol FeedStartupCaching: Sendable {
-    func cachedVideos() async -> [FeedVideo]
-    func store(_ videos: [FeedVideo]) async
-}
-
-protocol FeedMediaCaching: Sendable {
-    func localURL(for remote: URL) async -> URL?
-    func invalidate(_ remote: URL) async
-}
-
 /// A small, disposable cache of complete files. Remote URLs remain the source of truth.
 actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     static let shared = SessionFeedStartupCache()
