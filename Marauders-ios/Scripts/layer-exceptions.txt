@@ -31,22 +31,6 @@ Presentation/Main/ContentView.swift: ReportUserLocationUseCase  # only handed do
 Presentation/Map/MapTabView.swift: ReportUserLocationUseCase  # only handed down to the location reporters, no view calls it
 
 
-# --- Presentation names a Data type: Dubbing -------------------------------------------------------------------------
-# The Dubbing exception of ARCHITECTURE.md ("Layering note"): DubbingViewModel builds its speech, translation and
-# language-detection collaborators itself instead of getting them from use cases.
-Presentation/Dubbing/DubbingViewModel.swift: ClipFileLoader  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: LanguageDetectionModelError  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: LanguageDetectionModelStore  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: LanguageEvidence  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: SpeechAnalyzerTranscriber  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: SpeechModelInstallError  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: SpeechPermission  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: SpeechTranscript  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: SpeechVoiceCatalog  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: StagedClipLanguageDetector  # Dubbing exception
-Presentation/Dubbing/DubbingViewModel.swift: WhisperEngine  # Dubbing exception
-
-
 # --- Presentation names a Data type: location -------------------------------------------------------------------------
 # LocationManagerDelegateBridge (Data/Services) turns CLLocationManagerDelegate callbacks into closures; only
 # Presentation uses it, so it is a candidate to move there.
@@ -66,15 +50,8 @@ Presentation/Feed/VideoFeedViewModel.swift: FeedMediaCaching  # the cache seam, 
 Presentation/Feed/VideoFeedViewModel.swift: FeedStartupCaching  # the cache seam, declared in Data/Services
 
 
-# --- Presentation names a Data type: Settings ------------------------------------------------------------------------
-Presentation/Settings/LanguageModelsView.swift: LanguageDetectionModelStore  # reads the store's downloadShare constant
-Presentation/Settings/LanguageModelsViewModel.swift: AppleLanguageModelManager  # default argument for its LanguageModelManaging seam
-Presentation/Settings/ListeningLanguagePickerViewModel.swift: SystemListeningLanguageAvailability  # default argument for its seam
-
-
 # --- Presentation names a Data type: Upload and sign-in ----------------------------------------------------------------
 Presentation/Upload/UploadVideoView.swift: PickedVideoFile  # the type PhotosPicker loads (loadTransferable)
-Presentation/Upload/UploadVideoViewModel.swift: FastClipAudioInspector  # default argument for its ClipAudioInspecting seam
 Presentation/Upload/UploadVideoViewModel.swift: TemporaryFileCleanup  # deletes the picked clip's temporary copy
 Presentation/Auth/AuthViewModel.swift: DevLogin  # Debug-only sign-in shortcut (Data/API/DevAuthAPIClient.swift)
 Presentation/Auth/SignInWithAppleGateView.swift: DevLogin  # Debug-only sign-in shortcut (Data/API/DevAuthAPIClient.swift)
