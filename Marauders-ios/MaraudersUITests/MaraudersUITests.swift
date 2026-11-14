@@ -415,7 +415,10 @@ final class MaraudersUITests: XCTestCase {
         input.tap()
         input.typeText("Este lugar es increíble, volveremos pronto")
         app.buttons["comments.send"].tap()
-        XCTAssertTrue(commentRow(app, containing: "Este lugar es").waitForExistence(timeout: 10), app.debugDescription)
+        // On an iPhone with Apple's Spanish to English pair installed the page translates the new comment at once, so
+        // its row can already read the English words when it is looked up; a Simulator keeps the Spanish ones.
+        let posted = commentRow(app, containingAnyOf: ["Este lugar es", "This place is incredible"])
+        XCTAssertTrue(posted.waitForExistence(timeout: 10), app.debugDescription)
         // The UI-test viewer is in the US, so the Spanish comment gives the page its Show originals switch, while
         // the English comments seeded for the clip alone did not. No comment has a button of its own.
         XCTAssertTrue(app.buttons["comments.pageTranslation"].waitForExistence(timeout: 5), app.debugDescription)
@@ -1163,9 +1166,19 @@ final class MaraudersUITests: XCTestCase {
 
     @MainActor
     private func commentRow(_ app: XCUIApplication, containing text: String) -> XCUIElement {
-        app.descendants(matching: .any)
+        commentRow(app, containingAnyOf: [text])
+    }
+
+    /// A comment row whose label holds any of `texts`. A comment in another language reads in the viewer's own language
+    /// on an iPhone that has the language pair installed, and in its own words anywhere else (a Simulator cannot
+    /// translate), so a test that posts one has to look for both.
+    @MainActor
+    private func commentRow(_ app: XCUIApplication, containingAnyOf texts: [String]) -> XCUIElement {
+        let any = NSCompoundPredicate(
+            orPredicateWithSubpredicates: texts.map { NSPredicate(format: "label CONTAINS %@", $0) })
+        return app.descendants(matching: .any)
             .matching(identifier: "comments.row")
-            .matching(NSPredicate(format: "label CONTAINS %@", text))
+            .matching(any)
             .firstMatch
     }
 
