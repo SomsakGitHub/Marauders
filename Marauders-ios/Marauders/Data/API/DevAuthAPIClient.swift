@@ -29,7 +29,8 @@
             /// `backend/.dev.vars`, so a plain Run in Xcode is enough.
             private static let localWorkerSecret: String? = {
                 var root = URL(fileURLWithPath: #filePath)
-                for _ in 0..<5 { root.deleteLastPathComponent() }  // DevAuthAPIClient.swift, API, Data, Marauders, Marauders-ios
+                // Up from DevAuthAPIClient.swift: API, Data, Marauders, Marauders-ios.
+                for _ in 0..<5 { root.deleteLastPathComponent() }
                 let devVars = root.appendingPathComponent("backend/.dev.vars")
                 guard let contents = try? String(contentsOf: devVars, encoding: .utf8) else { return nil }
                 for line in contents.split(whereSeparator: \.isNewline) {
