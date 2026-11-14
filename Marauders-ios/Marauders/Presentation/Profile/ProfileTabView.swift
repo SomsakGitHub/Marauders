@@ -21,7 +21,8 @@ struct ProfileTabView: View {
                 ProfileView(
                     viewModel: profileViewModel,
                     navigation: navigation,
-                    onSignOut: { authViewModel.signOut() }
+                    isSigningOut: authViewModel.isSigningOut,
+                    onSignOut: { Task { await authViewModel.signOut() } }
                 )
             } else {
                 SignInRequiredView(onSignIn: onSignIn)

@@ -100,7 +100,7 @@ struct AuthViewModelTests {
         )
         await viewModel.completeSignIn(userID: "user-1", identityToken: String(repeating: "b", count: 32))
 
-        viewModel.signOut()
+        await viewModel.signOut()
 
         #expect(!viewModel.isSignedIn)
         #expect(store.savedUserID == nil)
