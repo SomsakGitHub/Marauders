@@ -135,6 +135,9 @@ struct ContentView: View {
             clipLikesViewModel.reset()
             followsViewModel.reset()
             friendLocationsViewModel.reset(signedOut: !signedIn)
+            // The task above asks the Worker about sharing when the viewer signs in, but it can start before this reset,
+            // which then drops its answer and leaves the switches waiting for the next ask: ask again.
+            if signedIn { Task { await friendLocationsViewModel.refresh() } }
             Task { await feedViewModel.loadIfNeeded() }
         }
         .sheet(isPresented: $showingSignIn, onDismiss: { signInDismissalID += 1 }) {
