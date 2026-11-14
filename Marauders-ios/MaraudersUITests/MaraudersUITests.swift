@@ -1119,6 +1119,49 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertFalse(app.alerts.firstMatch.exists)
     }
 
+    /// Signing out takes the viewer off their mutual followers' maps: it switches sharing off on the Worker (the UI-test
+    /// world's in-memory one) while the session still works. After the next sign in the Settings switch says what the
+    /// Worker says, off, and nothing turns it on again: the viewer chooses once more.
+    @MainActor
+    func testSigningOutSwitchesLocationSharingOffUntilTheViewerChoosesAgain() throws {
+        let app = launchApp()
+        openSettings(app)
+        let toggle = app.switches["settings.locationSharing"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilHittable(toggle), app.debugDescription)
+        toggle.switches.firstMatch.tap()
+        let confirm = app.alerts.buttons["Share location"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+        confirm.tap()
+        XCTAssertTrue(waitUntilValue(toggle, is: "1"), app.debugDescription)
+
+        app.tabBars.buttons["Profile"].tap()
+        let signOut = app.buttons["profile.signOut"]
+        XCTAssertTrue(signOut.waitForExistence(timeout: 15), app.debugDescription)
+        signOut.tap()
+        let open = app.buttons["auth.openSignIn"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(waitUntilHittable(open), app.debugDescription)
+        open.tap()
+        let complete = app.buttons["auth.completeUITestSignIn"]
+        XCTAssertTrue(complete.waitForExistence(timeout: 10), app.debugDescription)
+        complete.tap()
+
+        openSettings(app)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertFalse(
+            waitUntilValue(toggle, is: "1", timeout: 3),
+            "the sign out switched sharing off, and nothing turned it on again")
+        XCTAssertEqual(toggle.value as? String, "0")
+
+        // The viewer chooses again: the switch works, and asks first.
+        XCTAssertTrue(waitUntilHittable(toggle), app.debugDescription)
+        toggle.switches.firstMatch.tap()
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+        confirm.tap()
+        XCTAssertTrue(waitUntilValue(toggle, is: "1"), app.debugDescription)
+    }
+
     @MainActor
     func testDecliningTheSharingPromptSharesNothing() throws {
         let app = launchApp()

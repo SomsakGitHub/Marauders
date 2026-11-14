@@ -9,6 +9,9 @@ import SwiftUI
 struct ProfileView: View {
     @Bindable var viewModel: ProfileViewModel
     let navigation: ProfileNavigation
+    /// A sign out is under way (it first asks the Worker to stop sharing the viewer's location), so a second tap on
+    /// the button would start nothing more.
+    var isSigningOut = false
     var onSignOut: () -> Void
 
     @State private var selectedClip: FeedVideo?
@@ -56,6 +59,7 @@ struct ProfileView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Sign Out", action: onSignOut)
+                        .disabled(isSigningOut)
                         .accessibilityIdentifier("profile.signOut")
                 }
             }

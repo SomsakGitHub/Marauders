@@ -136,6 +136,10 @@ final class AppDependencyContainer {
                 apiClient: LocationSharingAPIClient(client: transport, authorization: apiAuthorization)
             )
         }
+        // A sign out first switches the viewer's location sharing off on the Worker, which needs the token it is about to
+        // clear. Set here, not in the initializer: the repository talks through the transport, which reports back to it.
+        authViewModel.stopSharingOnSignOut = StopLocationSharingOnSignOutUseCase(
+            repository: resolveLocationSharingRepository)
         friendLocationsViewModel = FriendLocationsViewModel(
             loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
             setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),

@@ -12,7 +12,12 @@ import Observation
 final class AuthViewModel {
     private(set) var isSignedIn = false
     private(set) var isCheckingCredential = true
+    private(set) var isSigningOut = false
     var errorMessage: String?
+
+    /// Switches the viewer's location sharing off on the Worker when they sign out. The composition root sets it once
+    /// the repositories exist: they talk through a transport that reports a rejected token back to this view model.
+    @ObservationIgnored var stopSharingOnSignOut: StopLocationSharingOnSignOutUseCase?
 
     /// Defaults to the country resolved from location; the user may override it before sign-in.
     /// Location permission and a successful lookup are still required by the sign-in gate.
@@ -183,13 +188,33 @@ final class AuthViewModel {
         }
     #endif
 
-    func signOut() {
+    /// Ends the session the viewer asked to end. Their location sharing is switched off on the Worker first, while the
+    /// token still works, so their last location stops showing on their mutual followers' maps; that call is best
+    /// effort and never holds the sign out back. A session that ended without this (the Worker rejected the token, or it
+    /// ran out) goes through `handleRejectedAccessToken` or `restoreSession` instead and cannot make the call.
+    func signOut() async {
+        guard !isSigningOut else { return }
+        isSigningOut = true
+        defer { isSigningOut = false }
         // A Simulator test user who signs out stays out until the app is launched again.
         signsInAsTestUserOnSimulator = false
+        if isSignedIn { await switchLocationSharingOff() }
         clearStoredSession()
         isSignedIn = false
         errorMessage = nil
         AppLog.info("auth", "signed out")
+    }
+
+    private func switchLocationSharingOff() async {
+        guard let stopSharingOnSignOut else { return }
+        switch await stopSharingOnSignOut.execute() {
+        case .switchedOff:
+            AppLog.info("auth", "location sharing switched off before sign out")
+        case .failed(let reason):
+            AppLog.warning("auth", "location sharing not switched off before sign out: \(reason)")
+        case .timedOut:
+            AppLog.warning("auth", "location sharing not switched off before sign out: no answer in time")
+        }
     }
 
     /// The Worker answered 401 to a request that carried `accessToken`. When that is still the stored token the
