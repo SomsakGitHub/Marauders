@@ -803,7 +803,7 @@ struct DutchTranscriptionTests {
         text: String?, error: DubbingError?, asked: [(file: URL, language: String)]
     ) {
         let transcriber = DubbingPlanTests.makeTranscriber(outcome)
-        let model = DubbingViewModel(transcriber: transcriber)
+        let model = DubbingViewModel(cache: NoDubbedAudioCache(), transcriber: transcriber)
         let clip = URL(fileURLWithPath: "/tmp/clip.mp4")
         do {
             let text = try await model.transcribeClip(

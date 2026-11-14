@@ -21,9 +21,40 @@ struct ClipPlayerView: View {
     /// When set, dubbing into this language starts as soon as the player opens.
     var requestDubbingTarget: ListeningLanguage?
 
+    @Environment(\.dubbedAudioCache) private var dubbedAudioCache
+
+    /// The player owns the view model that dubs the clip, and that view model needs the cache when it is created,
+    /// which a `@State` initial value cannot read from the environment. So this view reads it and hands it down.
+    var body: some View {
+        ClipPlayerContent(
+            clip: clip, userCoordinate: userCoordinate, onClose: onClose, onOpenInFeed: onOpenInFeed,
+            onOpenAuthor: onOpenAuthor, onDelete: onDelete, requestDubbingTarget: requestDubbingTarget,
+            dubbing: DubbingViewModel(cache: installedCache))
+    }
+
+    /// The cache `AppRootView` installed. A Debug build stops without one, so a window or preview that forgot it shows
+    /// up at once; a Release build carries on, finding and keeping no saved audio.
+    private var installedCache: any DubbedAudioCaching {
+        if let dubbedAudioCache { return dubbedAudioCache }
+        assertionFailure(
+            "No cache installed for AI audio: add .environment(\\.dubbedAudioCache, …) above the clip player")
+        return NoDubbedAudioCache()
+    }
+}
+
+/// The player itself: the inputs of `ClipPlayerView`, and the view model that dubs the clip.
+private struct ClipPlayerContent: View {
+    let clip: FeedVideo
+    let userCoordinate: CLLocationCoordinate2D?
+    let onClose: () -> Void
+    let onOpenInFeed: (() -> Void)?
+    let onOpenAuthor: ((String) -> Void)?
+    let onDelete: (() -> Void)?
+    let requestDubbingTarget: ListeningLanguage?
+
     @Environment(\.scenePhase) private var scenePhase
     @State private var translationConfiguration: TranslationSession.Configuration?
-    @State private var dubbing = DubbingViewModel()
+    @State private var dubbing: DubbingViewModel
     @State private var dubbingTarget: ListeningLanguage?
     @State private var dubbingSource: DubbingSourceLanguage?
     @State private var showingLanguagePicker = false
@@ -43,6 +74,21 @@ struct ClipPlayerView: View {
     @State private var resumeAfterInterruption = false
     @State private var player: AVPlayer?
     private let listening = ListeningLanguageStore.shared
+
+    init(
+        clip: FeedVideo, userCoordinate: CLLocationCoordinate2D?, onClose: @escaping () -> Void,
+        onOpenInFeed: (() -> Void)?, onOpenAuthor: ((String) -> Void)?, onDelete: (() -> Void)?,
+        requestDubbingTarget: ListeningLanguage?, dubbing: DubbingViewModel
+    ) {
+        self.clip = clip
+        self.userCoordinate = userCoordinate
+        self.onClose = onClose
+        self.onOpenInFeed = onOpenInFeed
+        self.onOpenAuthor = onOpenAuthor
+        self.onDelete = onDelete
+        self.requestDubbingTarget = requestDubbingTarget
+        _dubbing = State(initialValue: dubbing)
+    }
 
     var body: some View {
         ZStack {

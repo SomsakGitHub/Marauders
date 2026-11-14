@@ -43,7 +43,7 @@ struct DubbingTests {
     }
 
     @Test func originalSelectionClearsUnavailableState() {
-        let model = DubbingViewModel()
+        let model = DubbingViewModel(cache: NoDubbedAudioCache())
         #expect(model.message == nil)
         #expect(!model.isProcessing)
         model.unavailableForTesting()

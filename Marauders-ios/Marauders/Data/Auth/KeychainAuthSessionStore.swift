@@ -77,9 +77,5 @@ struct KeychainAuthSessionStore: AuthSessionStore {
         ]
     }
 
-    static func isValidUserID(_ userID: String) -> Bool {
-        let trimmed = userID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.count <= 512 else { return false }
-        return !trimmed.unicodeScalars.contains { $0.value < 32 }
-    }
+    static func isValidUserID(_ userID: String) -> Bool { AuthUserID.isValid(userID) }
 }

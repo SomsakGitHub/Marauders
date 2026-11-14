@@ -42,8 +42,10 @@ final class DubbingViewModel {
     /// Counts requests, so work that belongs to a request the viewer has left can tell and stop.
     private(set) var generation = 0
 
+    /// `cache` has no default: the real one is a Data type, so the composition root hands it in (the clip player reads
+    /// it from `EnvironmentValues.dubbedAudioCache`). The other collaborators default to the real thing.
     init(
-        cache: (any DubbedAudioCaching)? = nil,
+        cache: any DubbedAudioCaching,
         reports: DubbedAudioReportMemory? = nil,
         detector: (any ClipLanguageDetecting)? = nil,
         loader: (any ClipFileLoading)? = nil,
@@ -54,7 +56,7 @@ final class DubbingViewModel {
         consent: LanguageDetectionConsent? = nil,
         requestSpeechPermission: (() async -> Bool)? = nil
     ) {
-        self.cache = cache ?? DubbedAudioCacheClient()
+        self.cache = cache
         self.reports = reports ?? DubbedAudioReportMemory.shared
         self.detector = detector ?? StagedClipLanguageDetector()
         self.loader = loader ?? ClipFileLoader()

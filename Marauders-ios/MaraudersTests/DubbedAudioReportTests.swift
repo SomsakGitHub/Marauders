@@ -104,7 +104,7 @@ struct DubbedAudioReportTests {
         do {
             _ = try await Plain().report(videoID: UUID(), sourceURL: source, language: .thai);
             Issue.record("Default succeeded")
-        } catch { #expect(error is DubbingError) }
+        } catch { #expect(error is DubbedAudioCacheError) }
     }
 
     @Test func buttonIsOfferedOnlyWhileAIAudioPlays() {

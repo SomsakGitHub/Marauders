@@ -27,7 +27,7 @@ final class DubbedAudioReportMemory {
     }
 
     nonisolated static func key(user: String, videoID: UUID, language: ListeningLanguage, sourceURL: URL) -> String {
-        "\(user.lowercased())|\(videoID.uuidString.lowercased())|\(language.code)|\(DubbedAudioCacheClient.sourceHash(sourceURL))"
+        "\(user.lowercased())|\(videoID.uuidString.lowercased())|\(language.code)|\(DubbedAudioSourceHash.of(sourceURL))"
     }
 
     func hasReported(user: String, videoID: UUID, language: ListeningLanguage, sourceURL: URL) -> Bool {

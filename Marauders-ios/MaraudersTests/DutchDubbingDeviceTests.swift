@@ -202,7 +202,7 @@ struct DutchDubbingDeviceTests {
 
             // The real thing: the same call the player makes. Speech permission is refused on purpose,
             // because the Whisper route must not need it.
-            let model = DubbingViewModel(requestSpeechPermission: { false })
+            let model = DubbingViewModel(cache: NoDubbedAudioCache(), requestSpeechPermission: { false })
             let started = clock.now
             let url = await model.request(sourceURL: localClip, session: session, source: .dutch, target: .english)
             outcome.seconds = clock.now - started

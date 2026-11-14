@@ -19,6 +19,9 @@ final class AppDependencyContainer {
     let clipLikesViewModel: ClipLikesViewModel
     let followsViewModel: UserFollowsViewModel
     let friendLocationsViewModel: FriendLocationsViewModel
+    /// The saved AI audio that viewers share, which `AppRootView` puts in the environment for the clip player. It is not
+    /// behind `transport`, so a 401 on its routes does not end the session.
+    let dubbedAudioCache: any DubbedAudioCaching = DubbedAudioCacheClient()
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -52,8 +55,14 @@ final class AppDependencyContainer {
             tokenStore = KeychainAPIAccessTokenStore()
             baseTransport = URLSessionHTTPClient()
         }
+        #if DEBUG
+            let devAuth: (any DevAuthExchanging)? = DevAuthAPIClient()
+        #else
+            let devAuth: (any DevAuthExchanging)? = nil
+        #endif
         let authViewModel = AuthViewModel(
-            sessionStore: sessionStore, tokenStore: tokenStore, signsInAsTestUserOnSimulator: true)
+            sessionStore: sessionStore, tokenStore: tokenStore, authAPI: AuthAPIClient(), devAuth: devAuth,
+            signsInAsTestUserOnSimulator: true)
         let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
         // Every API client talks through this one, so the Worker answering 401 to a request that carried the session's
         // token ends the session in one place, AuthViewModel, instead of in each client and screen.

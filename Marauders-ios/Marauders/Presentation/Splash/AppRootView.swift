@@ -35,6 +35,7 @@ struct AppRootView: View {
                     .zIndex(1)
             }
         }
+        .environment(\.dubbedAudioCache, container.dubbedAudioCache)
         .animation(AppRuntimeConfiguration.isUITesting ? nil : .easeOut(duration: 0.32), value: isShowingSplash)
         .task {
             await presentSplash()

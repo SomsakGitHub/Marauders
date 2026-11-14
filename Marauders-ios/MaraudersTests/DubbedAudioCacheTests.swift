@@ -49,6 +49,17 @@ struct DubbedAudioCacheTests {
         #expect(requests[1].value(forHTTPHeaderField: "X-Source-SHA256") == hash)
         #expect(requests[1].value(forHTTPHeaderField: "Content-Type") == "audio/mp4")
     }
+    @Test func noCacheFindsNothingAndKeepsNothing() async throws {
+        let cache = NoDubbedAudioCache()
+        let id = UUID()
+        let source = URL(string: "https://example.com/video.mp4")!
+
+        try await cache.store(videoID: id, sourceURL: source, language: .thai, audio: Data([1, 2, 3]))
+
+        #expect(try await cache.lookup(videoID: id, sourceURL: source, language: .thai) == nil)
+        #expect(await cache.lookupText(videoID: id, sourceURL: source, language: .thai) == nil)
+        #expect(cache.reporterID == nil)
+    }
     @Test func rejectsCrossOriginOrWrongRevisionAudio() async {
         let source = URL(string: "https://example.com/video.mp4")!
         let hash = DubbedAudioCacheClient.sourceHash(source)

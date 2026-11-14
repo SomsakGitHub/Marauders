@@ -23,21 +23,31 @@ final class AuthViewModel {
 
     private let sessionStore: AuthSessionStore
     private let tokenStore: APIAccessTokenStore
-    private let authAPI: AuthAPIClientProtocol
+    private let signInWithApple: SignInWithAppleUseCase
+    #if DEBUG
+        private let signInAsDevUserUseCase: SignInAsDevUserUseCase?
+    #endif
     private let credentialState: CredentialStateProvider
     /// Debug Simulator builds with a dev login secret: no session means becoming the test user, until a sign out.
     private var signsInAsTestUserOnSimulator: Bool
 
     init(
-        sessionStore: AuthSessionStore = KeychainAuthSessionStore(),
-        tokenStore: APIAccessTokenStore = KeychainAPIAccessTokenStore(),
-        authAPI: AuthAPIClientProtocol = AuthAPIClient(),
+        sessionStore: AuthSessionStore,
+        tokenStore: APIAccessTokenStore,
+        authAPI: AuthAPIClientProtocol,
+        devAuth: (any DevAuthExchanging)? = nil,
         credentialState: @escaping CredentialStateProvider = AuthViewModel.appleCredentialState,
         signsInAsTestUserOnSimulator: Bool = false
     ) {
         self.sessionStore = sessionStore
         self.tokenStore = tokenStore
-        self.authAPI = authAPI
+        self.signInWithApple = SignInWithAppleUseCase(
+            authAPI: authAPI, sessionStore: sessionStore, tokenStore: tokenStore)
+        #if DEBUG
+            self.signInAsDevUserUseCase = devAuth.map {
+                SignInAsDevUserUseCase(devAuth: $0, sessionStore: sessionStore, tokenStore: tokenStore)
+            }
+        #endif
         self.credentialState = credentialState
         self.signsInAsTestUserOnSimulator = signsInAsTestUserOnSimulator
         if AppRuntimeConfiguration.isUITesting {
@@ -57,7 +67,7 @@ final class AuthViewModel {
         // A token past its `exp`, or one whose `exp` cannot be read, is a session that has ended: the Worker would
         // answer 401 to it. It is treated like a missing token.
         guard let userID = sessionStore.loadUserID(),
-            KeychainAuthSessionStore.isValidUserID(userID),
+            AuthUserID.isValid(userID),
             let accessToken = tokenStore.loadAccessToken(),
             APIAccessTokenFormat.isValid(accessToken),
             !APIAccessTokenExpiry.isExpired(accessToken)
@@ -128,18 +138,9 @@ final class AuthViewModel {
     }
 
     func completeSignIn(userID: String, identityToken: String) async {
-        guard KeychainAuthSessionStore.isValidUserID(userID) else {
-            errorMessage = "Invalid account"
-            return
-        }
-
         do {
-            let accessToken = try await authAPI.exchangeAppleIdentityToken(
-                identityToken,
-                countryCode: selectedCountryCode
-            )
-            try sessionStore.saveUserID(userID)
-            try tokenStore.saveAccessToken(accessToken)
+            try await signInWithApple.execute(
+                userID: userID, identityToken: identityToken, countryCode: selectedCountryCode)
             isSignedIn = true
             errorMessage = nil
             AppLog.info("auth", "signed in with Apple (API session established)")
@@ -156,16 +157,15 @@ final class AuthViewModel {
     #if DEBUG
         /// Simulator only: becomes the test user named by `DevLogin.label`, a different account from any Apple ID.
         func signInAsDevUser() async {
-            guard let secret = DevLogin.secret else { return }
+            guard let secret = DevLogin.secret, let useCase = signInAsDevUserUseCase else { return }
             let label = DevLogin.label
             do {
-                let accessToken = try await DevAuthAPIClient().accessToken(
+                try await useCase.execute(
                     secret: secret,
                     label: label,
+                    userID: DevLogin.userIDPrefix + label,
                     countryCode: selectedCountryCode
                 )
-                try sessionStore.saveUserID(DevLogin.userIDPrefix + label)
-                try tokenStore.saveAccessToken(accessToken)
                 isSignedIn = true
                 errorMessage = nil
                 AppLog.info("auth", "signed in as dev user \(label)")

@@ -56,7 +56,7 @@
         }
     }
 
-    struct DevAuthAPIClient: Sendable {
+    struct DevAuthAPIClient: DevAuthExchanging {
         private let client: HTTPClient
 
         init(client: HTTPClient = URLSessionHTTPClient()) {

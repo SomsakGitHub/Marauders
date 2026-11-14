@@ -1,39 +1,4 @@
-import AVFoundation
-import CryptoKit
 import Foundation
-
-enum DubbedAudioCacheError: Error { case http(Int) }
-
-/// What the Worker did with a report about a saved AI audio file.
-enum DubbedAudioReportOutcome: Equatable, Sendable {
-    /// The report was recorded; the audio stays until enough other viewers report it too.
-    case reported
-    /// The audio was deleted, so the next viewer can save a replacement.
-    case removed
-    /// Nothing is saved for that clip and language, so there is nothing to report.
-    case missing
-}
-
-protocol DubbedAudioCaching: Sendable {
-    func lookup(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async throws -> URL?
-    func store(videoID: UUID, sourceURL: URL, language: ListeningLanguage, audio: Data) async throws
-    /// The words the saved AI audio reads, for subtitles; nil when none were saved.
-    func lookupText(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async -> String?
-    func storeText(videoID: UUID, sourceURL: URL, language: ListeningLanguage, text: String) async throws
-    /// Tells the Worker this saved AI audio is bad. Signed-in viewers only.
-    func report(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async throws -> DubbedAudioReportOutcome
-    /// Who is signed in, or nil for a guest. Guests cannot report, so they are not offered the button.
-    var reporterID: String? { get }
-}
-
-extension DubbedAudioCaching {
-    func lookupText(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async -> String? { nil }
-    func storeText(videoID: UUID, sourceURL: URL, language: ListeningLanguage, text: String) async throws {}
-    func report(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async throws -> DubbedAudioReportOutcome {
-        throw DubbingError.failed
-    }
-    var reporterID: String? { nil }
-}
 
 struct DubbedAudioCacheClient: DubbedAudioCaching {
     private let client: any HTTPClient
@@ -44,9 +9,7 @@ struct DubbedAudioCacheClient: DubbedAudioCaching {
     ) {
         self.client = client; self.authorization = authorization
     }
-    nonisolated static func sourceHash(_ url: URL) -> String {
-        SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
-    }
+    nonisolated static func sourceHash(_ url: URL) -> String { DubbedAudioSourceHash.of(url) }
     private struct Reply: Decodable {
         let status: String
         let sourceHash: String
@@ -171,19 +134,5 @@ struct DubbedAudioCacheClient: DubbedAudioCaching {
         guard reply.status == "ready", reply.sourceHash == Self.sourceHash(sourceURL),
             reply.language == nil || reply.language == language.code
         else { throw DubbingError.failed }
-    }
-}
-
-nonisolated enum DubbedAudioCacheEncoding {
-    @concurrent static func encode(source: URL, destination: URL) async throws -> Data {
-        let asset = AVURLAsset(url: source)
-        let duration = try await asset.load(.duration).seconds
-        guard duration.isFinite, duration > 0,
-            let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A)
-        else { throw DubbingError.failed }
-        try await export.export(to: destination, as: .m4a)
-        let size = try destination.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        guard size > 0, size <= 4 * 1024 * 1024 else { throw DubbingError.failed }
-        return try Data(contentsOf: destination)
     }
 }
