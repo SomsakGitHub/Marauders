@@ -84,7 +84,7 @@ Marauders/
 
 ## Prerequisites
 
-- **Xcode** (deployment target iOS 26.5 — ปรับใน Xcode ตามเครื่องคุณได้) · SwiftPM dependency (WhisperKit, lottie-spm) เป็นแพ็กเกจสาธารณะ ถูก resolve ตอน build ไม่ต้องใช้ token หรือสิทธิ์เข้าถึงพิเศษ
+- **Xcode** (deployment target iOS 26.6 — ปรับใน Xcode ตามเครื่องคุณได้) · SwiftPM dependency (WhisperKit, lottie-spm) เป็นแพ็กเกจสาธารณะ ถูก resolve ตอน build ไม่ต้องใช้ token หรือสิทธิ์เข้าถึงพิเศษ
 - **Node.js** (เวอร์ชันล่าสุดที่ Wrangler 4 รองรับ) สำหรับ Worker
 - บัญชี **[Neon](https://neon.tech)** และ **[Cloudflare](https://dash.cloudflare.com)** (Workers + R2)
 

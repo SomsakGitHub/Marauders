@@ -265,7 +265,7 @@ Full detail (cache contract, local processing limits, language detection, Dutch/
 | Setting | Value |
 |---------|--------|
 | Language | **Swift 6** (`SWIFT_VERSION = 6.0`) |
-| Deployment target | **iOS 26.5** (`IPHONEOS_DEPLOYMENT_TARGET`) |
+| Deployment target | **iOS 26.6** (`IPHONEOS_DEPLOYMENT_TARGET`, the same for the app and both test targets) |
 | Default isolation | **MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION`) |
 | Strictness | Approachable concurrency (`SWIFT_APPROACHABLE_CONCURRENCY`) |
 
