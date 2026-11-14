@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "indentation": { "spaces": 4 },
+  "tabWidth": 4,
+  "lineLength": 120,
+  "maximumBlankLines": 1,
+  "respectsExistingLineBreaks": true,
+  "multiElementCollectionTrailingCommas": true,
+  "multilineTrailingCommaBehavior": "keptAsWritten",
+  "indentSwitchCaseLabels": false,
+  "lineBreakBeforeControlFlowKeywords": false,
+  "lineBreakBeforeEachArgument": false,
+  "orderedImports": { "shouldGroupImports": true, "includeConditionalImports": false },
+  "rules": {
+    "AlwaysUseLowerCamelCase": false,
+    "FileScopedDeclarationPrivacy": false,
+    "NoAccessLevelOnExtensionDeclaration": false,
+    "UseSynthesizedInitializer": false,
+    "UseWhereClausesInForLoops": false,
+    "NeverForceUnwrap": false,
+    "NeverUseForceTry": false,
+    "NeverUseImplicitlyUnwrappedOptionals": false,
+    "NoLeadingUnderscores": false,
+    "OrderedImports": true
+  }
+}
