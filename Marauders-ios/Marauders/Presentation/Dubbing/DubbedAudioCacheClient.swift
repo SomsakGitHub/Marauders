@@ -36,7 +36,7 @@ extension DubbedAudioCaching {
 struct DubbedAudioCacheClient: DubbedAudioCaching {
     private let client: any HTTPClient
     private let authorization: any APIAuthorization
-    init(client: any HTTPClient = AlamofireHTTPClient(), authorization: any APIAuthorization = SessionAPIAuthorization(tokenStore: KeychainAPIAccessTokenStore())) {
+    init(client: any HTTPClient = URLSessionHTTPClient(), authorization: any APIAuthorization = SessionAPIAuthorization(tokenStore: KeychainAPIAccessTokenStore())) {
         self.client = client; self.authorization = authorization
     }
     nonisolated static func sourceHash(_ url: URL) -> String {

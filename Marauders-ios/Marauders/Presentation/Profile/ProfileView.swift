@@ -16,7 +16,6 @@ struct ProfileView: View {
     @State private var isEditingHandle = false
     @State private var handleDraft = ""
     @State private var avatarPhotoItem: PhotosPickerItem?
-    @State private var isShowingWaypointJourney = false
 
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 2),
@@ -97,11 +96,6 @@ struct ProfileView: View {
                     pendingDeletion = clip
                 }
             )
-        }
-        .fullScreenCover(isPresented: $isShowingWaypointJourney) {
-            WaypointJourneyIntegration.makeFlowView {
-                isShowingWaypointJourney = false
-            }
         }
         .alert("Couldn't delete clip", isPresented: deleteErrorBinding) {
             Button("OK", role: .cancel) {}
@@ -229,22 +223,6 @@ struct ProfileView: View {
                 ProfileStat(count: viewModel.profile?.videoCount ?? 0, label: "Clips")
                     .accessibilityIdentifier("profile.clipCount")
             }
-
-            Button {
-                MyLibraryIntegration.present()
-            } label: {
-                Label("MyLibrary", systemImage: "books.vertical.fill")
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("profile.myLibrary")
-
-            Button {
-                isShowingWaypointJourney = true
-            } label: {
-                Label("Waypoint Journey", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("profile.waypoint")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)

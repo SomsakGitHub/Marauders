@@ -1,15 +1,6 @@
 {
-  "originHash" : "67a24ba2aa01527c6b7dfcb617c701f17d19f12aeb3c1a0ceae5b8c1fc09ec9a",
+  "originHash" : "503df9bd39c53bde4523757a2a698765fd3cda76e0d8106cca140892f1465805",
   "pins" : [
-    {
-      "identity" : "alamofire",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Alamofire/Alamofire.git",
-      "state" : {
-        "revision" : "bda9ed57d72988a3a2ada33d824583541f86eac6",
-        "version" : "5.12.2"
-      }
-    },
     {
       "identity" : "lottie-spm",
       "kind" : "remoteSourceControl",
@@ -17,23 +8,6 @@
       "state" : {
         "revision" : "0aff16288f8dc1e3dab35cbf5cf45979673fd3df",
         "version" : "4.6.1"
-      }
-    },
-    {
-      "identity" : "poc-sdk.waypointsdk",
-      "kind" : "registry",
-      "location" : "",
-      "state" : {
-        "version" : "1.2.0"
-      }
-    },
-    {
-      "identity" : "poc_mylibrary",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SomsakGitHub/POC_MyLibrary.git",
-      "state" : {
-        "revision" : "8ff6f960be7fddd4f5524979b5c4ed2b2580fde2",
-        "version" : "0.1.1"
       }
     },
     {

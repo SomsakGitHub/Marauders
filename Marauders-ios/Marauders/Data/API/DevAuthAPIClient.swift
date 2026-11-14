@@ -57,7 +57,7 @@ enum DevLogin {
 struct DevAuthAPIClient: Sendable {
     private let client: HTTPClient
 
-    init(client: HTTPClient = AlamofireHTTPClient()) {
+    init(client: HTTPClient = URLSessionHTTPClient()) {
         self.client = client
     }
 

@@ -39,7 +39,7 @@ struct FeedAPIClient: Sendable {
         maxAttempts: Int = FeedAPIClient.defaultMaxAttempts,
         authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
-        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts, authorization: authorization)
+        self.init(client: URLSessionHTTPClient(session: session), maxAttempts: maxAttempts, authorization: authorization)
     }
 
     init(
@@ -59,7 +59,7 @@ struct FeedAPIClient: Sendable {
         retryDelayNs: @escaping @Sendable (Int) -> UInt64,
         authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
-        self.init(client: AlamofireHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs, authorization: authorization)
+        self.init(client: URLSessionHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs, authorization: authorization)
     }
 
     init(

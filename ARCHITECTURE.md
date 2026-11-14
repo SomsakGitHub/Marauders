@@ -283,7 +283,7 @@ See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.
 
 ### MVVM + Clean Architecture
 
-See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-004](docs/adr/004-single-app-target.md)** (single Xcode target, folder boundaries; splitting into local SPM modules deferred). The target does use remote SwiftPM packages: POC_MyLibrary, Alamofire, waypointsdk (private JFrog registry), lottie-spm and WhisperKit (pinned to 1.1.1).
+See **[ADR-003](docs/adr/003-mvvm-clean-architecture.md)**. Packaging: **[ADR-004](docs/adr/004-single-app-target.md)** (single Xcode target, folder boundaries; splitting into local SPM modules deferred). The target uses two remote SwiftPM packages, both public: lottie-spm and WhisperKit (pinned to 1.1.1). HTTP goes through `URLSession` (`URLSessionHTTPClient`), so there is no networking dependency and a fresh clone builds without a token.
 
 | Layer | Folder | Role |
 |-------|--------|------|
@@ -427,7 +427,7 @@ sequenceDiagram
 ```text
 Marauders-ios/Marauders/
   App/              MaraudersApp
-  Composition/      AppDependencyContainer, AppRuntimeConfiguration, UITestFeedMode, UITestRejectedSession, MyLibraryIntegration, WaypointJourneyIntegration
+  Composition/      AppDependencyContainer, AppRuntimeConfiguration, UITestFeedMode, UITestRejectedSession
   Domain/           Entities, Repositories (protocols), Services (protocols), UseCases, Auth
   Data/             API/, Auth/ (Keychain stores), Repositories/, Services/ (export, caches, speech, Whisper), Photos/
   Presentation/

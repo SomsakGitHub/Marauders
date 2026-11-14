@@ -3,7 +3,6 @@
 //  Marauders
 //
 
-import Alamofire
 import Foundation
 
 /// Outcome of an HTTP request: the raw body plus the HTTP status code.
@@ -31,7 +30,7 @@ enum HTTPClientError: LocalizedError, Equatable {
     }
 }
 
-/// Multipart part building block, decoupled from Alamofire so callers stay testable.
+/// Multipart part building block, decoupled from the transport so callers stay testable.
 enum HTTPMultipartPart: Sendable {
     case field(name: String, value: String)
     case file(name: String, filename: String, mimeType: String, data: Data)
@@ -43,93 +42,109 @@ protocol HTTPClient: Sendable {
     func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse
 }
 
-/// `HTTPClient` backed by Alamofire.
+/// `HTTPClient` backed by `URLSession`.
 ///
-/// Wraps a `URLSession`'s configuration into an Alamofire `Session` so that any
-/// protocol classes / additional headers configured on the injected session
-/// (e.g. stubs in unit tests) are preserved.
-struct AlamofireHTTPClient: HTTPClient {
-    private let session: Session
+/// A status outside 2xx is an answer, not an error, and a `URLError` (offline, timed out,
+/// cancelled, ...) is rethrown as it is so callers can react to its code.
+struct URLSessionHTTPClient: HTTPClient {
+    private let session: URLSession
+    private let temporaryDirectory: URL
 
-    nonisolated init(session urlSession: URLSession = .shared) {
-        let configuration = urlSession.configuration
-        self.session = Session(configuration: configuration)
+    /// - Parameters:
+    ///   - session: Supplies the configuration: protocol classes, extra headers and timeouts.
+    ///   - temporaryDirectory: Where a multipart body is staged on disk while it uploads.
+    nonisolated init(
+        session: URLSession = .shared,
+        temporaryDirectory: URL = FileManager.default.temporaryDirectory
+    ) {
+        self.session = session
+        self.temporaryDirectory = temporaryDirectory
     }
 
     nonisolated func data(_ request: URLRequest) async throws -> HTTPClientResponse {
-        let dataRequest = session.request(request)
-        return try await response(from: dataRequest)
-    }
-
-    nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
-        let uploadRequest = session.upload(
-            multipartFormData: { form in
-                for part in multipart {
-                    switch part {
-                    case .field(let name, let value):
-                        form.append(Data(value.utf8), withName: name)
-                    case .file(let name, let filename, let mimeType, let data):
-                        form.append(data, withName: name, fileName: filename, mimeType: mimeType)
-                    }
-                }
-            },
-            with: request
-        )
-        return try await response(from: uploadRequest)
-    }
-
-    nonisolated private func response(from request: DataRequest) async throws -> HTTPClientResponse {
-        let response = await request.serializingResponse(
-            using: EmptyTolerantDataSerializer(),
-            automaticallyCancelling: true
-        ).response
-        switch response.result {
-        case .success(let data):
-            guard let http = response.response else {
-                throw HTTPClientError.invalidResponse
-            }
-            return HTTPClientResponse(data: data, statusCode: http.statusCode)
-        case .failure(let error):
-            if let urlError = error.underlyingError as? URLError {
-                throw urlError
-            }
-            throw HTTPClientError.transport(error.localizedDescription)
+        do {
+            let (data, response) = try await session.data(for: request)
+            return try Self.makeResponse(data: data, response: response)
+        } catch {
+            throw Self.surfaced(error)
         }
     }
 
-    nonisolated private func response(from request: UploadRequest) async throws -> HTTPClientResponse {
-        let response = await request.serializingResponse(
-            using: EmptyTolerantDataSerializer(),
-            automaticallyCancelling: true
-        ).response
-        switch response.result {
-        case .success(let data):
-            guard let http = response.response else {
-                throw HTTPClientError.invalidResponse
-            }
-            return HTTPClientResponse(data: data, statusCode: http.statusCode)
-        case .failure(let error):
-            if let urlError = error.underlyingError as? URLError {
-                throw urlError
-            }
-            throw HTTPClientError.transport(error.localizedDescription)
+    nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
+        let boundary = "marauders.boundary.\(UUID().uuidString)"
+        var request = request
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        // The body goes through a file so a large clip streams from disk instead of being copied into
+        // a second in-memory buffer. The file is removed on every path out, a failed write included.
+        let bodyFile = temporaryDirectory.appendingPathComponent("upload-\(UUID().uuidString).multipart")
+        defer { try? FileManager.default.removeItem(at: bodyFile) }
+
+        do {
+            try await Self.writeMultipartBody(multipart, boundary: boundary, to: bodyFile)
+            let (data, response) = try await session.upload(for: request, fromFile: bodyFile)
+            return try Self.makeResponse(data: data, response: response)
+        } catch {
+            throw Self.surfaced(error)
         }
     }
 }
 
-/// Serializes the raw response body, mapping `nil`/zero-length bodies to empty
-/// `Data` so that status-code based error mapping still runs for error
-/// responses that carry no body.
-private struct EmptyTolerantDataSerializer: ResponseSerializer {
-    nonisolated func serialize(
-        request: URLRequest?,
-        response: HTTPURLResponse?,
-        data: Data?,
-        error: Error?
-    ) throws -> Data {
-        if let error {
-            throw error
+private extension URLSessionHTTPClient {
+    nonisolated static func makeResponse(data: Data, response: URLResponse) throws -> HTTPClientResponse {
+        guard let http = response as? HTTPURLResponse else {
+            throw HTTPClientError.invalidResponse
         }
-        return data ?? Data()
+        return HTTPClientResponse(data: data, statusCode: http.statusCode)
+    }
+
+    /// A `URLError`, a cancellation and this client's own errors pass through; anything else is a transport failure.
+    nonisolated static func surfaced(_ error: Error) -> Error {
+        switch error {
+        case is URLError, is CancellationError, is HTTPClientError:
+            return error
+        default:
+            return HTTPClientError.transport(error.localizedDescription)
+        }
+    }
+
+    /// Runs off the caller's actor: writing a clip of up to 100 MB is a long synchronous job.
+    @concurrent
+    static func writeMultipartBody(_ parts: [HTTPMultipartPart], boundary: String, to url: URL) async throws {
+        try Data().write(to: url)
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+
+        for part in parts {
+            switch part {
+            case .field(let name, let value):
+                let head = "--\(boundary)\r\nContent-Disposition: form-data; name=\"\(escaped(name))\"\r\n\r\n"
+                try handle.write(contentsOf: Data(head.utf8))
+                try handle.write(contentsOf: Data(value.utf8))
+            case .file(let name, let filename, let mimeType, let data):
+                let head = "--\(boundary)\r\n"
+                    + "Content-Disposition: form-data; name=\"\(escaped(name))\"; filename=\"\(escaped(filename))\"\r\n"
+                    + "Content-Type: \(mimeType)\r\n\r\n"
+                try handle.write(contentsOf: Data(head.utf8))
+                try handle.write(contentsOf: data)
+            }
+            try handle.write(contentsOf: Data("\r\n".utf8))
+        }
+        try handle.write(contentsOf: Data("--\(boundary)--\r\n".utf8))
+    }
+
+    /// Percent-encodes what would end a quoted header value early, the way a browser does for a form upload.
+    /// Walks unicode scalars because "\r\n" is a single `Character` and would slip past a character match.
+    nonisolated static func escaped(_ value: String) -> String {
+        var result = String.UnicodeScalarView()
+        for scalar in value.unicodeScalars {
+            switch scalar {
+            case "\"": result.append(contentsOf: "%22".unicodeScalars)
+            case "\r": result.append(contentsOf: "%0D".unicodeScalars)
+            case "\n": result.append(contentsOf: "%0A".unicodeScalars)
+            default: result.append(scalar)
+            }
+        }
+        return String(result)
     }
 }

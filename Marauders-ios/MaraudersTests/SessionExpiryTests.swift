@@ -276,7 +276,7 @@ struct RejectedSessionEndToEndTests {
     }
 
     private func transport(_ session: URLSession, reportingTo viewModel: AuthViewModel) -> RejectedSessionReportingHTTPClient {
-        RejectedSessionReportingHTTPClient(base: AlamofireHTTPClient(session: session)) { accessToken in
+        RejectedSessionReportingHTTPClient(base: URLSessionHTTPClient(session: session)) { accessToken in
             await viewModel.handleRejectedAccessToken(accessToken)
         }
     }

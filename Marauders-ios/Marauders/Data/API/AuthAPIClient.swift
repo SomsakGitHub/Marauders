@@ -48,7 +48,7 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
     private let client: HTTPClient
 
     init(session: URLSession = .shared) {
-        self.init(client: AlamofireHTTPClient(session: session))
+        self.init(client: URLSessionHTTPClient(session: session))
     }
 
     init(client: HTTPClient) {

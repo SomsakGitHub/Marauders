@@ -50,7 +50,7 @@ final class AppDependencyContainer {
         } else {
             sessionStore = KeychainAuthSessionStore()
             tokenStore = KeychainAPIAccessTokenStore()
-            baseTransport = AlamofireHTTPClient()
+            baseTransport = URLSessionHTTPClient()
         }
         let authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore, signsInAsTestUserOnSimulator: true)
         let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
@@ -211,7 +211,7 @@ final class AppDependencyContainer {
         report: ReportUserLocationUseCase(
             repository: DefaultUserLocationRepository(
                 apiClient: UserLocationAPIClient(
-                    client: AlamofireHTTPClient(),
+                    client: URLSessionHTTPClient(),
                     authorization: SessionAPIAuthorization(tokenStore: KeychainAPIAccessTokenStore())
                 )
             )

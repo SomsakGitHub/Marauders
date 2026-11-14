@@ -27,7 +27,7 @@ struct UserLocationAPIClient: Sendable {
     private let authorization: APIAuthorization?
 
     nonisolated init(session: URLSession = .shared, authorization: APIAuthorization? = nil) {
-        self.init(client: AlamofireHTTPClient(session: session), authorization: authorization)
+        self.init(client: URLSessionHTTPClient(session: session), authorization: authorization)
     }
 
     nonisolated init(client: HTTPClient, authorization: APIAuthorization? = nil) {

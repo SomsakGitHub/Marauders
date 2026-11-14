@@ -7,11 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */; };
-		06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */; };
-		06BC2D233075A7FD0064F635 /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D223075A7FD0064F635 /* Alamofire */; };
-		06BC2D333075A7FD0064F635 /* WaypointCore in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D323075A7FD0064F635 /* WaypointCore */; };
-		06BC2D353075A7FD0064F635 /* WaypointJourney in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D343075A7FD0064F635 /* WaypointJourney */; };
 		06BC2D373075A7FD0064F635 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D363075A7FD0064F635 /* Lottie */; };
 		06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D3B3075A7FD0064F635 /* WhisperKit */; };
 /* End PBXBuildFile section */
@@ -62,11 +57,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				06BC2D133075A7FD0064F635 /* MyLibrarySDKCore in Frameworks */,
-				06BC2D143075A7FD0064F635 /* MyLibrarySDKFeature in Frameworks */,
-				06BC2D233075A7FD0064F635 /* Alamofire in Frameworks */,
-				06BC2D333075A7FD0064F635 /* WaypointCore in Frameworks */,
-				06BC2D353075A7FD0064F635 /* WaypointJourney in Frameworks */,
 				06BC2D373075A7FD0064F635 /* Lottie in Frameworks */,
 				06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */,
 			);
@@ -129,11 +119,6 @@
 			);
 			name = Marauders;
 			packageProductDependencies = (
-				06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */,
-				06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */,
-				06BC2D223075A7FD0064F635 /* Alamofire */,
-				06BC2D323075A7FD0064F635 /* WaypointCore */,
-				06BC2D343075A7FD0064F635 /* WaypointJourney */,
 				06BC2D363075A7FD0064F635 /* Lottie */,
 				06BC2D3B3075A7FD0064F635 /* WhisperKit */,
 			);
@@ -220,9 +205,6 @@
 			mainGroup = 06BC2C213075A7FB0064F635;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */,
-				06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */,
-				06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */,
 				06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 				06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
@@ -445,6 +427,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -487,6 +470,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -631,30 +615,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SomsakGitHub/POC_MyLibrary.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.1;
-			};
-		};
-		06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Alamofire/Alamofire.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.10.0;
-			};
-		};
-		06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "poc-sdk.waypointsdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.2.0;
-			};
-		};
 		06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/airbnb/lottie-spm";
@@ -674,31 +634,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		06BC2D113075A7FD0064F635 /* MyLibrarySDKCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */;
-			productName = MyLibrarySDKCore;
-		};
-		06BC2D123075A7FD0064F635 /* MyLibrarySDKFeature */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 06BC2D103075A7FD0064F635 /* XCRemoteSwiftPackageReference "POC_MyLibrary" */;
-			productName = MyLibrarySDKFeature;
-		};
-		06BC2D223075A7FD0064F635 /* Alamofire */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 06BC2D213075A7FD0064F635 /* XCRemoteSwiftPackageReference "Alamofire" */;
-			productName = Alamofire;
-		};
-		06BC2D323075A7FD0064F635 /* WaypointCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */;
-			productName = WaypointCore;
-		};
-		06BC2D343075A7FD0064F635 /* WaypointJourney */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 06BC2D313075A7FD0064F635 /* XCRemoteSwiftPackageReference "waypointsdk" */;
-			productName = WaypointJourney;
-		};
 		06BC2D363075A7FD0064F635 /* Lottie */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */;

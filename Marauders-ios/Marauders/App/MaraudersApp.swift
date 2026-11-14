@@ -12,7 +12,6 @@ struct MaraudersApp: App {
     init() {
         _ = AppLog.launchUptime
         InstallationSessionGuard.bootstrap()
-        MyLibraryIntegration.configure()
         // Before the UI, which a launch in the background for a location never shows.
         if !AppRuntimeConfiguration.isUITesting {
             AppDependencyContainer.backgroundLocationMonitor.resume()
