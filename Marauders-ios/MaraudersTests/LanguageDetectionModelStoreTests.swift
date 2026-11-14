@@ -1,10 +1,12 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 struct LanguageDetectionModelStoreTests {
     private func makeStore() -> (store: LanguageDetectionModelStore, root: URL) {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("detection-\(UUID().uuidString)", isDirectory: true)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "detection-\(UUID().uuidString)", isDirectory: true)
         return (LanguageDetectionModelStore(root: root), root)
     }
 
@@ -17,12 +19,14 @@ struct LanguageDetectionModelStoreTests {
         let layout = await store.layout()
         let manager = FileManager.default
         for name in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
-            try manager.createDirectory(at: layout.model.appendingPathComponent("\(name).mlmodelc"), withIntermediateDirectories: true)
+            try manager.createDirectory(
+                at: layout.model.appendingPathComponent("\(name).mlmodelc"), withIntermediateDirectories: true)
         }
         try manager.createDirectory(at: layout.tokenizer, withIntermediateDirectories: true)
         try Data("{}".utf8).write(to: layout.tokenizer.appendingPathComponent("tokenizer.json"))
         let release = LanguageDetectionModelStore.Release.current
-        try (marker ?? self.marker(model: release.modelRevision, tokenizer: release.tokenizerRevision)).write(to: layout.marker)
+        try (marker ?? self.marker(model: release.modelRevision, tokenizer: release.tokenizerRevision)).write(
+            to: layout.marker)
     }
 
     @Test func nothingIsInstalledAtFirst() async {
@@ -55,7 +59,8 @@ struct LanguageDetectionModelStoreTests {
         let (store, root) = makeStore()
         defer { try? FileManager.default.removeItem(at: root) }
         try await finishInstall(store)
-        try FileManager.default.removeItem(at: await store.layout().model.appendingPathComponent("TextDecoder.mlmodelc"))
+        try FileManager.default.removeItem(
+            at: await store.layout().model.appendingPathComponent("TextDecoder.mlmodelc"))
         #expect(await !store.isInstalled())
     }
 
@@ -71,9 +76,11 @@ struct LanguageDetectionModelStoreTests {
         let (store, root) = makeStore()
         defer { try? FileManager.default.removeItem(at: root) }
         let release = LanguageDetectionModelStore.Release.current
-        try await finishInstall(store, marker: marker(model: "older-model-revision", tokenizer: release.tokenizerRevision))
+        try await finishInstall(
+            store, marker: marker(model: "older-model-revision", tokenizer: release.tokenizerRevision))
         #expect(await !store.isInstalled())
-        try await finishInstall(store, marker: marker(model: release.modelRevision, tokenizer: "older-tokenizer-revision"))
+        try await finishInstall(
+            store, marker: marker(model: release.modelRevision, tokenizer: "older-tokenizer-revision"))
         #expect(await !store.isInstalled())
     }
 
@@ -115,9 +122,11 @@ struct LanguageDetectionModelStoreInstallTests {
     /// What a finished download leaves in the install folder.
     private static func writeFiles(_ base: URL, _ release: LanguageDetectionModelStore.Release) throws {
         let manager = FileManager.default
-        let model = base.appendingPathComponent("models/\(release.modelRepo)/\(release.modelFolderName)", isDirectory: true)
+        let model = base.appendingPathComponent(
+            "models/\(release.modelRepo)/\(release.modelFolderName)", isDirectory: true)
         for name in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] {
-            try manager.createDirectory(at: model.appendingPathComponent("\(name).mlmodelc"), withIntermediateDirectories: true)
+            try manager.createDirectory(
+                at: model.appendingPathComponent("\(name).mlmodelc"), withIntermediateDirectories: true)
         }
         let tokenizer = base.appendingPathComponent("models/\(release.tokenizerRepo)", isDirectory: true)
         try manager.createDirectory(at: tokenizer, withIntermediateDirectories: true)
@@ -138,8 +147,11 @@ struct LanguageDetectionModelStoreInstallTests {
         func release() { open = true }
         func waitUntilReleased() async throws {
             while !open {
-                if obeysCancellation { try await Task.sleep(for: .milliseconds(5)) }
-                else { try? await Task.sleep(for: .milliseconds(5)) }
+                if obeysCancellation {
+                    try await Task.sleep(for: .milliseconds(5))
+                } else {
+                    try? await Task.sleep(for: .milliseconds(5))
+                }
             }
         }
         func waitUntilRuns(_ count: Int) async throws {
@@ -277,7 +289,9 @@ struct LanguageDetectionModelStoreInstallTests {
         try await Task.sleep(for: .milliseconds(30))
         await control.release()
         await removing.value
-        do { try await first.value; Issue.record("the first caller should have been cancelled") } catch is CancellationError {}
+        do {
+            try await first.value; Issue.record("the first caller should have been cancelled")
+        } catch is CancellationError {}
         try await second.value
 
         // The new install ran after the removal and its files were not deleted by it.
@@ -328,8 +342,11 @@ struct LanguageDetectionModelStoreInstallTests {
         let store = store(root: root, control: control)
         let release = LanguageDetectionModelStore.Release.current
         let layout = await store.layout()
-        try FileManager.default.createDirectory(at: layout.marker.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(#"{"modelRevision":"\#(release.modelRevision)","tokenizerRevision":"\#(release.tokenizerRevision)"}"#.utf8).write(to: layout.marker)
+        try FileManager.default.createDirectory(
+            at: layout.marker.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(
+            #"{"modelRevision":"\#(release.modelRevision)","tokenizerRevision":"\#(release.tokenizerRevision)"}"#.utf8
+        ).write(to: layout.marker)
         #expect(await !store.isInstalled())
 
         let install = Task { try await store.install { _ in } }

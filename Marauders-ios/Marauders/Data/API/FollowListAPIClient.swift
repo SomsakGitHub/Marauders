@@ -42,7 +42,7 @@ struct FollowListAPIClient: Sendable {
             throw FollowListError.notFound
         case 429:
             throw FollowListError.rateLimited
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             // A 400 lands here too: the app builds the handle and the cursor itself, so it is a bug or an older Worker.

@@ -59,7 +59,7 @@ final class LanguageModelsViewModel {
             // to the end, so the row never stays on "Downloading…" after it finished.
             if case .downloading = status, case .languageDetection = model.kind, !isDownloading(model) {
                 adopted.append(model)
-            // A download may have started while the lookup was in flight.
+                // A download may have started while the lookup was in flight.
             } else if !isDownloading(model) {
                 statuses[model.id] = status
             }
@@ -92,8 +92,9 @@ final class LanguageModelsViewModel {
             guard translationModel == nil else { return }
             translationModel = model
             statuses[model.id] = .downloading(progress: nil)
-            translationConfiguration = .init(source: Locale.Language(identifier: source),
-                                             target: Locale.Language(identifier: target))
+            translationConfiguration = .init(
+                source: Locale.Language(identifier: source),
+                target: Locale.Language(identifier: target))
         case let .speech(locale):
             statuses[model.id] = .downloading(progress: 0)
             do {

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 struct SpeechWindowSelectorTests {
@@ -9,53 +10,56 @@ struct SpeechWindowSelectorTests {
     }
 
     @Test func aClipNoLongerThanOneWindowIsListenedToWhole() {
-        #expect(SpeechWindowSelector.windows(loudness: clip([(true, 12)]), count: 2) == [0 ..< 12])
-        #expect(SpeechWindowSelector.windows(loudness: clip([(false, 20)]), count: 1) == [0 ..< 20])
+        #expect(SpeechWindowSelector.windows(loudness: clip([(true, 12)]), count: 2) == [0..<12])
+        #expect(SpeechWindowSelector.windows(loudness: clip([(false, 20)]), count: 1) == [0..<20])
         #expect(SpeechWindowSelector.windows(loudness: [], count: 2).isEmpty)
         #expect(SpeechWindowSelector.windows(loudness: clip([(true, 30)]), count: 0).isEmpty)
     }
 
     @Test func aClipThatOpensWithSpeechKeepsItsOpening() {
         let loudness = clip([(true, 60)])
-        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 1) == [0 ..< 20])
-        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 2) == [0 ..< 20, 20 ..< 40])
+        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 1) == [0..<20])
+        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 2) == [0..<20, 20..<40])
     }
 
     @Test func aLongOpeningWithoutSpeechIsSkipped() {
         // 30 s of near silence, then 30 s of speech: the first window would say nothing about the language.
         let loudness = clip([(false, 30), (true, 30)])
         let windows = SpeechWindowSelector.windows(loudness: loudness, count: 1)
-        #expect(windows == [30 ..< 50])
+        #expect(windows == [30..<50])
     }
 
     @Test func aSlightlyBetterLaterWindowDoesNotReplaceTheOpening() {
         // The opening has 18 speech seconds out of 20; a later window with all 20 is not worth moving for.
         let loudness = clip([(true, 18), (false, 2), (true, 40)])
-        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 1) == [0 ..< 20])
+        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 1) == [0..<20])
     }
 
     @Test func theBestWindowComesFirstAndTheSecondNeverOverlapsIt() {
         // The better stretch is the later one (20 loud seconds against 15), and it leads even though it comes second in the clip.
         let loudness = clip([(false, 5), (true, 15), (false, 10), (true, 20)])
         let windows = SpeechWindowSelector.windows(loudness: loudness, count: 2)
-        #expect(windows.first == 30 ..< 50)
+        #expect(windows.first == 30..<50)
         #expect(windows.count == 2)
-        #expect(windows.allSatisfy { $0.count == SpeechWindowSelector.windowSeconds || $0.count >= SpeechWindowSelector.shortestExtraSeconds })
+        #expect(
+            windows.allSatisfy {
+                $0.count == SpeechWindowSelector.windowSeconds || $0.count >= SpeechWindowSelector.shortestExtraSeconds
+            })
         #expect(windows[1].upperBound <= windows[0].lowerBound || windows[1].lowerBound >= windows[0].upperBound)
     }
 
     @Test func aClipOnlyALittleLongerThanOneWindowStillGetsASecondWindowFromItsTail() {
         // 30 s of speech: the first 20 s, then the 10 s that remain, as before the selector existed.
         let loudness = clip([(true, 30)])
-        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 2) == [0 ..< 20, 20 ..< 30])
+        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 2) == [0..<20, 20..<30])
         // A tail under 5 s says too little to be asked about.
-        #expect(SpeechWindowSelector.windows(loudness: clip([(true, 23)]), count: 2) == [0 ..< 20])
+        #expect(SpeechWindowSelector.windows(loudness: clip([(true, 23)]), count: 2) == [0..<20])
     }
 
     @Test func aSecondWindowWithoutSpeechIsLeftOut() {
         // 20 s of speech followed by silence: asking about the silence would only add doubt.
         let loudness = clip([(true, 20), (false, 40)])
-        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 2) == [0 ..< 20])
+        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 2) == [0..<20])
     }
 
     @Test func anOpeningOfPureSilenceYieldsToAnyLaterSpeech() {
@@ -72,7 +76,7 @@ struct SpeechWindowSelectorTests {
         let speech = SpeechWindowSelector.speechSeconds(in: loudness)
         #expect(speech.prefix(30).allSatisfy { $0 == 1 })
         // The opening already has speech, and the bed is no better, so the opening is kept.
-        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 1) == [0 ..< 20])
+        #expect(SpeechWindowSelector.windows(loudness: loudness, count: 1) == [0..<20])
     }
 
     @Test func aQuietClipIsJudgedByItsOwnLevel() {
@@ -87,7 +91,7 @@ struct SpeechWindowSelectorTests {
     @Test func loudnessIsTheRootMeanSquareOfEachSecond() {
         var pcm = Data()
         func append(_ value: Int16, seconds: Double) {
-            for _ in 0 ..< Int(16000 * seconds) {
+            for _ in 0..<Int(16000 * seconds) {
                 var little = value.littleEndian
                 withUnsafeBytes(of: &little) { pcm.append(contentsOf: $0) }
             }
@@ -103,13 +107,16 @@ struct SpeechWindowSelectorTests {
         #expect(SpeechAudioPreparation.loudness(ofPCM: Data()).isEmpty)
         // Audio shorter than a second still gets one value.
         var short = Data()
-        for _ in 0 ..< 4000 { var little = Int16(8192).littleEndian; withUnsafeBytes(of: &little) { short.append(contentsOf: $0) } }
+        for _ in 0..<4000 {
+            var little = Int16(8192).littleEndian; withUnsafeBytes(of: &little) { short.append(contentsOf: $0) }
+        }
         #expect(SpeechAudioPreparation.loudness(ofPCM: short).count == 1)
     }
 
     /// The real path with a real audio file: 30 s of faint hiss, then 30 s of a loud tone standing in for speech.
     @Test func theWindowsWrittenForAClipThatOpensQuietlyComeFromTheLoudPart() async throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("windows-\(UUID().uuidString)", isDirectory: true)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "windows-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
 
@@ -118,8 +125,8 @@ struct SpeechWindowSelectorTests {
             var little = sample.littleEndian
             withUnsafeBytes(of: &little) { pcm.append(contentsOf: $0) }
         }
-        for index in 0 ..< 30 * 16000 { append(index % 2 == 0 ? 16 : -16) }
-        for index in 0 ..< 30 * 16000 { append(Int16(10000 * sin(Double(index) * 2 * .pi * 440 / 16000))) }
+        for index in 0..<30 * 16000 { append(index % 2 == 0 ? 16 : -16) }
+        for index in 0..<30 * 16000 { append(Int16(10000 * sin(Double(index) * 2 * .pi * 440 / 16000))) }
         let source = folder.appendingPathComponent("source.wav")
         try SpeechAudioPreparation.wave(pcm).write(to: source)
 

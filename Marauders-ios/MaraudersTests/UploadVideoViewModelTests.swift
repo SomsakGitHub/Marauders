@@ -6,6 +6,7 @@
 import CoreLocation
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -19,7 +20,8 @@ struct UploadVideoViewModelTests {
         let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
         let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
         let repository = AssessmentRecordingRepository()
-        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)), uploadRepository: repository,
+        let model = makeViewModel(
+            exporter: RecordingVideoExporter(result: .success(mp4)), uploadRepository: repository,
             audioInspector: Inspector(result: .init(content: .speech, signal: .detected)))
         model.applyClipLocation(Self.bangkok)
         await model.prepare(sourceURL: source)
@@ -35,7 +37,9 @@ struct UploadVideoViewModelTests {
     @Test func quietAudioWarningDoesNotBlockUploadAndResetClearsIt() async throws {
         let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
         let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)
-        let model = makeViewModel(exporter: RecordingVideoExporter(result: .success(mp4)), audioInspector: Inspector(result: .init(signal: .quietSamples)))
+        let model = makeViewModel(
+            exporter: RecordingVideoExporter(result: .success(mp4)),
+            audioInspector: Inspector(result: .init(signal: .quietSamples)))
         model.applyClipLocation(Self.bangkok)
         await model.prepare(sourceURL: source)
         #expect(model.audioAssessment?.signal == .quietSamples)
@@ -51,9 +55,13 @@ struct UploadVideoViewModelTests {
             var continuation: CheckedContinuation<ClipAudioAssessment, Never>?
             var waiter: CheckedContinuation<Void, Never>?
             func inspect(fileURL: URL) async -> ClipAudioAssessment {
-                await withCheckedContinuation { continuation = $0; waiter?.resume(); waiter = nil }
+                await withCheckedContinuation {
+                    continuation = $0; waiter?.resume(); waiter = nil
+                }
             }
-            func waitUntilInspecting() async { if continuation != nil { return }; await withCheckedContinuation { waiter = $0 } }
+            func waitUntilInspecting() async {
+                if continuation != nil { return }; await withCheckedContinuation { waiter = $0 }
+            }
             func finish() { continuation?.resume(returning: .init(signal: .detected)); continuation = nil }
         }
         let inspector = DeferredInspector()
@@ -74,12 +82,19 @@ struct UploadVideoViewModelTests {
 
     private final class AssessmentRecordingRepository: VideoUploadRepository, @unchecked Sendable {
         private(set) var uploadedAssessment: ClipAudioAssessment?
-        func upload(fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String, audioAssessment: ClipAudioAssessment?) async throws -> FeedVideo {
+        func upload(
+            fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String,
+            audioAssessment: ClipAudioAssessment?
+        ) async throws -> FeedVideo {
             uploadedAssessment = audioAssessment
             return FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!)
         }
-        func upload(fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String) async throws -> FeedVideo {
-            try await upload(fileURL: fileURL, mimeType: mimeType, clipLocation: clipLocation, caption: caption, audioAssessment: nil)
+        func upload(fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String) async throws
+            -> FeedVideo
+        {
+            try await upload(
+                fileURL: fileURL, mimeType: mimeType, clipLocation: clipLocation, caption: caption, audioAssessment: nil
+            )
         }
     }
 
@@ -87,7 +102,8 @@ struct UploadVideoViewModelTests {
 
     private func makeViewModel(
         exporter: VideoExporting = StubVideoExporter(result: .failure(StubError.exportFailed)),
-        uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed)),
+        uploadRepository: VideoUploadRepository = RecordingVideoUploadRepository(
+            result: .failure(StubError.uploadFailed)),
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
         audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()

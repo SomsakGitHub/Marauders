@@ -33,7 +33,7 @@ struct ForegroundLocationReporterTests {
     private static let fix = CLLocation(latitude: 13.7563, longitude: 100.5018)
 
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 where !condition() {
+        for _ in 0..<200 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }

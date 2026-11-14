@@ -16,52 +16,53 @@ struct CommentsAPIClientTests {
     private static let commentID = UUID(uuidString: "66666666-7777-4888-9999-000000000000")!
 
     private static let listPayload = """
-    {
-      "items": [
         {
-          "id": "11111111-2222-4333-8444-555555555555",
-          "body": "Nice view",
-          "language": "th",
-          "createdAt": "2026-10-30T12:34:56.789Z",
-          "authorName": "@friend",
-          "authorAvatarURL": "https://example.com/a.jpg",
-          "canDelete": false
-        },
-        {
-          "id": "66666666-7777-4888-9999-000000000000",
-          "body": "Mine",
-          "language": null,
-          "createdAt": "2026-10-30T12:00:00.000Z",
-          "authorName": "@me",
-          "authorAvatarURL": null,
-          "canDelete": true
+          "items": [
+            {
+              "id": "11111111-2222-4333-8444-555555555555",
+              "body": "Nice view",
+              "language": "th",
+              "createdAt": "2026-10-30T12:34:56.789Z",
+              "authorName": "@friend",
+              "authorAvatarURL": "https://example.com/a.jpg",
+              "canDelete": false
+            },
+            {
+              "id": "66666666-7777-4888-9999-000000000000",
+              "body": "Mine",
+              "language": null,
+              "createdAt": "2026-10-30T12:00:00.000Z",
+              "authorName": "@me",
+              "authorAvatarURL": null,
+              "canDelete": true
+            }
+          ],
+          "nextCursor": "66666666-7777-4888-9999-000000000000"
         }
-      ],
-      "nextCursor": "66666666-7777-4888-9999-000000000000"
-    }
-    """
+        """
 
     private static let createdPayload = """
-    {
-      "comment": {
-        "id": "66666666-7777-4888-9999-000000000000",
-        "body": "Hello",
-        "language": null,
-        "createdAt": "2026-10-30T12:00:00.000Z",
-        "authorName": "@me",
-        "authorAvatarURL": null,
-        "canDelete": true
-      }
-    }
-    """
+        {
+          "comment": {
+            "id": "66666666-7777-4888-9999-000000000000",
+            "body": "Hello",
+            "language": null,
+            "createdAt": "2026-10-30T12:00:00.000Z",
+            "authorName": "@me",
+            "authorAvatarURL": null,
+            "canDelete": true
+          }
+        }
+        """
 
     private static func date(hour: Int, minute: Int, second: Int, millisecond: Int = 0) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        return calendar.date(from: DateComponents(
-            year: 2026, month: 10, day: 30, hour: hour, minute: minute, second: second,
-            nanosecond: millisecond * 1_000_000
-        ))!
+        return calendar.date(
+            from: DateComponents(
+                year: 2026, month: 10, day: 30, hour: hour, minute: minute, second: second,
+                nanosecond: millisecond * 1_000_000
+            ))!
     }
 
     // MARK: - fetchComments
@@ -85,7 +86,9 @@ struct CommentsAPIClientTests {
         #expect(first.authorName == "@friend")
         #expect(first.authorAvatarURL == URL(string: "https://example.com/a.jpg"))
         #expect(first.canDelete == false)
-        #expect(abs(first.createdAt.timeIntervalSince(Self.date(hour: 12, minute: 34, second: 56, millisecond: 789))) < 0.001)
+        #expect(
+            abs(first.createdAt.timeIntervalSince(Self.date(hour: 12, minute: 34, second: 56, millisecond: 789)))
+                < 0.001)
 
         let second = try #require(page.items.last)
         #expect(second.language == nil)
@@ -240,9 +243,9 @@ struct CommentsAPIClientTests {
 
     @Test func fetchRejectsAnUnreadableDate() async {
         let payload = """
-        {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"x","language":null,
-        "createdAt":"yesterday","authorName":"@a","authorAvatarURL":null,"canDelete":false}],"nextCursor":null}
-        """
+            {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"x","language":null,
+            "createdAt":"yesterday","authorName":"@a","authorAvatarURL":null,"canDelete":false}],"nextCursor":null}
+            """
         let session = StubURLSessionFactory.make { request in
             (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
         }
@@ -256,9 +259,9 @@ struct CommentsAPIClientTests {
 
     @Test func fetchAcceptsADateWithoutFractionalSeconds() async throws {
         let payload = """
-        {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"x","language":null,
-        "createdAt":"2026-10-30T12:34:56Z","authorName":"@a","authorAvatarURL":null,"canDelete":false}],"nextCursor":null}
-        """
+            {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"x","language":null,
+            "createdAt":"2026-10-30T12:34:56Z","authorName":"@a","authorAvatarURL":null,"canDelete":false}],"nextCursor":null}
+            """
         let session = StubURLSessionFactory.make { request in
             (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
         }
@@ -368,7 +371,9 @@ struct CommentsAPIClientTests {
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request
-            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(#"{"status":"deleted"}"#.utf8))
+            return (
+                StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(#"{"status":"deleted"}"#.utf8)
+            )
         }
         defer { StubURLSessionFactory.reset(session) }
 
@@ -422,7 +427,8 @@ struct CommentsAPIClientTests {
     @Test func commentsURLClampsTheLimitToWhatTheWorkerAccepts() throws {
         func limit(_ requested: Int) throws -> String? {
             let url = try APIConfiguration.commentsURL(videoID: Self.videoID, limit: requested)
-            return URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "limit" }?.value
+            return URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "limit" }?
+                .value
         }
         #expect(try limit(500) == "50")
         #expect(try limit(0) == "1")

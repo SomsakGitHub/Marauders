@@ -18,7 +18,9 @@ nonisolated struct FastClipAudioInspector: ClipAudioInspecting {
             let extended = try? await track.load(.extendedLanguageTag)
             var language = Self.languageHint(extended)
             if language == nil { language = Self.languageHint(try? await track.load(.languageCode)) }
-            guard duration.isFinite, duration > 0 else { return .init(signal: .unknown, languageHint: language, exceedsTranslationLimit: exceeds) }
+            guard duration.isFinite, duration > 0 else {
+                return .init(signal: .unknown, languageHint: language, exceedsTranslationLimit: exceeds)
+            }
             let window = min(1.0, duration)
             let last = max(0, duration - window)
             let starts = Array(Set([0, last / 2, last])).sorted()
@@ -35,15 +37,23 @@ nonisolated struct FastClipAudioInspector: ClipAudioInspecting {
             var detected = false
             for start in starts {
                 try Task.checkCancellation()
-                guard ContinuousClock.now < deadline else { return .init(signal: detected ? .detected : .unknown, languageHint: language, sampledSeconds: sampledSeconds, exceedsTranslationLimit: exceeds) }
+                guard ContinuousClock.now < deadline else {
+                    return .init(
+                        signal: detected ? .detected : .unknown, languageHint: language, sampledSeconds: sampledSeconds,
+                        exceedsTranslationLimit: exceeds)
+                }
                 let reader = try AVAssetReader(asset: asset)
-                reader.timeRange = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: 16000), duration: CMTime(seconds: window, preferredTimescale: 16000))
-                let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
-                    AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000,
-                    AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 32,
-                    AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false,
-                    AVLinearPCMIsNonInterleaved: false
-                ])
+                reader.timeRange = CMTimeRange(
+                    start: CMTime(seconds: start, preferredTimescale: 16000),
+                    duration: CMTime(seconds: window, preferredTimescale: 16000))
+                let output = AVAssetReaderTrackOutput(
+                    track: track,
+                    outputSettings: [
+                        AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000,
+                        AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 32,
+                        AVLinearPCMIsFloatKey: true, AVLinearPCMIsBigEndianKey: false,
+                        AVLinearPCMIsNonInterleaved: false,
+                    ])
                 reader.add(output)
                 guard reader.startReading() else { throw reader.error ?? VideoExportError.exportFailed }
                 defer { reader.cancelReading() }
@@ -51,25 +61,39 @@ nonisolated struct FastClipAudioInspector: ClipAudioInspecting {
                 var frames = 0
                 while let sample = output.copyNextSampleBuffer() {
                     try Task.checkCancellation()
-                    guard ContinuousClock.now < deadline else { reader.cancelReading(); return .init(signal: detected ? .detected : .unknown, languageHint: language, sampledSeconds: sampledSeconds, exceedsTranslationLimit: exceeds) }
+                    guard ContinuousClock.now < deadline else {
+                        reader.cancelReading();
+                        return .init(
+                            signal: detected ? .detected : .unknown, languageHint: language,
+                            sampledSeconds: sampledSeconds, exceedsTranslationLimit: exceeds)
+                    }
                     guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
                     let length = CMBlockBufferGetDataLength(block)
                     guard length > 0 else { continue }
                     var bytes = Data(count: length)
                     let status = bytes.withUnsafeMutableBytes { buffer in
-                        CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: buffer.count, destination: buffer.baseAddress!)
+                        CMBlockBufferCopyDataBytes(
+                            block, atOffset: 0, dataLength: buffer.count, destination: buffer.baseAddress!)
                     }
                     guard status == kCMBlockBufferNoErr else { throw VideoExportError.exportFailed }
                     let count = length / 4
-                    if count > 0, let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)), let destination = pcm.floatChannelData?[0] {
+                    if count > 0,
+                        let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)),
+                        let destination = pcm.floatChannelData?[0]
+                    {
                         pcm.frameLength = AVAudioFrameCount(count)
-                        bytes.withUnsafeBytes { raw in destination.update(from: raw.bindMemory(to: Float.self).baseAddress!, count: count) }
+                        bytes.withUnsafeBytes { raw in
+                            destination.update(from: raw.bindMemory(to: Float.self).baseAddress!, count: count)
+                        }
                         analyzer.analyze(pcm, atAudioFramePosition: position)
                         position += AVAudioFramePosition(count)
                     }
                     bytes.withUnsafeBytes { raw in
                         for offset in stride(from: 0, through: max(-1, raw.count - 4), by: 4) {
-                            let value = Double(Float(bitPattern: UInt32(littleEndian: raw.loadUnaligned(fromByteOffset: offset, as: UInt32.self))))
+                            let value = Double(
+                                Float(
+                                    bitPattern: UInt32(
+                                        littleEndian: raw.loadUnaligned(fromByteOffset: offset, as: UInt32.self))))
                             if value.isFinite { power += value * value; peak = max(peak, abs(value)); frames += 1 }
                         }
                     }
@@ -81,7 +105,10 @@ nonisolated struct FastClipAudioInspector: ClipAudioInspecting {
             analyzer.completeAnalysis()
             let confidence = scores.snapshot()
             let content = Self.content(speech: confidence.0, music: confidence.1)
-            return .init(content: detected ? content : .unknown, speechConfidence: confidence.0, musicConfidence: confidence.1, signal: detected ? .detected : .quietSamples, languageHint: language, sampledSeconds: sampledSeconds, exceedsTranslationLimit: exceeds)
+            return .init(
+                content: detected ? content : .unknown, speechConfidence: confidence.0, musicConfidence: confidence.1,
+                signal: detected ? .detected : .quietSamples, languageHint: language, sampledSeconds: sampledSeconds,
+                exceedsTranslationLimit: exceeds)
         } catch { return .init(signal: .unknown) }
     }
     static func content(speech: Double, music: Double) -> ClipAudioAssessment.Content {
@@ -93,7 +120,8 @@ nonisolated struct FastClipAudioInspector: ClipAudioInspecting {
         guard let raw else { return nil }
         let tag = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard tag != "und", tag != "zxx", tag.count <= 35,
-              tag.range(of: "^[a-z]{2,3}(-[a-z0-9]{2,8})*$", options: .regularExpression) != nil else { return nil }
+            tag.range(of: "^[a-z]{2,3}(-[a-z0-9]{2,8})*$", options: .regularExpression) != nil
+        else { return nil }
         return tag
     }
 }

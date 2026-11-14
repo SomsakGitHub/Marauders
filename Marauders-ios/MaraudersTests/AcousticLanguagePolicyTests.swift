@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 struct AcousticLanguagePolicyTests {
@@ -50,7 +51,9 @@ struct AcousticLanguagePolicyTests {
 
     @MainActor @Test func everyListeningLanguageIsNamed() {
         for language in ListeningLanguage.all {
-            #expect(AcousticLanguagePolicy.namedLanguages.contains(language.code), "\(language.code) is a listening language")
+            #expect(
+                AcousticLanguagePolicy.namedLanguages.contains(language.code),
+                "\(language.code) is a listening language")
         }
     }
 }
@@ -77,7 +80,11 @@ struct AcousticClipLanguageDetectorTests {
 
     @Test func noWindowsAndNoModelGiveNoAnswer() async {
         #expect(await AcousticClipLanguageDetector(identifier: Scripted([])).detect(windows: windows) == nil)
-        #expect(await AcousticClipLanguageDetector(identifier: NoopAcousticLanguageIdentifier()).detect(windows: windows) == nil)
-        #expect(await AcousticClipLanguageDetector(identifier: Scripted([.init(code: "ru", probability: 0.99)])).detect(windows: []) == nil)
+        #expect(
+            await AcousticClipLanguageDetector(identifier: NoopAcousticLanguageIdentifier()).detect(windows: windows)
+                == nil)
+        #expect(
+            await AcousticClipLanguageDetector(identifier: Scripted([.init(code: "ru", probability: 0.99)])).detect(
+                windows: []) == nil)
     }
 }

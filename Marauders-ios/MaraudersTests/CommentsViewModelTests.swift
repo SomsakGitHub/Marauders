@@ -33,21 +33,23 @@ struct CommentsViewModelTests {
     }
 
     private func comments(count: Int) -> [Comment] {
-        (0 ..< count).map { comment("c\($0)") }
+        (0..<count).map { comment("c\($0)") }
     }
 
     private func loadedSUT(
         _ items: [Comment],
         nextCursor: UUID? = nil
     ) async -> (CommentsViewModel, StubCommentRepository) {
-        let (viewModel, repository) = makeSUT(fetchResults: [.success(CommentPage(items: items, nextCursor: nextCursor))])
+        let (viewModel, repository) = makeSUT(fetchResults: [
+            .success(CommentPage(items: items, nextCursor: nextCursor))
+        ])
         await viewModel.loadIfNeeded()
         return (viewModel, repository)
     }
 
     /// Waits, for up to two seconds, for work the view model starts as a task of its own.
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 where !condition() {
+        for _ in 0..<200 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -108,7 +110,9 @@ struct CommentsViewModelTests {
 
         await viewModel.loadIfNeeded()
 
-        #expect(viewModel.state == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
+        #expect(
+            viewModel.state
+                == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
         #expect(viewModel.comments.isEmpty)
     }
 
@@ -131,7 +135,9 @@ struct CommentsViewModelTests {
             .success(CommentPage(items: [comment("back")], nextCursor: nil)),
         ])
         await viewModel.loadIfNeeded()
-        #expect(viewModel.state == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
+        #expect(
+            viewModel.state
+                == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
         let sawLoading = Flag()
         repository.beforeFetchReturns = { [viewModel] in
             sawLoading.value = await MainActor.run { viewModel.state == .loading }
@@ -162,7 +168,8 @@ struct CommentsViewModelTests {
 
         #expect(viewModel.state == .loaded)
         #expect(viewModel.comments.map(\.body) == ["kept"])
-        #expect(viewModel.errorMessage == String(localized: "Couldn't load comments. Check your connection and try again."))
+        #expect(
+            viewModel.errorMessage == String(localized: "Couldn't load comments. Check your connection and try again."))
     }
 
     @Test func aFailedRefreshOfAListEmptiedMeanwhileKeepsItWhenNothingOlderExists() async {
@@ -183,7 +190,8 @@ struct CommentsViewModelTests {
 
         #expect(viewModel.state == .loaded)
         #expect(viewModel.comments.isEmpty)
-        #expect(viewModel.errorMessage == String(localized: "Couldn't load comments. Check your connection and try again."))
+        #expect(
+            viewModel.errorMessage == String(localized: "Couldn't load comments. Check your connection and try again."))
     }
 
     @Test func aFailedRefreshAfterTheLastListedCommentWasDeletedOffersARetry() async {
@@ -204,7 +212,9 @@ struct CommentsViewModelTests {
         await viewModel.reload()
 
         // "No comments yet" would be wrong here and has no Retry button; the failed screen has one.
-        #expect(viewModel.state == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
+        #expect(
+            viewModel.state
+                == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
         #expect(viewModel.comments.isEmpty)
         // That screen already says it, so the composer's message line stays empty.
         #expect(viewModel.errorMessage == nil)
@@ -232,7 +242,9 @@ struct CommentsViewModelTests {
 
         await viewModel.reload()
 
-        #expect(viewModel.state == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
+        #expect(
+            viewModel.state
+                == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
         #expect(viewModel.comments.isEmpty)
         #expect(viewModel.errorMessage == nil)
         #expect(repository.fetches.count == 3)
@@ -461,7 +473,9 @@ struct CommentsViewModelTests {
 
         await viewModel.delete(only)
 
-        #expect(viewModel.state == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
+        #expect(
+            viewModel.state
+                == .failed(String(localized: "Couldn't load comments. Check your connection and try again.")))
         #expect(viewModel.comments.isEmpty)
 
         await viewModel.reload()
@@ -571,7 +585,7 @@ struct CommentsViewModelTests {
 
     @Test func aSecondRowNearTheEndWhileAPageLoadsDoesNotAskAgain() async {
         let first = comments(count: 12)
-        let older = (0 ..< 3).map { comment("older\($0)") }
+        let older = (0..<3).map { comment("older\($0)") }
         let (viewModel, repository) = makeSUT(fetchResults: [
             .success(CommentPage(items: first, nextCursor: UUID())),
             .success(CommentPage(items: older, nextCursor: UUID())),
@@ -672,7 +686,7 @@ struct CommentsViewModelTests {
     }
 
     @Test func aPageThatKeepsOverlappingDeletesIsAskedOnceMoreAndNoMore() async {
-        let first = (0 ..< 12).map { comment("c\($0)", canDelete: true) }
+        let first = (0..<12).map { comment("c\($0)", canDelete: true) }
         let older = comment("older")
         let (viewModel, repository) = makeSUT(fetchResults: [
             .success(CommentPage(items: first, nextCursor: UUID())),
@@ -837,7 +851,8 @@ struct CommentsViewModelTests {
         await waitUntil { repository.fetches.count == 3 && !viewModel.isLoadingMore }
 
         #expect(viewModel.comments == first + [older])
-        #expect(viewModel.errorMessage == String(localized: "Couldn't load comments. Check your connection and try again."))
+        #expect(
+            viewModel.errorMessage == String(localized: "Couldn't load comments. Check your connection and try again."))
     }
 
     @Test func aRefreshThatEndsTheListDoesNotAskForAnotherPage() async {
@@ -918,7 +933,9 @@ struct CommentsViewModelTests {
     }
 
     @Test func aRefreshThatKeepsRacingNewPostsStopsAskingAfterThreeRequests() async {
-        let (viewModel, repository) = makeSUT(fetchResults: [.success(CommentPage(items: [comment("old")], nextCursor: nil))])
+        let (viewModel, repository) = makeSUT(fetchResults: [
+            .success(CommentPage(items: [comment("old")], nextCursor: nil))
+        ])
         await viewModel.loadIfNeeded()
         let calls = Counter()
         repository.beforeFetchReturns = { [viewModel] in
@@ -942,15 +959,17 @@ struct CommentsViewModelTests {
         lastAnswerListsThePost: Bool
     ) async -> (CommentsViewModel, StubCommentRepository, posted: [Comment], old: Comment) {
         let old = comment("old")
-        let posted = (1 ... 3).map { comment("post \($0)", canDelete: true) }
+        let posted = (1...3).map { comment("post \($0)", canDelete: true) }
         let (viewModel, repository) = makeSUT(fetchResults: [
             .success(CommentPage(items: [old], nextCursor: nil)),
             .success(CommentPage(items: [old], nextCursor: nil)),
             .success(CommentPage(items: [posted[0], old], nextCursor: nil)),
-            .success(CommentPage(
-                items: lastAnswerListsThePost ? [posted[2], posted[1], posted[0], old] : [posted[1], posted[0], old],
-                nextCursor: nil
-            )),
+            .success(
+                CommentPage(
+                    items: lastAnswerListsThePost
+                        ? [posted[2], posted[1], posted[0], old] : [posted[1], posted[0], old],
+                    nextCursor: nil
+                )),
         ])
         await viewModel.loadIfNeeded()
         return (viewModel, repository, posted, old)
@@ -1018,9 +1037,11 @@ struct CommentsViewModelTests {
     }
 
     @Test func aRefreshThatKeepsRacingDeletesStillLeavesOutWhatTheViewerDeleted() async {
-        let doomed = (0 ..< 3).map { comment("doomed\($0)", canDelete: true) }
+        let doomed = (0..<3).map { comment("doomed\($0)", canDelete: true) }
         let kept = comment("kept")
-        let (viewModel, repository) = makeSUT(fetchResults: [.success(CommentPage(items: doomed + [kept], nextCursor: nil))])
+        let (viewModel, repository) = makeSUT(fetchResults: [
+            .success(CommentPage(items: doomed + [kept], nextCursor: nil))
+        ])
         await viewModel.loadIfNeeded()
         let calls = Counter()
         repository.beforeFetchReturns = { [viewModel] in
@@ -1129,13 +1150,13 @@ struct CommentsViewModelTests {
             case 1:
                 // A newer refresh starts while this one is out; this one ends first and is dropped.
                 Task { await viewModel.reload() }
-                for _ in 0 ..< 200 where !newestHasStarted.value {
+                for _ in 0..<200 where !newestHasStarted.value {
                     try? await Task.sleep(for: .milliseconds(10))
                 }
             case 2:
                 // The newest refresh stays out until the test lets it end.
                 newestHasStarted.value = true
-                for _ in 0 ..< 200 where !newestMayEnd.value {
+                for _ in 0..<200 where !newestMayEnd.value {
                     try? await Task.sleep(for: .milliseconds(10))
                 }
             default:
@@ -1192,7 +1213,10 @@ struct CommentsViewModelTests {
         let cases: [(Error, String)] = [
             (CommentError.signInRequired, String(localized: "Your session expired. Sign in again to comment.")),
             (CommentError.notFound, String(localized: "This clip is no longer available.")),
-            (CommentError.invalidBody, String(localized: "Comments can be up to \(CommentRules.maxCharacters) characters.")),
+            (
+                CommentError.invalidBody,
+                String(localized: "Comments can be up to \(CommentRules.maxCharacters) characters.")
+            ),
             (CommentError.serverError(500), String(localized: "Couldn't post your comment. Try again.")),
             (StubError.uploadFailed, String(localized: "Couldn't post your comment. Try again.")),
         ]

@@ -19,14 +19,14 @@ struct AppRootView: View {
                 feedViewModel: container.feedViewModel,
                 uploadViewModel: container.uploadViewModel,
                 authViewModel: container.authViewModel,
-        profileViewModel: container.profileViewModel,
-        reportUserLocation: container.reportUserLocation,
-        profileNavigation: container.profileNavigation,
-        makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
-        clipLikesViewModel: container.clipLikesViewModel,
-        followsViewModel: container.followsViewModel,
-        friendLocationsViewModel: container.friendLocationsViewModel
-    )
+                profileViewModel: container.profileViewModel,
+                reportUserLocation: container.reportUserLocation,
+                profileNavigation: container.profileNavigation,
+                makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
+                clipLikesViewModel: container.clipLikesViewModel,
+                followsViewModel: container.followsViewModel,
+                friendLocationsViewModel: container.friendLocationsViewModel
+            )
             .opacity(isShowingSplash ? 0 : 1)
 
             if isShowingSplash {

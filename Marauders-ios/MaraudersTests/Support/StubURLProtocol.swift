@@ -83,7 +83,8 @@ enum StubURLSessionFactory {
     }
 
     static func reset(_ session: URLSession) {
-        guard let token = session.configuration.httpAdditionalHeaders?[StubURLProtocol.sessionTokenHeader] as? String else {
+        guard let token = session.configuration.httpAdditionalHeaders?[StubURLProtocol.sessionTokenHeader] as? String
+        else {
             return
         }
         StubURLProtocol.unregister(token)

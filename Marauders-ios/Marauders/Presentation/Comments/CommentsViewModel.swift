@@ -154,8 +154,8 @@ final class CommentsViewModel {
     /// Called as `comment` appears; fetches the next page when it is near the end of the list.
     func loadMoreIfNeeded(currentItem comment: Comment) async {
         guard state == .loaded, !isLoadingMore, !loadMoreFailed, hasMore,
-              let index = comments.firstIndex(where: { $0.id == comment.id }),
-              index >= comments.count - Self.prefetchDistance
+            let index = comments.firstIndex(where: { $0.id == comment.id }),
+            index >= comments.count - Self.prefetchDistance
         else { return }
         if isReloading {
             loadMoreWaitsForReload = true

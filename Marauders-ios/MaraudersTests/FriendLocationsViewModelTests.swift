@@ -12,7 +12,8 @@ import Testing
 @MainActor
 struct FriendLocationsViewModelTests {
     private static let alice = FriendLocation(
-        handle: "@alice", avatarURL: nil, latitude: 13.76, longitude: 100.51, updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
+        handle: "@alice", avatarURL: nil, latitude: 13.76, longitude: 100.51,
+        updatedAt: Date(timeIntervalSince1970: 1_800_000_000)
     )
     private static let fix = CLLocation(latitude: 13.7563, longitude: 100.5018)
 
@@ -46,7 +47,7 @@ struct FriendLocationsViewModelTests {
     }
 
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 where !condition() {
+        for _ in 0..<200 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -59,7 +60,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func aRefreshShowsWhatTheWorkerSays() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
 
         await sut.viewModel.refresh()
 
@@ -70,7 +72,8 @@ struct FriendLocationsViewModelTests {
 
     /// The Worker shows nobody to a viewer who does not share; the app does not either, whatever it is sent.
     @Test func aViewerWhoDoesNotShareSeesNobody() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: [Self.alice]))))
 
         await sut.viewModel.refresh()
 
@@ -79,7 +82,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func aFailedRefreshKeepsWhatIsShownForAWhile() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
         await sut.viewModel.refresh()
 
         sut.repository.friends = .failure(LocationSharingError.serverError(500))
@@ -92,7 +96,8 @@ struct FriendLocationsViewModelTests {
 
     /// The friend may have stopped sharing or unfollowed since; a pin the Worker has not confirmed for long goes.
     @Test func pinsGoOnceNoRefreshHasWorkedForFiveMinutes() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
         await sut.viewModel.refresh()
 
         sut.repository.friends = .failure(LocationSharingError.serverError(500))
@@ -103,7 +108,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func turningSharingOnSendsTheViewersLocationAtOnceAndFetchesFriends() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
         await sut.viewModel.refresh()
 
         sut.repository.friends = .success(FriendLocations(sharing: true, friends: [Self.alice]))
@@ -120,7 +126,8 @@ struct FriendLocationsViewModelTests {
     /// Turning sharing on forgets the location on file, so the Worker shows nobody until the viewer's own fix lands;
     /// the friends come as soon as it has.
     @Test func friendsComeOnceTheViewersFirstLocationHasGoneOut() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
         await sut.viewModel.refresh()
         sut.repository.friends = .success(FriendLocations(sharing: true, located: false, friends: []))
 
@@ -138,7 +145,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func turningSharingOffHidesFriendsAtOnce() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
         await sut.viewModel.refresh()
 
         await sut.viewModel.setSharing(false)
@@ -150,7 +158,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func turningSharingOffDropsALocationStillOnItsWay() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
         await sut.viewModel.refresh()
         sut.repository.friends = .success(FriendLocations(sharing: true, friends: []))
         await sut.viewModel.setSharing(true)
@@ -164,7 +173,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func aFailedChangeKeepsTheSwitchWhereItWasAndSaysWhy() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
         await sut.viewModel.refresh()
 
         sut.repository.change = .failure(LocationSharingError.serverError(503))
@@ -179,7 +189,8 @@ struct FriendLocationsViewModelTests {
     /// The map refreshes every minute: an answer that left the Worker before the viewer turned sharing off must not turn
     /// it back on, or the app would go on sending the location of someone who just stopped.
     @Test func aRefreshAnsweredAfterATurnOffDoesNotUndoIt() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
         await sut.viewModel.refresh()
         let gate = SharingGate()
         sut.repository.beforeFriends = { await gate.wait() }
@@ -195,7 +206,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func theViewersLocationGoesOutOnlyWhileTheyShare() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
 
         sut.viewModel.reportLocationIfDue()
         #expect(sut.manager.locationRequestCount == 0, "nothing is known yet")
@@ -211,7 +223,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func resetForgetsTheEndedSession() async {
-        let sut = makeSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice]))))
         await sut.viewModel.refresh()
 
         sut.viewModel.reset(signedOut: true)
@@ -249,11 +262,13 @@ struct FriendLocationsViewModelTests {
             setSharing: SetLocationSharingUseCase(repository: repository),
             backgroundMonitor: monitor
         )
-        return MonitoredSUT(viewModel: viewModel, repository: repository, manager: manager, defaults: defaults, suiteName: suiteName)
+        return MonitoredSUT(
+            viewModel: viewModel, repository: repository, manager: manager, defaults: defaults, suiteName: suiteName)
     }
 
     @Test func theWorkerSayingTheViewerSharesStartsSharingWhileClosed() async {
-        let sut = makeMonitoredSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
+        let sut = makeMonitoredSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
         defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
 
         await sut.viewModel.refresh()
@@ -292,7 +307,8 @@ struct FriendLocationsViewModelTests {
 
     /// The saved session coming back at launch is a sign-in, and must not stop what a launch in the background sends.
     @Test func onlyASignOutStopsSharingWhileClosed() async {
-        let sut = makeMonitoredSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
+        let sut = makeMonitoredSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
         defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
         await sut.viewModel.refresh()
 
@@ -304,7 +320,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func lacksAlwaysAccessFollowsTheLocationPermission() async {
-        let sut = makeMonitoredSUT(StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
+        let sut = makeMonitoredSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: []))))
         defer { sut.defaults.removePersistentDomain(forName: sut.suiteName) }
         await sut.viewModel.refresh()
         #expect(!sut.viewModel.lacksAlwaysAccess)
@@ -322,7 +339,8 @@ struct FriendLocationsViewModelTests {
     }
 
     @Test func anAnswerThatArrivesAfterAResetChangesNothing() async {
-        let repository = StubLocationSharingRepository(friends: .success(FriendLocations(sharing: true, friends: [Self.alice])))
+        let repository = StubLocationSharingRepository(
+            friends: .success(FriendLocations(sharing: true, friends: [Self.alice])))
         let gate = SharingGate()
         repository.beforeFriends = { await gate.wait() }
         let sut = makeSUT(repository)

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -41,7 +42,9 @@ struct InstallationSessionGuardTests {
         let marker = root.appendingPathComponent("session-initialized")
         defer { try? FileManager.default.removeItem(at: root) }
         do {
-            try InstallationSessionGuard.resetIfNeeded(marker: marker, sessionStore: KeychainAuthSessionStore(service: "test.unused"), tokenStore: FailingResetTokenStore())
+            try InstallationSessionGuard.resetIfNeeded(
+                marker: marker, sessionStore: KeychainAuthSessionStore(service: "test.unused"),
+                tokenStore: FailingResetTokenStore())
             Issue.record("Expected failed credential deletion")
         } catch {}
         #expect(!FileManager.default.fileExists(atPath: marker.path))

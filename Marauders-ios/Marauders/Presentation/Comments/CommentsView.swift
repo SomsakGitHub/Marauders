@@ -101,24 +101,26 @@ struct CommentsView: View {
         ScrollViewReader { proxy in
             List {
                 ForEach(viewModel.comments) { comment in
-                    CommentRow(comment: comment, isDeleting: viewModel.isDeleting(comment),
-                               translationTarget: translationTarget,
-                               translatesAutomatically: !showsOriginals)
-                        .id(comment.id)
-                        .listRowSeparator(.hidden)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if comment.canDelete {
-                                Button(role: .destructive) {
-                                    pendingDeletion = comment
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                .accessibilityIdentifier("comments.delete")
+                    CommentRow(
+                        comment: comment, isDeleting: viewModel.isDeleting(comment),
+                        translationTarget: translationTarget,
+                        translatesAutomatically: !showsOriginals
+                    )
+                    .id(comment.id)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if comment.canDelete {
+                            Button(role: .destructive) {
+                                pendingDeletion = comment
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
+                            .accessibilityIdentifier("comments.delete")
                         }
-                        .onAppear {
-                            Task { await viewModel.loadMoreIfNeeded(currentItem: comment) }
-                        }
+                    }
+                    .onAppear {
+                        Task { await viewModel.loadMoreIfNeeded(currentItem: comment) }
+                    }
                 }
                 footer
             }
@@ -221,7 +223,7 @@ struct CommentsView: View {
         VStack(alignment: .trailing, spacing: 2) {
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Add a comment…", text: $viewModel.draft, axis: .vertical)
-                    .lineLimit(1 ... 4)
+                    .lineLimit(1...4)
                     .focused($isComposing)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)

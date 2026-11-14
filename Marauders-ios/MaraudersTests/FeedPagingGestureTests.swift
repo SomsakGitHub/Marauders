@@ -1,6 +1,7 @@
 import AVFoundation
 import Testing
 import UIKit
+
 @testable import Marauders
 
 @MainActor
@@ -13,7 +14,7 @@ struct FeedPagingGestureTests {
         let second = AVPlayerLayer()
         view.syncPresentations([
             FeedPlayerPresentation(id: 0, url: urls[0], layer: first),
-            FeedPlayerPresentation(id: 1, url: urls[1], layer: second)
+            FeedPlayerPresentation(id: 1, url: urls[1], layer: second),
         ])
         let scroll = try #require(view.subviews.compactMap { $0 as? UIScrollView }.first)
         let firstHost = try #require(first.superlayer?.delegate as? FeedPlayerLayerHostView)
@@ -49,9 +50,12 @@ struct FeedPagingGestureTests {
         let current = URL(string: "https://example.com/current.mp4")!
         let next = URL(string: "https://example.com/next.mp4")!
         let previous = URL(string: "https://example.com/previous.mp4")!
-        #expect(FeedPlayerEngine.previewTargets(currentURL: current, neighbors: [
-            current, URL(string: "http://example.com/bad.mp4")!, next, next, previous,
-            URL(string: "https://example.com/distant.mp4")!
-        ]) == [next, previous])
+        #expect(
+            FeedPlayerEngine.previewTargets(
+                currentURL: current,
+                neighbors: [
+                    current, URL(string: "http://example.com/bad.mp4")!, next, next, previous,
+                    URL(string: "https://example.com/distant.mp4")!,
+                ]) == [next, previous])
     }
 }

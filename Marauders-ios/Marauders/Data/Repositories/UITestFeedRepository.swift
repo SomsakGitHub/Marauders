@@ -27,9 +27,12 @@ struct UITestFeedRepository: FeedRepository {
         }
 
         if ProcessInfo.processInfo.arguments.contains("UITEST_STREAMING_FEED") {
-            return FeedPage(items: FeedSampleData.videos.enumerated().map { index, sample in
-                FeedVideo(streamURL: sample.streamURL, authorName: "@stream\(index)", caption: "Streaming test clip \(index)")
-            }, hasMore: false)
+            return FeedPage(
+                items: FeedSampleData.videos.enumerated().map { index, sample in
+                    FeedVideo(
+                        streamURL: sample.streamURL, authorName: "@stream\(index)",
+                        caption: "Streaming test clip \(index)")
+                }, hasMore: false)
         }
 
         let items = [
@@ -46,7 +49,7 @@ struct UITestFeedRepository: FeedRepository {
                 commentCount: 2,
                 postedByViewer: false,
                 authorFollowedByViewer: false
-            ),
+            )
         ]
         return FeedPage(items: items, hasMore: false)
     }

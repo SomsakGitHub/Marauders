@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+
 @testable import Marauders
 
 private struct MockFeedRepository: FeedRepository {
@@ -82,7 +83,8 @@ struct VideoFeedViewModelTests {
     /// audio advisory (music-only clips keep their original sound, a declared language stays declared).
     @Test func renameAndAvatarChangeKeepTheAudioAdvisory() async {
         let advisory = ClipAudioAssessment(content: .music, signal: .detected)
-        let mine = FeedVideo(streamURL: URL(string: "https://example.com/mine.mp4")!, authorName: "@old", audioAssessment: advisory)
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!, authorName: "@old", audioAssessment: advisory)
         let repo = MockFeedRepository(result: .success(FeedPage(items: [mine], hasMore: false)))
         let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
         await viewModel.reload()
@@ -117,8 +119,10 @@ struct VideoFeedViewModelTests {
     }
 
     @Test func removeClipTakesItOutOfTheFeedTheMapAndAPendingFocus() async {
-        let mine = FeedVideo(streamURL: URL(string: "https://example.com/mine.mp4")!, latitude: 1, longitude: 2, authorName: "@me")
-        let other = FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!, latitude: 3, longitude: 4, authorName: "@other")
+        let mine = FeedVideo(
+            streamURL: URL(string: "https://example.com/mine.mp4")!, latitude: 1, longitude: 2, authorName: "@me")
+        let other = FeedVideo(
+            streamURL: URL(string: "https://example.com/other.mp4")!, latitude: 3, longitude: 4, authorName: "@other")
         let repo = MockFeedRepository(result: .success(FeedPage(items: [mine, other], hasMore: false)))
         let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
         await viewModel.reload()
@@ -221,7 +225,7 @@ struct VideoFeedViewModelTests {
                         items: [
                             FeedVideo(
                                 streamURL: URL(string: "https://example.com/new.mp4")!
-                            ),
+                            )
                         ],
                         hasMore: false
                     )
@@ -285,7 +289,7 @@ struct VideoFeedViewModelTests {
                             FeedVideo(
                                 id: firstID,
                                 streamURL: URL(string: "https://example.com/1.mp4")!
-                            ),
+                            )
                         ],
                         hasMore: true
                     )
@@ -296,7 +300,7 @@ struct VideoFeedViewModelTests {
                         FeedVideo(
                             id: secondID,
                             streamURL: URL(string: "https://example.com/2.mp4")!
-                        ),
+                        )
                     ],
                     hasMore: false
                 )
@@ -334,14 +338,14 @@ struct VideoFeedViewModelTests {
                 if cursor == nil {
                     return FeedPage(
                         items: [
-                            FeedVideo(id: firstID, streamURL: URL(string: "https://example.com/1.mp4")!),
+                            FeedVideo(id: firstID, streamURL: URL(string: "https://example.com/1.mp4")!)
                         ],
                         hasMore: true
                     )
                 }
                 return FeedPage(
                     items: [
-                        FeedVideo(id: targetID, streamURL: URL(string: "https://example.com/2.mp4")!),
+                        FeedVideo(id: targetID, streamURL: URL(string: "https://example.com/2.mp4")!)
                     ],
                     hasMore: false
                 )
@@ -385,14 +389,14 @@ struct VideoFeedViewModelTests {
                 case 1:
                     return FeedPage(
                         items: [
-                            FeedVideo(id: self.id1, streamURL: URL(string: "https://example.com/1.mp4")!),
+                            FeedVideo(id: self.id1, streamURL: URL(string: "https://example.com/1.mp4")!)
                         ],
                         hasMore: true
                     )
                 case 2:
                     return FeedPage(
                         items: [
-                            FeedVideo(id: self.id2, streamURL: URL(string: "https://example.com/2.mp4")!),
+                            FeedVideo(id: self.id2, streamURL: URL(string: "https://example.com/2.mp4")!)
                         ],
                         hasMore: false
                     )

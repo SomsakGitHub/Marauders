@@ -64,7 +64,9 @@ struct ClipPlayerView: View {
             }
         }
         .confirmationDialog("Choose audio for this clip", isPresented: $choosingAudio, titleVisibility: .visible) {
-            Button("Original audio") { wantsDubbing = false; dubbing.useOriginal() }
+            Button("Original audio") {
+                wantsDubbing = false; dubbing.useOriginal()
+            }
             if clip.allowsAIAudio {
                 ForEach(listening.targets(for: clip)) { target in
                     Button("Listen in \(target.sentenceName()) (AI)") { startDubbing(in: target) }
@@ -76,7 +78,9 @@ struct ClipPlayerView: View {
             Button("Change listening language…") { showingLanguagePicker = true }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("AI dubbing is created on your iPhone and saved so other viewers can reuse it. It may be inaccurate or out of sync with the original.")
+            Text(
+                "AI dubbing is created on your iPhone and saved so other viewers can reuse it. It may be inaccurate or out of sync with the original."
+            )
         }
         .alert(
             reportNotice ?? "",
@@ -104,7 +108,9 @@ struct ClipPlayerView: View {
                 audioRequestID += 1
             }
         } message: {
-            Text("To tell which language this clip speaks, your iPhone needs a model of about \(LanguageDetectionModel.approximateMegabytes) MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. Without it, your iPhone can mainly recognize English and Spanish.")
+            Text(
+                "To tell which language this clip speaks, your iPhone needs a model of about \(LanguageDetectionModel.approximateMegabytes) MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. Without it, your iPhone can mainly recognize English and Spanish."
+            )
         }
         .alert(
             "Download the \(offeredSpeechModel?.displayName() ?? "") speech model?",
@@ -117,7 +123,9 @@ struct ClipPlayerView: View {
             }
             Button("Not now", role: .cancel) { dubbing.declineSpeechModel(for: language) }
         } message: { language in
-            Text("To dub this clip, your iPhone needs a \(language.displayName()) speech model of about \(LanguageDetectionModel.approximateMegabytes) MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. It is the same model that tells which language a clip speaks.")
+            Text(
+                "To dub this clip, your iPhone needs a \(language.displayName()) speech model of about \(LanguageDetectionModel.approximateMegabytes) MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. It is the same model that tells which language a clip speaks."
+            )
         }
         .onAppear {
             startPlayback()
@@ -137,15 +145,18 @@ struct ClipPlayerView: View {
                     dubbing.unavailableForTesting()
                     return
                 }
-                let plan = await dubbing.prepare(clip: clip, target: target, downloadingDetectionModel: agreedToDetectionModel,
-                                                 downloadingSpeechModel: agreedToSpeechModel)
+                let plan = await dubbing.prepare(
+                    clip: clip, target: target, downloadingDetectionModel: agreedToDetectionModel,
+                    downloadingSpeechModel: agreedToSpeechModel)
                 guard wantsDubbing, !Task.isCancelled else { return }
                 switch plan {
                 case .cached(let audio):
                     await useDubbedTrack(audio)
                 case .translate(let source):
                     dubbingSource = source
-                    translationConfiguration = .init(source: .init(identifier: source.translationCode), target: .init(identifier: target.code), preferredStrategy: .lowLatency)
+                    translationConfiguration = .init(
+                        source: .init(identifier: source.translationCode), target: .init(identifier: target.code),
+                        preferredStrategy: .lowLatency)
                     translationConfiguration?.invalidate()
                 case .needsDetectionModel:
                     offeringDetectionModel = true
@@ -162,8 +173,13 @@ struct ClipPlayerView: View {
             }
         }
         .translationTask(translationConfiguration) { session in
-            guard wantsDubbing, clip.allowsAIAudio, let target = dubbingTarget, let source = dubbingSource, !Task.isCancelled else { return }
-            if let url = await dubbing.request(sourceURL: clip.streamURL, session: session, source: source, target: target), wantsDubbing, !Task.isCancelled {
+            guard wantsDubbing, clip.allowsAIAudio, let target = dubbingTarget, let source = dubbingSource,
+                !Task.isCancelled
+            else { return }
+            if let url = await dubbing.request(
+                sourceURL: clip.streamURL, session: session, source: source, target: target), wantsDubbing,
+                !Task.isCancelled
+            {
                 await useDubbedTrack(url)
             }
         }
@@ -185,7 +201,9 @@ struct ClipPlayerView: View {
                 player?.play()
             }
         }
-        .onDisappear { translationConfiguration = nil; dubbing.useOriginal(); player?.pause() }
+        .onDisappear {
+            translationConfiguration = nil; dubbing.useOriginal(); player?.pause()
+        }
         .onReceive(NotificationCenter.default.publisher(for: AVPlayerItem.didPlayToEndTimeNotification)) { note in
             guard let item = note.object as? AVPlayerItem, item === player?.currentItem else { return }
             player?.seek(to: .zero)
@@ -261,7 +279,9 @@ struct ClipPlayerView: View {
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 12) {
             if listening.offersDubbing(for: clip) {
-                Button { choosingAudio = true } label: {
+                Button {
+                    choosingAudio = true
+                } label: {
                     Label(audioButtonTitle, systemImage: "waveform")
                         .frame(maxWidth: .infinity)
                 }
@@ -285,20 +305,26 @@ struct ClipPlayerView: View {
                     .accessibilityIdentifier("clip.dubbingSubtitle")
             }
             if let caption = clip.caption,
-               !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                !caption.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
                 Text(caption)
                     .font(.subheadline)
                     .foregroundStyle(.white)
             }
             if let userCoordinate,
-               let meters = MapClipProximity.distanceMeters(from: userCoordinate, to: clip) {
+                let meters = MapClipProximity.distanceMeters(from: userCoordinate, to: clip)
+            {
                 Text(MapClipProximity.formattedDistance(meters))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.white.opacity(0.8))
                     .accessibilityIdentifier("clip.distance")
             }
             if let coordinate = clip.mapCoordinate,
-               let mapsURL = URL(string: "https://www.google.com/maps/search/?api=1&query=\(coordinate.latitude),\(coordinate.longitude)") {
+                let mapsURL = URL(
+                    string:
+                        "https://www.google.com/maps/search/?api=1&query=\(coordinate.latitude),\(coordinate.longitude)"
+                )
+            {
                 Link(destination: mapsURL) {
                     Label("Open in Google Maps", systemImage: "map")
                         .frame(maxWidth: .infinity)
@@ -384,12 +410,17 @@ struct ClipPlayerView: View {
             let original = AVURLAsset(url: clip.streamURL)
             let translated = AVURLAsset(url: url)
             guard let video = try await original.loadTracks(withMediaType: .video).first,
-                  let audio = try await translated.loadTracks(withMediaType: .audio).first else { throw DubbingError.failed }
+                let audio = try await translated.loadTracks(withMediaType: .audio).first
+            else { throw DubbingError.failed }
             let duration = try await original.load(.duration)
             let audioDuration = try await translated.load(.duration)
             let composition = AVMutableComposition()
-            guard let videoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
-                  let audioTrack = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else { throw DubbingError.failed }
+            guard
+                let videoTrack = composition.addMutableTrack(
+                    withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid),
+                let audioTrack = composition.addMutableTrack(
+                    withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            else { throw DubbingError.failed }
             try videoTrack.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: video, at: .zero)
             videoTrack.preferredTransform = try await video.load(.preferredTransform)
             try audioTrack.insertTimeRange(CMTimeRange(start: .zero, duration: audioDuration), of: audio, at: .zero)
@@ -406,8 +437,7 @@ struct ClipPlayerView: View {
             await player.seek(to: time)
             guard !Task.isCancelled, wantsDubbing else { return }
             if playing, scenePhase == .active { player.play() }
-        } catch is CancellationError { }
-        catch { dubbing.playbackFailed() }
+        } catch is CancellationError {} catch { dubbing.playbackFailed() }
     }
 
     private func startPlayback() {

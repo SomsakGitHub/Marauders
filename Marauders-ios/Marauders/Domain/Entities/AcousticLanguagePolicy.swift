@@ -28,18 +28,19 @@ nonisolated enum AcousticLanguagePolicy {
     static let namedLanguages: Set<String> = [
         "ar", "bg", "bn", "ca", "cs", "da", "de", "el", "en", "es", "fa", "fi", "fil", "fr",
         "he", "hi", "hr", "hu", "id", "it", "ja", "ko", "ms", "nb", "nl", "pl", "pt", "ro",
-        "ru", "sk", "sl", "sv", "sw", "ta", "te", "th", "tr", "uk", "ur", "vi", "yue", "zh"
+        "ru", "sk", "sl", "sv", "sw", "ta", "te", "th", "tr", "uk", "ur", "vi", "yue", "zh",
     ]
 
     /// The model's label as one of the app's language codes, or nil when the app does not name it.
     /// Norwegian comes back as "no" or "nn"; both mean Bokmål here, like everywhere else in the app.
     static func appCode(forModelLabel label: String) -> String? {
-        let code = switch label.lowercased() {
-        case "no", "nn": "nb"
-        case "tl": "fil"
-        case "iw": "he"
-        case let other: other
-        }
+        let code =
+            switch label.lowercased() {
+            case "no", "nn": "nb"
+            case "tl": "fil"
+            case "iw": "he"
+            case let other: other
+            }
         return namedLanguages.contains(code) ? code : nil
     }
 

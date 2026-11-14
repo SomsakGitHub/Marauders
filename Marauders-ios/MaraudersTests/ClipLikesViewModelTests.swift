@@ -25,7 +25,7 @@ struct ClipLikesViewModelTests {
 
     /// Waits, for up to two seconds, for work the view model starts as a task of its own.
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 where !condition() {
+        for _ in 0..<200 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -360,7 +360,9 @@ struct ClipLikesViewModelTests {
         // The old request lands first, while the new one is still out.
         await oldRequest.open()
         try? await Task.sleep(for: .milliseconds(50))
-        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4), "the old answer is not the viewer's now")
+        #expect(
+            viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4), "the old answer is not the viewer's now"
+        )
         #expect(viewModel.isBusy, "the new request is still out")
 
         await newRequest.open()
@@ -387,7 +389,9 @@ struct ClipLikesViewModelTests {
         // The old request fails while the new one is still out: it has no say over the new tap.
         await oldRequest.open()
         try? await Task.sleep(for: .milliseconds(50))
-        #expect(viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4), "the old failure is not the viewer's now")
+        #expect(
+            viewModel.state(for: clip) == ClipLikeState(liked: true, count: 4),
+            "the old failure is not the viewer's now")
         #expect(viewModel.isBusy, "the new request is still out")
 
         await newRequest.open()

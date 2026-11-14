@@ -18,11 +18,15 @@ nonisolated enum SpeechModelInstallError: Error, Equatable {
 /// Only Apple-managed model assets are ever downloaded; audio and text never leave the phone.
 @MainActor enum SpeechAnalyzerTranscriber {
     /// Returns nil when the locale is unsupported, or the model is missing and downloading is not allowed.
-    static func transcribe(file: URL, localeIdentifier: String, downloadModelIfNeeded: Bool,
-                           timeout: Duration) async throws -> SpeechTranscript? {
+    static func transcribe(
+        file: URL, localeIdentifier: String, downloadModelIfNeeded: Bool,
+        timeout: Duration
+    ) async throws -> SpeechTranscript? {
         guard SpeechTranscriber.isAvailable,
-              let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeIdentifier)) else { return nil }
-        let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [],
+            let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: localeIdentifier))
+        else { return nil }
+        let transcriber = SpeechTranscriber(
+            locale: locale, transcriptionOptions: [], reportingOptions: [],
             attributeOptions: [.transcriptionConfidence])
         // Assets can be on the iPhone for the system (for example through Dictation) without this app
         // having claimed them, so "installed" also looks at the system's installed locales.
@@ -40,9 +44,8 @@ nonisolated enum SpeechModelInstallError: Error, Equatable {
         }
         if !present, let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
             AppLog.info("speech.model", "Preparing \(localeIdentifier) speech model on device")
-            do { try await request.downloadAndInstall() }
-            catch is CancellationError { throw CancellationError() }
-            catch { throw SpeechModelInstallError.downloadFailed }
+            do { try await request.downloadAndInstall() } catch is CancellationError { throw CancellationError() } catch
+            { throw SpeechModelInstallError.downloadFailed }
         }
         try Task.checkCancellation()
         let analyzer = SpeechAnalyzer(modules: [transcriber])
@@ -57,7 +60,8 @@ nonisolated enum SpeechModelInstallError: Error, Equatable {
                     }
                 }
             }
-            return SpeechTranscript(text: text, confidence: confidences.isEmpty ? 0 : confidences.reduce(0, +) / Double(confidences.count))
+            return SpeechTranscript(
+                text: text, confidence: confidences.isEmpty ? 0 : confidences.reduce(0, +) / Double(confidences.count))
         }
         let watchdog = Task {
             do { try await Task.sleep(for: timeout) } catch { return }

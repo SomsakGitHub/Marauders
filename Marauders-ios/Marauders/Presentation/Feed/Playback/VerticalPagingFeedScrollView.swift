@@ -84,8 +84,9 @@ final class VerticalFeedPagingView: UIView {
         presentations = newPresentations
         for presentation in newPresentations {
             let host: FeedPlayerLayerHostView
-            if let existing = hosts[presentation.id] { host = existing }
-            else {
+            if let existing = hosts[presentation.id] {
+                host = existing
+            } else {
                 host = FeedPlayerLayerHostView()
                 hosts[presentation.id] = host
                 scrollView.addSubview(host)

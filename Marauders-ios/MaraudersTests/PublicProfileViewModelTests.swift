@@ -81,7 +81,7 @@ struct PublicProfileViewModelTests {
     private func makeFollowingSUT(
         _ profile: PublicUserProfile,
         results: [Result<UserFollowChange, Error>] = [
-            .success(UserFollowChange(following: true, followerCount: 4, viewerFollowingCount: 1)),
+            .success(UserFollowChange(following: true, followerCount: 4, viewerFollowingCount: 1))
         ]
     ) -> (PublicProfileViewModel, UserFollowsViewModel, StubUserFollowRepository) {
         let profiles = StubUserProfileRepository(result: .success(UserProfile()))
@@ -95,7 +95,7 @@ struct PublicProfileViewModelTests {
     }
 
     private func waitUntilIdle(_ follows: UserFollowsViewModel) async {
-        for _ in 0 ..< 200 where follows.isBusy {
+        for _ in 0..<200 where follows.isBusy {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -140,9 +140,11 @@ struct PublicProfileViewModelTests {
     }
 
     @Test func followingShowsAtOnceAndTheWorkersCountOnceItAnswers() async {
-        let (viewModel, follows, repository) = makeFollowingSUT(friend(following: false, followers: 3), results: [
-            .success(UserFollowChange(following: true, followerCount: 10, viewerFollowingCount: 1)),
-        ])
+        let (viewModel, follows, repository) = makeFollowingSUT(
+            friend(following: false, followers: 3),
+            results: [
+                .success(UserFollowChange(following: true, followerCount: 10, viewerFollowingCount: 1))
+            ])
         await viewModel.loadIfNeeded()
 
         viewModel.toggleFollow()
@@ -157,9 +159,11 @@ struct PublicProfileViewModelTests {
     }
 
     @Test func tappingFollowingStopsTheFollow() async {
-        let (viewModel, follows, repository) = makeFollowingSUT(friend(following: true, followers: 3), results: [
-            .success(UserFollowChange(following: false, followerCount: 2, viewerFollowingCount: 0)),
-        ])
+        let (viewModel, follows, repository) = makeFollowingSUT(
+            friend(following: true, followers: 3),
+            results: [
+                .success(UserFollowChange(following: false, followerCount: 2, viewerFollowingCount: 0))
+            ])
         await viewModel.loadIfNeeded()
 
         viewModel.toggleFollow()
@@ -183,10 +187,11 @@ struct PublicProfileViewModelTests {
     /// the older one and must not replace the newer.
     @Test func anOlderLoadThatAnswersLastDoesNotReplaceTheNewerOne() async {
         let repository = OverlappingProfileRepository(answers: [friend(following: false), friend(following: true)])
-        let viewModel = PublicProfileViewModel(handle: "@friend", loadProfile: LoadPublicProfileUseCase(repository: repository))
+        let viewModel = PublicProfileViewModel(
+            handle: "@friend", loadProfile: LoadPublicProfileUseCase(repository: repository))
 
         let older = Task { await viewModel.reload() }
-        for _ in 0 ..< 200 where repository.requests < 1 {
+        for _ in 0..<200 where repository.requests < 1 {
             try? await Task.sleep(for: .milliseconds(10))
         }
         await viewModel.reload()
@@ -234,7 +239,9 @@ private final class OverlappingProfileRepository: UserProfileRepository, @unchec
 
     func fetchProfile() async throws -> UserProfile { UserProfile() }
     func updateHandle(_ handle: String) async throws -> String { handle }
-    func updateAvatar(imageData: Data, mimeType: String) async throws -> URL { URL(string: "https://example.com/a.jpg")! }
+    func updateAvatar(imageData: Data, mimeType: String) async throws -> URL {
+        URL(string: "https://example.com/a.jpg")!
+    }
     func deleteClip(id: UUID) async throws {}
 }
 

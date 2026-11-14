@@ -200,15 +200,17 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(feed.waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
         let middle = feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        middle.press(forDuration: 0.1,
-                     thenDragTo: feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)),
-                     withVelocity: .slow, thenHoldForDuration: 0.5)
+        middle.press(
+            forDuration: 0.1,
+            thenDragTo: feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)),
+            withVelocity: .slow, thenHoldForDuration: 0.5)
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
         feed.swipeUp(velocity: .fast)
         XCTAssertTrue(app.staticTexts["Streaming test clip 1"].waitForExistence(timeout: 10))
-        middle.press(forDuration: 0.1,
-                     thenDragTo: feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)),
-                     withVelocity: .slow, thenHoldForDuration: 0.5)
+        middle.press(
+            forDuration: 0.1,
+            thenDragTo: feed.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)),
+            withVelocity: .slow, thenHoldForDuration: 0.5)
         XCTAssertTrue(app.staticTexts["Streaming test clip 1"].waitForExistence(timeout: 10))
         feed.swipeDown(velocity: .fast)
         XCTAssertTrue(app.staticTexts["Streaming test clip 0"].waitForExistence(timeout: 10))
@@ -303,7 +305,8 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertFalse(app.buttons["clip.chooseAudio"].exists)
         choose.tap()
         app.buttons["Listen in Thai (AI)"].tap()
-        let unavailable = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "isn't ready to translate")).firstMatch
+        let unavailable = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "isn't ready to translate"))
+            .firstMatch
         XCTAssertTrue(unavailable.waitForExistence(timeout: 15))
         attachFeedScreenshot(app, name: "ai-audio-unavailable-original-remains")
         app.buttons["clip.chooseAudio"].tap()
@@ -322,7 +325,8 @@ final class MaraudersUITests: XCTestCase {
         open.tap()
 
         XCTAssertTrue(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 10))
-        XCTAssertTrue(commentRow(app, containing: "UI test comment from me").waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            commentRow(app, containing: "UI test comment from me").waitForExistence(timeout: 10), app.debugDescription)
         let friendsRow = commentRow(app, containing: "UI test comment from a friend")
         XCTAssertTrue(friendsRow.exists)
         attachFeedScreenshot(app, name: "comments-sheet")
@@ -481,7 +485,9 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(open.waitForExistence(timeout: 15))
         open.tap()
 
-        XCTAssertTrue(commentRow(app, containing: "UI test comment from a friend").waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            commentRow(app, containing: "UI test comment from a friend").waitForExistence(timeout: 10),
+            app.debugDescription)
         XCTAssertFalse(app.descendants(matching: .any)["comments.input"].exists)
         let signIn = app.buttons["comments.signIn"].firstMatch
         XCTAssertTrue(signIn.waitForExistence(timeout: 5))
@@ -493,7 +499,8 @@ final class MaraudersUITests: XCTestCase {
         app.buttons["auth.closeSignIn"].tap()
         XCTAssertTrue(app.tabBars.buttons["Feed"].isSelected)
         // The feed's own button stays in the tree under a sheet, so only the sheet's root says it did not come back.
-        XCTAssertFalse(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2), "the sheet must stay closed")
+        XCTAssertFalse(
+            app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2), "the sheet must stay closed")
         XCTAssertTrue(open.waitForExistence(timeout: 5))
 
         // Once signed in, the same sheet offers the composer instead of the sign-in button.
@@ -506,10 +513,12 @@ final class MaraudersUITests: XCTestCase {
         // The feed behind the closing sign-in sheet also has the button; wait for the sheet to be gone first.
         XCTAssertTrue(waitUntilGone(app.buttons["auth.closeSignIn"]), app.debugDescription)
         // Signing in leaves the viewer on the feed, not back in the sheet that sent them to sign in.
-        XCTAssertFalse(app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2), "the sheet must stay closed")
+        XCTAssertFalse(
+            app.descendants(matching: .any)["comments.root"].waitForExistence(timeout: 2), "the sheet must stay closed")
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         open.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["comments.input"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["comments.input"].waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertFalse(app.buttons["comments.signIn"].exists)
     }
 
@@ -570,7 +579,9 @@ final class MaraudersUITests: XCTestCase {
 
         // The other tabs that need a session are gated too, and the feed carries on for a guest.
         app.tabBars.buttons["Upload"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 10), app.debugDescription
+        )
         app.tabBars.buttons["Feed"].tap()
         XCTAssertTrue(app.buttons["feed.comments"].waitForExistence(timeout: 15), app.debugDescription)
     }
@@ -685,7 +696,9 @@ final class MaraudersUITests: XCTestCase {
         like.tap()
         // Nothing else asks the Worker anything here, so a gated Upload tab shows the 401 to the like ended the session.
         app.tabBars.buttons["Upload"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["upload.signInRequired"].waitForExistence(timeout: 15), app.debugDescription
+        )
 
         // The feed has reloaded for the guest: the heart is empty and a tap asks to sign in.
         app.tabBars.buttons["Feed"].tap()
@@ -767,7 +780,8 @@ final class MaraudersUITests: XCTestCase {
         // 16 points above the bottom of the 48-point avatar, clear of the red dot.
         avatar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 32.0 / 48.0)).tap()
 
-        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15), app.debugDescription)
         let profileFollow = app.buttons["publicProfile.follow"]
         XCTAssertTrue(profileFollow.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(profileFollow.label, "Follow", "the tap opened the profile and followed nobody")
@@ -797,7 +811,8 @@ final class MaraudersUITests: XCTestCase {
         app.buttons["publicProfile.close"].tap()
 
         XCTAssertTrue(avatar.waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["feed.follow"].exists, "the feed must not offer to follow someone the viewer follows")
+        XCTAssertFalse(
+            app.buttons["feed.follow"].exists, "the feed must not offer to follow someone the viewer follows")
 
         profileTab.tap()
         XCTAssertTrue(waitUntilValue(following, is: "1"), app.debugDescription)
@@ -835,7 +850,8 @@ final class MaraudersUITests: XCTestCase {
         complete.tap()
         XCTAssertTrue(waitUntilGone(app.buttons["auth.closeSignIn"]), app.debugDescription)
 
-        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].exists, "the viewer is still on the profile")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].exists, "the viewer is still on the profile")
         XCTAssertTrue(waitUntilLabel(profileFollow, is: "Follow"), "signing in follows nobody on the viewer's behalf")
         XCTAssertTrue(waitUntilHittable(profileFollow), app.debugDescription)
         profileFollow.tap()
@@ -917,7 +933,8 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(waitUntilValue(following, is: "0"), app.debugDescription)
         following.tap()
         // The next load drops the account the viewer stopped following.
-        XCTAssertTrue(app.descendants(matching: .any)["followList.empty"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["followList.empty"].waitForExistence(timeout: 10), app.debugDescription)
     }
 
     /// Another account's Followers open from its profile sheet, list the viewer on their own row without a Follow
@@ -981,7 +998,8 @@ final class MaraudersUITests: XCTestCase {
         complete.tap()
         XCTAssertTrue(waitUntilGone(app.buttons["auth.closeSignIn"]), app.debugDescription)
 
-        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].exists, "the viewer is still on the profile")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].exists, "the viewer is still on the profile")
         XCTAssertFalse(app.descendants(matching: .any)["followList.root"].exists, "signing in opens no list by itself")
     }
 
@@ -1036,7 +1054,8 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(waitUntilLabel(share, is: "Sharing location"), app.debugDescription)
         attachFeedScreenshot(app, name: "map-mutual-follower")
         friend.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["publicProfile.root"].waitForExistence(timeout: 15), app.debugDescription)
         let handle = app.staticTexts["publicProfile.handle"]
         XCTAssertTrue(handle.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertEqual(handle.label, "@traveler")
@@ -1064,7 +1083,8 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
         confirm.tap()
 
-        XCTAssertTrue(app.descendants(matching: .any)["map.friendsEmpty"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["map.friendsEmpty"].waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertFalse(app.descendants(matching: .any)["map.friend"].exists)
     }
 
@@ -1129,7 +1149,8 @@ final class MaraudersUITests: XCTestCase {
             row.tap()
         } else {
             // More keeps the last screen it showed: Settings is open already.
-            XCTAssertTrue(app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(
+                app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 5), app.debugDescription)
         }
     }
 
@@ -1174,7 +1195,8 @@ final class MaraudersUITests: XCTestCase {
     /// The Delete action a swiped comment row offers, whether it is found by identifier or by its label.
     @MainActor
     private func deleteAction(_ app: XCUIApplication) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", "comments.delete", "Delete")).firstMatch
+        app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", "comments.delete", "Delete"))
+            .firstMatch
     }
 
     @MainActor

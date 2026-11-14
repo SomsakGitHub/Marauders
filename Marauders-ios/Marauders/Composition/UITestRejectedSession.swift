@@ -55,8 +55,8 @@ struct UITestRejectingHTTPClient: HTTPClient {
     )
 
     private nonisolated static let guestComments = """
-    {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"UI test comment from a friend",\
-    "language":null,"createdAt":"2026-10-30T12:34:56.789Z","authorName":"@friend","authorAvatarURL":null,\
-    "canDelete":false}],"nextCursor":null}
-    """
+        {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"UI test comment from a friend",\
+        "language":null,"createdAt":"2026-10-30T12:34:56.789Z","authorName":"@friend","authorAvatarURL":null,\
+        "canDelete":false}],"nextCursor":null}
+        """
 }

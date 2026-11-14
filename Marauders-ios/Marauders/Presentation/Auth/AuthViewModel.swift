@@ -57,29 +57,29 @@ final class AuthViewModel {
         // A token past its `exp`, or one whose `exp` cannot be read, is a session that has ended: the Worker would
         // answer 401 to it. It is treated like a missing token.
         guard let userID = sessionStore.loadUserID(),
-              KeychainAuthSessionStore.isValidUserID(userID),
-              let accessToken = tokenStore.loadAccessToken(),
-              APIAccessTokenFormat.isValid(accessToken),
-              !APIAccessTokenExpiry.isExpired(accessToken)
+            KeychainAuthSessionStore.isValidUserID(userID),
+            let accessToken = tokenStore.loadAccessToken(),
+            APIAccessTokenFormat.isValid(accessToken),
+            !APIAccessTokenExpiry.isExpired(accessToken)
         else {
             clearStoredSession()
             isSignedIn = false
             #if DEBUG
-            if signsInAsTestUserOnSimulator && DevLogin.isAvailable {
-                // Once: a failure leaves the sign-in screen and its test user button, not a retry on every tab.
-                signsInAsTestUserOnSimulator = false
-                await signInAsDevUser()
-            }
+                if signsInAsTestUserOnSimulator && DevLogin.isAvailable {
+                    // Once: a failure leaves the sign-in screen and its test user button, not a retry on every tab.
+                    signsInAsTestUserOnSimulator = false
+                    await signInAsDevUser()
+                }
             #endif
             return
         }
 
         #if DEBUG
-        // A simulator test user has no Apple credential to check; its access token is the only proof.
-        if DevLogin.isDevUserID(userID) {
-            isSignedIn = true
-            return
-        }
+            // A simulator test user has no Apple credential to check; its access token is the only proof.
+            if DevLogin.isDevUserID(userID) {
+                isSignedIn = true
+                return
+            }
         #endif
 
         let state = await credentialState(userID)
@@ -107,7 +107,7 @@ final class AuthViewModel {
                 return
             }
             guard let identityTokenData = credential.identityToken,
-                  let identityToken = String(data: identityTokenData, encoding: .utf8)
+                let identityToken = String(data: identityTokenData, encoding: .utf8)
             else {
                 errorMessage = "Sign in failed"
                 return
@@ -118,7 +118,7 @@ final class AuthViewModel {
         case .failure(let error):
             let nsError = error as NSError
             if nsError.domain == ASAuthorizationError.errorDomain,
-               nsError.code == ASAuthorizationError.canceled.rawValue
+                nsError.code == ASAuthorizationError.canceled.rawValue
             {
                 return
             }
@@ -154,33 +154,33 @@ final class AuthViewModel {
     }
 
     #if DEBUG
-    /// Simulator only: becomes the test user named by `DevLogin.label`, a different account from any Apple ID.
-    func signInAsDevUser() async {
-        guard let secret = DevLogin.secret else { return }
-        let label = DevLogin.label
-        do {
-            let accessToken = try await DevAuthAPIClient().accessToken(
-                secret: secret,
-                label: label,
-                countryCode: selectedCountryCode
-            )
-            try sessionStore.saveUserID(DevLogin.userIDPrefix + label)
-            try tokenStore.saveAccessToken(accessToken)
-            isSignedIn = true
-            errorMessage = nil
-            AppLog.info("auth", "signed in as dev user \(label)")
-        } catch {
-            errorMessage = Self.userFacingMessage(for: error)
-            AppLog.error("auth", "dev sign in failed")
+        /// Simulator only: becomes the test user named by `DevLogin.label`, a different account from any Apple ID.
+        func signInAsDevUser() async {
+            guard let secret = DevLogin.secret else { return }
+            let label = DevLogin.label
+            do {
+                let accessToken = try await DevAuthAPIClient().accessToken(
+                    secret: secret,
+                    label: label,
+                    countryCode: selectedCountryCode
+                )
+                try sessionStore.saveUserID(DevLogin.userIDPrefix + label)
+                try tokenStore.saveAccessToken(accessToken)
+                isSignedIn = true
+                errorMessage = nil
+                AppLog.info("auth", "signed in as dev user \(label)")
+            } catch {
+                errorMessage = Self.userFacingMessage(for: error)
+                AppLog.error("auth", "dev sign in failed")
+            }
         }
-    }
 
-    /// UI-only completion; creates no credentials and never authenticates API requests.
-    func completeUITestSignIn() {
-        guard AppRuntimeConfiguration.isUITesting else { return }
-        isSignedIn = true
-        isCheckingCredential = false
-    }
+        /// UI-only completion; creates no credentials and never authenticates API requests.
+        func completeUITestSignIn() {
+            guard AppRuntimeConfiguration.isUITesting else { return }
+            isSignedIn = true
+            isCheckingCredential = false
+        }
     #endif
 
     func signOut() {
@@ -216,7 +216,9 @@ final class AuthViewModel {
         return "Sign in failed. Please try again."
     }
 
-    nonisolated static func appleCredentialState(for userID: String) async -> ASAuthorizationAppleIDProvider.CredentialState {
+    nonisolated static func appleCredentialState(for userID: String) async
+        -> ASAuthorizationAppleIDProvider.CredentialState
+    {
         await withCheckedContinuation { continuation in
             ASAuthorizationAppleIDProvider().getCredentialState(forUserID: userID) { state, _ in
                 continuation.resume(returning: state)

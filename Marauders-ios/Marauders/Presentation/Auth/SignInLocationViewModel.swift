@@ -1,6 +1,6 @@
 import CoreLocation
-import MapKit
 import Foundation
+import MapKit
 import Observation
 
 @MainActor
@@ -21,13 +21,18 @@ final class SignInLocationViewModel {
     var canSignIn: Bool {
         (authorizationStatus == .authorizedAlways) && countryCode != nil && !isResolving
     }
-    var needsSettings: Bool { authorizationStatus == .denied || authorizationStatus == .restricted || (authorizationStatus == .authorizedWhenInUse && hasRequestedAlways) }
+    var needsSettings: Bool {
+        authorizationStatus == .denied || authorizationStatus == .restricted
+            || (authorizationStatus == .authorizedWhenInUse && hasRequestedAlways)
+    }
 
-    init(manager: any LocationManaging = CLLocationManager(), useUITestState: Bool = AppRuntimeConfiguration.isUITesting,
-         resolveCountry: @escaping (CLLocation) async throws -> String? = { location in
-             guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
-             return try await request.mapItems.first?.addressRepresentations?.region?.identifier
-         }) {
+    init(
+        manager: any LocationManaging = CLLocationManager(), useUITestState: Bool = AppRuntimeConfiguration.isUITesting,
+        resolveCountry: @escaping (CLLocation) async throws -> String? = { location in
+            guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
+            return try await request.mapItems.first?.addressRepresentations?.region?.identifier
+        }
+    ) {
         self.manager = manager
         self.useUITestState = useUITestState
         self.resolveCountry = resolveCountry
@@ -94,8 +99,9 @@ final class SignInLocationViewModel {
     }
     private func receive(_ locations: [CLLocation]) {
         guard authorizationStatus == .authorizedAlways,
-              let location = locations.last, location.horizontalAccuracy >= 0,
-              abs(location.timestamp.timeIntervalSinceNow) < 120 else {
+            let location = locations.last, location.horizontalAccuracy >= 0,
+            abs(location.timestamp.timeIntervalSinceNow) < 120
+        else {
             fail("Could not get a recent location. Please try again.")
             return
         }
@@ -107,7 +113,8 @@ final class SignInLocationViewModel {
             do {
                 let code = try await resolveCountry(location)?.uppercased()
                 guard !Task.isCancelled, generation == request else { return }
-                guard let code, code.count == 2, Locale.Region.isoRegions.contains(where: { $0.identifier == code }) else {
+                guard let code, code.count == 2, Locale.Region.isoRegions.contains(where: { $0.identifier == code })
+                else {
                     fail("Could not identify your country. Please try again.")
                     return
                 }

@@ -121,7 +121,7 @@ struct URLSessionHTTPClientTests {
         let client = URLSessionHTTPClient(session: URLSession(configuration: configuration))
 
         let task = Task { try await client.data(URLRequest(url: Self.url)) }
-        for _ in 0 ..< 500 where !HangingURLProtocol.hasStarted {
+        for _ in 0..<500 where !HangingURLProtocol.hasStarted {
             try await Task.sleep(for: .milliseconds(10))
         }
         #expect(HangingURLProtocol.hasStarted)
@@ -164,8 +164,12 @@ struct URLSessionHTTPClientTests {
 
         var expected = Data()
         expected.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"latitude\"\r\n\r\n13.5\r\n".utf8))
-        expected.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\nSunset ☀ Bangkok\r\n".utf8))
-        expected.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"clip.mp4\"\r\nContent-Type: video/mp4\r\n\r\n".utf8))
+        expected.append(
+            Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\nSunset ☀ Bangkok\r\n".utf8))
+        expected.append(
+            Data(
+                "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"clip.mp4\"\r\nContent-Type: video/mp4\r\n\r\n"
+                    .utf8))
         expected.append(fileBytes)
         expected.append(Data("\r\n--\(boundary)--\r\n".utf8))
         #expect(sent.body == expected)
@@ -173,7 +177,7 @@ struct URLSessionHTTPClientTests {
 
     @Test func uploadEscapesQuotesAndLineBreaksInNames() async throws {
         let sent = try await upload([
-            .file(name: "fi\"le", filename: "my \"clip\"\r\n.mp4", mimeType: "video/mp4", data: Data([1])),
+            .file(name: "fi\"le", filename: "my \"clip\"\r\n.mp4", mimeType: "video/mp4", data: Data([1]))
         ])
 
         let text = String(decoding: sent.body, as: UTF8.self)
@@ -263,15 +267,17 @@ struct URLSessionHTTPClientTests {
     }
 
     @Test func uploadSendsALargeFileWithoutLosingBytes() async throws {
-        let bytes = Data((0 ..< 3_000_000).map { UInt8(truncatingIfNeeded: $0) })
+        let bytes = Data((0..<3_000_000).map { UInt8(truncatingIfNeeded: $0) })
         let sent = try await upload([.file(name: "file", filename: "big.mp4", mimeType: "video/mp4", data: bytes)])
         let boundary = try #require(Self.boundary(in: sent.request.value(forHTTPHeaderField: "Content-Type") ?? ""))
 
-        let head = Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"big.mp4\"\r\nContent-Type: video/mp4\r\n\r\n".utf8)
+        let head = Data(
+            "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"big.mp4\"\r\nContent-Type: video/mp4\r\n\r\n"
+                .utf8)
         let tail = Data("\r\n--\(boundary)--\r\n".utf8)
         #expect(sent.body.count == head.count + bytes.count + tail.count)
         #expect(sent.body.prefix(head.count) == head)
-        #expect(sent.body.subdata(in: head.count ..< head.count + bytes.count) == bytes)
+        #expect(sent.body.subdata(in: head.count..<head.count + bytes.count) == bytes)
         #expect(sent.body.suffix(tail.count) == tail)
     }
 }

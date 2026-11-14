@@ -62,7 +62,8 @@ struct LanguageModelsViewModelTests {
 
     /// A store that always listens in Thai, isolated from the device's saved settings.
     private func thaiListener() -> ListeningLanguageStore {
-        let store = ListeningLanguageStore(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!, preferredLanguages: { [] })
+        let store = ListeningLanguageStore(
+            defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!, preferredLanguages: { [] })
         store.choose(.thai)
         return store
     }
@@ -92,7 +93,10 @@ struct LanguageModelsViewModelTests {
     /// Dutch is transcribed by the Whisper model, which has its own row; there is no Apple speech model to install for it.
     @Test func dutchHasNoAppleSpeechModelRowBecauseTheWhisperModelTranscribesIt() {
         #expect(!LanguageModel.speechModels.contains { $0.id == "speech.nl-NL" })
-        #expect(!LanguageModel.speechModels.contains { if case .speech(let locale) = $0.kind { locale.hasPrefix("nl") } else { false } })
+        #expect(
+            !LanguageModel.speechModels.contains {
+                if case .speech(let locale) = $0.kind { locale.hasPrefix("nl") } else { false }
+            })
         #expect(LanguageModel.detectionModels.count == 1)
         #expect(DubbingSourceLanguage.dutch.speechEngine == .whisper)
     }

@@ -47,7 +47,8 @@ final class ListeningLanguagePickerViewModel {
         let selected = store.explicit
         return ListeningLanguage.all
             .map { language in
-                Row(language: language, name: language.displayName(), nativeName: language.nativeName,
+                Row(
+                    language: language, name: language.displayName(), nativeName: language.nativeName,
                     isSelected: language == selected, isAvailable: !unavailable.contains(language.code))
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

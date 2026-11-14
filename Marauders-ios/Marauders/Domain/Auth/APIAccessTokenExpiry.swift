@@ -12,12 +12,13 @@ import Foundation
 nonisolated enum APIAccessTokenExpiry {
     /// When the token expires, or nil when it is not a JWT or its payload has no numeric `exp`.
     static func expirationDate(of token: String) -> Date? {
-        let segments = token
+        let segments =
+            token
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3,
-              let payload = base64URLDecoded(String(segments[1])),
-              let claims = try? JSONDecoder().decode(Claims.self, from: payload)
+            let payload = base64URLDecoded(String(segments[1])),
+            let claims = try? JSONDecoder().decode(Claims.self, from: payload)
         else { return nil }
         return Date(timeIntervalSince1970: claims.exp)
     }
@@ -36,7 +37,8 @@ nonisolated enum APIAccessTokenExpiry {
 
     private static func base64URLDecoded(_ segment: String) -> Data? {
         guard !segment.isEmpty else { return nil }
-        let base64 = segment
+        let base64 =
+            segment
             .replacingOccurrences(of: "-", with: "+")
             .replacingOccurrences(of: "_", with: "/")
         let padding = String(repeating: "=", count: (4 - base64.count % 4) % 4)

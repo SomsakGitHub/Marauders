@@ -99,7 +99,9 @@ struct FeedClipActionRail: View {
                 .onChange(of: showingLanguagePicker) { _, open in
                     if !open { onAudioSelectionChanged(false) }
                 }
-                .confirmationDialog("Choose audio for this clip", isPresented: $choosingAudio, titleVisibility: .visible) {
+                .confirmationDialog(
+                    "Choose audio for this clip", isPresented: $choosingAudio, titleVisibility: .visible
+                ) {
                     Button("Original audio") {}
                     ForEach(listening.targets(for: clip)) { target in
                         Button("Listen in \(target.sentenceName()) (AI)") { onChooseAIAudio(target) }
@@ -149,7 +151,9 @@ struct FeedClipActionRail: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .onChange(of: FollowBadgeKey(handle: clip.authorName, following: followsAuthor)) { old, new in
             // Only a follow of the author already on screen: a swipe to someone the viewer follows shows no tick.
-            guard let handle = new.handle, old.handle == handle, old.following == false, new.following == true else { return }
+            guard let handle = new.handle, old.handle == handle, old.following == false, new.following == true else {
+                return
+            }
             withAnimation(.snappy) { justFollowed = handle }
             Task {
                 try? await Task.sleep(for: .seconds(1))

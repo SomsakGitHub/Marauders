@@ -18,10 +18,11 @@ struct MapClipClusteringTests {
     )
 
     private func clip(latitude: Double, longitude: Double, author: String? = nil) -> FeedVideo {
-        FeedVideo(streamURL: URL(string: "https://example.com/\(latitude)-\(longitude).mp4")!,
-                  latitude: latitude,
-                  longitude: longitude,
-                  authorName: author)
+        FeedVideo(
+            streamURL: URL(string: "https://example.com/\(latitude)-\(longitude).mp4")!,
+            latitude: latitude,
+            longitude: longitude,
+            authorName: author)
     }
 
     @Test func clipsWithoutCoordinatesAreIgnored() {
@@ -97,7 +98,7 @@ struct MapClipClusteringTests {
     @Test func zoomingInSplitsAClusterApart() {
         let clips = [
             clip(latitude: 13.7500, longitude: 100.5000),
-            clip(latitude: 13.7600, longitude: 100.5100)
+            clip(latitude: 13.7600, longitude: 100.5100),
         ]
         let wide = MKCoordinateRegion(
             center: bangkok,

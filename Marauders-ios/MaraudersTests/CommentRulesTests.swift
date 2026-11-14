@@ -28,7 +28,8 @@ struct CommentRulesTests {
         // so a comment made of them would post as an empty-looking row. The Worker refuses the same set.
         let invisible = [
             "\u{200B}", "\u{200B}\u{200B}\u{200B}", "\u{200C}\u{200D}", "\u{200E}\u{200F}", "\u{2060}", "\u{FEFF}",
-            "\u{00AD}", "\u{2800}", "\u{3164}", "\u{115F}\u{1160}", "\u{FFA0}", " \u{200B} \u{00A0} \n", "\u{2028}\u{2029}",
+            "\u{00AD}", "\u{2800}", "\u{3164}", "\u{115F}\u{1160}", "\u{FFA0}", " \u{200B} \u{00A0} \n",
+            "\u{2028}\u{2029}",
             "\u{FE0F}", "\u{FE00}\u{FE0E}", "\u{034F}", "\u{FFFC}", "\u{0000}", "\u{0007}\u{0000}", "\u{0085}",
             // Trimming leaves whitespace that sits between invisible characters (U+200B itself is trimmed, so these
             // use U+200C and U+2060), and C1 controls draw nothing.

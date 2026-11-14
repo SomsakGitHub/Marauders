@@ -19,7 +19,9 @@ struct CommentsAPIClient: Sendable {
     }
 
     /// Lists a clip's comments, newest first. Works signed out; a valid session only adds `canDelete`.
-    func fetchComments(videoID: UUID, cursor: UUID? = nil, limit: Int = CommentRules.pageSize) async throws -> CommentPage {
+    func fetchComments(videoID: UUID, cursor: UUID? = nil, limit: Int = CommentRules.pageSize) async throws
+        -> CommentPage
+    {
         let requestURL = try APIConfiguration.commentsURL(videoID: videoID, limit: limit, cursor: cursor)
         AppLog.info("api.comments", "GET \(requestURL.host ?? "?")/v1/videos/<id>/comments")
 
@@ -34,7 +36,7 @@ struct CommentsAPIClient: Sendable {
         switch response.statusCode {
         case 404:
             throw CommentError.notFound
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw CommentError.serverError(response.statusCode)
@@ -76,7 +78,7 @@ struct CommentsAPIClient: Sendable {
             throw CommentError.invalidBody
         case 429:
             throw CommentError.rateLimited
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw CommentError.serverError(response.statusCode)
@@ -111,7 +113,7 @@ struct CommentsAPIClient: Sendable {
             throw CommentError.signInRequired
         case 404:
             throw CommentError.notFound
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw CommentError.serverError(response.statusCode)

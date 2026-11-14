@@ -86,8 +86,8 @@ final class FollowListViewModel {
     /// Called as `entry` appears; fetches the next page when it is near the end of the list.
     func loadMoreIfNeeded(currentItem entry: FollowListEntry) async {
         guard state == .loaded, hasMore, !isLoadingMore, !loadMoreFailed, !isReloading,
-              let index = entries.firstIndex(where: { $0.id == entry.id }),
-              index >= entries.count - FollowListRules.prefetchDistance
+            let index = entries.firstIndex(where: { $0.id == entry.id }),
+            index >= entries.count - FollowListRules.prefetchDistance
         else { return }
         await loadMore()
     }

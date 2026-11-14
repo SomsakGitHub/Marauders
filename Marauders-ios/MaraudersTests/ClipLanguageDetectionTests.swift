@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor struct ClipLanguageDetectionTests {
@@ -14,11 +15,15 @@ import Testing
     }
 
     @Test func spanishRequiresSpanishEvidenceRatherThanAnExpectedLabel() {
-        let text = "Hola, buenos días. Este vídeo contiene una conversación en español sobre nuestra ciudad y sus habitantes."
+        let text =
+            "Hola, buenos días. Este vídeo contiene una conversación en español sobre nuestra ciudad y sus habitantes."
         let result = LanguageEvidence.infer(text: text, speechConfidence: 0.9, requestedLanguage: "es")
         #expect(result?.code == "es")
         #expect(LanguageEvidence.infer(text: text, speechConfidence: 0.9, requestedLanguage: "en") == nil)
-        #expect(LanguageEvidence.infer(text: "Hello, welcome to this beautiful city and its wonderful people.", speechConfidence: 0.9, requestedLanguage: "es") == nil)
+        #expect(
+            LanguageEvidence.infer(
+                text: "Hello, welcome to this beautiful city and its wonderful people.", speechConfidence: 0.9,
+                requestedLanguage: "es") == nil)
     }
 
     @Test func confidenceIsTheWeakerOfTheRecognizerAndTheTextCheck() {
@@ -45,14 +50,19 @@ import Testing
         // A language we can dub from is useful even at modest confidence.
         #expect(StagedClipLanguageDetector.decide([.init(code: "es", confidence: 0.55)])?.code == "es")
         // Stronger evidence for a dubbing source still beats a weak own-language reading.
-        #expect(StagedClipLanguageDetector.decide([.init(code: "en", confidence: 0.9), .init(code: "de", confidence: 0.5)])?.code == "en")
+        #expect(
+            StagedClipLanguageDetector.decide([.init(code: "en", confidence: 0.9), .init(code: "de", confidence: 0.5)])?
+                .code == "en")
     }
 
     @Test func aWhisperTranscriptMustReadAsTheLanguageItWasToldToUse() {
         let dutch = "Goeiemorgen, kan ik u helpen? Dan wil ik graag een kilo tomaten en twee komkommers alstublieft."
         #expect(LanguageEvidence.transcriptIsPlausible(text: dutch, confidence: 0.65, languageCode: "nl"))
         // The same words are not plausible as German, or when the engine was barely sure.
-        #expect(!LanguageEvidence.transcriptIsPlausible(text: "Guten Morgen, ich hätte gern ein Kilo Tomaten und ein paar Karotten, bitte.", confidence: 0.65, languageCode: "nl"))
+        #expect(
+            !LanguageEvidence.transcriptIsPlausible(
+                text: "Guten Morgen, ich hätte gern ein Kilo Tomaten und ein paar Karotten, bitte.", confidence: 0.65,
+                languageCode: "nl"))
         #expect(!LanguageEvidence.transcriptIsPlausible(text: dutch, confidence: 0.3, languageCode: "nl"))
         #expect(LanguageEvidence.transcriptIsPlausible(text: dutch, confidence: 0.4, languageCode: "nl"))
     }
@@ -65,7 +75,9 @@ import Testing
     }
 
     @Test func legacyAudioAssessmentDecodesWithoutLanguage() throws {
-        let json = Data(#"{"content":"speech","speechConfidence":0.9,"musicConfidence":0.1,"signal":"detected","sampledSeconds":3,"exceedsTranslationLimit":false}"#.utf8)
+        let json = Data(
+            #"{"content":"speech","speechConfidence":0.9,"musicConfidence":0.1,"signal":"detected","sampledSeconds":3,"exceedsTranslationLimit":false}"#
+                .utf8)
         let old = try JSONDecoder().decode(ClipAudioAssessment.self, from: json)
         #expect(old.spokenLanguage == nil)
         var current = old
@@ -86,7 +98,9 @@ import Testing
         func installed(_ candidates: [SpeechLanguageCandidate]) async -> [SpeechLanguageCandidate] {
             candidates.filter { installedCodes.contains($0.code) }
         }
-        func evidence(for candidate: SpeechLanguageCandidate, sample: URL, allowsDownload: Bool) async -> SpeechLanguageDetection? {
+        func evidence(for candidate: SpeechLanguageCandidate, sample: URL, allowsDownload: Bool) async
+            -> SpeechLanguageDetection?
+        {
             calls.append("\(candidate.code):\(allowsDownload ? "download" : "installed")")
             return results[candidate.code]
         }
@@ -98,34 +112,43 @@ import Testing
 
     @Test func aConfidentInstalledLanguageEndsTheSearchWithoutDownloadingAnything() async {
         let provider = FakeEvidence(installed: ["en"], results: ["en": .init(code: "en", confidence: 0.9)])
-        let result = await StagedClipLanguageDetector(provider: provider).detect(sample: sample, among: [english, spanish])
+        let result = await StagedClipLanguageDetector(provider: provider).detect(
+            sample: sample, among: [english, spanish])
         #expect(result == .init(code: "en", confidence: 0.9))
         #expect(provider.calls == ["en:installed"])
     }
 
     @Test func anUnsureInstalledResultLetsOtherLanguagesDownloadAndWin() async {
-        let provider = FakeEvidence(installed: ["en"], results: [
-            "en": .init(code: "en", confidence: 0.6),
-            "es": .init(code: "es", confidence: 0.9)
-        ])
-        let result = await StagedClipLanguageDetector(provider: provider).detect(sample: sample, among: [english, spanish])
+        let provider = FakeEvidence(
+            installed: ["en"],
+            results: [
+                "en": .init(code: "en", confidence: 0.6),
+                "es": .init(code: "es", confidence: 0.9),
+            ])
+        let result = await StagedClipLanguageDetector(provider: provider).detect(
+            sample: sample, among: [english, spanish])
         #expect(result == .init(code: "es", confidence: 0.9))
         #expect(provider.calls == ["en:installed", "es:download"])
     }
 
     @Test func downloadingStaysAvailableWhenNothingIsInstalled() async {
         let provider = FakeEvidence(installed: [], results: ["es": .init(code: "es", confidence: 0.85)])
-        let result = await StagedClipLanguageDetector(provider: provider).detect(sample: sample, among: [english, spanish])
+        let result = await StagedClipLanguageDetector(provider: provider).detect(
+            sample: sample, among: [english, spanish])
         #expect(result?.code == "es")
         #expect(provider.calls == ["en:download", "es:download"])
     }
 
     @Test func closeCompetitorsAreAmbiguousEvenWhenBothAreInstalled() async {
-        let provider = FakeEvidence(installed: ["en", "es"], results: [
-            "en": .init(code: "en", confidence: 0.82),
-            "es": .init(code: "es", confidence: 0.8)
-        ])
-        #expect(await StagedClipLanguageDetector(provider: provider).detect(sample: sample, among: [english, spanish]) == nil)
+        let provider = FakeEvidence(
+            installed: ["en", "es"],
+            results: [
+                "en": .init(code: "en", confidence: 0.82),
+                "es": .init(code: "es", confidence: 0.8),
+            ])
+        #expect(
+            await StagedClipLanguageDetector(provider: provider).detect(sample: sample, among: [english, spanish])
+                == nil)
     }
 
     @Test func nothingRecognizedAndNoCandidatesBothGiveNoAnswer() async {

@@ -26,9 +26,11 @@ struct FollowListView: View {
         self.handle = handle
         self.navigation = navigation
         _selectedKind = State(initialValue: kind)
-        _models = State(initialValue: Dictionary(uniqueKeysWithValues: FollowListKind.allCases.map {
-            ($0, navigation.makeFollowListViewModel(handle, $0))
-        }))
+        _models = State(
+            initialValue: Dictionary(
+                uniqueKeysWithValues: FollowListKind.allCases.map {
+                    ($0, navigation.makeFollowListViewModel(handle, $0))
+                }))
     }
 
     private var isSignedIn: Bool { navigation.authViewModel.isSignedIn }

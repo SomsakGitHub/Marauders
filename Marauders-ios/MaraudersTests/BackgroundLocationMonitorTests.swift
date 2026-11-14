@@ -72,7 +72,7 @@ final class BackgroundLocationMonitorTests {
     }
 
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 where !condition() {
+        for _ in 0..<200 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
@@ -265,10 +265,12 @@ final class BackgroundLocationMonitorTests {
         let (monitor, manager, repository, _) = makeSUT()
         monitor.setSharing(true)
 
-        manager.simulateLocations([CLLocation(
-            coordinate: CLLocationCoordinate2D(latitude: 13.75, longitude: 100.50),
-            altitude: 0, horizontalAccuracy: -1, verticalAccuracy: -1, timestamp: clock.now
-        )])
+        manager.simulateLocations([
+            CLLocation(
+                coordinate: CLLocationCoordinate2D(latitude: 13.75, longitude: 100.50),
+                altitude: 0, horizontalAccuracy: -1, verticalAccuracy: -1, timestamp: clock.now
+            )
+        ])
         try? await Task.sleep(for: .milliseconds(50))
 
         #expect(repository.reportCount == 0)

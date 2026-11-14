@@ -71,7 +71,7 @@ struct LocationSharingAPIClient: Sendable {
             throw LocationSharingError.signInRequired
         case 429:
             throw LocationSharingError.rateLimited
-        case 200 ... 299:
+        case 200...299:
             return response
         default:
             throw LocationSharingError.serverError(response.statusCode)
@@ -92,7 +92,7 @@ struct LocationSharingAPIClient: Sendable {
 
             /// Nil for a point that is not on Earth, which the map could not place.
             var location: FriendLocation? {
-                guard (-90 ... 90).contains(latitude), (-180 ... 180).contains(longitude) else { return nil }
+                guard (-90...90).contains(latitude), (-180...180).contains(longitude) else { return nil }
                 return FriendLocation(
                     handle: handle,
                     avatarURL: avatarURL,

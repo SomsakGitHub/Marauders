@@ -19,7 +19,9 @@ final class UITestLocationSharingRepository: LocationSharingRepository, @uncheck
 
     func friendLocations() async throws -> FriendLocations {
         guard sharing else { return FriendLocations(sharing: false, friends: []) }
-        guard follows?.isFollowing(Self.friendHandle) == true else { return FriendLocations(sharing: true, friends: []) }
+        guard follows?.isFollowing(Self.friendHandle) == true else {
+            return FriendLocations(sharing: true, friends: [])
+        }
         // About 2 km north-east of the UI-test viewer and their clip: on screen, clear of the clip's pin.
         let friend = FriendLocation(
             handle: Self.friendHandle,

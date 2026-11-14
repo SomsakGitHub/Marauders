@@ -26,16 +26,17 @@ struct LocationSharingAPIClientTests {
 
     @Test func friendLocationsAreReadWithTheSessionAndDecoded() async throws {
         let body = """
-        {"sharing":true,"items":[
-          {"handle":"@alice","avatarURL":"https://media.test/a.jpg","latitude":13.75,"longitude":100.5,"locationUpdatedAt":"2026-11-01T10:00:00.123Z"},
-          {"handle":"@bob","avatarURL":null,"latitude":-33.86,"longitude":151.2,"locationUpdatedAt":null}
-        ]}
-        """
+            {"sharing":true,"items":[
+              {"handle":"@alice","avatarURL":"https://media.test/a.jpg","latitude":13.75,"longitude":100.5,"locationUpdatedAt":"2026-11-01T10:00:00.123Z"},
+              {"handle":"@bob","avatarURL":null,"latitude":-33.86,"longitude":151.2,"locationUpdatedAt":null}
+            ]}
+            """
         var captured: URLRequest?
         let session = Self.session(body: body) { captured = $0 }
         defer { StubURLSessionFactory.reset(session) }
 
-        let result = try await LocationSharingAPIClient(session: session, authorization: Self.authorization).friendLocations()
+        let result = try await LocationSharingAPIClient(session: session, authorization: Self.authorization)
+            .friendLocations()
 
         #expect(captured?.httpMethod == "GET")
         #expect(captured?.url?.path().hasSuffix("/v1/users/me/friend-locations") == true)
@@ -52,16 +53,17 @@ struct LocationSharingAPIClientTests {
     /// The map could not place such a point; the rest of the list still shows.
     @Test func aPointOffTheEarthIsLeftOut() async throws {
         let body = """
-        {"sharing":true,"items":[
-          {"handle":"@alice","latitude":91,"longitude":100.5,"locationUpdatedAt":null},
-          {"handle":"@bob","latitude":13.7,"longitude":181,"locationUpdatedAt":null},
-          {"handle":"@carol","latitude":13.7,"longitude":100.5,"locationUpdatedAt":null}
-        ]}
-        """
+            {"sharing":true,"items":[
+              {"handle":"@alice","latitude":91,"longitude":100.5,"locationUpdatedAt":null},
+              {"handle":"@bob","latitude":13.7,"longitude":181,"locationUpdatedAt":null},
+              {"handle":"@carol","latitude":13.7,"longitude":100.5,"locationUpdatedAt":null}
+            ]}
+            """
         let session = Self.session(body: body)
         defer { StubURLSessionFactory.reset(session) }
 
-        let result = try await LocationSharingAPIClient(session: session, authorization: Self.authorization).friendLocations()
+        let result = try await LocationSharingAPIClient(session: session, authorization: Self.authorization)
+            .friendLocations()
 
         #expect(result.friends.map(\.handle) == ["@carol"])
     }
@@ -71,7 +73,8 @@ struct LocationSharingAPIClientTests {
         let session = Self.session(body: #"{"sharesLocation":true}"#) { captured = $0 }
         defer { StubURLSessionFactory.reset(session) }
 
-        let stored = try await LocationSharingAPIClient(session: session, authorization: Self.authorization).setSharing(true)
+        let stored = try await LocationSharingAPIClient(session: session, authorization: Self.authorization).setSharing(
+            true)
 
         #expect(stored)
         #expect(captured?.httpMethod == "PUT")

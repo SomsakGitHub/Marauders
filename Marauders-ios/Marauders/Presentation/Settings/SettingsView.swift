@@ -65,9 +65,13 @@ struct SettingsView: View {
                         Text("Location sharing")
                     } footer: {
                         if friendLocations.sharing == true, friendLocations.lacksAlwaysAccess {
-                            Text("Location access isn't set to Always, so they see where you last used the app, not where you are while it's closed.")
+                            Text(
+                                "Location access isn't set to Always, so they see where you last used the app, not where you are while it's closed."
+                            )
                         } else {
-                            Text("People you follow who follow you back see where you are while you both share, also while Marauders is closed. Turning it off takes you off their maps at once.")
+                            Text(
+                                "People you follow who follow you back see where you are while you both share, also while Marauders is closed. Turning it off takes you off their maps at once."
+                            )
                         }
                     }
                 }
@@ -80,7 +84,9 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time.")
+                Text(
+                    "People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time."
+                )
             }
             .alert("Couldn't change location sharing", isPresented: sharingErrorBinding) {
                 Button("OK", role: .cancel) {}

@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -50,7 +51,8 @@ struct AppCoordinatorTests {
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
         let uploadVM = UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
+            uploadVideo: UploadFeedVideoUseCase(
+                repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
         )
         let coordinator = AppCoordinator(router: router, feedViewModel: feedVM, uploadViewModel: uploadVM)
 
@@ -64,15 +66,18 @@ struct AppCoordinatorTests {
     @Test func uploadCompletedDoesNotFocusAClipTheReloadDidNotReturn() async {
         let router = AppRouter()
         let repo = MockFeedRepositoryForCoordinator()
-        repo.nextResult = .success(FeedPage(items: [FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!)], hasMore: false))
+        repo.nextResult = .success(
+            FeedPage(items: [FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!)], hasMore: false))
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
         let uploadVM = UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
+            uploadVideo: UploadFeedVideoUseCase(
+                repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
         )
         let coordinator = AppCoordinator(router: router, feedViewModel: feedVM, uploadViewModel: uploadVM)
 
-        await coordinator.handleUploadCompleted(uploaded: FeedVideo(streamURL: URL(string: "https://example.com/missing.mp4")!))
+        await coordinator.handleUploadCompleted(
+            uploaded: FeedVideo(streamURL: URL(string: "https://example.com/missing.mp4")!))
 
         #expect(router.selectedTab == .feed)
         #expect(feedVM.focusVideoID == nil)
@@ -90,7 +95,7 @@ struct AppCoordinatorTests {
                         streamURL: URL(string: "https://example.com/a.mp4")!,
                         latitude: 13.7,
                         longitude: 100.5
-                    ),
+                    )
                 ],
                 hasMore: false
             )
@@ -158,7 +163,7 @@ private final class PagingFeedRepositoryForCoordinator: FeedRepository, @uncheck
         if cursor == nil {
             return FeedPage(
                 items: [
-                    FeedVideo(id: firstID, streamURL: URL(string: "https://example.com/1.mp4")!),
+                    FeedVideo(id: firstID, streamURL: URL(string: "https://example.com/1.mp4")!)
                 ],
                 hasMore: true
             )
@@ -170,7 +175,7 @@ private final class PagingFeedRepositoryForCoordinator: FeedRepository, @uncheck
                     streamURL: URL(string: "https://example.com/target.mp4")!,
                     latitude: 13.7,
                     longitude: 100.5
-                ),
+                )
             ],
             hasMore: false
         )

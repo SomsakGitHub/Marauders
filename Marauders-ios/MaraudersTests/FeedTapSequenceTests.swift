@@ -85,7 +85,7 @@ struct FeedPagingViewTapTests {
 
     /// Waits, for up to three seconds, for a pause that waited out a double tap.
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 300 where !condition() {
+        for _ in 0..<300 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }

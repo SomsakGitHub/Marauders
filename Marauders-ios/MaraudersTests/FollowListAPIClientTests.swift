@@ -14,14 +14,14 @@ struct FollowListAPIClientTests {
     private static let authorization = FollowListTestAuthorization()
 
     private static let pagePayload = """
-    {
-      "items": [
-        {"handle": "@bob", "avatarURL": "https://example.com/bob.jpg", "followedByViewer": true, "isViewer": false},
-        {"handle": "@me", "avatarURL": null, "followedByViewer": false, "isViewer": true}
-      ],
-      "nextCursor": "abc_-1"
-    }
-    """
+        {
+          "items": [
+            {"handle": "@bob", "avatarURL": "https://example.com/bob.jpg", "followedByViewer": true, "isViewer": false},
+            {"handle": "@me", "avatarURL": null, "followedByViewer": false, "isViewer": true}
+          ],
+          "nextCursor": "abc_-1"
+        }
+        """
 
     private static func session(
         status: Int = 200,
@@ -36,7 +36,8 @@ struct FollowListAPIClientTests {
 
     /// The query of a captured request, name to value.
     private static func query(of request: URLRequest?) -> [String: String?] {
-        guard let url = request?.url, let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else {
+        guard let url = request?.url, let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        else {
             return [:]
         }
         return Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value) })
@@ -149,21 +150,22 @@ struct FollowListAPIClientTests {
         }
     }
 
-    @Test(arguments: [
-        ("null", nil),
-        (#""""#, nil),
-        (#""not a url""#, nil),
-        (#""/relative.jpg""#, nil),
-        (#""ftp://example.com/a.jpg""#, nil),
-        (#""https://example.com/a.jpg""#, "https://example.com/a.jpg"),
-    ] as [(String, String?)])
+    @Test(
+        arguments: [
+            ("null", nil),
+            (#""""#, nil),
+            (#""not a url""#, nil),
+            (#""/relative.jpg""#, nil),
+            (#""ftp://example.com/a.jpg""#, nil),
+            (#""https://example.com/a.jpg""#, "https://example.com/a.jpg"),
+        ] as [(String, String?)])
     func anAvatarThatIsMissingOrNotAnAddressShowsThePlaceholder(avatar: String, expected: String?) async throws {
         let body = """
-        {"items": [
-          {"handle": "@bob", "avatarURL": \(avatar), "followedByViewer": false, "isViewer": false},
-          {"handle": "@carol", "avatarURL": "https://example.com/carol.jpg", "followedByViewer": true, "isViewer": false}
-        ], "nextCursor": null}
-        """
+            {"items": [
+              {"handle": "@bob", "avatarURL": \(avatar), "followedByViewer": false, "isViewer": false},
+              {"handle": "@carol", "avatarURL": "https://example.com/carol.jpg", "followedByViewer": true, "isViewer": false}
+            ], "nextCursor": null}
+            """
         let session = Self.session(body: body)
         defer { StubURLSessionFactory.reset(session) }
 

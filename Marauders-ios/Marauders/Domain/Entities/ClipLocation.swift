@@ -17,6 +17,6 @@ struct ClipLocation: Sendable, Equatable {
 
     static func isValid(latitude: Double, longitude: Double) -> Bool {
         guard latitude.isFinite, longitude.isFinite else { return false }
-        return (-90 ... 90).contains(latitude) && (-180 ... 180).contains(longitude)
+        return (-90...90).contains(latitude) && (-180...180).contains(longitude)
     }
 }

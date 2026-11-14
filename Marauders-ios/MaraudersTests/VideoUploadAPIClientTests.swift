@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @Suite(.serialized)
@@ -104,7 +105,9 @@ struct VideoUploadAPIClientTests {
             mimeType: "video/mp4",
             clipLocation: Self.sampleClipLocation,
             caption: "Sunset over Bangkok",
-            audioAssessment: .init(content: .mixed, speechConfidence: 0.8, musicConfidence: 0.7, signal: .detected, spokenLanguage: .init(status: "likely", code: "en", confidence: 0.9), sampledSeconds: 3)
+            audioAssessment: .init(
+                content: .mixed, speechConfidence: 0.8, musicConfidence: 0.7, signal: .detected,
+                spokenLanguage: .init(status: "likely", code: "en", confidence: 0.9), sampledSeconds: 3)
         )
 
         let body = String(decoding: capturedBody, as: UTF8.self)
@@ -141,7 +144,8 @@ struct VideoUploadAPIClientTests {
         #expect(!body.contains("name=\"caption\""))
     }
 
-    @Test func uploadSurfacesServerErrorMessage() async throws {        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
+    @Test func uploadSurfacesServerErrorMessage() async throws {
+        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
 
         let message = "File exceeds allowed size"
@@ -225,7 +229,7 @@ private extension VideoUploadAPIClientTests {
             "item": [
                 "id": id.uuidString,
                 "streamURL": streamURL,
-            ],
+            ]
         ]
         return try! JSONSerialization.data(withJSONObject: payload)
     }

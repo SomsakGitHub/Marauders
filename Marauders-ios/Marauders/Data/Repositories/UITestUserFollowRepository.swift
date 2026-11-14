@@ -22,6 +22,7 @@ final class UITestUserFollowRepository: UserFollowRepository, @unchecked Sendabl
     func setFollowing(_ following: Bool, handle: String) async throws -> UserFollowChange {
         let key = UserHandle.normalized(handle)
         if following { followed.insert(key) } else { followed.remove(key) }
-        return UserFollowChange(following: following, followerCount: following ? 1 : 0, viewerFollowingCount: followed.count)
+        return UserFollowChange(
+            following: following, followerCount: following ? 1 : 0, viewerFollowingCount: followed.count)
     }
 }

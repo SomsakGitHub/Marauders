@@ -1,6 +1,6 @@
+import AVFoundation
 import Foundation
 import Observation
-import AVFoundation
 import Speech
 @preconcurrency import Translation
 
@@ -75,8 +75,10 @@ final class DubbingViewModel {
     /// language detection model download; a download that is already running is joined without asking.
     /// `downloadingSpeechModel` is the same for a clip whose language is known and is written down by the
     /// Whisper model (Dutch), which is the model the detection question is about too.
-    func prepare(clip: FeedVideo, target: ListeningLanguage, downloadingDetectionModel agreed: Bool = false,
-                 downloadingSpeechModel agreedToSpeechModel: Bool = false) async -> Plan {
+    func prepare(
+        clip: FeedVideo, target: ListeningLanguage, downloadingDetectionModel agreed: Bool = false,
+        downloadingSpeechModel agreedToSpeechModel: Bool = false
+    ) async -> Plan {
         useOriginal()
         generation += 1
         let current = generation
@@ -90,7 +92,8 @@ final class DubbingViewModel {
             if let audio = await savedAudio(for: clip, target: target, current: current) { return .cached(audio) }
             try check(current)
             if let declared, let source = DubbingSourceLanguage(code: declared) {
-                return try await planToTranslate(from: source, agreedToSpeechModel: agreedToSpeechModel, current: current)
+                return try await planToTranslate(
+                    from: source, agreedToSpeechModel: agreedToSpeechModel, current: current)
             }
             var mayDownloadModel = agreed
             if await !models.isInstalled() {
@@ -102,7 +105,8 @@ final class DubbingViewModel {
                     return .needsDetectionModel
                 }
             }
-            let detected = try await detectSource(of: clip, target: target, mayDownloadModel: mayDownloadModel, current: current)
+            let detected = try await detectSource(
+                of: clip, target: target, mayDownloadModel: mayDownloadModel, current: current)
             return try await planToTranslate(from: detected, agreedToSpeechModel: agreedToSpeechModel, current: current)
         } catch {
             guard current == generation else { return .unavailable }
@@ -115,7 +119,9 @@ final class DubbingViewModel {
     /// Translating from `source` is the plan. A language the Whisper model writes down needs that model on
     /// this iPhone: when it is missing the viewer is asked first, and a download they agreed to (or one that
     /// is already running) is finished here, before translating starts.
-    private func planToTranslate(from source: DubbingSourceLanguage, agreedToSpeechModel: Bool, current: Int) async throws -> Plan {
+    private func planToTranslate(from source: DubbingSourceLanguage, agreedToSpeechModel: Bool, current: Int)
+        async throws -> Plan
+    {
         if source.speechEngine == .whisper, await !models.isInstalled() {
             var mayDownload = agreedToSpeechModel
             if case .downloading = await models.status() { mayDownload = true }
@@ -144,7 +150,8 @@ final class DubbingViewModel {
 
     private func savedAudio(for clip: FeedVideo, target: ListeningLanguage, current: Int) async -> URL? {
         do {
-            guard let audio = try await cache.lookup(videoID: clip.id, sourceURL: clip.streamURL, language: target) else { return nil }
+            guard let audio = try await cache.lookup(videoID: clip.id, sourceURL: clip.streamURL, language: target)
+            else { return nil }
             try check(current)
             guard try await AVURLAsset(url: audio).load(.isPlayable) else { return nil }
             try check(current)
@@ -159,7 +166,9 @@ final class DubbingViewModel {
     /// this iPhone it listens to the first two stretches of speech and needs them to agree; without
     /// it, it recognizes the first stretch as each language this iPhone can dub from and as the
     /// viewer's own, which only covers a few languages.
-    private func detectSource(of clip: FeedVideo, target: ListeningLanguage, mayDownloadModel: Bool, current: Int) async throws -> DubbingSourceLanguage {
+    private func detectSource(of clip: FeedVideo, target: ListeningLanguage, mayDownloadModel: Bool, current: Int)
+        async throws -> DubbingSourceLanguage
+    {
         var hasModel = await models.isInstalled()
         var downloadFailure: DubbingError?
         if !hasModel, mayDownloadModel {
@@ -175,18 +184,22 @@ final class DubbingViewModel {
             }
         }
         do {
-            return try await recognizeLanguage(of: clip, target: target, hasModel: hasModel, downloadFailure: downloadFailure, current: current)
+            return try await recognizeLanguage(
+                of: clip, target: target, hasModel: hasModel, downloadFailure: downloadFailure, current: current)
         } catch let error as DubbingError {
             // A download that failed is the more useful thing to tell the viewer than the trouble it led to.
             guard let downloadFailure else { throw error }
             switch error {
-            case .permission, .speechUnclear, .failed, .languageUndetected, .languageUndetectedWithoutModel: throw downloadFailure
+            case .permission, .speechUnclear, .failed, .languageUndetected, .languageUndetectedWithoutModel:
+                throw downloadFailure
             default: throw error
             }
         }
     }
 
-    private func recognizeLanguage(of clip: FeedVideo, target: ListeningLanguage, hasModel: Bool, downloadFailure: DubbingError?, current: Int) async throws -> DubbingSourceLanguage {
+    private func recognizeLanguage(
+        of clip: FeedVideo, target: ListeningLanguage, hasModel: Bool, downloadFailure: DubbingError?, current: Int
+    ) async throws -> DubbingSourceLanguage {
         message = String(localized: "Detecting the language spoken in this clip…")
         // The listening model needs no speech permission; the recognizers do.
         if !hasModel { try await requireSpeechPermission(current: current) }
@@ -194,17 +207,21 @@ final class DubbingViewModel {
         let file = try await loader.load(clip.streamURL, into: folder) { try check(current) }
         preparedClip = (clip.streamURL, file)
         try check(current)
-        let windows = try await SpeechAudioPreparation.detectionWindows(from: file, directory: folder, count: hasModel ? 2 : 1)
+        let windows = try await SpeechAudioPreparation.detectionWindows(
+            from: file, directory: folder, count: hasModel ? 2 : 1)
         guard let sample = windows.first else { throw DubbingError.speechUnclear }
         try check(current)
 
         if hasModel {
             // A short stretch left at the end of a clip says too little about the language to overrule the first.
-            let heard = windows.enumerated().filter { $0.offset == 0 || SpeechAudioPreparation.seconds(ofWindow: $0.element) >= Self.shortestExtraWindow }.map(\.element)
+            let heard = windows.enumerated().filter {
+                $0.offset == 0 || SpeechAudioPreparation.seconds(ofWindow: $0.element) >= Self.shortestExtraWindow
+            }.map(\.element)
             if let guess = await AcousticClipLanguageDetector(identifier: acoustic).detect(windows: heard) {
                 try check(current)
-                return try source(forDetected: guess.code, of: clip, target: target,
-                                  remember: guess.probability >= AcousticLanguagePolicy.rememberAbove)
+                return try source(
+                    forDetected: guess.code, of: clip, target: target,
+                    remember: guess.probability >= AcousticLanguagePolicy.rememberAbove)
             }
             try check(current)
             // The model was unsure. The recognizers may still recognize English or Spanish.
@@ -212,11 +229,14 @@ final class DubbingViewModel {
             try check(current)
         }
         var candidates = DubbingSourceLanguage.recognizerCandidates
-        if let own = SpeechLanguageCandidate.recognizable(target.code), !candidates.contains(where: { $0.code == own.code }) {
+        if let own = SpeechLanguageCandidate.recognizable(target.code),
+            !candidates.contains(where: { $0.code == own.code })
+        {
             candidates.append(own)
         }
         guard let detection = await detector.detect(sample: sample, among: candidates) else {
-            throw downloadFailure ?? (hasModel ? DubbingError.languageUndetected : DubbingError.languageUndetectedWithoutModel)
+            throw downloadFailure
+                ?? (hasModel ? DubbingError.languageUndetected : DubbingError.languageUndetectedWithoutModel)
         }
         try check(current)
         return try source(forDetected: detection.code, of: clip, target: target, remember: true)
@@ -233,7 +253,9 @@ final class DubbingViewModel {
 
     /// Turns a detected language into a dubbing source or says why that is not possible. The answer is
     /// remembered for the clip unless `remember` is false.
-    private func source(forDetected code: String, of clip: FeedVideo, target: ListeningLanguage, remember: Bool) throws -> DubbingSourceLanguage {
+    private func source(forDetected code: String, of clip: FeedVideo, target: ListeningLanguage, remember: Bool) throws
+        -> DubbingSourceLanguage
+    {
         if remember { memo.remember(code, for: clip.id) }
         try Self.requireDubbable(from: code, into: target)
         guard let source = DubbingSourceLanguage(code: code) else {
@@ -245,7 +267,10 @@ final class DubbingViewModel {
     /// The viewer agreed to the download, so it starts now and shows its progress as the status line.
     /// `language` is set when the download is for dubbing from it rather than for finding a clip's language.
     private func downloadDetectionModel(current: Int, for language: DubbingSourceLanguage? = nil) async throws {
-        message = language.map { String(localized: "Downloading the \($0.displayName()) speech model… this only happens once") }
+        message =
+            language.map {
+                String(localized: "Downloading the \($0.displayName()) speech model… this only happens once")
+            }
             ?? String(localized: "Downloading the language detection model…")
         try await models.install { [weak self] fraction in
             Task { @MainActor in
@@ -256,7 +281,8 @@ final class DubbingViewModel {
                 if fraction >= share {
                     self.message = String(localized: "Preparing the language detection model on this iPhone…")
                 } else if let language {
-                    self.message = String(localized: "Downloading the \(language.displayName()) speech model… \(percent)%")
+                    self.message = String(
+                        localized: "Downloading the \(language.displayName()) speech model… \(percent)%")
                 } else {
                     self.message = String(localized: "Downloading the language detection model… \(percent)%")
                 }
@@ -269,7 +295,9 @@ final class DubbingViewModel {
     /// load, or (the common case) no connection to the server.
     private static func downloadError(_ error: Error, forSpeechIn language: DubbingSourceLanguage) -> DubbingError {
         let failure = downloadError(error)
-        if case .detectionModelDownloadFailed = failure { return .speechModelDownloadFailed(language: language.displayName()) }
+        if case .detectionModelDownloadFailed = failure {
+            return .speechModelDownloadFailed(language: language.displayName())
+        }
         return failure
     }
 
@@ -278,7 +306,9 @@ final class DubbingViewModel {
             return failure == .unusable ? .detectionModelUnusable : .detectionModelDownloadFailed
         }
         let nsError = error as NSError
-        if (error as? CocoaError)?.code == .fileWriteOutOfSpace || (nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC)) {
+        if (error as? CocoaError)?.code == .fileWriteOutOfSpace
+            || (nsError.domain == NSPOSIXErrorDomain && nsError.code == Int(ENOSPC))
+        {
             return .detectionModelNoSpace
         }
         return .detectionModelDownloadFailed
@@ -298,7 +328,8 @@ final class DubbingViewModel {
     }
 
     private func makeWorkFolder() throws -> URL {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("dubbing-\(UUID().uuidString)", isDirectory: true)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "dubbing-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         directory = folder
         return folder
@@ -315,7 +346,9 @@ final class DubbingViewModel {
 
     /// Called only following an explicit choice to listen in `target`. The system may request
     /// language-model downloads, but clip speech/text stays on device.
-    func request(sourceURL: URL, session: TranslationSession, source language: DubbingSourceLanguage, target: ListeningLanguage) async -> URL? {
+    func request(
+        sourceURL: URL, session: TranslationSession, source language: DubbingSourceLanguage, target: ListeningLanguage
+    ) async -> URL? {
         let context = cacheContext?.sourceURL == sourceURL && cacheContext?.target == target ? cacheContext : nil
         let reusable = preparedClip?.sourceURL == sourceURL ? preparedClip : nil
         reset(keepingClip: reusable != nil)
@@ -327,20 +360,29 @@ final class DubbingViewModel {
         do {
             let sourceName = language.displayName()
             let targetName = target.sentenceName()
-            let availability = await LanguageAvailability(preferredStrategy: .lowLatency).status(from: .init(identifier: language.translationCode), to: .init(identifier: target.code))
-            guard availability != .unsupported else { throw DubbingError.pairUnsupported(source: sourceName, target: targetName) }
-            message = availability == .installed
+            let availability = await LanguageAvailability(preferredStrategy: .lowLatency).status(
+                from: .init(identifier: language.translationCode), to: .init(identifier: target.code))
+            guard availability != .unsupported else {
+                throw DubbingError.pairUnsupported(source: sourceName, target: targetName)
+            }
+            message =
+                availability == .installed
                 ? String(localized: "Preparing \(sourceName) and \(targetName) on this iPhone…")
-                : String(localized: "First-time translation download · you can download ahead in Settings › Language models")
+                : String(
+                    localized: "First-time translation download · you can download ahead in Settings › Language models")
             try await session.prepareTranslation()
             try check(current)
             // The legacy recognizer handles English, the Whisper model Dutch; other languages use the SpeechAnalyzer model.
             var speech: SFSpeechRecognizer?
             if language == .english {
-                guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language.speechLocale)), recognizer.supportsOnDeviceRecognition else { throw DubbingError.unavailable }
+                guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language.speechLocale)),
+                    recognizer.supportsOnDeviceRecognition
+                else { throw DubbingError.unavailable }
                 speech = recognizer
             }
-            guard let voice = SpeechVoiceCatalog.voice(for: target) else { throw DubbingError.voiceUnavailable(language: targetName) }
+            guard let voice = SpeechVoiceCatalog.voice(for: target) else {
+                throw DubbingError.voiceUnavailable(language: targetName)
+            }
             // Apple's recognizers need the viewer's permission; the Whisper model runs inside the app without it.
             if language.speechEngine != .whisper {
                 let permission = await requestSpeechPermission()
@@ -362,7 +404,8 @@ final class DubbingViewModel {
             let asset = AVURLAsset(url: videoURL)
             let duration = try await asset.load(.duration).seconds
             guard duration.isFinite, duration > 0 else { throw DubbingError.failed }
-            let text = try await transcribeClip(at: videoURL, in: folder, language: language, speech: speech, current: current)
+            let text = try await transcribeClip(
+                at: videoURL, in: folder, language: language, speech: speech, current: current)
             message = String(localized: "Translating into \(targetName) on this iPhone…")
             let translated = try await session.translate(text).targetText
             try check(current)
@@ -379,12 +422,16 @@ final class DubbingViewModel {
                     writer = outputWriter
                     synth.write(utterance) { @Sendable buffer in outputWriter.append(buffer) }
                 }
-            } onCancel: { Task { @MainActor [weak self] in if self?.generation == current { self?.cancelWork() } } }
+            } onCancel: {
+                Task { @MainActor [weak self] in if self?.generation == current { self?.cancelWork() } }
+            }
             try check(current)
-            message = String(localized: "AI voice reads the translation on this iPhone · timing may differ from the original")
+            message = String(
+                localized: "AI voice reads the translation on this iPhone · timing may differ from the original")
             if let context {
                 do {
-                    let data = try await DubbedAudioCacheEncoding.encode(source: result, destination: folder.appendingPathComponent("dubbed.m4a"))
+                    let data = try await DubbedAudioCacheEncoding.encode(
+                        source: result, destination: folder.appendingPathComponent("dubbed.m4a"))
                     try check(current)
                     message = String(localized: "AI audio in \(targetName) · saving for others to reuse")
                     let cache = self.cache
@@ -392,32 +439,44 @@ final class DubbingViewModel {
                     // playback may delete files while the idempotent upload completes.
                     Task { [weak self] in
                         do {
-                            try await cache.store(videoID: context.videoID, sourceURL: context.sourceURL, language: context.target, audio: data)
-                            try? await cache.storeText(videoID: context.videoID, sourceURL: context.sourceURL, language: context.target, text: translated)
+                            try await cache.store(
+                                videoID: context.videoID, sourceURL: context.sourceURL, language: context.target,
+                                audio: data)
+                            try? await cache.storeText(
+                                videoID: context.videoID, sourceURL: context.sourceURL, language: context.target,
+                                text: translated)
                             guard let self, self.generation == current else { return }
                             self.message = String(localized: "AI audio in \(targetName) · saved for reuse")
                         } catch {
                             #if DEBUG
-                            print("DUBBED_AUDIO_CACHE_UPLOAD_FAILED \(error)")
+                                print("DUBBED_AUDIO_CACHE_UPLOAD_FAILED \(error)")
                             #endif
                             guard let self, self.generation == current else { return }
-                            self.message = String(localized: "AI audio in \(targetName) · couldn't save on the server, but you can keep listening")
+                            self.message = String(
+                                localized:
+                                    "AI audio in \(targetName) · couldn't save on the server, but you can keep listening"
+                            )
                         }
                     }
-                } catch is CancellationError { return nil }
-                catch {
+                } catch is CancellationError { return nil } catch {
                     guard current == generation else { return nil }
-                    message = String(localized: "AI audio in \(targetName) · couldn't save on the server, but you can keep listening")
+                    message = String(
+                        localized: "AI audio in \(targetName) · couldn't save on the server, but you can keep listening"
+                    )
                 }
             }
             return result
         } catch {
             #if DEBUG
-            let failure = error as NSError
-            print("LOCAL_TRANSLATION_FAILURE domain=\(failure.domain) code=\(failure.code) stage=\(message ?? "unknown")")
+                let failure = error as NSError
+                print(
+                    "LOCAL_TRANSLATION_FAILURE domain=\(failure.domain) code=\(failure.code) stage=\(message ?? "unknown")"
+                )
             #endif
             guard current == generation else { return nil }
-            if !(error is CancellationError) { message = (error as? DubbingError)?.errorDescription ?? DubbingError.failed.errorDescription }
+            if !(error is CancellationError) {
+                message = (error as? DubbingError)?.errorDescription ?? DubbingError.failed.errorDescription
+            }
             cancelWork()
             cleanFiles()
             return nil
@@ -432,8 +491,10 @@ final class DubbingViewModel {
     /// 20-second windows, one after the other; the Whisper model reads the whole file in one go, because a
     /// fixed window can start in the middle of a word and then come back empty. Throws `speechUnclear` when
     /// nothing usable was heard.
-    func transcribeClip(at videoURL: URL, in folder: URL, language: DubbingSourceLanguage,
-                        speech: SFSpeechRecognizer?, current: Int) async throws -> String {
+    func transcribeClip(
+        at videoURL: URL, in folder: URL, language: DubbingSourceLanguage,
+        speech: SFSpeechRecognizer?, current: Int
+    ) async throws -> String {
         let sourceName = language.displayName()
         var pieces: [SpeechTranscript] = []
         if language.speechEngine == .whisper {
@@ -443,9 +504,11 @@ final class DubbingViewModel {
             let segments = try await SpeechAudioPreparation.chunks(from: videoURL, directory: folder)
             for (index, segment) in segments.enumerated() {
                 try check(current)
-                message = String(localized: "Transcribing \(sourceName) speech on this iPhone… \(index + 1)/\(segments.count)")
+                message = String(
+                    localized: "Transcribing \(sourceName) speech on this iPhone… \(index + 1)/\(segments.count)")
                 if let speech {
-                    pieces.append(SpeechTranscript(text: try await transcribe(segment, recognizer: speech), confidence: 1))
+                    pieces.append(
+                        SpeechTranscript(text: try await transcribe(segment, recognizer: speech), confidence: 1))
                 } else {
                     pieces.append(try await transcribeWithModel(segment, language: language))
                 }
@@ -459,8 +522,13 @@ final class DubbingViewModel {
         // and shared with every later viewer of the clip.
         if language.speechEngine == .whisper {
             let characters = pieces.reduce(0) { $0 + $1.text.count }
-            let confidence = characters == 0 ? 0 : pieces.reduce(0.0) { $0 + $1.confidence * Double($1.text.count) } / Double(characters)
-            guard LanguageEvidence.transcriptIsPlausible(text: text, confidence: confidence, languageCode: language.translationCode) else {
+            let confidence =
+                characters == 0
+                ? 0 : pieces.reduce(0.0) { $0 + $1.confidence * Double($1.text.count) } / Double(characters)
+            guard
+                LanguageEvidence.transcriptIsPlausible(
+                    text: text, confidence: confidence, languageCode: language.translationCode)
+            else {
                 throw DubbingError.speechUnclear
             }
         }
@@ -486,7 +554,8 @@ final class DubbingViewModel {
                 }
             case .recognizer, .speechTranscriber:
                 transcript = try await SpeechAnalyzerTranscriber.transcribe(
-                    file: url, localeIdentifier: language.speechLocale, downloadModelIfNeeded: true, timeout: .seconds(60)
+                    file: url, localeIdentifier: language.speechLocale, downloadModelIfNeeded: true,
+                    timeout: .seconds(60)
                 )
             }
             guard let transcript else { throw DubbingError.unavailable }
@@ -527,17 +596,31 @@ final class DubbingViewModel {
                     let speechFailure = error as NSError?
                     let noSpeech = speechFailure?.domain == "kAFAssistantErrorDomain" && speechFailure?.code == 1110
                     #if DEBUG
-                    if let failure = error as NSError? { print("LOCAL_SPEECH_FAILURE domain=\(failure.domain) code=\(failure.code) description=\(failure.localizedDescription)") }
+                        if let failure = error as NSError? {
+                            print(
+                                "LOCAL_SPEECH_FAILURE domain=\(failure.domain) code=\(failure.code) description=\(failure.localizedDescription)"
+                            )
+                        }
                     #endif
                     Task { @MainActor in
-                        guard let self, self.recognitionID == operationID, let pending = self.recognitionContinuation else { return }
-                        if let finalText { self.recognitionTimeout?.cancel(); self.recognitionContinuation = nil; pending.resume(returning: finalText) }
-                        else if noSpeech { self.recognitionTimeout?.cancel(); self.recognitionContinuation = nil; pending.resume(returning: "") }
-                        else if failed { self.recognitionTimeout?.cancel(); self.recognitionContinuation = nil; pending.resume(throwing: DubbingError.speechUnclear) }
+                        guard let self, self.recognitionID == operationID, let pending = self.recognitionContinuation
+                        else { return }
+                        if let finalText {
+                            self.recognitionTimeout?.cancel(); self.recognitionContinuation = nil;
+                            pending.resume(returning: finalText)
+                        } else if noSpeech {
+                            self.recognitionTimeout?.cancel(); self.recognitionContinuation = nil;
+                            pending.resume(returning: "")
+                        } else if failed {
+                            self.recognitionTimeout?.cancel(); self.recognitionContinuation = nil;
+                            pending.resume(throwing: DubbingError.speechUnclear)
+                        }
                     }
                 }
             }
-        } onCancel: { Task { @MainActor [weak self] in if self?.recognitionID == operationID { self?.cancelWork() } } }
+        } onCancel: {
+            Task { @MainActor [weak self] in if self?.recognitionID == operationID { self?.cancelWork() } }
+        }
     }
     private func cancelWork() {
         recognitionID = nil
@@ -594,7 +677,9 @@ final class DubbingViewModel {
             let outcome = try await cache.report(videoID: clip.id, sourceURL: clip.streamURL, language: target)
             // Only a recorded report is remembered. After "removed" the key is free for a replacement, and
             // "missing" may just mean this phone's upload has not finished yet.
-            if outcome == .reported { reports.remember(user: user, videoID: clip.id, language: target, sourceURL: clip.streamURL) }
+            if outcome == .reported {
+                reports.remember(user: user, videoID: clip.id, language: target, sourceURL: clip.streamURL)
+            }
             return outcome == .reported ? .reported : .removed
         } catch {
             return .failed

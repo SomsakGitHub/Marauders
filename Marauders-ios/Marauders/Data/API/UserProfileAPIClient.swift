@@ -140,7 +140,7 @@ struct UserProfileAPIClient: Sendable {
             throw UserProfileAPIError.invalidHandle
         case 401:
             throw UserProfileAPIError.notAuthenticated
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw UserProfileAPIError.serverError(response.statusCode)
@@ -192,7 +192,7 @@ struct UserProfileAPIClient: Sendable {
         request.timeoutInterval = 60
 
         let parts: [HTTPMultipartPart] = [
-            .file(name: "file", filename: filename, mimeType: mimeType, data: imageData),
+            .file(name: "file", filename: filename, mimeType: mimeType, data: imageData)
         ]
         let response = try await client.upload(request, multipart: parts)
         switch response.statusCode {
@@ -200,7 +200,7 @@ struct UserProfileAPIClient: Sendable {
             throw UserProfileAPIError.notAuthenticated
         case 400:
             throw UserProfileAPIError.invalidHandle
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw UserProfileAPIError.serverError(response.statusCode)
@@ -233,7 +233,7 @@ struct UserProfileAPIClient: Sendable {
         switch response.statusCode {
         case 401:
             throw UserProfileAPIError.notAuthenticated
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw UserProfileAPIError.serverError(response.statusCode)

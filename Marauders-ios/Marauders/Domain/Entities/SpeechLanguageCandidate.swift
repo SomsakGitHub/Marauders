@@ -17,7 +17,7 @@ struct SpeechLanguageCandidate: Hashable, Sendable {
     static func recognizable(_ code: String) -> SpeechLanguageCandidate? {
         let locales = [
             "de": "de-DE", "en": "en-US", "es": "es-ES", "fr": "fr-FR", "it": "it-IT",
-            "ja": "ja-JP", "ko": "ko-KR", "pt": "pt-BR", "th": "th-TH", "zh": "zh-CN"
+            "ja": "ja-JP", "ko": "ko-KR", "pt": "pt-BR", "th": "th-TH", "zh": "zh-CN",
         ]
         return locales[code].map { SpeechLanguageCandidate(code: code, locale: $0) }
     }

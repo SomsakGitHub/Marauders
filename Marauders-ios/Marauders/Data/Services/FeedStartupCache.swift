@@ -26,15 +26,17 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     private let validate: @Sendable (URL) async -> Bool
     private var isStoring = false
 
-    init(directory: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        .appending(path: "FeedStartup-v1", directoryHint: .isDirectory),
-         download: @escaping @Sendable (URLRequest, Int64) async throws -> (URL, URLResponse) = { request, limit in
-             try await FeedCacheDownloader.download(request, limit: limit)
-         }, maxFileBytes: Int64 = 12 * 1024 * 1024,
-         lifetime: TimeInterval = 6 * 60 * 60,
-         validate: @escaping @Sendable (URL) async -> Bool = { url in
-             (try? await AVURLAsset(url: url).load(.isPlayable)) == true
-         }) {
+    init(
+        directory: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appending(path: "FeedStartup-v1", directoryHint: .isDirectory),
+        download: @escaping @Sendable (URLRequest, Int64) async throws -> (URL, URLResponse) = { request, limit in
+            try await FeedCacheDownloader.download(request, limit: limit)
+        }, maxFileBytes: Int64 = 12 * 1024 * 1024,
+        lifetime: TimeInterval = 6 * 60 * 60,
+        validate: @escaping @Sendable (URL) async -> Bool = { url in
+            (try? await AVURLAsset(url: url).load(.isPlayable)) == true
+        }
+    ) {
         self.directory = directory
         self.download = download
         self.maxFileBytes = maxFileBytes
@@ -48,7 +50,8 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     }
     private func entries() -> [Entry] {
         guard let data = try? Data(contentsOf: manifest),
-              let entries = try? JSONDecoder().decode([Entry].self, from: data) else { return [] }
+            let entries = try? JSONDecoder().decode([Entry].self, from: data)
+        else { return [] }
         return Array(entries.prefix(2)).filter {
             $0.video.streamURL.scheme?.lowercased() == "https"
                 && Date().timeIntervalSince($0.savedAt) >= 0
@@ -65,8 +68,11 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
         if !isStoring { pruneFiles() }
         var result: [FeedVideo] = []
         for entry in entries() {
-            if await validate(file(for: entry.video)) { result.append(entry.video) }
-            else { invalidate(entry.video.streamURL) }
+            if await validate(file(for: entry.video)) {
+                result.append(entry.video)
+            } else {
+                invalidate(entry.video.streamURL)
+            }
         }
         return result
     }
@@ -88,7 +94,7 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     private func pruneFiles() {
         let keep = Set(entries().map { file(for: $0.video).lastPathComponent } + ["manifest.json"])
         for url in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
-            where !keep.contains(url.lastPathComponent) {
+        where !keep.contains(url.lastPathComponent) {
             try? FileManager.default.removeItem(at: url)
         }
     }
@@ -104,7 +110,9 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
             for video in videos.prefix(2) {
                 try Task.checkCancellation()
                 guard video.streamURL.scheme?.lowercased() == "https" else { continue }
-                if let existing = entries().first(where: { $0.video.streamURL == video.streamURL && $0.video.id == video.id }) {
+                if let existing = entries().first(where: {
+                    $0.video.streamURL == video.streamURL && $0.video.id == video.id
+                }) {
                     saved.append(Entry(video: video, savedAt: existing.savedAt))
                     continue
                 }
@@ -116,11 +124,14 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
                     let (temporary, response) = try await download(request, maxFileBytes)
                     defer { try? FileManager.default.removeItem(at: temporary) }
                     guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-                          ["video/mp4", "video/quicktime"].contains(http.mimeType?.lowercased() ?? "")
+                        ["video/mp4", "video/quicktime"].contains(http.mimeType?.lowercased() ?? "")
                             || ["mp4", "mov"].contains(video.streamURL.pathExtension.lowercased()),
-                          fileSize(temporary) > 0, fileSize(temporary) <= maxFileBytes,
-                          await validate(temporary) else {
-                        await AppLog.debug("startup.cache", "download rejected bytes=\(fileSize(temporary)) mime=\(response.mimeType ?? "unknown")")
+                        fileSize(temporary) > 0, fileSize(temporary) <= maxFileBytes,
+                        await validate(temporary)
+                    else {
+                        await AppLog.debug(
+                            "startup.cache",
+                            "download rejected bytes=\(fileSize(temporary)) mime=\(response.mimeType ?? "unknown")")
                         continue
                     }
                     await AppLog.info("startup.cache", "download validated bytes=\(fileSize(temporary))")
@@ -137,7 +148,7 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
             try JSONEncoder().encode(saved).write(to: manifest, options: .atomic)
             let keep = Set(saved.map { file(for: $0.video).lastPathComponent } + ["manifest.json"])
             for url in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-                where !keep.contains(url.lastPathComponent) {
+            where !keep.contains(url.lastPathComponent) {
                 try? FileManager.default.removeItem(at: url)
             }
             await AppLog.info("startup.cache", "saved clips=\(saved.count)")
@@ -208,16 +219,20 @@ private final class FeedCacheDownloader: NSObject, URLSessionDownloadDelegate, @
         }
     }
 
-    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                               didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
-                               totalBytesExpectedToWrite: Int64) {
+    nonisolated func urlSession(
+        _ session: URLSession, downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
         if totalBytesWritten > maxBytes || totalBytesExpectedToWrite > maxBytes {
             finish(.failure(URLError(.dataLengthExceedsMaximum)))
         }
     }
 
-    nonisolated func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask,
-                               didFinishDownloadingTo location: URL) {
+    nonisolated func urlSession(
+        _ session: URLSession, downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
         guard let response = downloadTask.response else {
             finish(.failure(URLError(.badServerResponse)))
             return
@@ -235,7 +250,6 @@ private final class FeedCacheDownloader: NSObject, URLSessionDownloadDelegate, @
     }
 }
 
-
 /// Caches the feed the server sent, kept apart for each session.
 @MainActor
 final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
@@ -244,10 +258,14 @@ final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     private let tokenProvider: @MainActor () -> String?
     private let makeCache: @MainActor (URL) -> FeedStartupCache
 
-    init(directory: URL? = nil,
-         tokenProvider: @escaping @MainActor () -> String? = { KeychainAPIAccessTokenStore().loadAccessToken() },
-         makeCache: @escaping @MainActor (URL) -> FeedStartupCache = { FeedStartupCache(directory: $0) }) {
-        self.directory = directory ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    init(
+        directory: URL? = nil,
+        tokenProvider: @escaping @MainActor () -> String? = { KeychainAPIAccessTokenStore().loadAccessToken() },
+        makeCache: @escaping @MainActor (URL) -> FeedStartupCache = { FeedStartupCache(directory: $0) }
+    ) {
+        self.directory =
+            directory
+            ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appending(path: "PersonalFeedStartup-v2", directoryHint: .isDirectory)
         self.tokenProvider = tokenProvider
         self.makeCache = makeCache

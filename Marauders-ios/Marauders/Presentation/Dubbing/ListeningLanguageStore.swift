@@ -18,8 +18,9 @@ final class ListeningLanguageStore {
             let suite = "marauders.uitest.listening"
             let defaults = UserDefaults(suiteName: suite) ?? .standard
             defaults.removePersistentDomain(forName: suite)
-            return ListeningLanguageStore(defaults: defaults, preferredLanguages: { ["en-US", "th-TH"] },
-                                          region: { "US" })
+            return ListeningLanguageStore(
+                defaults: defaults, preferredLanguages: { ["en-US", "th-TH"] },
+                region: { "US" })
         }
         return ListeningLanguageStore()
     }()
@@ -62,9 +63,9 @@ final class ListeningLanguageStore {
         let languages = supportedDeviceLanguages
         guard let first = languages.first else { return nil }
         guard first == .english,
-              let region = region(),
-              let local = ListeningLanguage(identifier: Locale.Language(identifier: "und-\(region)").maximalIdentifier),
-              languages.contains(local)
+            let region = region(),
+            let local = ListeningLanguage(identifier: Locale.Language(identifier: "und-\(region)").maximalIdentifier),
+            languages.contains(local)
         else { return first }
         return local
     }
@@ -80,8 +81,11 @@ final class ListeningLanguageStore {
 
     func choose(_ language: ListeningLanguage?) {
         explicit = language
-        if let language { defaults.set(language.code, forKey: Self.defaultsKey) }
-        else { defaults.removeObject(forKey: Self.defaultsKey) }
+        if let language {
+            defaults.set(language.code, forKey: Self.defaultsKey)
+        } else {
+            defaults.removeObject(forKey: Self.defaultsKey)
+        }
     }
 
     /// The language a clip is known to speak: the one an older clip declares (an uploader's choice or an

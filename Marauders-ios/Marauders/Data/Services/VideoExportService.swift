@@ -26,10 +26,12 @@ enum VideoExportService {
         let playable = try await asset.load(.isPlayable)
         guard playable else { throw VideoExportError.notExportable }
 
-        guard let exportSession = AVAssetExportSession(
-            asset: asset,
-            presetName: AVAssetExportPreset1280x720
-        ) else {
+        guard
+            let exportSession = AVAssetExportSession(
+                asset: asset,
+                presetName: AVAssetExportPreset1280x720
+            )
+        else {
             throw VideoExportError.notExportable
         }
 

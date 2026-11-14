@@ -32,11 +32,15 @@ final class ClipLocationPickerViewModel {
     private(set) var selectedCoordinate: CLLocationCoordinate2D
     var mapPosition: MapCameraPosition
 
-    init(initial: ClipLocation?, searchProvider: ((String, CLLocationCoordinate2D) async throws -> [PlaceSearchResult])? = nil) {
+    init(
+        initial: ClipLocation?,
+        searchProvider: ((String, CLLocationCoordinate2D) async throws -> [PlaceSearchResult])? = nil
+    ) {
         self.searchProvider = searchProvider
-        let coordinate = initial.map {
-            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
-        } ?? Self.defaultCoordinate
+        let coordinate =
+            initial.map {
+                CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+            } ?? Self.defaultCoordinate
         selectedCoordinate = coordinate
         mapPosition = .region(Self.region(center: coordinate))
     }
@@ -86,7 +90,8 @@ final class ClipLocationPickerViewModel {
             } else {
                 let request = MKLocalSearch.Request()
                 request.naturalLanguageQuery = query
-                request.region = MKCoordinateRegion(center: selectedCoordinate,
+                request.region = MKCoordinateRegion(
+                    center: selectedCoordinate,
                     span: MKCoordinateSpan(latitudeDelta: 2, longitudeDelta: 2))
                 let search = MKLocalSearch(request: request)
                 activeSearch = search
@@ -94,17 +99,20 @@ final class ClipLocationPickerViewModel {
                 results = response.mapItems.prefix(8).compactMap { item in
                     let coordinate = item.location.coordinate
                     guard CLLocationCoordinate2DIsValid(coordinate) else { return nil }
-                    return PlaceSearchResult(name: item.name ?? query,
+                    return PlaceSearchResult(
+                        name: item.name ?? query,
                         address: item.address?.fullAddress ?? "", coordinate: coordinate)
                 }
             }
             guard !Task.isCancelled, generation == requestGeneration,
-                  query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+                query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            else { return }
             searchResults = Array(results.prefix(8))
             searchError = searchResults.isEmpty ? "No places found — try a name, city or address" : nil
         } catch {
             guard !Task.isCancelled, generation == requestGeneration,
-                  query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+                query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+            else { return }
             searchResults = []
             searchError = "Search failed — try again"
         }

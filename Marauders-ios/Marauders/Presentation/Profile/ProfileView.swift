@@ -3,8 +3,8 @@
 //  Marauders
 //
 
-import SwiftUI
 import PhotosUI
+import SwiftUI
 
 struct ProfileView: View {
     @Bindable var viewModel: ProfileViewModel

@@ -164,12 +164,12 @@ final class MapViewModel {
     /// Persists the user's location to the backend, once per app session.
     private func reportLocationIfNeeded(_ coordinate: CLLocationCoordinate2D) {
         guard !hasReportedLocationThisSession,
-              !AppRuntimeConfiguration.isUITesting,
-              let reportUserLocation,
-              let clipLocation = ClipLocation(
-                  latitude: coordinate.latitude,
-                  longitude: coordinate.longitude
-              )
+            !AppRuntimeConfiguration.isUITesting,
+            let reportUserLocation,
+            let clipLocation = ClipLocation(
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude
+            )
         else { return }
 
         hasReportedLocationThisSession = true

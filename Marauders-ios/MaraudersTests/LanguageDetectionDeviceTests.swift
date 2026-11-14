@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Testing
+
 @testable import Marauders
 
 /// End to end on a real iPhone: the store downloads the pinned files, the identifier loads them from disk
@@ -14,10 +15,15 @@ import Testing
 /// Detection with every Hugging Face request pointed at a dead address (run it on its own, after the above):
 ///   TEST_RUNNER_RUN_DEVICE_LANGUAGE_TESTS=1 TEST_RUNNER_RUN_DEVICE_OFFLINE_TEST=1 TEST_RUNNER_HF_ENDPOINT=http://127.0.0.1:9 \
 ///     xcodebuild test ... -only-testing:'MaraudersTests/LanguageDetectionDeviceTests/detectsWithoutAnyNetworkAccess()'
-@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["RUN_DEVICE_LANGUAGE_TESTS"] != nil, "Set TEST_RUNNER_RUN_DEVICE_LANGUAGE_TESTS=1"))
+@Suite(
+    .serialized,
+    .enabled(
+        if: ProcessInfo.processInfo.environment["RUN_DEVICE_LANGUAGE_TESTS"] != nil,
+        "Set TEST_RUNNER_RUN_DEVICE_LANGUAGE_TESTS=1"))
 @MainActor
 struct LanguageDetectionDeviceTests {
-    private let clipURL = URL(string: "https://marauders-api.js6ctz7gtj.workers.dev/v1/media/videos/ae774227-23aa-4a61-a173-1fa1fe23a45b.mp4")!
+    private let clipURL = URL(
+        string: "https://marauders-api.js6ctz7gtj.workers.dev/v1/media/videos/ae774227-23aa-4a61-a173-1fa1fe23a45b.mp4")!
 
     private func windowsOfTheDutchClip(in folder: URL) async throws -> [URL] {
         let file = try await ClipFileLoader().load(clipURL, into: folder) {}
@@ -25,7 +31,8 @@ struct LanguageDetectionDeviceTests {
     }
 
     private func temporaryFolder() throws -> URL {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("device-\(UUID().uuidString)", isDirectory: true)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "device-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder
     }
@@ -36,10 +43,14 @@ struct LanguageDetectionDeviceTests {
             return
         }
         var url = folders.tokenizerBase
-        while url.lastPathComponent != "LanguageDetection", url.pathComponents.count > 2 { url.deleteLastPathComponent() }
+        while url.lastPathComponent != "LanguageDetection", url.pathComponents.count > 2 {
+            url.deleteLastPathComponent()
+        }
         #expect(url.lastPathComponent == "LanguageDetection")
         let values = try url.resourceValues(forKeys: [.isExcludedFromBackupKey])
-        print("DEVICE_TEST \(url.lastPathComponent) excludedFromBackup=\(String(describing: values.isExcludedFromBackup))")
+        print(
+            "DEVICE_TEST \(url.lastPathComponent) excludedFromBackup=\(String(describing: values.isExcludedFromBackup))"
+        )
         #expect(values.isExcludedFromBackup == true)
     }
 
@@ -70,7 +81,9 @@ struct LanguageDetectionDeviceTests {
         let identifier = WhisperEngine()
         let first = clock.now
         let guess = await AcousticClipLanguageDetector(identifier: identifier).detect(windows: windows)
-        print("DEVICE_TEST first detection (includes loading the model) took \(clock.now - first): \(String(describing: guess))")
+        print(
+            "DEVICE_TEST first detection (includes loading the model) took \(clock.now - first): \(String(describing: guess))"
+        )
         #expect(guess?.code == "nl")
         #expect((guess?.probability ?? 0) >= AcousticLanguagePolicy.rememberAbove)
 
@@ -95,7 +108,7 @@ struct LanguageDetectionDeviceTests {
             durations.append(clock.now - started)
             print("DEVICE_TEST round \(round) took \(durations[round - 1]): \(guess?.code ?? "nil")")
             #expect(guess?.code == "nl")
-            try await Task.sleep(for: .seconds(4))   // longer than the 1 s idle, so the model is dropped in between
+            try await Task.sleep(for: .seconds(4))  // longer than the 1 s idle, so the model is dropped in between
         }
         // After the idle unload the model comes back in about a second, nowhere near the slow first load of a fresh launch.
         #expect(durations[1] < .seconds(5))
@@ -104,9 +117,14 @@ struct LanguageDetectionDeviceTests {
 
     /// The assertion that nothing needs Hugging Face once the files are on the phone. Fails if the
     /// process was not started with the dead address, so it cannot pass by accident.
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["RUN_DEVICE_OFFLINE_TEST"] != nil, "Set TEST_RUNNER_RUN_DEVICE_OFFLINE_TEST=1"))
+    @Test(
+        .enabled(
+            if: ProcessInfo.processInfo.environment["RUN_DEVICE_OFFLINE_TEST"] != nil,
+            "Set TEST_RUNNER_RUN_DEVICE_OFFLINE_TEST=1"))
     func detectsWithoutAnyNetworkAccess() async throws {
-        #expect(ProcessInfo.processInfo.environment["HF_ENDPOINT"] == "http://127.0.0.1:9", "start with TEST_RUNNER_HF_ENDPOINT=http://127.0.0.1:9")
+        #expect(
+            ProcessInfo.processInfo.environment["HF_ENDPOINT"] == "http://127.0.0.1:9",
+            "start with TEST_RUNNER_HF_ENDPOINT=http://127.0.0.1:9")
         guard await LanguageDetectionModelStore.shared.isInstalled() else {
             Issue.record("run the install test first; this one cannot download")
             return

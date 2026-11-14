@@ -65,7 +65,8 @@ enum MapClipClustering {
         return buckets.values
             .compactMap { grouped -> MapClipCluster? in
                 guard let coordinate = averageCoordinate(of: grouped) else { return nil }
-                let id = grouped
+                let id =
+                    grouped
                     .map { $0.id.uuidString }
                     .sorted()
                     .joined(separator: "|")

@@ -68,7 +68,8 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
 
     /// What an install does between preparing the folder and writing the marker: download, check and
     /// prepare the files inside `base`. Tests replace it so no network is needed.
-    typealias Installer = @Sendable (_ base: URL, _ release: Release, _ report: @escaping @Sendable (Double) -> Void) async throws -> Void
+    typealias Installer =
+        @Sendable (_ base: URL, _ release: Release, _ report: @escaping @Sendable (Double) -> Void) async throws -> Void
 
     private let release: Release
     private let root: URL
@@ -86,7 +87,8 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
 
     init(release: Release = .current, root: URL? = nil, installer: Installer? = nil) {
         self.release = release
-        self.root = root ?? URL.applicationSupportDirectory.appending(path: "LanguageDetection", directoryHint: .isDirectory)
+        self.root =
+            root ?? URL.applicationSupportDirectory.appending(path: "LanguageDetection", directoryHint: .isDirectory)
         self.installer = installer
     }
 
@@ -102,8 +104,9 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
     /// The folders to load the model from, or nil unless the install finished and the files are there.
     func installedFolders() -> Folders? {
         guard let marker = readMarker(),
-              marker.modelRevision == release.modelRevision,
-              marker.tokenizerRevision == release.tokenizerRevision else { return nil }
+            marker.modelRevision == release.modelRevision,
+            marker.tokenizerRevision == release.tokenizerRevision
+        else { return nil }
         return completeFolders()
     }
 
@@ -270,16 +273,17 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
         // Core ML prepares the model for this chip the first time it loads; doing it now keeps the first check fast.
         // The files stay in place if this fails, so trying again does not download everything a second time.
         do {
-            _ = try await WhisperKit(WhisperKitConfig(
-                modelFolder: folders.model.path,
-                tokenizerFolder: folders.tokenizerBase,
-                computeOptions: Self.computeOptions,
-                verbose: false,
-                logLevel: .none,
-                prewarm: true,
-                load: false,
-                download: false
-            ))
+            _ = try await WhisperKit(
+                WhisperKitConfig(
+                    modelFolder: folders.model.path,
+                    tokenizerFolder: folders.tokenizerBase,
+                    computeOptions: Self.computeOptions,
+                    verbose: false,
+                    logLevel: .none,
+                    prewarm: true,
+                    load: false,
+                    download: false
+                ))
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -294,7 +298,8 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
     func layout() -> (model: URL, tokenizer: URL, marker: URL) {
         let hub = HubApiWrapper(downloadBase: base)
         return (
-            hub.localRepoLocation(HubApiWrapper.Repo(id: release.modelRepo)).appending(path: release.modelFolderName, directoryHint: .isDirectory),
+            hub.localRepoLocation(HubApiWrapper.Repo(id: release.modelRepo)).appending(
+                path: release.modelFolderName, directoryHint: .isDirectory),
             hub.localRepoLocation(HubApiWrapper.Repo(id: release.tokenizerRepo)),
             markerURL
         )
@@ -305,10 +310,12 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
 
     private func completeFolders() -> Folders? {
         let hub = HubApiWrapper(downloadBase: base)
-        let model = hub.localRepoLocation(HubApiWrapper.Repo(id: release.modelRepo)).appending(path: release.modelFolderName, directoryHint: .isDirectory)
+        let model = hub.localRepoLocation(HubApiWrapper.Repo(id: release.modelRepo)).appending(
+            path: release.modelFolderName, directoryHint: .isDirectory)
         let tokenizer = hub.localRepoLocation(HubApiWrapper.Repo(id: release.tokenizerRepo))
         let manager = FileManager.default
-        for name in ["MelSpectrogram", "AudioEncoder", "TextDecoder"] where !manager.fileExists(atPath: model.appending(path: "\(name).mlmodelc").path) {
+        for name in ["MelSpectrogram", "AudioEncoder", "TextDecoder"]
+        where !manager.fileExists(atPath: model.appending(path: "\(name).mlmodelc").path) {
             return nil
         }
         guard manager.fileExists(atPath: tokenizer.appending(path: "tokenizer.json").path) else { return nil }

@@ -14,33 +14,35 @@ struct UserProfileAPIClientTests {
     private static let authorization = UserProfileTestAuthorization()
 
     private static let payload = """
-    {
-      "id": "11111111-2222-3333-4444-555555555555",
-      "country": "TH",
-      "latitude": 13.7563,
-      "longitude": 100.5018,
-      "locationUpdatedAt": null,
-      "videoCount": 1,
-      "videos": [
         {
-          "id": "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
-          "streamURL": "https://example.com/clip.mp4",
+          "id": "11111111-2222-3333-4444-555555555555",
+          "country": "TH",
           "latitude": 13.7563,
           "longitude": 100.5018,
-          "country": "TH",
-          "authorName": "@marauders",
-          "caption": "Sunset"
+          "locationUpdatedAt": null,
+          "videoCount": 1,
+          "videos": [
+            {
+              "id": "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+              "streamURL": "https://example.com/clip.mp4",
+              "latitude": 13.7563,
+              "longitude": 100.5018,
+              "country": "TH",
+              "authorName": "@marauders",
+              "caption": "Sunset"
+            }
+          ]
         }
-      ]
-    }
-    """
+        """
 
     @Test func fetchProfileDecodesProfileAndClips() async throws {
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request
-            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200),
-                    Data(Self.payload.utf8))
+            return (
+                StubURLSessionFactory.httpResponse(for: request, statusCode: 200),
+                Data(Self.payload.utf8)
+            )
         }
         defer { StubURLSessionFactory.reset(session) }
 
@@ -139,28 +141,30 @@ struct UserProfileAPIClientTests {
 
     @Test func fetchPublicProfileDecodesWithoutAuth() async throws {
         let payload = """
-        {
-          "handle": "@friend",
-          "country": "TH",
-          "videoCount": 1,
-          "videos": [
             {
-              "id": "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
-              "streamURL": "https://example.com/clip.mp4",
-              "latitude": null,
-              "longitude": null,
+              "handle": "@friend",
               "country": "TH",
-              "authorName": "@friend",
-              "caption": "Hi"
+              "videoCount": 1,
+              "videos": [
+                {
+                  "id": "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+                  "streamURL": "https://example.com/clip.mp4",
+                  "latitude": null,
+                  "longitude": null,
+                  "country": "TH",
+                  "authorName": "@friend",
+                  "caption": "Hi"
+                }
+              ]
             }
-          ]
-        }
-        """
+            """
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request
-            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200),
-                    Data(payload.utf8))
+            return (
+                StubURLSessionFactory.httpResponse(for: request, statusCode: 200),
+                Data(payload.utf8)
+            )
         }
         defer { StubURLSessionFactory.reset(session) }
 
@@ -176,17 +180,17 @@ struct UserProfileAPIClientTests {
 
     @Test func fetchPublicProfileSendsTheSessionAndDecodesTheFollowFields() async throws {
         let payload = """
-        {
-          "handle": "@friend",
-          "country": "TH",
-          "videoCount": 0,
-          "followerCount": 12,
-          "followingCount": 3,
-          "followedByViewer": true,
-          "isViewer": false,
-          "videos": []
-        }
-        """
+            {
+              "handle": "@friend",
+              "country": "TH",
+              "videoCount": 0,
+              "followerCount": 12,
+              "followingCount": 3,
+              "followedByViewer": true,
+              "isViewer": false,
+              "videos": []
+            }
+            """
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request
@@ -207,14 +211,18 @@ struct UserProfileAPIClientTests {
 
     /// The Worker refuses a bad session even on this public read; the profile is still shown, as a guest sees it.
     @Test func aRejectedSessionReadsThePublicProfileAsAGuest() async throws {
-        let payload = #"{"handle":"@friend","videoCount":0,"videos":[],"followerCount":1,"followingCount":0,"followedByViewer":false,"isViewer":false}"#
+        let payload =
+            #"{"handle":"@friend","videoCount":0,"videos":[],"followerCount":1,"followingCount":0,"followedByViewer":false,"isViewer":false}"#
         var sentAuthorizations: [String?] = []
         let session = StubURLSessionFactory.make { request in
             let authorization = request.value(forHTTPHeaderField: "Authorization")
             sentAuthorizations.append(authorization)
             return authorization == nil
                 ? (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
-                : (StubURLSessionFactory.httpResponse(for: request, statusCode: 401), Data(#"{"error":"invalid session"}"#.utf8))
+                : (
+                    StubURLSessionFactory.httpResponse(for: request, statusCode: 401),
+                    Data(#"{"error":"invalid session"}"#.utf8)
+                )
         }
         defer { StubURLSessionFactory.reset(session) }
 
@@ -234,7 +242,8 @@ struct UserProfileAPIClientTests {
         }
         defer { StubURLSessionFactory.reset(session) }
 
-        let profile = try await UserProfileAPIClient(session: session, authorization: nil).fetchPublicProfile(handle: "@friend")
+        let profile = try await UserProfileAPIClient(session: session, authorization: nil).fetchPublicProfile(
+            handle: "@friend")
 
         #expect(profile.followerCount == nil)
         #expect(profile.followingCount == nil)
@@ -243,7 +252,8 @@ struct UserProfileAPIClientTests {
     }
 
     @Test func fetchProfileDecodesTheFollowCounts() async throws {
-        let payload = #"{"handle":"@me","country":"TH","videoCount":0,"videos":[],"followerCount":7,"followingCount":2}"#
+        let payload =
+            #"{"handle":"@me","country":"TH","videoCount":0,"videos":[],"followerCount":7,"followingCount":2}"#
         let session = StubURLSessionFactory.make { request in
             (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(payload.utf8))
         }
@@ -271,8 +281,10 @@ struct UserProfileAPIClientTests {
         var capturedRequest: URLRequest?
         let session = StubURLSessionFactory.make { request in
             capturedRequest = request
-            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200),
-                    Data(#"{"handle":"@new"}"#.utf8))
+            return (
+                StubURLSessionFactory.httpResponse(for: request, statusCode: 200),
+                Data(#"{"handle":"@new"}"#.utf8)
+            )
         }
         defer { StubURLSessionFactory.reset(session) }
 

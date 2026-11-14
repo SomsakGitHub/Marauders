@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -33,10 +34,12 @@ struct SignInLocationViewModelTests {
     }
     @Test func downgradeToWhenInUseCancelsCountryLookup() async throws {
         let manager = FakeLocationManager(authorizationStatus: .authorizedAlways)
-        let model = SignInLocationViewModel(manager: manager, useUITestState: false, resolveCountry: { _ in
-            try? await Task.sleep(for: .milliseconds(40))
-            return "TH"
-        })
+        let model = SignInLocationViewModel(
+            manager: manager, useUITestState: false,
+            resolveCountry: { _ in
+                try? await Task.sleep(for: .milliseconds(40))
+                return "TH"
+            })
         model.begin()
         manager.simulateLocations([CLLocation(latitude: 13.75, longitude: 100.5)])
         await Task.yield()
@@ -71,10 +74,12 @@ struct SignInLocationViewModelTests {
     }
     @Test func lateCountryCannotOverrideRevokedPermission() async throws {
         let manager = FakeLocationManager(authorizationStatus: .authorizedAlways)
-        let model = SignInLocationViewModel(manager: manager, useUITestState: false, resolveCountry: { _ in
-            try? await Task.sleep(for: .milliseconds(40))
-            return "TH"
-        })
+        let model = SignInLocationViewModel(
+            manager: manager, useUITestState: false,
+            resolveCountry: { _ in
+                try? await Task.sleep(for: .milliseconds(40))
+                return "TH"
+            })
         model.begin()
         manager.simulateLocations([CLLocation(latitude: 13.75, longitude: 100.5)])
         await Task.yield()

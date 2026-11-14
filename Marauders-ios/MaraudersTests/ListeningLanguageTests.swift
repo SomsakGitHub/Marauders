@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -8,18 +9,24 @@ struct ListeningLanguageTests {
         DetectedLanguageMemo(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!)
     }
 
-    private func store(preferred: [String], region: String? = "US", explicit: ListeningLanguage? = nil,
-                       memo: DetectedLanguageMemo? = nil) -> ListeningLanguageStore {
+    private func store(
+        preferred: [String], region: String? = "US", explicit: ListeningLanguage? = nil,
+        memo: DetectedLanguageMemo? = nil
+    ) -> ListeningLanguageStore {
         let defaults = UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
-        let store = ListeningLanguageStore(defaults: defaults, preferredLanguages: { preferred }, region: { region },
-                                           memo: memo ?? self.memo())
+        let store = ListeningLanguageStore(
+            defaults: defaults, preferredLanguages: { preferred }, region: { region },
+            memo: memo ?? self.memo())
         if let explicit { store.choose(explicit) }
         return store
     }
 
-    private func clip(_ language: SpokenLanguageAssessment?, content: ClipAudioAssessment.Content = .speech) -> FeedVideo {
-        FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!,
-                  audioAssessment: ClipAudioAssessment(content: content, signal: .detected, spokenLanguage: language))
+    private func clip(_ language: SpokenLanguageAssessment?, content: ClipAudioAssessment.Content = .speech)
+        -> FeedVideo
+    {
+        FeedVideo(
+            streamURL: URL(string: "https://example.com/a.mp4")!,
+            audioAssessment: ClipAudioAssessment(content: content, signal: .detected, spokenLanguage: language))
     }
 
     @Test func parsesLocaleIdentifiersIntoSupportedLanguages() {
@@ -185,22 +192,28 @@ struct ListeningLanguageTests {
 
     @Test func voiceChoicePrefersTheUsualRegionThenQuality() {
         typealias C = SpeechVoiceCatalog.Candidate
-        let english = [C(identifier: "b", language: "en-GB", quality: 3), C(identifier: "a", language: "en-US", quality: 1), C(identifier: "c", language: "en-AU", quality: 2)]
+        let english = [
+            C(identifier: "b", language: "en-GB", quality: 3), C(identifier: "a", language: "en-US", quality: 1),
+            C(identifier: "c", language: "en-AU", quality: 2),
+        ]
         #expect(SpeechVoiceCatalog.bestLanguageTag(for: .english, among: english) == "en-US")
         // No conventional region for Dutch: the higher quality voice wins.
-        let dutch = [C(identifier: "a", language: "nl-NL", quality: 1), C(identifier: "b", language: "nl-BE", quality: 3)]
+        let dutch = [
+            C(identifier: "a", language: "nl-NL", quality: 1), C(identifier: "b", language: "nl-BE", quality: 3),
+        ]
         #expect(SpeechVoiceCatalog.bestLanguageTag(for: ListeningLanguage(identifier: "nl")!, among: dutch) == "nl-BE")
         #expect(SpeechVoiceCatalog.bestLanguageTag(for: .thai, among: english) == nil)
         #expect(SpeechVoiceCatalog.bestLanguageTag(for: .thai, among: []) == nil)
         let norwegian = [C(identifier: "n", language: "no-NO", quality: 1)]
-        #expect(SpeechVoiceCatalog.bestLanguageTag(for: ListeningLanguage(identifier: "nb")!, among: norwegian) == "no-NO")
+        #expect(
+            SpeechVoiceCatalog.bestLanguageTag(for: ListeningLanguage(identifier: "nb")!, among: norwegian) == "no-NO")
     }
 
     @Test func noveltyVoicesAreNeverChosen() {
         typealias C = SpeechVoiceCatalog.Candidate
         let voices = [
             C(identifier: "com.apple.eloquence.en-US.Rocko", language: "en-US", quality: 3),
-            C(identifier: "com.apple.speech.synthesis.voice.Bells", language: "en-US", quality: 3)
+            C(identifier: "com.apple.speech.synthesis.voice.Bells", language: "en-US", quality: 3),
         ]
         #expect(SpeechVoiceCatalog.bestLanguageTag(for: .english, among: voices) == nil)
         let withReal = voices + [C(identifier: "com.apple.voice.compact.en-GB.Daniel", language: "en-GB", quality: 1)]
@@ -217,11 +230,19 @@ struct ListeningLanguageTests {
         let thai = LanguageModel.translationModels(for: [.thai], locale: english)
         #expect(thai.map(\.id) == ["translation.en-th", "translation.es-th", "translation.nl-th"])
         #expect(thai.map(\.title) == ["English → Thai", "Spanish → Thai", "Dutch → Thai"])
-        #expect(LanguageModel.translationModels(for: [.english], locale: english).map(\.id) == ["translation.es-en", "translation.nl-en"])
-        #expect(LanguageModel.translationModels(for: [.english, .thai], locale: english).map(\.id)
-                == ["translation.es-en", "translation.nl-en", "translation.en-th", "translation.es-th", "translation.nl-th"])
+        #expect(
+            LanguageModel.translationModels(for: [.english], locale: english).map(\.id) == [
+                "translation.es-en", "translation.nl-en",
+            ])
+        #expect(
+            LanguageModel.translationModels(for: [.english, .thai], locale: english).map(\.id)
+                == [
+                    "translation.es-en", "translation.nl-en", "translation.en-th", "translation.es-th",
+                    "translation.nl-th",
+                ])
         #expect(LanguageModel.translationModels(for: []).isEmpty)
-        #expect(LanguageModel.translationModels(for: [.spanish]).map(\.id) == ["translation.en-es", "translation.nl-es"])
+        #expect(
+            LanguageModel.translationModels(for: [.spanish]).map(\.id) == ["translation.en-es", "translation.nl-es"])
     }
 
     @Test func pickerListsEveryLanguageSortedAndMarksTheSelection() async {
@@ -258,7 +279,9 @@ struct ListeningLanguageTests {
         picker.chooseAutomatic()
         #expect(listening.explicit == nil)
         #expect(picker.summary == String(localized: "Automatic · \(ListeningLanguage.english.displayName())"))
-        #expect(ListeningLanguagePickerViewModel(store: store(preferred: ["xx"]), availability: Availability()).summary == String(localized: "Not set"))
+        #expect(
+            ListeningLanguagePickerViewModel(store: store(preferred: ["xx"]), availability: Availability()).summary
+                == String(localized: "Not set"))
     }
 
     @Test func aCheckThatFlagsEveryLanguageIsIgnored() async {

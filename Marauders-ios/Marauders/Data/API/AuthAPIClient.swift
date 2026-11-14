@@ -22,7 +22,7 @@ enum AuthAPIError: LocalizedError, Equatable {
             return "Invalid sign-in response"
         case .serverError(let statusCode):
             switch statusCode {
-            case 500 ... 599:
+            case 500...599:
                 return "The service is temporarily unavailable. Please try again."
             default:
                 return "Sign in failed. Please try again."
@@ -69,7 +69,7 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
         request.timeoutInterval = 30
         request.httpBody = try JSONEncoder().encode([
             "identityToken": trimmed,
-            "country": countryCode.uppercased()
+            "country": countryCode.uppercased(),
         ])
 
         AppLog.info("api.auth", "POST /v1/auth/apple")

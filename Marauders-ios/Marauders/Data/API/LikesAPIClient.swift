@@ -41,7 +41,7 @@ struct LikesAPIClient: Sendable {
             throw ClipLikeError.notFound
         case 429:
             throw ClipLikeError.rateLimited
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw ClipLikeError.serverError(response.statusCode)

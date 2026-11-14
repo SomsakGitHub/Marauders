@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -66,10 +67,12 @@ struct FastClipAudioInspectorTests {
     }
     @Test func unreadableOrRemoteFilesStayUnknown() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
-        try Data([1,2,3]).write(to: file)
+        try Data([1, 2, 3]).write(to: file)
         defer { try? FileManager.default.removeItem(at: file) }
         #expect(await FastClipAudioInspector().inspect(fileURL: file).signal == .unknown)
-        #expect(await FastClipAudioInspector().inspect(fileURL: URL(string: "https://example.invalid/video.mp4")!).signal == .unknown)
+        #expect(
+            await FastClipAudioInspector().inspect(fileURL: URL(string: "https://example.invalid/video.mp4")!).signal
+                == .unknown)
     }
     @Test func languageHintsRejectUnknownAndMalformedMetadata() {
         #expect(FastClipAudioInspector.languageHint("en-US") == "en-us")
@@ -82,13 +85,22 @@ struct FastClipAudioInspectorTests {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
         defer { try? FileManager.default.removeItem(at: file) }
         let writer = try AVAssetWriter(outputURL: file, fileType: .mp4)
-        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 32, AVVideoHeightKey: 32])
-        let adapter = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB, kCVPixelBufferWidthKey as String: 32, kCVPixelBufferHeightKey as String: 32])
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 32, AVVideoHeightKey: 32])
+        let adapter = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+                kCVPixelBufferWidthKey as String: 32, kCVPixelBufferHeightKey as String: 32,
+            ])
         writer.add(input)
         #expect(writer.startWriting())
         writer.startSession(atSourceTime: .zero)
         var pixel: CVPixelBuffer?
-        #expect(CVPixelBufferCreate(kCFAllocatorDefault, 32, 32, kCVPixelFormatType_32ARGB, nil, &pixel) == kCVReturnSuccess)
+        #expect(
+            CVPixelBufferCreate(kCFAllocatorDefault, 32, 32, kCVPixelFormatType_32ARGB, nil, &pixel) == kCVReturnSuccess
+        )
         let buffer = try #require(pixel)
         CVPixelBufferLockBaseAddress(buffer, [])
         memset(CVPixelBufferGetBaseAddress(buffer), 0, CVPixelBufferGetBytesPerRow(buffer) * 32)

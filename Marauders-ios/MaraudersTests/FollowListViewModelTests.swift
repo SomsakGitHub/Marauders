@@ -17,7 +17,7 @@ struct FollowListViewModelTests {
     }
 
     private func entries(count: Int, prefix: String = "user") -> [FollowListEntry] {
-        (0 ..< count).map { entry("@\(prefix)\($0)") }
+        (0..<count).map { entry("@\(prefix)\($0)") }
     }
 
     private func page(_ entries: [FollowListEntry], nextCursor: String? = nil) -> FollowListPage {
@@ -102,13 +102,14 @@ struct FollowListViewModelTests {
 
     // MARK: - Failures
 
-    @Test(arguments: [
-        (FollowListError.notFound, "This profile is no longer available"),
-        (FollowListError.rateLimited, "Too many requests, try again in a moment"),
-        (FollowListError.serverError(500), "Couldn't load this list"),
-        (FollowListError.invalidResponse, "Couldn't load this list"),
-        (URLError(.notConnectedToInternet), "Couldn't load this list"),
-    ] as [(any Error, String)])
+    @Test(
+        arguments: [
+            (FollowListError.notFound, "This profile is no longer available"),
+            (FollowListError.rateLimited, "Too many requests, try again in a moment"),
+            (FollowListError.serverError(500), "Couldn't load this list"),
+            (FollowListError.invalidResponse, "Couldn't load this list"),
+            (URLError(.notConnectedToInternet), "Couldn't load this list"),
+        ] as [(any Error, String)])
     func aFailedFirstLoadShowsTheRightMessage(error: any Error, message: String) async {
         let (viewModel, _) = makeSUT(fetchResults: [.failure(error)])
 
@@ -234,10 +235,12 @@ struct FollowListViewModelTests {
 
     @Test func aFailedPageWaitsForTryAgain() async {
         let first = entries(count: 30)
-        let (viewModel, repository) = await loadedSUT(first, then: [
-            .failure(FollowListError.serverError(500)),
-            .success(page([entry("@new")])),
-        ])
+        let (viewModel, repository) = await loadedSUT(
+            first,
+            then: [
+                .failure(FollowListError.serverError(500)),
+                .success(page([entry("@new")])),
+            ])
 
         await viewModel.loadMoreIfNeeded(currentItem: first[29])
 
@@ -272,7 +275,8 @@ struct FollowListViewModelTests {
 
     @Test func aRowAppearingDuringARefreshLoadsNoPage() async {
         let first = entries(count: 30)
-        let (viewModel, repository) = await loadedSUT(first, then: [.success(page(entries(count: 30, prefix: "fresh"), nextCursor: "c2"))])
+        let (viewModel, repository) = await loadedSUT(
+            first, then: [.success(page(entries(count: 30, prefix: "fresh"), nextCursor: "c2"))])
         repository.beforeFetchReturns = { [viewModel] count in
             guard count == 2 else { return }
             // The refresh is out, and a row near the end of the old list appears.
@@ -308,10 +312,12 @@ struct FollowListViewModelTests {
 
     @Test func aRefreshDuringAPageRequestDropsThatPage() async {
         let first = entries(count: 30)
-        let (viewModel, repository) = await loadedSUT(first, then: [
-            .success(page([entry("@stalePage")], nextCursor: "c2")),
-            .success(page([entry("@fresh")])),
-        ])
+        let (viewModel, repository) = await loadedSUT(
+            first,
+            then: [
+                .success(page([entry("@stalePage")], nextCursor: "c2")),
+                .success(page([entry("@fresh")])),
+            ])
         repository.beforeFetchReturns = { [viewModel] count in
             guard count == 2 else { return }
             // The next page is out when the viewer pulls to refresh.
@@ -365,10 +371,12 @@ struct FollowListViewModelTests {
 
     @Test func aPageRequestCancelledWhileItIsOutIsNotAFailure() async {
         let first = entries(count: 30)
-        let (viewModel, repository) = await loadedSUT(first, then: [
-            .failure(HTTPClientError.transport("cancelled")),
-            .success(page([entry("@more")])),
-        ])
+        let (viewModel, repository) = await loadedSUT(
+            first,
+            then: [
+                .failure(HTTPClientError.transport("cancelled")),
+                .success(page([entry("@more")])),
+            ])
         let load = LoadTask()
         repository.beforeFetchReturns = { count in
             if count == 2 { load.task?.cancel() }

@@ -6,6 +6,7 @@
 import AuthenticationServices
 import Foundation
 import Testing
+
 @testable import Marauders
 
 // MARK: - restoring a saved session
@@ -168,7 +169,9 @@ struct SessionRestoreExpiryTests {
 struct RejectedAccessTokenTests {
     private static let userID = "001234.abcdef.5678"
 
-    private func signedIn(token: String = TestAccessToken.make(expiresIn: 3_600)) async -> (AuthViewModel, MemorySessionStorage) {
+    private func signedIn(token: String = TestAccessToken.make(expiresIn: 3_600)) async -> (
+        AuthViewModel, MemorySessionStorage
+    ) {
         let storage = MemorySessionStorage(userID: Self.userID, accessToken: token)
         let viewModel = AuthViewModel(
             sessionStore: storage,
@@ -245,10 +248,10 @@ struct RejectedSessionEndToEndTests {
     private static let userID = "001234.abcdef.5678"
     private static let videoID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
     private static let commentsPage = """
-    {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"Nice view","language":null,\
-    "createdAt":"2026-10-30T12:34:56.789Z","authorName":"@friend","authorAvatarURL":null,"canDelete":false}],\
-    "nextCursor":null}
-    """
+        {"items":[{"id":"11111111-2222-4333-8444-555555555555","body":"Nice view","language":null,\
+        "createdAt":"2026-10-30T12:34:56.789Z","authorName":"@friend","authorAvatarURL":null,"canDelete":false}],\
+        "nextCursor":null}
+        """
 
     private struct Harness {
         let viewModel: AuthViewModel
@@ -275,7 +278,9 @@ struct RejectedSessionEndToEndTests {
         )
     }
 
-    private func transport(_ session: URLSession, reportingTo viewModel: AuthViewModel) -> RejectedSessionReportingHTTPClient {
+    private func transport(_ session: URLSession, reportingTo viewModel: AuthViewModel)
+        -> RejectedSessionReportingHTTPClient
+    {
         RejectedSessionReportingHTTPClient(base: URLSessionHTTPClient(session: session)) { accessToken in
             await viewModel.handleRejectedAccessToken(accessToken)
         }
@@ -335,7 +340,9 @@ struct RejectedSessionEndToEndTests {
             let authorization = request.value(forHTTPHeaderField: "Authorization")
             sentAuthorizations.append(authorization)
             if authorization != nil { return respond(request, 401, #"{"error":"invalid session"}"#) }
-            return respond(request, 200, #"{"items":[{"id":"\#(videoID.uuidString)","streamURL":"https://cdn.example.com/v/guest.mp4"}]}"#)
+            return respond(
+                request, 200,
+                #"{"items":[{"id":"\#(videoID.uuidString)","streamURL":"https://cdn.example.com/v/guest.mp4"}]}"#)
         }
         defer { StubURLSessionFactory.reset(session) }
         let client = FeedAPIClient(

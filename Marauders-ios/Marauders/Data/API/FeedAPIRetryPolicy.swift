@@ -39,12 +39,12 @@ extension URLError {
     var isTransientFeedFailure: Bool {
         switch code {
         case .networkConnectionLost,
-             .timedOut,
-             .notConnectedToInternet,
-             .cannotFindHost,
-             .cannotConnectToHost,
-             .dnsLookupFailed,
-             .dataNotAllowed:
+            .timedOut,
+            .notConnectedToInternet,
+            .cannotFindHost,
+            .cannotConnectToHost,
+            .dnsLookupFailed,
+            .dataNotAllowed:
             return true
         default:
             return false

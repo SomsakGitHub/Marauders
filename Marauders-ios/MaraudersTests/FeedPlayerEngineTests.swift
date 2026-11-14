@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -115,9 +116,12 @@ struct FeedPlayerEngineTests {
 
     @Test func preloadSkipsInsecureNeighbors() {
         let next = URL(string: "https://example.com/next.mp4")!
-        #expect(FeedPlayerEngine.preloadTarget(currentURL: nil, neighbors: [
-            URL(string: "http://example.com/invalid.mp4")!, next
-        ]) == next)
+        #expect(
+            FeedPlayerEngine.preloadTarget(
+                currentURL: nil,
+                neighbors: [
+                    URL(string: "http://example.com/invalid.mp4")!, next,
+                ]) == next)
         #expect(FeedPlayerEngine.preloadTarget(currentURL: next, neighbors: [next]) == nil)
     }
 }

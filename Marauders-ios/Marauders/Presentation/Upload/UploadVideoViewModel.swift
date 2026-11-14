@@ -71,7 +71,8 @@ final class UploadVideoViewModel {
         isCheckingAudio = false
         audioAssessment = nil
         discardAllStagingFiles()
-        clipLocation = AppRuntimeConfiguration.isUITesting
+        clipLocation =
+            AppRuntimeConfiguration.isUITesting
             ? ClipLocation(latitude: 13.7563, longitude: 100.5018)
             : nil
         caption = ""
@@ -97,14 +98,18 @@ final class UploadVideoViewModel {
         do {
             let mp4URL = try await prepareVideo.execute(sourceURL: sourceURL)
             guard current == preparationGeneration, !Task.isCancelled else {
-                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
+                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL {
+                    TemporaryFileCleanup.deleteIfTemporary(mp4URL)
+                }
                 return
             }
             isCheckingAudio = true
             let audioCheckStarted = ProcessInfo.processInfo.systemUptime
             let result = await audioInspector.inspect(fileURL: mp4URL)
             guard current == preparationGeneration, !Task.isCancelled else {
-                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL { TemporaryFileCleanup.deleteIfTemporary(mp4URL) }
+                if mp4URL != uploadFileURL && mp4URL != pickerStagingURL {
+                    TemporaryFileCleanup.deleteIfTemporary(mp4URL)
+                }
                 return
             }
             if sourceURL != mp4URL { TemporaryFileCleanup.deleteIfTemporary(sourceURL) }
@@ -112,10 +117,11 @@ final class UploadVideoViewModel {
             uploadFileURL = mp4URL
             audioAssessment = result
             #if DEBUG
-            let elapsed = Int((ProcessInfo.processInfo.systemUptime - audioCheckStarted) * 1000)
-            let report = "content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
-            AppLog.info("upload.audio-check", report)
-            print("[upload.audio-check] \(report)")
+                let elapsed = Int((ProcessInfo.processInfo.systemUptime - audioCheckStarted) * 1000)
+                let report =
+                    "content=\(result.content.rawValue) speech=\(result.speechConfidence) music=\(result.musicConfidence) signal=\(result.signal) languageHint=\(result.languageHint ?? "unknown") sampledSeconds=\(String(format: "%.2f", result.sampledSeconds)) elapsedMs=\(elapsed) exceedsTranslationLimit=\(result.exceedsTranslationLimit)"
+                AppLog.info("upload.audio-check", report)
+                print("[upload.audio-check] \(report)")
             #endif
             AppLog.info("upload", "ready for upload; quick audio check completed")
         } catch {
@@ -191,9 +197,12 @@ final class UploadVideoViewModel {
             statusMessage = "Upload complete — opening feed"
             AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
             #if DEBUG
-            if let audioAssessment {
-                AppLog.info("upload.audio-check", "videoId=\(item.id.uuidString) signal=\(audioAssessment.signal) languageHint=\(audioAssessment.languageHint ?? "unknown")")
-            }
+                if let audioAssessment {
+                    AppLog.info(
+                        "upload.audio-check",
+                        "videoId=\(item.id.uuidString) signal=\(audioAssessment.signal) languageHint=\(audioAssessment.languageHint ?? "unknown")"
+                    )
+                }
             #endif
             discardExportStagingFile()
             audioAssessment = nil
@@ -251,7 +260,7 @@ final class UploadVideoViewModel {
     private func handleLocations(_ locations: [CLLocation]) {
         isResolvingClipLocation = false
         guard let coordinate = locations.last?.coordinate,
-              let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         else {
             statusMessage = "Couldn’t read location — try again"
             return

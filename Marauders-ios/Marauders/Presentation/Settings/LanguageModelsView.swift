@@ -23,7 +23,9 @@ struct LanguageModelsView: View {
             } header: {
                 Text("Translation")
             } footer: {
-                Text("Apple downloads translation languages through a system prompt. Remove them in iOS Settings → Apps → Translate.")
+                Text(
+                    "Apple downloads translation languages through a system prompt. Remove them in iOS Settings → Apps → Translate."
+                )
             }
 
             Section {
@@ -31,7 +33,9 @@ struct LanguageModelsView: View {
             } header: {
                 Text("Speech recognition")
             } footer: {
-                Text("Models run on this device. Audio and transcripts are not uploaded. Downloads need a network connection and free storage.")
+                Text(
+                    "Models run on this device. Audio and transcripts are not uploaded. Downloads need a network connection and free storage."
+                )
             }
 
             Section {
@@ -39,7 +43,9 @@ struct LanguageModelsView: View {
             } header: {
                 Text("Language detection")
             } footer: {
-                Text("Names the language of a clip, such as Dutch or Russian, and transcribes Dutch clips for dubbing. It runs on this iPhone and your audio is not uploaded. The model is downloaded from Hugging Face when you choose to install it.")
+                Text(
+                    "Names the language of a clip, such as Dutch or Russian, and transcribes Dutch clips for dubbing. It runs on this iPhone and your audio is not uploaded. The model is downloaded from Hugging Face when you choose to install it."
+                )
             }
         }
         .navigationTitle("Language models")
@@ -117,7 +123,8 @@ struct LanguageModelsView: View {
     private func subtitle(for model: LanguageModel, status: LanguageModelStatus) -> String {
         switch status {
         case .failed(let message): message
-        case .downloading(let progress?) where model.kind == .languageDetection && progress >= LanguageDetectionModelStore.downloadShare:
+        case .downloading(let progress?)
+        where model.kind == .languageDetection && progress >= LanguageDetectionModelStore.downloadShare:
             String(localized: "Preparing on this iPhone…")
         case .downloading(let progress?): String(localized: "Downloading… \(Int(progress * 100))%")
         case .downloading(nil): String(localized: "Downloading…")

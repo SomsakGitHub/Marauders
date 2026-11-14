@@ -15,12 +15,13 @@ struct AVAssetVideoLocationReader: VideoLocationReading {
 
         for item in metadata {
             guard let identifier = item.identifier else { continue }
-            let isLocationItem = identifier == .quickTimeMetadataLocationISO6709
+            let isLocationItem =
+                identifier == .quickTimeMetadataLocationISO6709
                 || identifier == .commonIdentifierLocation
             guard isLocationItem else { continue }
 
             guard let value = try? await item.load(.stringValue),
-                  let location = Self.parseISO6709(value)
+                let location = Self.parseISO6709(value)
             else { continue }
 
             AppLog.info("upload", "read clip location from video metadata")
@@ -61,8 +62,8 @@ struct AVAssetVideoLocationReader: VideoLocationReading {
         let latitude = numbers[0]
         let longitude = numbers[1]
         guard latitude.isFinite, longitude.isFinite,
-              (-90 ... 90).contains(latitude),
-              (-180 ... 180).contains(longitude)
+            (-90...90).contains(latitude),
+            (-180...180).contains(longitude)
         else {
             return nil
         }

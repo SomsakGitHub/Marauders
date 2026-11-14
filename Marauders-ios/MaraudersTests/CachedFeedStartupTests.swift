@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -53,8 +54,9 @@ struct CachedFeedStartupTests {
         let current = FeedVideo(id: id, streamURL: url, authorName: "@new")
         let fresh = FeedVideo(streamURL: URL(string: "https://example.com/fresh.mp4")!)
         let repository = StartupRefreshGate(page: FeedPage(items: [fresh, current], hasMore: false))
-        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repository),
-                                          startupCache: MemoryStartupCache([stale]))
+        let viewModel = VideoFeedViewModel(
+            fetchFeed: FetchFeedUseCase(repository: repository),
+            startupCache: MemoryStartupCache([stale]))
         await viewModel.loadIfNeeded()
         #expect(viewModel.videos == [stale])
         await repository.waitForRequest()
@@ -71,8 +73,9 @@ struct CachedFeedStartupTests {
         let cached = FeedVideo(streamURL: URL(string: "https://example.com/cached.mp4")!)
         let fresh = FeedVideo(streamURL: URL(string: "https://example.com/fresh.mp4")!)
         let repository = StartupRefreshGate(page: FeedPage(items: [fresh, cached], hasMore: false))
-        let viewModel = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repository),
-                                          startupCache: MemoryStartupCache([cached]))
+        let viewModel = VideoFeedViewModel(
+            fetchFeed: FetchFeedUseCase(repository: repository),
+            startupCache: MemoryStartupCache([cached]))
         await viewModel.loadIfNeeded()
         #expect(viewModel.videos == [cached])
         #expect(viewModel.restoredStartupCache)

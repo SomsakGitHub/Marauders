@@ -8,7 +8,9 @@ enum SpeechPermission {
         case .authorized: return true
         case .notDetermined:
             return await withCheckedContinuation { continuation in
-                SFSpeechRecognizer.requestAuthorization { @Sendable status in continuation.resume(returning: status == .authorized) }
+                SFSpeechRecognizer.requestAuthorization { @Sendable status in
+                    continuation.resume(returning: status == .authorized)
+                }
             }
         default: return false
         }

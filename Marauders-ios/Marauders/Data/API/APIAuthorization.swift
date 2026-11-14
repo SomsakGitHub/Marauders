@@ -22,7 +22,7 @@ struct SessionAPIAuthorization: APIAuthorization {
 
     func bearerAuthorizationHeader() -> String? {
         guard let token = tokenStore.loadAccessToken(),
-              APIAccessTokenFormat.isValid(token)
+            APIAccessTokenFormat.isValid(token)
         else {
             return nil
         }

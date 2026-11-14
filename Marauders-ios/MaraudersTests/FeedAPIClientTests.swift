@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @Suite(.serialized)
@@ -31,7 +32,9 @@ struct FeedAPIClientTests {
     /// The viewer's own clips are part of the feed, so a response without a viewer ID is as good as one with it.
     @Test func signedInFeedAcceptsAResponseWithoutAViewerID() async throws {
         let videoID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
-        let body = FeedAPIClientTests.feedResponseJSON(items: [(id: videoID, streamURL: "https://cdn.example.com/v/own.mp4")])
+        let body = FeedAPIClientTests.feedResponseJSON(items: [
+            (id: videoID, streamURL: "https://cdn.example.com/v/own.mp4")
+        ])
         let session = StubURLSessionFactory.make { request in
             (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), body)
         }
@@ -136,8 +139,8 @@ struct FeedAPIClientTests {
                     "id": videoID.uuidString,
                     "streamURL": "https://cdn.example.com/v/1.mp4",
                     "country": "TH",
-                ],
-            ],
+                ]
+            ]
         ]
         let body = try JSONSerialization.data(withJSONObject: payload)
 
@@ -237,13 +240,18 @@ struct FeedAPIClientTests {
     @Test(arguments: [false, true])
     func aRejectedSessionReadsTheFeedAsAGuest(forMap: Bool) async throws {
         let videoID = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
-        let body = FeedAPIClientTests.feedResponseJSON(items: [(id: videoID, streamURL: "https://cdn.example.com/v/guest.mp4")])
+        let body = FeedAPIClientTests.feedResponseJSON(items: [
+            (id: videoID, streamURL: "https://cdn.example.com/v/guest.mp4")
+        ])
         nonisolated(unsafe) var sentAuthorizations: [String?] = []
         let session = StubURLSessionFactory.make { request in
             let authorization = request.value(forHTTPHeaderField: "Authorization")
             sentAuthorizations.append(authorization)
             if authorization != nil {
-                return (StubURLSessionFactory.httpResponse(for: request, statusCode: 401), Data(#"{"error":"invalid session"}"#.utf8))
+                return (
+                    StubURLSessionFactory.httpResponse(for: request, statusCode: 401),
+                    Data(#"{"error":"invalid session"}"#.utf8)
+                )
             }
             return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), body)
         }
@@ -329,7 +337,7 @@ private extension FeedAPIClientTests {
         let payload: [String: Any] = [
             "items": items.map { item in
                 ["id": item.id.uuidString, "streamURL": item.streamURL]
-            },
+            }
         ]
         return try! JSONSerialization.data(withJSONObject: payload)
     }

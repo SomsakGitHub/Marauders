@@ -14,7 +14,9 @@ struct FollowListUseCaseTests {
     private static let bob = FollowListEntry(handle: "@bob", avatarURL: nil, followedByViewer: true, isViewer: false)
 
     @Test func theUseCaseAsksForTheFirstPageOfThirtyByDefault() async throws {
-        let stub = StubFollowListRepository(fetchResults: [.success(FollowListPage(entries: [Self.bob], nextCursor: "next"))])
+        let stub = StubFollowListRepository(fetchResults: [
+            .success(FollowListPage(entries: [Self.bob], nextCursor: "next"))
+        ])
 
         let page = try await LoadFollowListUseCase(repository: stub).execute(handle: "@alice", kind: .followers)
 
@@ -41,7 +43,8 @@ struct FollowListUseCaseTests {
 
     @Test func theDefaultRepositoryReturnsWhatTheClientDecoded() async throws {
         let session = StubURLSessionFactory.make { request in
-            let body = #"{"items":[{"handle":"@bob","avatarURL":null,"followedByViewer":true,"isViewer":false}],"nextCursor":null}"#
+            let body =
+                #"{"items":[{"handle":"@bob","avatarURL":null,"followedByViewer":true,"isViewer":false}],"nextCursor":null}"#
             return (StubURLSessionFactory.httpResponse(for: request, statusCode: 200), Data(body.utf8))
         }
         defer { StubURLSessionFactory.reset(session) }

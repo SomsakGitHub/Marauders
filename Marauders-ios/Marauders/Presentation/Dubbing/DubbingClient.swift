@@ -1,5 +1,5 @@
-import Foundation
 import AVFoundation
+import Foundation
 import Speech
 
 // No provider credentials or remote transcription/translation fallback.
@@ -32,21 +32,65 @@ enum DubbingError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: String(localized: "This iPhone isn't ready to translate on-device. Install the languages in Settings › Language models, then try again.")
-        case .permission: String(localized: "Allow speech recognition in Settings so the clip's speech can be transcribed.")
+        case .unavailable:
+            String(
+                localized:
+                    "This iPhone isn't ready to translate on-device. Install the languages in Settings › Language models, then try again."
+            )
+        case .permission:
+            String(localized: "Allow speech recognition in Settings so the clip's speech can be transcribed.")
         case .unsupported: String(localized: "On-device translation supports clips up to 12 MB.")
-        case .speechUnclear: String(localized: "Couldn't transcribe speech from this clip. Try a clip with clear speech, or listen to the original audio.")
-        case .failed: String(localized: "Couldn't translate the audio on this iPhone. Listen to the original audio for now.")
-        case .voiceUnavailable(let language): String(localized: "No \(language) voice is installed on this iPhone. Add one in Settings › Accessibility › Spoken Content › Voices.")
-        case .pairUnsupported(let source, let target): String(localized: "Translating \(source) into \(target) isn't supported on this iPhone yet.")
-        case .languageUndetected: String(localized: "Couldn't tell which language is spoken in this clip. Listen to the original audio.")
-        case .languageUndetectedWithoutModel: String(localized: "Couldn't tell which language is spoken in this clip. Download the language detection model in Settings › Language models to recognize more languages. Listen to the original audio for now.")
-        case .detectionModelDownloadFailed: String(localized: "Couldn't download the language detection model. Check your connection and try again. Listen to the original audio for now.")
-        case .speechModelDownloadFailed(let language): String(localized: "Couldn't download the \(language) speech model. Check your connection and try again. Listen to the original audio for now.")
-        case .speechModelLimit: String(localized: "This iPhone has reached its limit of downloaded speech languages. Remove one in Settings › Language models, then try again.")
-        case .speechModelDeclined(let language): String(localized: "Dubbing from \(language) needs a one-time download of its speech model. Listen to the original audio for now.")
-        case .detectionModelUnusable: String(localized: "Couldn't use the language detection model on this iPhone. Try downloading it again in Settings › Language models. Listen to the original audio for now.")
-        case .detectionModelNoSpace: String(localized: "There isn't enough free storage for the language detection model. Free up some space and try again. Listen to the original audio for now.")
+        case .speechUnclear:
+            String(
+                localized:
+                    "Couldn't transcribe speech from this clip. Try a clip with clear speech, or listen to the original audio."
+            )
+        case .failed:
+            String(localized: "Couldn't translate the audio on this iPhone. Listen to the original audio for now.")
+        case .voiceUnavailable(let language):
+            String(
+                localized:
+                    "No \(language) voice is installed on this iPhone. Add one in Settings › Accessibility › Spoken Content › Voices."
+            )
+        case .pairUnsupported(let source, let target):
+            String(localized: "Translating \(source) into \(target) isn't supported on this iPhone yet.")
+        case .languageUndetected:
+            String(localized: "Couldn't tell which language is spoken in this clip. Listen to the original audio.")
+        case .languageUndetectedWithoutModel:
+            String(
+                localized:
+                    "Couldn't tell which language is spoken in this clip. Download the language detection model in Settings › Language models to recognize more languages. Listen to the original audio for now."
+            )
+        case .detectionModelDownloadFailed:
+            String(
+                localized:
+                    "Couldn't download the language detection model. Check your connection and try again. Listen to the original audio for now."
+            )
+        case .speechModelDownloadFailed(let language):
+            String(
+                localized:
+                    "Couldn't download the \(language) speech model. Check your connection and try again. Listen to the original audio for now."
+            )
+        case .speechModelLimit:
+            String(
+                localized:
+                    "This iPhone has reached its limit of downloaded speech languages. Remove one in Settings › Language models, then try again."
+            )
+        case .speechModelDeclined(let language):
+            String(
+                localized:
+                    "Dubbing from \(language) needs a one-time download of its speech model. Listen to the original audio for now."
+            )
+        case .detectionModelUnusable:
+            String(
+                localized:
+                    "Couldn't use the language detection model on this iPhone. Try downloading it again in Settings › Language models. Listen to the original audio for now."
+            )
+        case .detectionModelNoSpace:
+            String(
+                localized:
+                    "There isn't enough free storage for the language detection model. Free up some space and try again. Listen to the original audio for now."
+            )
         case .sourceUnsupported(let language): String(localized: "AI dubbing from \(language) isn't supported yet.")
         case .alreadyInListeningLanguage(let language): String(localized: "This clip is already in \(language).")
         }
@@ -68,12 +112,15 @@ nonisolated final class NarrationFileWriter: @unchecked Sendable {
         guard let continuation else { return }
         guard let pcm = buffer as? AVAudioPCMBuffer else { finishLocked(.failure(DubbingError.failed)); return }
         if pcm.frameLength == 0 {
-            if file != nil { finishLocked(.success(url)) }
-            else { finishLocked(.failure(DubbingError.failed)) }
+            if file != nil { finishLocked(.success(url)) } else { finishLocked(.failure(DubbingError.failed)) }
             return
         }
         do {
-            if file == nil { file = try AVAudioFile(forWriting: url, settings: pcm.format.settings, commonFormat: pcm.format.commonFormat, interleaved: pcm.format.isInterleaved) }
+            if file == nil {
+                file = try AVAudioFile(
+                    forWriting: url, settings: pcm.format.settings, commonFormat: pcm.format.commonFormat,
+                    interleaved: pcm.format.isInterleaved)
+            }
             try file?.write(from: pcm)
         } catch { finishLocked(.failure(error)) }
         _ = continuation

@@ -21,7 +21,7 @@ struct FeedHeartBurst: Identifiable, Equatable {
     /// A slight tilt either way, so a run of hearts does not stand in a straight row.
     let tilt: Angle
 
-    init(location: CGPoint, tilt: Angle = .degrees(.random(in: -25 ... 25))) {
+    init(location: CGPoint, tilt: Angle = .degrees(.random(in: -25...25))) {
         self.location = location
         self.tilt = tilt
     }

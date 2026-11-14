@@ -11,7 +11,7 @@ struct HTTPClientResponse: Sendable {
     let statusCode: Int
 
     var isSuccess: Bool {
-        (200 ... 299).contains(statusCode)
+        (200...299).contains(statusCode)
     }
 }
 
@@ -122,7 +122,8 @@ private extension URLSessionHTTPClient {
                 try handle.write(contentsOf: Data(head.utf8))
                 try handle.write(contentsOf: Data(value.utf8))
             case .file(let name, let filename, let mimeType, let data):
-                let head = "--\(boundary)\r\n"
+                let head =
+                    "--\(boundary)\r\n"
                     + "Content-Disposition: form-data; name=\"\(escaped(name))\"; filename=\"\(escaped(filename))\"\r\n"
                     + "Content-Type: \(mimeType)\r\n\r\n"
                 try handle.write(contentsOf: Data(head.utf8))

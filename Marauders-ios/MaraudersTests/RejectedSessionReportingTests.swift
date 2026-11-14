@@ -5,6 +5,7 @@
 
 import Foundation
 import Testing
+
 @testable import Marauders
 
 /// The decorator that tells the app when the Worker answers 401 to a request that carried a token.
@@ -40,7 +41,7 @@ struct RejectedSessionReportingTests {
             base: ScriptedHTTP(status: 401),
             report: { token in
                 // A slow report still finishes first, so the session is over by the time a client throws.
-                for _ in 0 ..< 5 { await Task.yield() }
+                for _ in 0..<5 { await Task.yield() }
                 await reports.add(token)
             }
         )
@@ -52,7 +53,8 @@ struct RejectedSessionReportingTests {
 
     @Test func aGuestRequestIsNeverReported() async throws {
         let reports = RejectionLog()
-        let client = RejectedSessionReportingHTTPClient(base: ScriptedHTTP(status: 401), report: { await reports.add($0) })
+        let client = RejectedSessionReportingHTTPClient(
+            base: ScriptedHTTP(status: 401), report: { await reports.add($0) })
 
         let response = try await client.data(request(authorization: nil))
 
@@ -63,7 +65,8 @@ struct RejectedSessionReportingTests {
     @Test(arguments: [200, 201, 204, 400, 403, 404, 409, 413, 422, 429, 500, 503])
     func anythingButA401IsNotReported(status: Int) async throws {
         let reports = RejectionLog()
-        let client = RejectedSessionReportingHTTPClient(base: ScriptedHTTP(status: status), report: { await reports.add($0) })
+        let client = RejectedSessionReportingHTTPClient(
+            base: ScriptedHTTP(status: status), report: { await reports.add($0) })
 
         let response = try await client.data(request(authorization: "Bearer \(Self.token)"))
 
@@ -74,7 +77,8 @@ struct RejectedSessionReportingTests {
     @Test(arguments: ["Basic dXNlcjpwYXNz", "Bearer", "Bearer ", "bearer-without-scheme", ""])
     func aHeaderThatIsNotABearerTokenIsNotReported(header: String) async throws {
         let reports = RejectionLog()
-        let client = RejectedSessionReportingHTTPClient(base: ScriptedHTTP(status: 401), report: { await reports.add($0) })
+        let client = RejectedSessionReportingHTTPClient(
+            base: ScriptedHTTP(status: 401), report: { await reports.add($0) })
 
         _ = try await client.data(request(authorization: header))
 
@@ -83,7 +87,8 @@ struct RejectedSessionReportingTests {
 
     @Test func reportsA401ToAnUploadToo() async throws {
         let reports = RejectionLog()
-        let client = RejectedSessionReportingHTTPClient(base: ScriptedHTTP(status: 401), report: { await reports.add($0) })
+        let client = RejectedSessionReportingHTTPClient(
+            base: ScriptedHTTP(status: 401), report: { await reports.add($0) })
 
         let response = try await client.upload(
             request(authorization: "Bearer \(Self.token)", method: "POST"),

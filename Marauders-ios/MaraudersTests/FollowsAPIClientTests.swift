@@ -40,7 +40,9 @@ struct FollowsAPIClientTests {
 
     @Test func stoppingAFollowSendsADelete() async throws {
         var captured: URLRequest?
-        let session = Self.session(body: #"{"following":false,"followerCount":3,"viewerFollowingCount":8}"#) { captured = $0 }
+        let session = Self.session(body: #"{"following":false,"followerCount":3,"viewerFollowingCount":8}"#) {
+            captured = $0
+        }
         defer { StubURLSessionFactory.reset(session) }
 
         let change = try await FollowsAPIClient(session: session, authorization: Self.authorization)

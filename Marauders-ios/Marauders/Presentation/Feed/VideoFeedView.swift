@@ -69,10 +69,12 @@ struct VideoFeedView: View {
                 case .failed(let message):
                     errorView(message: message)
                 case .loaded:
-                    ContentUnavailableView("No clips to show yet", systemImage: "play.rectangle",
-                        description: Text("Check back later for new clips."))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(.black)
+                    ContentUnavailableView(
+                        "No clips to show yet", systemImage: "play.rectangle",
+                        description: Text("Check back later for new clips.")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.black)
                 }
             } else {
                 feedScroll(videos: viewModel.videos)
@@ -86,11 +88,17 @@ struct VideoFeedView: View {
                     }
             }
         }
-        .fullScreenCover(item: $audioRoute, onDismiss: {
-            if isFeedTabSelected, scenePhase == .active { applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex) }
-        }) { route in
+        .fullScreenCover(
+            item: $audioRoute,
+            onDismiss: {
+                if isFeedTabSelected, scenePhase == .active {
+                    applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
+                }
+            }
+        ) { route in
             if isSignedIn {
-                ClipPlayerView(clip: route.clip, onClose: { audioRoute = nil }, requestDubbingTarget: route.requestDubbingTarget)
+                ClipPlayerView(
+                    clip: route.clip, onClose: { audioRoute = nil }, requestDubbingTarget: route.requestDubbingTarget)
             }
         }
         .sheet(item: $commentsRoute, onDismiss: handleCommentsDismissed) { route in
@@ -245,12 +253,16 @@ struct VideoFeedView: View {
                     FeedClipCaptionOverlay(clip: video)
                         .frame(width: geometry.size.width, height: geometry.size.height)
 
-                    FeedClipActionRail(clip: video, onChooseAIAudio: { target in
-                        guard isSignedIn else { isWaitingForSignIn = true; onSignIn(); return }
-                        playerEngine.pause()
-                        audioRoute = AudioRoute(clip: video, requestDubbingTarget: target)
-                    }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
-                        onRequireSignIn: { isWaitingForSignIn = true; onSignIn() },
+                    FeedClipActionRail(
+                        clip: video,
+                        onChooseAIAudio: { target in
+                            guard isSignedIn else { isWaitingForSignIn = true; onSignIn(); return }
+                            playerEngine.pause()
+                            audioRoute = AudioRoute(clip: video, requestDubbingTarget: target)
+                        }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
+                        onRequireSignIn: {
+                            isWaitingForSignIn = true; onSignIn()
+                        },
                         onAudioSelectionChanged: { open in
                             if open {
                                 resumeAfterAudioChoice = playerEngine.phase.shouldResumeAfterInterruption
@@ -273,8 +285,9 @@ struct VideoFeedView: View {
                         followsAuthor: followsAuthor(of: video),
                         onFollowAuthor: followsViewModel.map { follows in
                             { followAuthor(of: video, using: follows) }
-                        })
-                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        }
+                    )
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
                 playbackOverlay
@@ -289,7 +302,8 @@ struct VideoFeedView: View {
     }
 
     @ViewBuilder
-    private var playbackOverlay: some View {        switch playerEngine.phase {
+    private var playbackOverlay: some View {
+        switch playerEngine.phase {
         case .idle, .playing, .paused:
             EmptyView()
         case .buffering:
@@ -349,7 +363,8 @@ struct VideoFeedView: View {
 
     private func resumeAfterAudioChoiceIfNeeded() {
         guard resumeAfterAudioChoice, audioRoute == nil, !isWaitingForSignIn,
-              isFeedTabSelected, scenePhase == .active else { return }
+            isFeedTabSelected, scenePhase == .active
+        else { return }
         resumeAfterAudioChoice = false
         applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
     }
@@ -379,7 +394,8 @@ struct VideoFeedView: View {
     /// viewer's own, or the feed comes from a Worker (or a startup cache) that predates follows.
     private func followsAuthor(of clip: FeedVideo) -> Bool? {
         guard let follows = followsViewModel, let handle = clip.authorName,
-              let followed = clip.authorFollowedByViewer, clip.postedByViewer != true else { return nil }
+            let followed = clip.authorFollowedByViewer, clip.postedByViewer != true
+        else { return nil }
         return follows.isFollowing(handle, fallback: followed)
     }
 
@@ -429,7 +445,8 @@ struct VideoFeedView: View {
 
     private func resumeAfterCommentsIfNeeded() {
         guard resumeAfterComments, commentsRoute == nil, !isWaitingForSignIn,
-              isFeedTabSelected, scenePhase == .active else { return }
+            isFeedTabSelected, scenePhase == .active
+        else { return }
         resumeAfterComments = false
         applyPlayback(for: viewModel.videos, pageIndex: currentPageIndex)
     }

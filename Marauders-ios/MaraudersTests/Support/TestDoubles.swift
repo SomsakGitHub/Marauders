@@ -5,6 +5,7 @@
 
 import CoreLocation
 import Foundation
+
 @testable import Marauders
 
 extension SpokenLanguageAssessment {
@@ -246,9 +247,11 @@ final class StubUserFollowRepository: UserFollowRepository, @unchecked Sendable 
     private(set) var peakConcurrency = 0
     private var outNow = 0
 
-    init(results: [Result<UserFollowChange, Error>] = [
-        .success(UserFollowChange(following: true, followerCount: 1, viewerFollowingCount: 1)),
-    ]) {
+    init(
+        results: [Result<UserFollowChange, Error>] = [
+            .success(UserFollowChange(following: true, followerCount: 1, viewerFollowingCount: 1))
+        ]
+    ) {
         self.results = results
     }
 

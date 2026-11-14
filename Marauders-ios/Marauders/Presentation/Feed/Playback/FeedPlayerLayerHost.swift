@@ -36,7 +36,8 @@ final class FeedPlayerLayerHostView: UIView {
         layer.isHidden = !layer.isReadyForDisplay
         layer.frame = bounds
         self.layer.addSublayer(layer)
-        readinessObservation = layer.observe(\.isReadyForDisplay, options: [.initial, .new]) { [weak self] observed, _ in
+        readinessObservation = layer.observe(\.isReadyForDisplay, options: [.initial, .new]) {
+            [weak self] observed, _ in
             let ready = observed.isReadyForDisplay
             let identity = ObjectIdentifier(observed)
             Task { @MainActor in

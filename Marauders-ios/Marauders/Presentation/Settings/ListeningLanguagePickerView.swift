@@ -84,6 +84,7 @@ struct ListeningLanguagePickerView: View {
 
 #Preview {
     NavigationStack {
-        ListeningLanguagePickerView(viewModel: ListeningLanguagePickerViewModel(availability: NoopListeningLanguageAvailability()))
+        ListeningLanguagePickerView(
+            viewModel: ListeningLanguagePickerViewModel(availability: NoopListeningLanguageAvailability()))
     }
 }

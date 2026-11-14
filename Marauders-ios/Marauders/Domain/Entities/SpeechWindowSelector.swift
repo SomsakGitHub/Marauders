@@ -38,7 +38,7 @@ nonisolated enum SpeechWindowSelector {
     /// than one window is listened to whole.
     static func windows(loudness: [Double], count: Int) -> [Range<Int>] {
         guard count > 0, !loudness.isEmpty else { return [] }
-        guard loudness.count > windowSeconds else { return [0 ..< loudness.count] }
+        guard loudness.count > windowSeconds else { return [0..<loudness.count] }
 
         let speech = speechSeconds(in: loudness)
         var prefix = [0]
@@ -46,7 +46,7 @@ nonisolated enum SpeechWindowSelector {
         func score(_ range: Range<Int>) -> Int { prefix[range.upperBound] - prefix[range.lowerBound] }
 
         let fullStarts = loudness.count - windowSeconds + 1
-        let fullWindows = (0 ..< fullStarts).map { $0 ..< $0 + windowSeconds }
+        let fullWindows = (0..<fullStarts).map { $0..<$0 + windowSeconds }
         let opening = fullWindows[0]
         var first = opening
         if let best = bestRange(in: fullWindows, score: score) {
@@ -57,10 +57,12 @@ nonisolated enum SpeechWindowSelector {
         var result = [first]
 
         if count > 1 {
-            var candidates = fullWindows.filter { $0.upperBound <= first.lowerBound || $0.lowerBound >= first.upperBound }
+            var candidates = fullWindows.filter {
+                $0.upperBound <= first.lowerBound || $0.lowerBound >= first.upperBound
+            }
             // What is left on either side may be shorter than a window; the old behaviour listened to such a tail too.
-            let head = max(0, first.lowerBound - windowSeconds) ..< first.lowerBound
-            let tail = first.upperBound ..< min(loudness.count, first.upperBound + windowSeconds)
+            let head = max(0, first.lowerBound - windowSeconds)..<first.lowerBound
+            let tail = first.upperBound..<min(loudness.count, first.upperBound + windowSeconds)
             candidates += [head, tail].filter { $0.count >= shortestExtraSeconds && $0.count < windowSeconds }
             if let second = bestRange(in: candidates, score: score), score(second) >= minimumSpeechSeconds {
                 result.append(second)

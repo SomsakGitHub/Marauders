@@ -139,10 +139,11 @@ struct CommentRow: View {
         translationFailed = false
         isTranslating = true
         showsWhenTranslated = true
-        let sourceLanguage: Locale.Language? = switch source {
-        case .known(let code): Locale.Language(identifier: code)
-        case .detectedByTranslation: nil
-        }
+        let sourceLanguage: Locale.Language? =
+            switch source {
+            case .known(let code): Locale.Language(identifier: code)
+            case .detectedByTranslation: nil
+            }
         let next = TranslationSession.Configuration(source: sourceLanguage, target: .init(identifier: target.code))
         // Invalidating makes a retry after a failure run again although the configuration is the same.
         configuration = next
@@ -150,10 +151,12 @@ struct CommentRow: View {
     }
 
     private var sourceName: String {
-        let code = translatedFrom?.minimalIdentifier ?? {
-            if case .known(let code) = source { return code }
-            return ""
-        }()
+        let code =
+            translatedFrom?.minimalIdentifier
+            ?? {
+                if case .known(let code) = source { return code }
+                return ""
+            }()
         return ListeningLanguage(identifier: code)?.displayName()
             ?? ListeningLanguage.interfaceLocale.localizedString(forIdentifier: code)
             ?? code

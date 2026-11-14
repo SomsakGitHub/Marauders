@@ -51,7 +51,8 @@ enum APIConfiguration {
         }
 
         let base = try apiBaseURL()
-        var components = URLComponents(url: base.appending(path: forMap ? "v1/map/clips" : "v1/feed"), resolvingAgainstBaseURL: false)
+        var components = URLComponents(
+            url: base.appending(path: forMap ? "v1/map/clips" : "v1/feed"), resolvingAgainstBaseURL: false)
         var queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor {
             queryItems.append(URLQueryItem(name: "cursor", value: cursor.uuidString))
@@ -83,13 +84,13 @@ enum APIConfiguration {
     }
 
     #if DEBUG
-    static func devAuthURL() throws -> URL {
-        let base = try apiBaseURL()
-        guard let url = URL(string: "v1/auth/dev", relativeTo: base) else {
-            throw APIConfigurationError.invalidBaseURL
+        static func devAuthURL() throws -> URL {
+            let base = try apiBaseURL()
+            guard let url = URL(string: "v1/auth/dev", relativeTo: base) else {
+                throw APIConfigurationError.invalidBaseURL
+            }
+            return url
         }
-        return url
-    }
     #endif
 
     static func userLocationURL() throws -> URL {
@@ -157,7 +158,9 @@ enum APIConfiguration {
 
     /// The accounts that follow `handle` (`.followers`) or that it follows (`.following`): GET, newest first (`limit`,
     /// `cursor`), signed-in viewers only.
-    static func followListURL(handle: String, kind: FollowListKind, cursor: String? = nil, limit: Int? = nil) throws -> URL {
+    static func followListURL(handle: String, kind: FollowListKind, cursor: String? = nil, limit: Int? = nil) throws
+        -> URL
+    {
         let base = try apiBaseURL()
         let encoded = handle.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? handle
         guard
@@ -212,10 +215,12 @@ enum APIConfiguration {
     /// One comment, for DELETE by its author or the clip's owner.
     static func commentURL(videoID: UUID, commentID: UUID) throws -> URL {
         let base = try apiBaseURL()
-        guard let url = URL(
-            string: "v1/videos/\(videoID.uuidString)/comments/\(commentID.uuidString)",
-            relativeTo: base
-        ) else {
+        guard
+            let url = URL(
+                string: "v1/videos/\(videoID.uuidString)/comments/\(commentID.uuidString)",
+                relativeTo: base
+            )
+        else {
             throw APIConfigurationError.invalidBaseURL
         }
         return url

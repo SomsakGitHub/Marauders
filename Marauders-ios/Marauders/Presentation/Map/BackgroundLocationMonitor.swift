@@ -46,7 +46,8 @@ final class BackgroundLocationMonitor {
         locationManager: BackgroundLocationManaging = CLLocationManager(),
         report: ReportUserLocationUseCase,
         defaults: UserDefaults = .standard,
-        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = BackgroundLocationMonitor.beginBackgroundTask,
+        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = BackgroundLocationMonitor
+            .beginBackgroundTask,
         now: @escaping () -> Date = Date.init,
         isProtectedDataAvailable: @escaping () -> Bool = { UIApplication.shared.isProtectedDataAvailable },
         notificationCenter: NotificationCenter = .default
@@ -148,7 +149,7 @@ final class BackgroundLocationMonitor {
 
     private func handle(_ locations: [CLLocation]) {
         guard let fix = locations.last, fix.horizontalAccuracy >= 0,
-              now().timeIntervalSince(fix.timestamp) <= Self.maximumFixAge
+            now().timeIntervalSince(fix.timestamp) <= Self.maximumFixAge
         else { return }
         send(fix.coordinate)
     }
@@ -162,7 +163,7 @@ final class BackgroundLocationMonitor {
     private func send(_ coordinate: CLLocationCoordinate2D) {
         // A service that was just stopped can still hand over an event it had.
         guard isMonitoring,
-              let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         else { return }
         let generation = generation
         let release = holdAwake("Share location")

@@ -52,7 +52,8 @@ final class AppDependencyContainer {
             tokenStore = KeychainAPIAccessTokenStore()
             baseTransport = URLSessionHTTPClient()
         }
-        let authViewModel = AuthViewModel(sessionStore: sessionStore, tokenStore: tokenStore, signsInAsTestUserOnSimulator: true)
+        let authViewModel = AuthViewModel(
+            sessionStore: sessionStore, tokenStore: tokenStore, signsInAsTestUserOnSimulator: true)
         let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
         // Every API client talks through this one, so the Worker answering 401 to a request that carried the session's
         // token ends the session in one place, AuthViewModel, instead of in each client and screen.
@@ -65,15 +66,18 @@ final class AppDependencyContainer {
         } else if AppRuntimeConfiguration.isUITesting {
             self.feedRepository = UITestFeedRepository(mode: uiTestFeedMode)
         } else {
-            self.feedRepository = DefaultFeedRepository(apiClient: FeedAPIClient(
-                client: transport,
-                authorization: apiAuthorization
-            ))
+            self.feedRepository = DefaultFeedRepository(
+                apiClient: FeedAPIClient(
+                    client: transport,
+                    authorization: apiAuthorization
+                ))
         }
 
-        self.uploadRepository = uploadRepository ?? DefaultVideoUploadRepository(
-            apiClient: VideoUploadAPIClient(client: transport, authorization: apiAuthorization)
-        )
+        self.uploadRepository =
+            uploadRepository
+            ?? DefaultVideoUploadRepository(
+                apiClient: VideoUploadAPIClient(client: transport, authorization: apiAuthorization)
+            )
         self.videoExporter = videoExporter ?? DefaultVideoExporter()
 
         self.reportUserLocation = ReportUserLocationUseCase(
@@ -109,7 +113,8 @@ final class AppDependencyContainer {
                 apiClient: FollowsAPIClient(client: transport, authorization: apiAuthorization)
             )
         }
-        followsViewModel = UserFollowsViewModel(setFollow: SetUserFollowUseCase(repository: resolveUserFollowRepository))
+        followsViewModel = UserFollowsViewModel(
+            setFollow: SetUserFollowUseCase(repository: resolveUserFollowRepository))
 
         let resolveLocationSharingRepository: LocationSharingRepository
         if let locationSharingRepository {
@@ -126,7 +131,8 @@ final class AppDependencyContainer {
             loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
             setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),
             // UI tests have no location to send; the map there uses a fixed one.
-            reporter: AppRuntimeConfiguration.isUITesting ? nil : ForegroundLocationReporter(report: reportUserLocation),
+            reporter: AppRuntimeConfiguration.isUITesting
+                ? nil : ForegroundLocationReporter(report: reportUserLocation),
             backgroundMonitor: AppRuntimeConfiguration.isUITesting ? nil : Self.backgroundLocationMonitor
         )
 

@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Testing
+
 @testable import Marauders
 
 /// What `DubbingViewModel.prepare` decides: saved audio, a language the clip declares,
@@ -158,11 +159,14 @@ struct DubbingPlanTests {
         return url
     }
 
-    private func memo() -> DetectedLanguageMemo { DetectedLanguageMemo(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!) }
+    private func memo() -> DetectedLanguageMemo {
+        DetectedLanguageMemo(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!)
+    }
 
     private func clip(_ declared: SpokenLanguageAssessment? = nil) -> FeedVideo {
-        FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!,
-                  audioAssessment: ClipAudioAssessment(content: .speech, signal: .detected, spokenLanguage: declared))
+        FeedVideo(
+            streamURL: URL(string: "https://example.com/a.mp4")!,
+            audioAssessment: ClipAudioAssessment(content: .speech, signal: .detected, spokenLanguage: declared))
     }
 
     private struct Rig {
@@ -189,13 +193,16 @@ struct DubbingPlanTests {
         let asked = Counter()
         let memo = memo ?? self.memo()
         let consent = consent(declined: declined)
-        let model = DubbingViewModel(cache: cache, detector: detector, loader: loader, memo: memo,
-                                     models: models, acoustic: acoustic, consent: consent) {
+        let model = DubbingViewModel(
+            cache: cache, detector: detector, loader: loader, memo: memo,
+            models: models, acoustic: acoustic, consent: consent
+        ) {
             asked.count += 1
             return permission
         }
-        return Rig(model: model, cache: cache, detector: detector, loader: loader, memo: memo, permissionAsked: asked,
-                   models: models, acoustic: acoustic, consent: consent)
+        return Rig(
+            model: model, cache: cache, detector: detector, loader: loader, memo: memo, permissionAsked: asked,
+            models: models, acoustic: acoustic, consent: consent)
     }
 
     @Test func savedAudioWinsAndNeedsNoDetectionOrPermission() async throws {
@@ -207,7 +214,9 @@ struct DubbingPlanTests {
         #expect(rig.detector.candidates.isEmpty)
         #expect(rig.loader.loads == 0)
         #expect(rig.permissionAsked.count == 0)
-        #expect(rig.model.message == String(localized: "AI audio in \(ListeningLanguage.thai.sentenceName()) · using saved audio"))
+        #expect(
+            rig.model.message
+                == String(localized: "AI audio in \(ListeningLanguage.thai.sentenceName()) · using saved audio"))
     }
 
     @Test func aDeclaredLanguageSkipsDetectionAndTheDownload() async throws {
@@ -226,7 +235,10 @@ struct DubbingPlanTests {
         defer { try? FileManager.default.removeItem(at: file) }
         let rig = rig(file: file)
         #expect(await rig.model.prepare(clip: clip(.chosen("en")), target: .english) == .unavailable)
-        #expect(rig.model.message == DubbingError.alreadyInListeningLanguage(language: ListeningLanguage.english.sentenceName()).errorDescription)
+        #expect(
+            rig.model.message
+                == DubbingError.alreadyInListeningLanguage(language: ListeningLanguage.english.sentenceName())
+                .errorDescription)
         #expect(rig.cache.lookedUp.isEmpty)
     }
 
@@ -273,7 +285,10 @@ struct DubbingPlanTests {
         let rig = rig(detected: .init(code: "en", confidence: 0.9), file: file)
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .english) == .unavailable)
-        #expect(rig.model.message == DubbingError.alreadyInListeningLanguage(language: ListeningLanguage.english.sentenceName()).errorDescription)
+        #expect(
+            rig.model.message
+                == DubbingError.alreadyInListeningLanguage(language: ListeningLanguage.english.sentenceName())
+                .errorDescription)
         #expect(rig.memo.code(for: video.id) == "en")
     }
 
@@ -344,7 +359,8 @@ struct DubbingPlanTests {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         let models = FakeModels()
-        let rig = rig(file: file, models: models, acoustic: FakeAcoustic([.init(code: "ru", probability: 0.97)]), declined: false)
+        let rig = rig(
+            file: file, models: models, acoustic: FakeAcoustic([.init(code: "ru", probability: 0.97)]), declined: false)
         let seen = Seen()
         let model = rig.model
         // The status line is written by a task hopped onto the main actor; let it run before looking.
@@ -353,17 +369,19 @@ struct DubbingPlanTests {
             await MainActor.run { seen.messages.append(model.message ?? "nil") }
         }
         _ = await rig.model.prepare(clip: clip(), target: .thai, downloadingDetectionModel: true)
-        #expect(seen.messages == [
-            String(localized: "Downloading the language detection model… \(50)%"),
-            String(localized: "Preparing the language detection model on this iPhone…")
-        ])
+        #expect(
+            seen.messages == [
+                String(localized: "Downloading the language detection model… \(50)%"),
+                String(localized: "Preparing the language detection model on this iPhone…"),
+            ])
     }
 
     @Test func aDownloadAlreadyRunningIsJoinedNotAskedAboutAgain() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         let models = FakeModels(downloading: true)
-        let rig = rig(file: file, models: models, acoustic: FakeAcoustic([.init(code: "ru", probability: 0.99)]), declined: false)
+        let rig = rig(
+            file: file, models: models, acoustic: FakeAcoustic([.init(code: "ru", probability: 0.99)]), declined: false)
         #expect(await rig.model.prepare(clip: clip(), target: .thai) == .unavailable)
         #expect(models.installs == 1)
         let russian = ListeningLanguage.interfaceLocale.localizedString(forLanguageCode: "ru") ?? "ru"
@@ -373,7 +391,9 @@ struct DubbingPlanTests {
     @Test func aDoubtfulAnswerIsActedOnButNotRemembered() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(file: file, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "ru", probability: 0.85)]))
+        let rig = rig(
+            file: file, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "ru", probability: 0.85)]))
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .thai) == .unavailable)
         let russian = ListeningLanguage.interfaceLocale.localizedString(forLanguageCode: "ru") ?? "ru"
@@ -402,7 +422,9 @@ struct DubbingPlanTests {
     @Test func aNamedLanguageWeCanDubFromGoesStraightToTranslation() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(file: file, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "es", probability: 0.97)]))
+        let rig = rig(
+            file: file, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "es", probability: 0.97)]))
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .thai) == .translate(source: .spanish))
         #expect(rig.models.installs == 0)
@@ -414,16 +436,23 @@ struct DubbingPlanTests {
     @Test func aClipInTheViewersLanguageKeepsTheOriginalWhenTheModelSaysSo() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(file: file, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "th", probability: 0.97)]))
+        let rig = rig(
+            file: file, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "th", probability: 0.97)]))
         #expect(await rig.model.prepare(clip: clip(), target: .thai) == .unavailable)
-        #expect(rig.model.message == DubbingError.alreadyInListeningLanguage(language: ListeningLanguage.thai.sentenceName()).errorDescription)
+        #expect(
+            rig.model.message
+                == DubbingError.alreadyInListeningLanguage(language: ListeningLanguage.thai.sentenceName())
+                .errorDescription)
     }
 
     @Test func windowsThatDisagreeFallBackToTheRecognizers() async throws {
         let file = try longSpeechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         let acoustic = FakeAcoustic([.init(code: "nl", probability: 0.95), .init(code: "de", probability: 0.9)])
-        let rig = rig(detected: .init(code: "es", confidence: 0.9), file: file, models: FakeModels(installed: true), acoustic: acoustic)
+        let rig = rig(
+            detected: .init(code: "es", confidence: 0.9), file: file, models: FakeModels(installed: true),
+            acoustic: acoustic)
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .thai) == .translate(source: .spanish))
         #expect(acoustic.windowsAsked == 2)
@@ -436,7 +465,9 @@ struct DubbingPlanTests {
     @Test func anUnsureModelAndNoRecognizerAnswerMeansUndetected() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(detected: nil, file: file, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "nl", probability: 0.5)]))
+        let rig = rig(
+            detected: nil, file: file, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "nl", probability: 0.5)]))
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .thai) == .unavailable)
         #expect(rig.model.message == DubbingError.languageUndetected.errorDescription)
@@ -446,7 +477,9 @@ struct DubbingPlanTests {
     @Test func anUnsureModelAndDeniedPermissionMeansUndetectedNotAPermissionError() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(file: file, permission: false, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "nl", probability: 0.5)]))
+        let rig = rig(
+            file: file, permission: false, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "nl", probability: 0.5)]))
         #expect(await rig.model.prepare(clip: clip(), target: .thai) == .unavailable)
         #expect(rig.model.message == DubbingError.languageUndetected.errorDescription)
     }
@@ -454,9 +487,12 @@ struct DubbingPlanTests {
     @Test func aFailedDownloadStillLetsTheRecognizersHandleEnglishAndSpanish() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(detected: .init(code: "es", confidence: 0.9), file: file,
-                      models: FakeModels(failure: URLError(.notConnectedToInternet)), declined: false)
-        #expect(await rig.model.prepare(clip: clip(), target: .thai, downloadingDetectionModel: true) == .translate(source: .spanish))
+        let rig = rig(
+            detected: .init(code: "es", confidence: 0.9), file: file,
+            models: FakeModels(failure: URLError(.notConnectedToInternet)), declined: false)
+        #expect(
+            await rig.model.prepare(clip: clip(), target: .thai, downloadingDetectionModel: true)
+                == .translate(source: .spanish))
         #expect(rig.models.installs == 1)
         #expect(rig.permissionAsked.count == 1)
         rig.model.useOriginal()
@@ -474,7 +510,9 @@ struct DubbingPlanTests {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         // Speech permission was refused earlier; the viewer still needs to hear that the download failed.
-        let rig = rig(file: file, permission: false, models: FakeModels(failure: URLError(.notConnectedToInternet)), declined: false)
+        let rig = rig(
+            file: file, permission: false, models: FakeModels(failure: URLError(.notConnectedToInternet)),
+            declined: false)
         #expect(await rig.model.prepare(clip: clip(), target: .thai, downloadingDetectionModel: true) == .unavailable)
         #expect(rig.model.message == DubbingError.detectionModelDownloadFailed.errorDescription)
     }
@@ -485,7 +523,7 @@ struct DubbingPlanTests {
             (LanguageDetectionModelError.incompleteDownload, .detectionModelDownloadFailed),
             (CocoaError(.fileWriteOutOfSpace), .detectionModelNoSpace),
             (NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC)), .detectionModelNoSpace),
-            (URLError(.timedOut), .detectionModelDownloadFailed)
+            (URLError(.timedOut), .detectionModelDownloadFailed),
         ]
         for (failure, expected) in cases {
             let file = try speechFile()
@@ -555,7 +593,9 @@ struct DubbingPlanTests {
     @Test func aClipNamedDutchByTheModelIsDubbedFromDutch() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(file: file, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "nl", probability: 0.99)]))
+        let rig = rig(
+            file: file, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "nl", probability: 0.99)]))
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .thai) == .translate(source: .dutch))
         #expect(rig.memo.code(for: video.id) == "nl")
@@ -581,7 +621,9 @@ struct DubbingPlanTests {
         let rig = rig(file: file)
         let dutchViewer = try #require(ListeningLanguage(identifier: "nl"))
         #expect(await rig.model.prepare(clip: clip(.chosen("nl")), target: dutchViewer) == .unavailable)
-        #expect(rig.model.message == DubbingError.alreadyInListeningLanguage(language: dutchViewer.sentenceName()).errorDescription)
+        #expect(
+            rig.model.message
+                == DubbingError.alreadyInListeningLanguage(language: dutchViewer.sentenceName()).errorDescription)
     }
 
     // MARK: The Whisper model for Dutch
@@ -600,7 +642,9 @@ struct DubbingPlanTests {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         let rig = rig(file: file)
-        #expect(await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingSpeechModel: true) == .translate(source: .dutch))
+        #expect(
+            await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingSpeechModel: true)
+                == .translate(source: .dutch))
         #expect(rig.models.installs == 1)
         #expect(await rig.models.isInstalled())
         rig.model.useOriginal()
@@ -610,7 +654,9 @@ struct DubbingPlanTests {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         let rig = rig(file: file)
-        #expect(await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingDetectionModel: true) == .needsSpeechModel(.dutch))
+        #expect(
+            await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingDetectionModel: true)
+                == .needsSpeechModel(.dutch))
         #expect(rig.models.installs == 0)
     }
 
@@ -627,7 +673,9 @@ struct DubbingPlanTests {
     @Test func theModelOfADetectedDutchClipIsAlreadyThereSoNothingIsAskedAgain() async throws {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
-        let rig = rig(file: file, models: FakeModels(installed: true), acoustic: FakeAcoustic([.init(code: "nl", probability: 0.99)]))
+        let rig = rig(
+            file: file, models: FakeModels(installed: true),
+            acoustic: FakeAcoustic([.init(code: "nl", probability: 0.99)]))
         let video = clip()
         #expect(await rig.model.prepare(clip: video, target: .thai) == .translate(source: .dutch))
         #expect(rig.models.installs == 0)
@@ -647,10 +695,11 @@ struct DubbingPlanTests {
         }
         _ = await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingSpeechModel: true)
         let dutch = DubbingSourceLanguage.dutch.displayName()
-        #expect(seen.messages == [
-            String(localized: "Downloading the \(dutch) speech model… \(50)%"),
-            String(localized: "Preparing the language detection model on this iPhone…")
-        ])
+        #expect(
+            seen.messages == [
+                String(localized: "Downloading the \(dutch) speech model… \(50)%"),
+                String(localized: "Preparing the language detection model on this iPhone…"),
+            ])
         rig.model.useOriginal()
     }
 
@@ -658,15 +707,20 @@ struct DubbingPlanTests {
         let file = try speechFile()
         defer { try? FileManager.default.removeItem(at: file) }
         let rig = rig(file: file, models: FakeModels(failure: URLError(.notConnectedToInternet)))
-        #expect(await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingSpeechModel: true) == .unavailable)
-        #expect(rig.model.message == DubbingError.speechModelDownloadFailed(language: DubbingSourceLanguage.dutch.displayName()).errorDescription)
+        #expect(
+            await rig.model.prepare(clip: clip(.chosen("nl")), target: .thai, downloadingSpeechModel: true)
+                == .unavailable)
+        #expect(
+            rig.model.message
+                == DubbingError.speechModelDownloadFailed(language: DubbingSourceLanguage.dutch.displayName())
+                .errorDescription)
         #expect(!rig.model.isProcessing)
     }
 
     @Test func aFullPhoneOrAModelThatWillNotLoadKeepsItsOwnMessageForDutchToo() async throws {
         let cases: [(Error, DubbingError)] = [
             (CocoaError(.fileWriteOutOfSpace), .detectionModelNoSpace),
-            (LanguageDetectionModelError.unusable, .detectionModelUnusable)
+            (LanguageDetectionModelError.unusable, .detectionModelUnusable),
         ]
         for (failure, expected) in cases {
             let file = try speechFile()
@@ -720,7 +774,10 @@ struct DubbingPlanTests {
         defer { try? FileManager.default.removeItem(at: file) }
         let rig = rig(file: file)
         rig.model.declineSpeechModel(for: .dutch)
-        #expect(rig.model.message == DubbingError.speechModelDeclined(language: DubbingSourceLanguage.dutch.displayName()).errorDescription)
+        #expect(
+            rig.model.message
+                == DubbingError.speechModelDeclined(language: DubbingSourceLanguage.dutch.displayName())
+                .errorDescription)
         #expect(!rig.model.isProcessing)
     }
 
@@ -742,12 +799,15 @@ struct DutchTranscriptionTests {
         AcousticTranscript(text: text, confidence: confidence)
     }
 
-    private func run(_ outcome: DubbingPlanTests.TranscriberOutcome) async throws -> (text: String?, error: DubbingError?, asked: [(file: URL, language: String)]) {
+    private func run(_ outcome: DubbingPlanTests.TranscriberOutcome) async throws -> (
+        text: String?, error: DubbingError?, asked: [(file: URL, language: String)]
+    ) {
         let transcriber = DubbingPlanTests.makeTranscriber(outcome)
         let model = DubbingViewModel(transcriber: transcriber)
         let clip = URL(fileURLWithPath: "/tmp/clip.mp4")
         do {
-            let text = try await model.transcribeClip(at: clip, in: URL(fileURLWithPath: "/tmp"), language: .dutch, speech: nil, current: model.generation)
+            let text = try await model.transcribeClip(
+                at: clip, in: URL(fileURLWithPath: "/tmp"), language: .dutch, speech: nil, current: model.generation)
             return (text, nil, DubbingPlanTests.requests(of: transcriber))
         } catch let error as DubbingError {
             return (nil, error, DubbingPlanTests.requests(of: transcriber))
@@ -755,7 +815,8 @@ struct DutchTranscriptionTests {
     }
 
     @Test func theWholeClipGoesToTheModelInOneCallInTheClipsLanguage() async throws {
-        let result = try await run(.transcript(transcript("Goeiemorgen, kan ik u helpen? Dan wil ik graag een kilo tomaten.")))
+        let result = try await run(
+            .transcript(transcript("Goeiemorgen, kan ik u helpen? Dan wil ik graag een kilo tomaten.")))
         #expect(result.text == "Goeiemorgen, kan ik u helpen? Dan wil ik graag een kilo tomaten.")
         #expect(result.asked.count == 1)
         #expect(result.asked.first?.file.lastPathComponent == "clip.mp4")
@@ -763,17 +824,23 @@ struct DutchTranscriptionTests {
     }
 
     @Test func nothingHeardIsUnclearSpeech() async throws {
-        #expect(try await run(.transcript(transcript("", confidence: 0))).error?.errorDescription == DubbingError.speechUnclear.errorDescription)
+        #expect(
+            try await run(.transcript(transcript("", confidence: 0))).error?.errorDescription
+                == DubbingError.speechUnclear.errorDescription)
     }
 
     @Test func textThatDoesNotReadAsDutchIsRejectedBeforeItIsTranslatedAndShared() async throws {
         let english = "Good morning, can I help you? I would like a kilo of tomatoes and two cucumbers please."
-        #expect(try await run(.transcript(transcript(english))).error?.errorDescription == DubbingError.speechUnclear.errorDescription)
+        #expect(
+            try await run(.transcript(transcript(english))).error?.errorDescription
+                == DubbingError.speechUnclear.errorDescription)
     }
 
     @Test func textHeardWithTooLittleConfidenceIsRejected() async throws {
         let dutch = "Goeiemorgen, kan ik u helpen? Dan wil ik graag een kilo tomaten."
-        #expect(try await run(.transcript(transcript(dutch, confidence: 0.3))).error?.errorDescription == DubbingError.speechUnclear.errorDescription)
+        #expect(
+            try await run(.transcript(transcript(dutch, confidence: 0.3))).error?.errorDescription
+                == DubbingError.speechUnclear.errorDescription)
     }
 
     @Test func aModelThatIsGoneMeansThisIPhoneIsNotReady() async throws {

@@ -1,12 +1,14 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
 struct DubbingSourceLanguageTests {
     private func clip(_ language: SpokenLanguageAssessment?) -> FeedVideo {
-        FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!,
-                  audioAssessment: ClipAudioAssessment(content: .speech, signal: .detected, spokenLanguage: language))
+        FeedVideo(
+            streamURL: URL(string: "https://example.com/a.mp4")!,
+            audioAssessment: ClipAudioAssessment(content: .speech, signal: .detected, spokenLanguage: language))
     }
 
     @Test func codesMapToSupportedSourcesIgnoringRegionAndCase() {

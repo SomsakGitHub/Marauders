@@ -45,7 +45,8 @@ struct ClipLocationPickerView: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(result.name).font(.body.weight(.medium)).foregroundStyle(.primary)
                                             if !result.address.isEmpty {
-                                                Text(result.address).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                                Text(result.address).font(.caption).foregroundStyle(.secondary)
+                                                    .lineLimit(2)
                                             }
                                         }
                                         Spacer()
@@ -131,7 +132,9 @@ struct ClipLocationPickerView: View {
                     pickerModel.searchQuery = ""
                     pickerModel.cancelSearch()
                     searchIsFocused = true
-                } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
                 .accessibilityLabel("Clear search")
             }
 
@@ -144,7 +147,10 @@ struct ClipLocationPickerView: View {
                     Text("Search")
                 }
             }
-            .disabled(pickerModel.isSearching || pickerModel.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < 2)
+            .disabled(
+                pickerModel.isSearching
+                    || pickerModel.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < 2
+            )
             .accessibilityIdentifier("upload.clipLocationPicker.searchButton")
         }
         .padding(12)

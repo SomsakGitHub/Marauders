@@ -30,30 +30,39 @@ struct LanguageModel: Identifiable, Hashable, Sendable {
         var models: [LanguageModel] = []
         for target in targets {
             for source in DubbingSourceLanguage.allCases where source.translationCode != target.code {
-                models.append(.init(
-                    id: "translation.\(source.translationCode)-\(target.code)",
-                    kind: .translation(source: source.translationCode, target: target.code),
-                    title: "\(source.displayName(in: locale)) → \(target.displayName(in: locale))",
-                    detail: String(localized: "Used by AI dubbing")
-                ))
+                models.append(
+                    .init(
+                        id: "translation.\(source.translationCode)-\(target.code)",
+                        kind: .translation(source: source.translationCode, target: target.code),
+                        title: "\(source.displayName(in: locale)) → \(target.displayName(in: locale))",
+                        detail: String(localized: "Used by AI dubbing")
+                    ))
             }
         }
         return models
     }
 
     static let speechModels: [LanguageModel] = [
-        .init(id: "speech.en-US", kind: .speech(locale: "en-US"),
-              title: ListeningLanguage.english.displayName(), detail: String(localized: "Speech recognition")),
-        .init(id: "speech.th-TH", kind: .speech(locale: "th-TH"),
-              title: ListeningLanguage.thai.displayName(), detail: String(localized: "Speech recognition")),
-        .init(id: "speech.es-ES", kind: .speech(locale: "es-ES"),
-              title: ListeningLanguage.spanish.displayName(), detail: String(localized: "Transcribes Spanish clips for dubbing"))
+        .init(
+            id: "speech.en-US", kind: .speech(locale: "en-US"),
+            title: ListeningLanguage.english.displayName(), detail: String(localized: "Speech recognition")),
+        .init(
+            id: "speech.th-TH", kind: .speech(locale: "th-TH"),
+            title: ListeningLanguage.thai.displayName(), detail: String(localized: "Speech recognition")),
+        .init(
+            id: "speech.es-ES", kind: .speech(locale: "es-ES"),
+            title: ListeningLanguage.spanish.displayName(),
+            detail: String(localized: "Transcribes Spanish clips for dubbing")),
     ]
 
     static let detectionModels: [LanguageModel] = [
-        .init(id: "detection.whisper-base", kind: .languageDetection,
-              title: String(localized: "Language detection model"),
-              detail: String(localized: "Names the language of a clip and transcribes Dutch · about \(LanguageDetectionModel.approximateMegabytes) MB"))
+        .init(
+            id: "detection.whisper-base", kind: .languageDetection,
+            title: String(localized: "Language detection model"),
+            detail: String(
+                localized:
+                    "Names the language of a clip and transcribes Dutch · about \(LanguageDetectionModel.approximateMegabytes) MB"
+            ))
     ]
 }
 

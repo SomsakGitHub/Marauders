@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -10,25 +11,32 @@ struct FeedStartupCacheTests {
     private func clip(_ index: Int) -> FeedVideo {
         FeedVideo(streamURL: URL(string: "https://example.com/\(index).mp4")!, caption: "clip \(index)")
     }
-    private func cache(_ directory: URL, limit: Int64 = 1024, lifetime: TimeInterval = 3600,
-                       body: Data = Data([1, 2, 3]), status: Int = 200) -> FeedStartupCache {
-        FeedStartupCache(directory: directory, download: { request, _ in
-            let temporary = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-            try body.write(to: temporary)
-            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
-                                           headerFields: ["Content-Type": "video/mp4"])!
-            return (temporary, response)
-        }, maxFileBytes: limit, lifetime: lifetime, validate: { url in
-            (try? Data(contentsOf: url)) == Data([1, 2, 3])
-        })
+    private func cache(
+        _ directory: URL, limit: Int64 = 1024, lifetime: TimeInterval = 3600,
+        body: Data = Data([1, 2, 3]), status: Int = 200
+    ) -> FeedStartupCache {
+        FeedStartupCache(
+            directory: directory,
+            download: { request, _ in
+                let temporary = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try body.write(to: temporary)
+                let response = HTTPURLResponse(
+                    url: request.url!, statusCode: status, httpVersion: nil,
+                    headerFields: ["Content-Type": "video/mp4"])!
+                return (temporary, response)
+            }, maxFileBytes: limit, lifetime: lifetime,
+            validate: { url in
+                (try? Data(contentsOf: url)) == Data([1, 2, 3])
+            })
     }
 
     @Test func sessionCacheSeparatesAccountsAndSurvivesReopen() async throws {
         let directory = folder()
         defer { try? FileManager.default.removeItem(at: directory) }
         var token: String? = "account-a-session"
-        let scoped = SessionFeedStartupCache(directory: directory, tokenProvider: { token },
-                                            makeCache: { cache($0) })
+        let scoped = SessionFeedStartupCache(
+            directory: directory, tokenProvider: { token },
+            makeCache: { cache($0) })
         let video = clip(1)
         await scoped.store([video])
         #expect(await scoped.cachedVideos() == [video])
@@ -38,8 +46,9 @@ struct FeedStartupCacheTests {
         token = nil
         #expect(await scoped.cachedVideos().isEmpty)
         token = "account-a-session"
-        let reopened = SessionFeedStartupCache(directory: directory, tokenProvider: { token },
-                                              makeCache: { cache($0) })
+        let reopened = SessionFeedStartupCache(
+            directory: directory, tokenProvider: { token },
+            makeCache: { cache($0) })
         #expect(await reopened.cachedVideos() == [video])
         let paths = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         #expect(paths.allSatisfy { !$0.contains("account-a-session") })
@@ -69,9 +78,11 @@ struct FeedStartupCacheTests {
     }
 
     @Test func rejectsOversizedIncompleteAndHTTPErrorDownloads() async {
-        for (limit, body, status) in [(Int64(2), Data([1, 2, 3]), 200),
-                                     (Int64(1024), Data([9]), 200),
-                                     (Int64(1024), Data([1, 2, 3]), 503)] {
+        for (limit, body, status) in [
+            (Int64(2), Data([1, 2, 3]), 200),
+            (Int64(1024), Data([9]), 200),
+            (Int64(1024), Data([1, 2, 3]), 503),
+        ] {
             let directory = folder()
             await cache(directory, limit: limit, body: body, status: status).store([clip(1)])
             #expect(await cache(directory).cachedVideos().isEmpty)

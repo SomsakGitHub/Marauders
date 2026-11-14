@@ -37,10 +37,10 @@ struct ContentView: View {
                 likesViewModel: clipLikesViewModel,
                 followsViewModel: followsViewModel
             )
-                .tabItem {
-                    Label("Feed", systemImage: "play.rectangle.fill")
-                }
-                .tag(MainTab.feed)
+            .tabItem {
+                Label("Feed", systemImage: "play.rectangle.fill")
+            }
+            .tag(MainTab.feed)
 
             MapTabView(
                 authViewModel: authViewModel,
@@ -53,10 +53,10 @@ struct ContentView: View {
                 onOpenProfile: { router.openPublicProfile(handle: $0) },
                 friendLocations: friendLocationsViewModel
             )
-                .tabItem {
-                    Label("Map", systemImage: "map.fill")
-                }
-                .tag(MainTab.map)
+            .tabItem {
+                Label("Map", systemImage: "map.fill")
+            }
+            .tag(MainTab.map)
 
             ProfileTabView(
                 authViewModel: authViewModel,
@@ -64,39 +64,39 @@ struct ContentView: View {
                 navigation: profileNavigation,
                 onSignIn: { showingSignIn = true }
             )
-                .tabItem {
-                    Label("Profile", systemImage: "person.crop.circle.fill")
-                }
-                .tag(MainTab.profile)
+            .tabItem {
+                Label("Profile", systemImage: "person.crop.circle.fill")
+            }
+            .tag(MainTab.profile)
 
             UploadTabView(
                 authViewModel: authViewModel,
                 uploadViewModel: uploadViewModel,
                 onSignIn: { showingSignIn = true }
             )
-                .tabItem {
-                    Label("Upload", systemImage: "plus.circle.fill")
-                }
-                .tag(MainTab.upload)
+            .tabItem {
+                Label("Upload", systemImage: "plus.circle.fill")
+            }
+            .tag(MainTab.upload)
 
             SettingsView(
                 languageModels: languageModelsViewModel,
                 friendLocations: friendLocationsViewModel,
                 isSignedIn: authViewModel.isSignedIn
             )
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
-                .tag(MainTab.settings)
+            .tabItem {
+                Label("Settings", systemImage: "gearshape.fill")
+            }
+            .tag(MainTab.settings)
 
             #if DEBUG
-            NavigationStack {
-                DebugLogView()
-            }
-            .tabItem {
-                Label("Log", systemImage: "ladybug.fill")
-            }
-            .tag(MainTab.log)
+                NavigationStack {
+                    DebugLogView()
+                }
+                .tabItem {
+                    Label("Log", systemImage: "ladybug.fill")
+                }
+                .tag(MainTab.log)
             #endif
         }
         .onAppear {

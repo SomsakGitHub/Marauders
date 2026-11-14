@@ -11,8 +11,9 @@ enum LanguageEvidence {
         let detector = NLLanguageRecognizer()
         detector.processString(text)
         guard let best = detector.languageHypotheses(withMaximum: 2).max(by: { $0.value < $1.value }),
-              best.key.rawValue.split(separator: "-").first.map({ String($0).lowercased() }) == requestedLanguage,
-              best.value >= 0.8 else { return nil }
+            best.key.rawValue.split(separator: "-").first.map({ String($0).lowercased() }) == requestedLanguage,
+            best.value >= 0.8
+        else { return nil }
         return SpeechLanguageDetection(code: requestedLanguage, confidence: min(best.value, speechConfidence))
     }
 }
@@ -30,8 +31,11 @@ extension LanguageEvidence {
         guard letters >= 12 else { return true }
         let recognizer = NLLanguageRecognizer()
         recognizer.processString(text)
-        guard let best = recognizer.languageHypotheses(withMaximum: 3).max(by: { $0.value < $1.value }) else { return false }
-        return best.key.rawValue.split(separator: "-").first.map { String($0).lowercased() } == languageCode && best.value >= 0.6
+        guard let best = recognizer.languageHypotheses(withMaximum: 3).max(by: { $0.value < $1.value }) else {
+            return false
+        }
+        return best.key.rawValue.split(separator: "-").first.map { String($0).lowercased() } == languageCode
+            && best.value >= 0.6
     }
 }
 
@@ -41,7 +45,8 @@ protocol SpeechEvidenceProviding {
     func installed(_ candidates: [SpeechLanguageCandidate]) async -> [SpeechLanguageCandidate]
     /// Transcribes `sample` as `candidate` and reports the language the text reads as, or nil when
     /// nothing usable came out. May download that language's speech model when `allowsDownload`.
-    func evidence(for candidate: SpeechLanguageCandidate, sample: URL, allowsDownload: Bool) async -> SpeechLanguageDetection?
+    func evidence(for candidate: SpeechLanguageCandidate, sample: URL, allowsDownload: Bool) async
+        -> SpeechLanguageDetection?
 }
 
 /// Detects the spoken language by recognizing a short sample as each candidate and checking what
@@ -82,7 +87,9 @@ final class StagedClipLanguageDetector: ClipLanguageDetecting {
     }
 
     /// Runs the candidates together, so the wait is the slowest one rather than their sum.
-    private func gather(_ candidates: [SpeechLanguageCandidate], sample: URL, allowsDownload: Bool) async -> [SpeechLanguageDetection] {
+    private func gather(_ candidates: [SpeechLanguageCandidate], sample: URL, allowsDownload: Bool) async
+        -> [SpeechLanguageDetection]
+    {
         let provider = provider
         let tasks = candidates.map { candidate in
             Task { await provider.evidence(for: candidate, sample: sample, allowsDownload: allowsDownload) }
@@ -102,7 +109,10 @@ final class StagedClipLanguageDetector: ClipLanguageDetecting {
         let sorted = evidence.sorted { $0.confidence > $1.confidence }
         guard let best = sorted.first else { return nil }
         if let other = sorted.dropFirst().first(where: { $0.code != best.code }),
-           best.confidence - other.confidence < ambiguityMargin { return nil }
+            best.confidence - other.confidence < ambiguityMargin
+        {
+            return nil
+        }
         if DubbingSourceLanguage(code: best.code) == nil, best.confidence < ownLanguageFloor { return nil }
         return best
     }

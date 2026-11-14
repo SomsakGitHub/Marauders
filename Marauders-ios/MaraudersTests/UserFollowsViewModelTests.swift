@@ -16,7 +16,7 @@ struct UserFollowsViewModelTests {
 
     private func makeSUT(
         _ results: [Result<UserFollowChange, Error>] = [
-            .success(UserFollowChange(following: true, followerCount: 4, viewerFollowingCount: 1)),
+            .success(UserFollowChange(following: true, followerCount: 4, viewerFollowingCount: 1))
         ]
     ) -> (UserFollowsViewModel, StubUserFollowRepository) {
         let repository = StubUserFollowRepository(results: results)
@@ -25,7 +25,7 @@ struct UserFollowsViewModelTests {
 
     /// Waits, for up to two seconds, for work the view model starts as a task of its own.
     private func waitUntil(_ condition: () -> Bool) async {
-        for _ in 0 ..< 200 where !condition() {
+        for _ in 0..<200 where !condition() {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }

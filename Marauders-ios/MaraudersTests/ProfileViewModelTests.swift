@@ -18,7 +18,8 @@ struct ProfileViewModelTests {
     ) -> (ProfileViewModel, StubUserProfileRepository) {
         let repository = StubUserProfileRepository(result: result)
         repository.deleteResult = deleteResult
-        let served: UserProfileRepository = gate.map { GatedProfileRepository(base: repository, gate: $0) } ?? repository
+        let served: UserProfileRepository =
+            gate.map { GatedProfileRepository(base: repository, gate: $0) } ?? repository
         let viewModel = ProfileViewModel(
             loadProfile: LoadUserProfileUseCase(repository: served),
             deleteClip: DeleteUserClipUseCase(repository: served),
@@ -387,7 +388,9 @@ struct ProfileViewModelTests {
         #expect(viewModel.deleteErrorMessage == nil)
         await endSessionWhileOut(viewModel, repository, gate) { _ = await viewModel.updateHandle("@taken") }
         #expect(viewModel.handleErrorMessage == nil)
-        await endSessionWhileOut(viewModel, repository, gate) { _ = await viewModel.updateAvatar(rawImageData: Data([0xAA])) }
+        await endSessionWhileOut(viewModel, repository, gate) {
+            _ = await viewModel.updateAvatar(rawImageData: Data([0xAA]))
+        }
         #expect(viewModel.avatarErrorMessage == nil)
     }
 
@@ -428,7 +431,9 @@ struct ProfileViewModelTests {
         var deleted: [UUID] = []
         viewModel.onClipDeleted = { deleted.append($0) }
 
-        await endSessionWhileOut(viewModel, repository, gate, thenSignInAs: UserProfile(handle: "@second", videoCount: 3)) {
+        await endSessionWhileOut(
+            viewModel, repository, gate, thenSignInAs: UserProfile(handle: "@second", videoCount: 3)
+        ) {
             await viewModel.delete(clip)
         }
 
@@ -439,7 +444,8 @@ struct ProfileViewModelTests {
     // MARK: - Follow counts
 
     @Test func aFollowOrUnfollowShowsTheNewFollowingCountWithoutAReload() async {
-        let (viewModel, repository) = makeSUT(result: .success(UserProfile(handle: "@me", followerCount: 4, followingCount: 2)))
+        let (viewModel, repository) = makeSUT(
+            result: .success(UserProfile(handle: "@me", followerCount: 4, followingCount: 2)))
         await viewModel.loadIfNeeded()
 
         viewModel.applyFollowingCount(3)
@@ -452,9 +458,10 @@ struct ProfileViewModelTests {
 
     @Test func aHandleAvatarOrClipChangeKeepsTheFollowCounts() async {
         let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
-        let (viewModel, _) = makeSUT(result: .success(
-            UserProfile(handle: "@me", videoCount: 1, videos: [clip], followerCount: 4, followingCount: 2)
-        ))
+        let (viewModel, _) = makeSUT(
+            result: .success(
+                UserProfile(handle: "@me", videoCount: 1, videos: [clip], followerCount: 4, followingCount: 2)
+            ))
         await viewModel.loadIfNeeded()
 
         _ = await viewModel.updateHandle("@new")
@@ -505,7 +512,9 @@ private actor ProfileRequestGate {
     func pass() async {
         guard holdsNext else { return }
         holdsNext = false
-        await withCheckedContinuation { held = $0; waiter?.resume(); waiter = nil }
+        await withCheckedContinuation {
+            held = $0; waiter?.resume(); waiter = nil
+        }
     }
 
     func waitUntilHeld() async {

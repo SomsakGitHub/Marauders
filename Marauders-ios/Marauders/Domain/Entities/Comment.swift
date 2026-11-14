@@ -66,7 +66,9 @@ nonisolated enum CommentRules {
     static func hasVisibleCharacter(_ text: String) -> Bool {
         text.unicodeScalars.contains { scalar in
             let properties = scalar.properties
-            if properties.isWhitespace || properties.isDefaultIgnorableCodePoint || properties.generalCategory == .control {
+            if properties.isWhitespace || properties.isDefaultIgnorableCodePoint
+                || properties.generalCategory == .control
+            {
                 return false
             }
             return scalar.value != 0x2800 && scalar.value != 0xFFFC

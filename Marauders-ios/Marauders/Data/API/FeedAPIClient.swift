@@ -39,7 +39,8 @@ struct FeedAPIClient: Sendable {
         maxAttempts: Int = FeedAPIClient.defaultMaxAttempts,
         authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
-        self.init(client: URLSessionHTTPClient(session: session), maxAttempts: maxAttempts, authorization: authorization)
+        self.init(
+            client: URLSessionHTTPClient(session: session), maxAttempts: maxAttempts, authorization: authorization)
     }
 
     init(
@@ -59,7 +60,9 @@ struct FeedAPIClient: Sendable {
         retryDelayNs: @escaping @Sendable (Int) -> UInt64,
         authorization: any APIAuthorization = NoAPIAuthorization()
     ) {
-        self.init(client: URLSessionHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs, authorization: authorization)
+        self.init(
+            client: URLSessionHTTPClient(session: session), maxAttempts: maxAttempts, retryDelayNs: retryDelayNs,
+            authorization: authorization)
     }
 
     init(
@@ -74,10 +77,12 @@ struct FeedAPIClient: Sendable {
         self.retryDelayNs = retryDelayNs
     }
 
-    func fetchFeed(limit: Int = 20, cursor: UUID? = nil, country: String? = nil, forMap: Bool = false) async throws -> FeedPage {
+    func fetchFeed(limit: Int = 20, cursor: UUID? = nil, country: String? = nil, forMap: Bool = false) async throws
+        -> FeedPage
+    {
         var lastError: Error?
 
-        for attempt in 0 ..< maxAttempts {
+        for attempt in 0..<maxAttempts {
             do {
                 return try await performFetchFeed(limit: limit, cursor: cursor, country: country, forMap: forMap)
             } catch {
@@ -102,7 +107,8 @@ struct FeedAPIClient: Sendable {
     }
 
     private func performFetchFeed(limit: Int, cursor: UUID?, country: String?, forMap: Bool) async throws -> FeedPage {
-        let requestURL = try APIConfiguration.feedRequestURL(limit: limit, cursor: cursor, country: country, forMap: forMap)
+        let requestURL = try APIConfiguration.feedRequestURL(
+            limit: limit, cursor: cursor, country: country, forMap: forMap)
         AppLog.info("api.feed", "GET \(requestURL.absoluteString)")
 
         var request = URLRequest(url: requestURL)

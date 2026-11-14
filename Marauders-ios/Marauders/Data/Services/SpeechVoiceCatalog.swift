@@ -12,7 +12,9 @@ enum SpeechVoiceCatalog {
     }
 
     /// Languages whose regions sound quite different keep a conventional default.
-    private static let preferredRegions = ["ar": "SA", "de": "DE", "en": "US", "es": "ES", "fr": "FR", "pt": "BR", "zh": "CN"]
+    private static let preferredRegions = [
+        "ar": "SA", "de": "DE", "en": "US", "es": "ES", "fr": "FR", "pt": "BR", "zh": "CN",
+    ]
 
     static func candidates(_ voices: [AVSpeechSynthesisVoice] = AVSpeechSynthesisVoice.speechVoices()) -> [Candidate] {
         voices.map { Candidate(identifier: $0.identifier, language: $0.language, quality: $0.quality.rawValue) }
@@ -25,7 +27,8 @@ enum SpeechVoiceCatalog {
         func rank(_ candidate: Candidate) -> Int {
             Locale(identifier: candidate.language).region?.identifier == region ? 0 : 1
         }
-        return candidates
+        return
+            candidates
             .filter { ListeningLanguage(identifier: $0.language) == language && !isNovelty($0.identifier) }
             .sorted { lhs, rhs in
                 if rank(lhs) != rank(rhs) { return rank(lhs) < rank(rhs) }

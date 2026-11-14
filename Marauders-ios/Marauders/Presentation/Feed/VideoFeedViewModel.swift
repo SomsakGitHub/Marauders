@@ -77,7 +77,8 @@ final class VideoFeedViewModel {
             guard !Task.isCancelled else { return }
             let generation = reloadGeneration
             if let cached = await startupCache?.cachedVideos(), !cached.isEmpty,
-               generation == reloadGeneration, loadState == .idle {
+                generation == reloadGeneration, loadState == .idle
+            {
                 restoredStartupCache = true
                 videos = cached
                 loadState = .loaded
@@ -102,7 +103,7 @@ final class VideoFeedViewModel {
                 try await Task.sleep(for: .seconds(3))
                 AppLog.info("startup.cache", "fill started clips=\(candidates.count)")
                 await startupCache.store(candidates)
-            } catch { }
+            } catch {}
         }
     }
 

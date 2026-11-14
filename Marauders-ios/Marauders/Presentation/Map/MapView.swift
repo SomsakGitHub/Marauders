@@ -103,7 +103,9 @@ struct MapView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time.")
+            Text(
+                "People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time."
+            )
         }
         .alert("Couldn't change location sharing", isPresented: sharingErrorBinding) {
             Button("OK", role: .cancel) {}
@@ -116,13 +118,16 @@ struct MapView: View {
                 position = .region(region)
             }
         }
-        .fullScreenCover(item: $selectedClip, onDismiss: {
-            // A sheet presented while the cover is still leaving is dropped, so the profile waits for the dismissal.
-            if let handle = profileHandleAfterDismiss {
-                profileHandleAfterDismiss = nil
-                onOpenProfile(handle)
+        .fullScreenCover(
+            item: $selectedClip,
+            onDismiss: {
+                // A sheet presented while the cover is still leaving is dropped, so the profile waits for the dismissal.
+                if let handle = profileHandleAfterDismiss {
+                    profileHandleAfterDismiss = nil
+                    onOpenProfile(handle)
+                }
             }
-        }) { clip in
+        ) { clip in
             ClipPlayerView(
                 clip: clip,
                 userCoordinate: viewModel.userCoordinate,
@@ -246,7 +251,10 @@ struct MapView: View {
             .padding(.vertical, 6)
             .frame(minHeight: 44)
             .background(.ultraThinMaterial, in: Capsule())
-            .overlay { Capsule().strokeBorder(isSharing ? Color.green : Color.secondary.opacity(0.3), lineWidth: isSharing ? 1.5 : 0.5) }
+            .overlay {
+                Capsule().strokeBorder(
+                    isSharing ? Color.green : Color.secondary.opacity(0.3), lineWidth: isSharing ? 1.5 : 0.5)
+            }
             .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
         }
         .disabled(friendLocations?.sharing == nil || friendLocations?.isChangingSharing == true)

@@ -73,8 +73,10 @@ final class UserFollowsViewModel {
     /// caller makes sure the viewer is signed in and the account is not their own.
     func toggle(_ handle: String, fallback: Bool) {
         let key = UserHandle.normalized(handle)
-        var entry = entries[key]
-            ?? Entry(shown: fallback, confirmed: fallback, shownCount: nil, confirmedCount: nil, wanted: nil, settledAt: -1)
+        var entry =
+            entries[key]
+            ?? Entry(
+                shown: fallback, confirmed: fallback, shownCount: nil, confirmedCount: nil, wanted: nil, settledAt: -1)
         let following = !entry.shown
         entry.shown = following
         entry.shownCount = entry.shownCount.map { max(0, $0 + (following ? 1 : -1)) }
@@ -109,7 +111,8 @@ final class UserFollowsViewModel {
         if let entry = entries[key], entry.wanted != nil || entry.settledAt > stamp.tick { return }
         let count = max(0, followerCount)
         entries[key] = Entry(
-            shown: following, confirmed: following, shownCount: count, confirmedCount: count, wanted: nil, settledAt: stamp.tick
+            shown: following, confirmed: following, shownCount: count, confirmedCount: count, wanted: nil,
+            settledAt: stamp.tick
         )
     }
 

@@ -134,7 +134,9 @@ struct VideoUploadAPIClient: Sendable {
             .field(name: "latitude", value: String(clipLocation.latitude)),
             .field(name: "longitude", value: String(clipLocation.longitude)),
         ]
-        if let audioAssessment, let data = try? JSONEncoder().encode(audioAssessment), let json = String(data: data, encoding: .utf8) {
+        if let audioAssessment, let data = try? JSONEncoder().encode(audioAssessment),
+            let json = String(data: data, encoding: .utf8)
+        {
             parts.append(.field(name: "audioAssessment", value: json))
         }
         let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)

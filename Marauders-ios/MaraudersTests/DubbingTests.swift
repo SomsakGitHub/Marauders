@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Testing
+
 @testable import Marauders
 
 @MainActor
@@ -19,7 +20,12 @@ struct DubbingTests {
             buffer.floatChannelData![1][frame] = value
         }
         do {
-            let file = try AVAudioFile(forWriting: source, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2, AVLinearPCMBitDepthKey: 16])
+            let file = try AVAudioFile(
+                forWriting: source,
+                settings: [
+                    AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2,
+                    AVLinearPCMBitDepthKey: 16,
+                ])
             for _ in 0..<141 { try file.write(from: buffer) }
         }
         let segments = try await SpeechAudioPreparation.chunks(from: source, directory: directory)

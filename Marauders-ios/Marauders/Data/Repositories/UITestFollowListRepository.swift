@@ -23,11 +23,13 @@ final class UITestFollowListRepository: FollowListRepository, @unchecked Sendabl
         switch kind {
         case .followers:
             let viewerFollowsOwner = !ownerIsViewer && follows.isFollowing(owner)
-            entries = viewerFollowsOwner
+            entries =
+                viewerFollowsOwner
                 ? [FollowListEntry(handle: Self.viewerHandle, avatarURL: nil, followedByViewer: false, isViewer: true)]
                 : []
         case .following:
-            entries = ownerIsViewer
+            entries =
+                ownerIsViewer
                 ? follows.followedHandles.map {
                     FollowListEntry(handle: $0, avatarURL: nil, followedByViewer: true, isViewer: false)
                 }

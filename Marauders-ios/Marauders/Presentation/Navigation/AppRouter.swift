@@ -37,8 +37,8 @@ final class AppRouter {
     }
 
     #if DEBUG
-    func showDebugLog() {
-        selectedTab = .log
-    }
+        func showDebugLog() {
+            selectedTab = .log
+        }
     #endif
 }

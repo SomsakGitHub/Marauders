@@ -57,7 +57,9 @@ actor WhisperEngine: AcousticLanguageIdentifying, AcousticTranscribing {
                     decodeOptions: Self.decodingOptions(language: languageCode)
                 )
                 let segments = results.flatMap(\.segments).map {
-                    AcousticSegment(text: $0.text, averageLogProbability: Double($0.avgLogprob), compressionRatio: Double($0.compressionRatio))
+                    AcousticSegment(
+                        text: $0.text, averageLogProbability: Double($0.avgLogprob),
+                        compressionRatio: Double($0.compressionRatio))
                 }
                 return AcousticTranscriptPolicy.transcript(from: segments)
             }
@@ -102,15 +104,16 @@ actor WhisperEngine: AcousticLanguageIdentifying, AcousticTranscribing {
         if let kit { return kit }
         if let loading { return try await loading.value }
         let task = Task {
-            try await WhisperKit(WhisperKitConfig(
-                modelFolder: folders.model.path,
-                tokenizerFolder: folders.tokenizerBase,
-                computeOptions: LanguageDetectionModelStore.computeOptions,
-                verbose: false,
-                logLevel: .none,
-                load: true,
-                download: false
-            ))
+            try await WhisperKit(
+                WhisperKitConfig(
+                    modelFolder: folders.model.path,
+                    tokenizerFolder: folders.tokenizerBase,
+                    computeOptions: LanguageDetectionModelStore.computeOptions,
+                    verbose: false,
+                    logLevel: .none,
+                    load: true,
+                    download: false
+                ))
         }
         loading = task
         do {

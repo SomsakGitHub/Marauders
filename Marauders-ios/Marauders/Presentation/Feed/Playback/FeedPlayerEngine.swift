@@ -43,7 +43,9 @@ final class FeedPlayerEngine {
     init() {
         let pool = (0..<3).map { _ in PlayerSlot() }
         slots = pool
-        presentations = pool.enumerated().map { FeedPlayerPresentation(id: $0.offset, url: nil, layer: $0.element.layer) }
+        presentations = pool.enumerated().map {
+            FeedPlayerPresentation(id: $0.offset, url: nil, layer: $0.element.layer)
+        }
     }
 
     func settle(on url: URL, prefetchNeighbors: [URL]) {
@@ -59,7 +61,8 @@ final class FeedPlayerEngine {
             AppLog.timing("firstVideo.requested", since: AppLog.launchUptime)
         }
         if currentURL == url, visibleSlot.requestedURL == url, !visibleSlot.loadFailed,
-           visibleSlot.player.currentItem?.status != .failed {
+            visibleSlot.player.currentItem?.status != .failed
+        {
             playVisibleIfLoaded()
             prepareNeighbors()
             return
@@ -89,8 +92,7 @@ final class FeedPlayerEngine {
     func play(url: URL) { settle(on: url, prefetchNeighbors: []) }
 
     func togglePlayPause() {
-        if visibleSlot.player.timeControlStatus == .playing { pause(byUser: true) }
-        else { resume() }
+        if visibleSlot.player.timeControlStatus == .playing { pause(byUser: true) } else { resume() }
     }
 
     func pause(byUser: Bool = false) {
@@ -145,20 +147,24 @@ final class FeedPlayerEngine {
             if let existing = slots.firstIndex(where: { $0.requestedURL == url }) {
                 if slots[existing].loadFailed || slots[existing].player.currentItem?.status == .failed {
                     load(into: existing, url: url)
+                } else if existing != visibleSlotIndex {
+                    slots[existing].preparePreview()
                 }
-                else if existing != visibleSlotIndex { slots[existing].preparePreview() }
                 continue
             }
-            guard let index = slots.indices.first(where: {
-                $0 != visibleSlotIndex && slots[$0].requestedURL.map { !desired.contains($0) } != false
-            }) else { continue }
+            guard
+                let index = slots.indices.first(where: {
+                    $0 != visibleSlotIndex && slots[$0].requestedURL.map { !desired.contains($0) } != false
+                })
+            else { continue }
             load(into: index, url: url)
         }
     }
 
     private func playVisibleIfLoaded() {
         guard playbackEnabled, !pausedByUser,
-              visibleSlot.loadedURL == currentURL, visibleSlot.player.currentItem != nil else { return }
+            visibleSlot.loadedURL == currentURL, visibleSlot.player.currentItem != nil
+        else { return }
         visibleSlot.player.isMuted = false
         visibleSlot.player.play()
         updatePhaseFromVisiblePlayer()
@@ -177,8 +183,11 @@ final class FeedPlayerEngine {
             do {
                 let prepared = await mediaPreparation.consumePreparedItem(for: url)
                 let item: AVPlayerItem?
-                if let prepared { item = prepared }
-                else { item = try await mediaPreparation.beginPlaybackItem(for: url) }
+                if let prepared {
+                    item = prepared
+                } else {
+                    item = try await mediaPreparation.beginPlaybackItem(for: url)
+                }
                 guard !Task.isCancelled, slot.requestID == requestID else { return }
                 guard let item else {
                     slot.recordLoadFailure()
@@ -204,7 +213,9 @@ final class FeedPlayerEngine {
             await mediaPreparation.invalidateLocalFile(for: url)
             guard currentURL == url, slot.player.currentItem === item else { return }
             load(into: visibleSlotIndex, url: url)
-        } else { failPlayback(message: item.error?.localizedDescription ?? "Playback failed") }
+        } else {
+            failPlayback(message: item.error?.localizedDescription ?? "Playback failed")
+        }
     }
 
     fileprivate func updatePhaseFromVisiblePlayer() {
@@ -285,9 +296,13 @@ private final class PlayerSlot {
         statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak engine] item, _ in
             Task { @MainActor in
                 guard let self, let engine, self.player.currentItem === item else { return }
-                if item.status == .failed { await engine.itemFailed(in: self, item: item, url: url) }
-                else if engine.isVisible(self) { engine.updatePhaseFromVisiblePlayer() }
-                else if engine.shouldPreview(self) { self.preparePreview() }
+                if item.status == .failed {
+                    await engine.itemFailed(in: self, item: item, url: url)
+                } else if engine.isVisible(self) {
+                    engine.updatePhaseFromVisiblePlayer()
+                } else if engine.shouldPreview(self) {
+                    self.preparePreview()
+                }
             }
         }
         timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self, weak engine] _, _ in
@@ -302,12 +317,15 @@ private final class PlayerSlot {
                 self.preparePreview()
             }
         }
-        endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self, weak engine] _ in
+        endObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main
+        ) { [weak self, weak engine] _ in
             Task { @MainActor in
                 guard let self, let engine, self.player.currentItem === item else { return }
                 self.player.seek(to: .zero) { [weak self, weak engine] finished in
                     Task { @MainActor in
-                        guard finished, let self, let engine, engine.shouldPlay(self), self.player.currentItem === item else { return }
+                        guard finished, let self, let engine, engine.shouldPlay(self), self.player.currentItem === item
+                        else { return }
                         self.player.play()
                     }
                 }
@@ -315,8 +333,7 @@ private final class PlayerSlot {
         }
         player.replaceCurrentItem(with: item)
         layer.player = player
-        if engine.shouldPlay(self) { player.play() }
-        else if engine.shouldPreview(self) { preparePreview() }
+        if engine.shouldPlay(self) { player.play() } else if engine.shouldPreview(self) { preparePreview() }
     }
     func cancelPreview() {
         player.cancelPendingPrerolls()
@@ -326,7 +343,8 @@ private final class PlayerSlot {
 
     func preparePreview() {
         guard !prerollRequested, player.isMuted, player.status == .readyToPlay,
-              player.currentItem?.status == .readyToPlay else { return }
+            player.currentItem?.status == .readyToPlay
+        else { return }
         prerollRequested = true
         player.preroll(atRate: 1) { _ in }
     }

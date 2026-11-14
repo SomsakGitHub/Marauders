@@ -43,7 +43,8 @@ enum CommentTranslation {
     /// Thai and "US" English. Nil for an unknown country or one whose language the app cannot translate into.
     static func language(forCountry country: String?) -> ListeningLanguage? {
         guard let country, country.count == 2 else { return nil }
-        return ListeningLanguage(identifier: Locale.Language(identifier: "und-\(country.uppercased())").maximalIdentifier)
+        return ListeningLanguage(
+            identifier: Locale.Language(identifier: "und-\(country.uppercased())").maximalIdentifier)
     }
 
     /// "zh-Hans" and "es-MX" compare as "zh" and "es"; Norwegian variants share the Bokmål code the app uses.

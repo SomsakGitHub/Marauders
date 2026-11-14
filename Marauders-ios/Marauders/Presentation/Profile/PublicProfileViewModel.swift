@@ -75,7 +75,9 @@ final class PublicProfileViewModel {
             guard load == loadCount else { return }
             profile = loaded
             // What the Worker says now is the newest word on this account, for the feed's rail too.
-            if let stamp, loaded.isViewer != true, let following = loaded.followedByViewer, let count = loaded.followerCount {
+            if let stamp, loaded.isViewer != true, let following = loaded.followedByViewer,
+                let count = loaded.followerCount
+            {
                 follows?.record(loaded.handle, following: following, followerCount: count, loadedAt: stamp)
             }
             state = .loaded

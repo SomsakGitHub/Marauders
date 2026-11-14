@@ -5,6 +5,7 @@ import SwiftUI
 import Testing
 @preconcurrency import Translation
 import UIKit
+
 @testable import Marauders
 
 /// Dubs the real Dutch clip into English on a real iPhone through `DubbingViewModel.request`, the call the
@@ -17,7 +18,11 @@ import UIKit
 /// their own one-time system download that a test cannot confirm (`prepareTranslation` then waits for a tap).
 /// Dutch into Thai needs such a prompt too, so it is not covered. It only runs when asked:
 /// `TEST_RUNNER_RUN_DEVICE_DUBBING_TEST=1 xcodebuild test -only-testing:MaraudersTests/DutchDubbingDeviceTests ...`
-@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["RUN_DEVICE_DUBBING_TEST"] != nil, "Set TEST_RUNNER_RUN_DEVICE_DUBBING_TEST=1"))
+@Suite(
+    .serialized,
+    .enabled(
+        if: ProcessInfo.processInfo.environment["RUN_DEVICE_DUBBING_TEST"] != nil,
+        "Set TEST_RUNNER_RUN_DEVICE_DUBBING_TEST=1"))
 @MainActor
 struct DutchDubbingDeviceTests {
     private let feedURL = URL(string: "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=1")!
@@ -32,7 +37,8 @@ struct DutchDubbingDeviceTests {
         let (data, response) = try await URLSession.shared.data(from: feedURL)
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         try #require(status == 200, "the production feed is not available (HTTP \(status))")
-        return try #require(try JSONDecoder().decode(Feed.self, from: data).items.first?.streamURL, "the production feed has no clip")
+        return try #require(
+            try JSONDecoder().decode(Feed.self, from: data).items.first?.streamURL, "the production feed has no clip")
     }
 
     /// Words and phrases from the turns of the test clip (a vendor and a customer at a market stall, about
@@ -40,7 +46,7 @@ struct DutchDubbingDeviceTests {
     /// heard about 43 words and none of the second half's "betalen" or "paprika's ... drie" turns.
     private static let turnsOfTheClip = [
         "goeiemorgen", "geoogst", "kilo tomaten", "nog iets anders", "wortelen", "komkommers",
-        "paprika", "aanbieding", "betalen", "heerlijk", "smakelijk", "dank u wel"
+        "paprika", "aanbieding", "betalen", "heerlijk", "smakelijk", "dank u wel",
     ]
 
     private struct Host: View {
@@ -56,20 +62,24 @@ struct DutchDubbingDeviceTests {
 
     /// Runs `work` inside a real `translationTask`, because a `TranslationSession` only exists there. The
     /// host is a visible window of its own on top of the app, like the player the session normally lives in.
-    private func insideTranslationTask(source: String, target: String, work: @escaping @MainActor (TranslationSession) async -> Void) async throws {
+    private func insideTranslationTask(
+        source: String, target: String, work: @escaping @MainActor (TranslationSession) async -> Void
+    ) async throws {
         guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
             Issue.record("no window scene to host the translation task")
             return
         }
-        let configuration = TranslationSession.Configuration(source: .init(identifier: source), target: .init(identifier: target))
+        let configuration = TranslationSession.Configuration(
+            source: .init(identifier: source), target: .init(identifier: target))
         let window = UIWindow(windowScene: scene)
         window.windowLevel = .alert + 1
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let finished = Once()
-            let host = UIHostingController(rootView: Host(configuration: configuration) { session in
-                await work(session)
-                if finished.first() { continuation.resume() }
-            })
+            let host = UIHostingController(
+                rootView: Host(configuration: configuration) { session in
+                    await work(session)
+                    if finished.first() { continuation.resume() }
+                })
             window.rootViewController = host
             window.makeKeyAndVisible()
             Task {
@@ -110,7 +120,8 @@ struct DutchDubbingDeviceTests {
     /// asks for most of them rather than all.
     @Test func whisperHearsMostTurnsOfTheClip() async throws {
         try await ensureWhisperModel()
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("turns-\(UUID().uuidString)", isDirectory: true)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "turns-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let clip = try await fetchClip(into: folder)
@@ -119,7 +130,9 @@ struct DutchDubbingDeviceTests {
         let text = try await transcribeTheClip(clip)
         let lowered = text.lowercased()
         let heard = Self.turnsOfTheClip.filter { lowered.contains($0) }
-        print("DUB_TEST whisper heard \(wordCount(text)) words, \(heard.count)/\(Self.turnsOfTheClip.count) turn markers, took \(clock.now - started)")
+        print(
+            "DUB_TEST whisper heard \(wordCount(text)) words, \(heard.count)/\(Self.turnsOfTheClip.count) turn markers, took \(clock.now - started)"
+        )
         print("DUB_TEST whisper text: \(text)")
         print("DUB_TEST missing markers: \(Self.turnsOfTheClip.filter { !lowered.contains($0) })")
         #expect(wordCount(text) >= 80)
@@ -133,7 +146,8 @@ struct DutchDubbingDeviceTests {
     /// instead of finishing a transcription nobody will read.
     @Test func cancellingTheTaskStopsTheTranscription() async throws {
         try await ensureWhisperModel()
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cancel-\(UUID().uuidString)", isDirectory: true)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "cancel-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let clip = try await fetchClip(into: folder)
@@ -159,14 +173,16 @@ struct DutchDubbingDeviceTests {
         try await ensureWhisperModel()
         UIApplication.shared.isIdleTimerDisabled = true
         defer { UIApplication.shared.isIdleTimerDisabled = false }
-        let availability = await LanguageAvailability().status(from: .init(identifier: "nl"), to: .init(identifier: "en"))
+        let availability = await LanguageAvailability().status(
+            from: .init(identifier: "nl"), to: .init(identifier: "en"))
         print("DUB_TEST translation nl->en availability=\(availability)")
         #expect(availability == .installed)
 
         let clock = ContinuousClock()
         let outcome = Outcome()
         // Fetch the clip up front, so the test measures dubbing and not the clip download.
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("dub-\(UUID().uuidString)", isDirectory: true)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "dub-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let localClip = try await fetchClip(into: folder)
@@ -197,14 +213,19 @@ struct DutchDubbingDeviceTests {
             }
             model.useOriginal()
         }
-        print("DUB_TEST request took \(outcome.seconds), produced=\(outcome.produced), audio=\(outcome.audioSeconds)s, message=\(outcome.message ?? "nil")")
+        print(
+            "DUB_TEST request took \(outcome.seconds), produced=\(outcome.produced), audio=\(outcome.audioSeconds)s, message=\(outcome.message ?? "nil")"
+        )
         #expect(outcome.produced)
         // The voice now covers the whole conversation, not the half the dictation engine heard (13.8 s).
         #expect(outcome.audioSeconds > 20)
         #expect(outcome.dutch.lowercased().contains("tomaten"))
         #expect(outcome.english.lowercased().contains("tomato"))
         // The status line ends on the finished voice, not on an error.
-        #expect(outcome.message == String(localized: "AI voice reads the translation on this iPhone · timing may differ from the original"))
+        #expect(
+            outcome.message
+                == String(
+                    localized: "AI voice reads the translation on this iPhone · timing may differ from the original"))
     }
 }
 

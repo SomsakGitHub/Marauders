@@ -86,7 +86,7 @@ nonisolated enum AcousticTranscriptPolicy {
         // Vietnamese
         "phụ đề", "ghiền mì gõ", "bỏ lỡ những video",
         // Indonesian
-        "subtitle oleh"
+        "subtitle oleh",
     ]
 
     /// Code points of the symbols that mark music; a segment holding one is music, not speech.
@@ -110,7 +110,8 @@ nonisolated enum AcousticTranscriptPolicy {
             letters += count
         }
         guard letters > 0 else { return AcousticTranscript(text: "", confidence: 0) }
-        return AcousticTranscript(text: texts.joined(separator: " "), confidence: exp(weightedLogProbability / Double(letters)))
+        return AcousticTranscript(
+            text: texts.joined(separator: " "), confidence: exp(weightedLogProbability / Double(letters)))
     }
 
     /// The text without the control tokens (`<|0.00|>`) Whisper can leave in, with tidy spacing and without the
@@ -129,7 +130,8 @@ nonisolated enum AcousticTranscriptPolicy {
     static func withoutLabels(_ text: String) -> String {
         var result = text
         for _ in 0..<5 {
-            let stripped = result
+            let stripped =
+                result
                 .replacing(/[-–—]*\[[^\[\]]{0,60}\]/, with: " ")
                 .replacing(/[-–—]*\([^()]{0,60}\)/, with: " ")
                 .replacing(/[-–—]*（[^（）]{0,60}）/, with: " ")
@@ -178,7 +180,9 @@ nonisolated enum AcousticTranscriptPolicy {
         while index < text.endIndex {
             let next = text.index(after: index)
             let character = text[index]
-            let ends = "。！？".contains(character) || (".!?".contains(character) && (next == text.endIndex || text[next].isWhitespace))
+            let ends =
+                "。！？".contains(character)
+                || (".!?".contains(character) && (next == text.endIndex || text[next].isWhitespace))
             if ends {
                 result.append(text[start..<next])
                 start = next
@@ -191,7 +195,8 @@ nonisolated enum AcousticTranscriptPolicy {
 
     /// The text without a sentence that opens with "(C)", the copyright sign written in letters.
     private static func droppingCopyrightLines(from text: String) -> String {
-        sentences(of: text).filter { !$0.drop { $0.isWhitespace }.lowercased().hasPrefix("(c)") }.map(String.init).joined()
+        sentences(of: text).filter { !$0.drop { $0.isWhitespace }.lowercased().hasPrefix("(c)") }.map(String.init)
+            .joined()
     }
 
     private static func isCredit(_ sentence: Substring) -> Bool {

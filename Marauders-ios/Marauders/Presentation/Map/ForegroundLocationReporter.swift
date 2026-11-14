@@ -99,8 +99,8 @@ final class ForegroundLocationReporter {
         pendingSince = nil
         pendingGeneration = nil
         guard current, shouldSend(),
-              let coordinate = locations.last?.coordinate,
-              let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            let coordinate = locations.last?.coordinate,
+            let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         else { return }
         let generation = generation
         Task {

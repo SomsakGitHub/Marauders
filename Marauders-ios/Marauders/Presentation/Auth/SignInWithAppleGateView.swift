@@ -39,15 +39,17 @@ struct SignInWithAppleGateView: View {
                     if let code = locationGate.countryCode {
                         let selectedCode = countryOverride ?? code
                         NavigationLink {
-                            CountryPickerView(selection: Binding(
-                                get: { countryOverride ?? code },
-                                set: { countryOverride = $0 }
-                            ))
+                            CountryPickerView(
+                                selection: Binding(
+                                    get: { countryOverride ?? code },
+                                    set: { countryOverride = $0 }
+                                ))
                         } label: {
                             HStack {
                                 Text("Country")
                                 Spacer()
-                                Text("\(Country.flagEmoji(for: selectedCode)) \(CountryCatalog.name(for: selectedCode))")
+                                Text(
+                                    "\(Country.flagEmoji(for: selectedCode)) \(CountryCatalog.name(for: selectedCode))")
                                 Image(systemName: "chevron.right").font(.footnote)
                             }
                             .padding(12)
@@ -63,7 +65,9 @@ struct SignInWithAppleGateView: View {
                         Button(locationGate.needsSettings ? "Open Settings" : "Allow Always location / Try again") {
                             if locationGate.needsSettings, let url = URL(string: UIApplication.openSettingsURLString) {
                                 openURL(url)
-                            } else { locationGate.begin() }
+                            } else {
+                                locationGate.begin()
+                            }
                         }
                         .accessibilityIdentifier("signin.allowLocation")
                     }
@@ -84,26 +88,26 @@ struct SignInWithAppleGateView: View {
                 .padding(.top, 8)
 
                 #if DEBUG
-                if DevLogin.isAvailable {
-                    Button("Sign in as test user (\(DevLogin.label))") {
-                        if let code = locationGate.countryCode {
-                            authViewModel.selectedCountryCode = countryOverride ?? code
-                            Task { await authViewModel.signInAsDevUser() }
+                    if DevLogin.isAvailable {
+                        Button("Sign in as test user (\(DevLogin.label))") {
+                            if let code = locationGate.countryCode {
+                                authViewModel.selectedCountryCode = countryOverride ?? code
+                                Task { await authViewModel.signInAsDevUser() }
+                            }
                         }
+                        .disabled(!locationGate.canSignIn)
+                        .accessibilityIdentifier("signin.devUser")
                     }
-                    .disabled(!locationGate.canSignIn)
-                    .accessibilityIdentifier("signin.devUser")
-                }
-                if AppRuntimeConfiguration.isUITesting {
-                    Button("Complete test sign in") {
-                        if let code = locationGate.countryCode {
-                            authViewModel.selectedCountryCode = countryOverride ?? code
-                            authViewModel.completeUITestSignIn()
+                    if AppRuntimeConfiguration.isUITesting {
+                        Button("Complete test sign in") {
+                            if let code = locationGate.countryCode {
+                                authViewModel.selectedCountryCode = countryOverride ?? code
+                                authViewModel.completeUITestSignIn()
+                            }
                         }
-                    }
                         .disabled(!locationGate.canSignIn)
                         .accessibilityIdentifier("auth.completeUITestSignIn")
-                }
+                    }
                 #endif
 
                 if let errorMessage = authViewModel.errorMessage {

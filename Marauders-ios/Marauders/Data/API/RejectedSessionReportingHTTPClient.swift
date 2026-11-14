@@ -40,7 +40,9 @@ struct RejectedSessionReportingHTTPClient: HTTPClient {
 
     private nonisolated static func bearerToken(of request: URLRequest) -> String? {
         let scheme = "Bearer "
-        guard let header = request.value(forHTTPHeaderField: "Authorization"), header.hasPrefix(scheme) else { return nil }
+        guard let header = request.value(forHTTPHeaderField: "Authorization"), header.hasPrefix(scheme) else {
+            return nil
+        }
         let token = header.dropFirst(scheme.count).trimmingCharacters(in: .whitespaces)
         return token.isEmpty ? nil : token
     }

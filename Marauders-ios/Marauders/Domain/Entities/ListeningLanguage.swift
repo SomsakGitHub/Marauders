@@ -14,7 +14,7 @@ struct ListeningLanguage: Hashable, Identifiable, Sendable {
     /// Mirrors the API's allowed dubbing languages (`DUBBING_LANGUAGES` in the backend).
     static let codes = [
         "ar", "da", "de", "en", "es", "fr", "hi", "id", "it", "ja", "ko",
-        "nb", "nl", "pl", "pt", "ru", "sv", "th", "tr", "uk", "vi", "zh"
+        "nb", "nl", "pl", "pt", "ru", "sv", "th", "tr", "uk", "vi", "zh",
     ]
     static let all = codes.map { ListeningLanguage(code: $0) }
     static let english = ListeningLanguage(code: "en")

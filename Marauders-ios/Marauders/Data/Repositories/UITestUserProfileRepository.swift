@@ -26,7 +26,7 @@ final class UITestUserProfileRepository: UserProfileRepository, @unchecked Senda
             country: "TH",
             authorName: "@marauders",
             caption: "UI test clip"
-        ),
+        )
     ]
 
     func fetchProfile() async throws -> UserProfile {

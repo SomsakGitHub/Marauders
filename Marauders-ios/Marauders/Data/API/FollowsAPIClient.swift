@@ -44,7 +44,7 @@ struct FollowsAPIClient: Sendable {
             throw UserFollowError.cannotFollowSelf
         case 429:
             throw UserFollowError.rateLimited
-        case 200 ... 299:
+        case 200...299:
             break
         default:
             throw UserFollowError.serverError(response.statusCode)
