@@ -29,6 +29,12 @@ struct LanguageDetectionModelStoreTests {
             to: layout.marker)
     }
 
+    @Test func theDownloadTakesNinetyPercentOfTheProgressBar() {
+        // Domain owns the number because the player and Settings read it too: progress below it is the download, the
+        // rest is the iPhone preparing the model.
+        #expect(LanguageDetectionModel.downloadShare == 0.9)
+    }
+
     @Test func nothingIsInstalledAtFirst() async {
         let (store, _) = makeStore()
         #expect(await !store.isInstalled())

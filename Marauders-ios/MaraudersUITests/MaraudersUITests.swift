@@ -1162,6 +1162,38 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(waitUntilValue(toggle, is: "1"), app.debugDescription)
     }
 
+    /// The listening-language picker opens from Settings. The check of which languages this iPhone can serve comes from
+    /// the environment, which the app root installs, and a Debug build stops here when that is left out.
+    @MainActor
+    func testSettingsOpensTheListeningLanguagePicker() throws {
+        let app = launchApp()
+        openSettings(app)
+        let row = app.descendants(matching: .any)["settings.listeningLanguage"]
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        row.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["listeningLanguage.root"].waitForExistence(timeout: 10),
+            app.debugDescription)
+        // The first row; the language rows further down are only on screen once the list is scrolled to them.
+        XCTAssertTrue(
+            app.descendants(matching: .any)["listeningLanguage.automatic"].waitForExistence(timeout: 10),
+            app.debugDescription)
+    }
+
+    /// The language models list opens from Settings with the manager the composition root created for it. Its own
+    /// test, not a second step of the picker's: under More the back button of a pushed screen belongs to the More list.
+    @MainActor
+    func testSettingsOpensTheLanguageModels() throws {
+        let app = launchApp()
+        openSettings(app)
+        let row = app.descendants(matching: .any)["settings.languageModels"]
+        XCTAssertTrue(row.waitForExistence(timeout: 15), app.debugDescription)
+        row.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["languageModels.root"].waitForExistence(timeout: 10),
+            app.debugDescription)
+    }
+
     @MainActor
     func testDecliningTheSharingPromptSharesNothing() throws {
         let app = launchApp()

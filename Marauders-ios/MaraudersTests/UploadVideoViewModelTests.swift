@@ -34,6 +34,18 @@ struct UploadVideoViewModelTests {
         #expect(repository.uploadedAssessment?.content == .speech)
         #expect(repository.uploadedAssessment?.spokenLanguage == nil)
     }
+    @Test func withoutAnInspectorTheViewModelDoesNotAnalyseTheAudioItself() async throws {
+        // The real inspector is a Data type, so the composition root hands it in. A view model made without one has
+        // none: the real inspector reports this tone as detected.
+        let clip = try TestFixtureFiles.temporaryToneFile()
+        defer { try? FileManager.default.removeItem(at: clip) }
+        let model = UploadVideoViewModel(
+            prepareVideo: PrepareVideoForUploadUseCase(exporter: StubVideoExporter(result: .success(clip))),
+            uploadVideo: UploadFeedVideoUseCase(
+                repository: RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed))))
+        await model.prepare(sourceURL: clip)
+        #expect(model.audioAssessment?.signal == .unknown)
+    }
     @Test func quietAudioWarningDoesNotBlockUploadAndResetClearsIt() async throws {
         let source = try TestFixtureFiles.temporaryVideoFile(byteCount: 4, extension: "mov")
         let mp4 = try TestFixtureFiles.temporaryVideoFile(byteCount: 8)

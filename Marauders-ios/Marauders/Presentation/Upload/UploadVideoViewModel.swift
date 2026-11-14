@@ -42,7 +42,7 @@ final class UploadVideoViewModel {
         uploadVideo: UploadFeedVideoUseCase,
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = FastClipAudioInspector()
+        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()
     ) {
         self.audioInspector = audioInspector
         self.prepareVideo = prepareVideo

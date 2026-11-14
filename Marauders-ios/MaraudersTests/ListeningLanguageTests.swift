@@ -250,10 +250,10 @@ struct ListeningLanguageTests {
             func unavailableLanguageCodes() async -> Set<String> { ["da"] }
         }
         let listening = store(preferred: ["en-US"], explicit: .thai)
-        let picker = ListeningLanguagePickerViewModel(store: listening, availability: Availability())
+        let picker = ListeningLanguagePickerViewModel(store: listening)
         #expect(picker.rows.count == 22)
         #expect(picker.isChecking)
-        await picker.refresh()
+        await picker.refresh(using: Availability())
         #expect(!picker.isChecking)
         #expect(picker.rows.filter(\.isSelected).map(\.language) == [.thai])
         #expect(picker.rows.first { $0.language.code == "da" }?.isAvailable == false)
@@ -266,8 +266,8 @@ struct ListeningLanguageTests {
             func unavailableLanguageCodes() async -> Set<String> { ["da"] }
         }
         let listening = store(preferred: ["en-US", "th-TH"])
-        let picker = ListeningLanguagePickerViewModel(store: listening, availability: Availability())
-        await picker.refresh()
+        let picker = ListeningLanguagePickerViewModel(store: listening)
+        await picker.refresh(using: Availability())
         #expect(picker.isAutomatic)
         #expect(picker.automaticName == ListeningLanguage.english.displayName())
         #expect(!picker.choose(ListeningLanguage(identifier: "da")!))
@@ -280,7 +280,7 @@ struct ListeningLanguageTests {
         #expect(listening.explicit == nil)
         #expect(picker.summary == String(localized: "Automatic · \(ListeningLanguage.english.displayName())"))
         #expect(
-            ListeningLanguagePickerViewModel(store: store(preferred: ["xx"]), availability: Availability()).summary
+            ListeningLanguagePickerViewModel(store: store(preferred: ["xx"])).summary
                 == String(localized: "Not set"))
     }
 
@@ -289,8 +289,8 @@ struct ListeningLanguageTests {
             func unavailableLanguageCodes() async -> Set<String> { Set(ListeningLanguage.codes) }
         }
         let listening = store(preferred: ["en-US"])
-        let picker = ListeningLanguagePickerViewModel(store: listening, availability: EverythingUnavailable())
-        await picker.refresh()
+        let picker = ListeningLanguagePickerViewModel(store: listening)
+        await picker.refresh(using: EverythingUnavailable())
         #expect(picker.rows.allSatisfy { $0.isAvailable })
         #expect(picker.choose(.thai))
         #expect(listening.explicit == .thai)

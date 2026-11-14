@@ -38,13 +38,14 @@ enum SpeechVoiceCatalog {
             .first?.language
     }
 
-    /// The system's own default voice for the best language tag, so the viewer's voice settings apply.
-    static func voice(for language: ListeningLanguage) -> AVSpeechSynthesisVoice? {
-        guard let tag = bestLanguageTag(for: language, among: candidates()) else { return nil }
-        return AVSpeechSynthesisVoice(language: tag)
-    }
-
     private static func isNovelty(_ identifier: String) -> Bool {
         identifier.hasPrefix("com.apple.eloquence") || identifier.hasPrefix("com.apple.speech.synthesis.voice")
+    }
+}
+
+/// The voices installed on this iPhone, chosen by `SpeechVoiceCatalog`.
+struct SystemNarrationVoices: NarrationVoiceChoosing {
+    func voiceLanguageTag(for language: ListeningLanguage) -> String? {
+        SpeechVoiceCatalog.bestLanguageTag(for: language, among: SpeechVoiceCatalog.candidates())
     }
 }

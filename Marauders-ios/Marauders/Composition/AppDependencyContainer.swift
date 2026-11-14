@@ -19,9 +19,15 @@ final class AppDependencyContainer {
     let clipLikesViewModel: ClipLikesViewModel
     let followsViewModel: UserFollowsViewModel
     let friendLocationsViewModel: FriendLocationsViewModel
-    /// The saved AI audio that viewers share, which `AppRootView` puts in the environment for the clip player. It is not
+    /// The saved AI audio that viewers share, which every clip player's dubbing view model reads and writes. It is not
     /// behind `transport`, so a 401 on its routes does not end the session.
-    let dubbedAudioCache: any DubbedAudioCaching = DubbedAudioCacheClient()
+    private let dubbedAudioCache: any DubbedAudioCaching = DubbedAudioCacheClient()
+    /// The on-device engines that find a clip's language, write its speech down and read the translation aloud.
+    private let dubbingServices = DubbingServices.onDevice()
+    /// The Settings screen's list of on-device language models and how far each download has got.
+    let languageModelsViewModel = LanguageModelsViewModel(manager: AppleLanguageModelManager())
+    /// Which listening languages this iPhone cannot serve, which `AppRootView` puts in the environment for the picker.
+    let listeningLanguageAvailability: any ListeningLanguageAvailability = SystemListeningLanguageAvailability()
     private let feedRepository: FeedRepository
     private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
@@ -106,7 +112,8 @@ final class AppDependencyContainer {
         uploadViewModel = UploadVideoViewModel(
             prepareVideo: prepare,
             uploadVideo: upload,
-            videoLocationReader: AVAssetVideoLocationReader()
+            videoLocationReader: AVAssetVideoLocationReader(),
+            audioInspector: FastClipAudioInspector()
         )
         self.authViewModel = authViewModel
 
@@ -262,6 +269,12 @@ final class AppDependencyContainer {
             makePublicProfileViewModel: { [self] in makePublicProfileViewModel(handle: $0) },
             makeFollowListViewModel: { [self] in makeFollowListViewModel(handle: $0, kind: $1) }
         )
+    }
+
+    /// A view model that dubs one clip, which the clip player owns while the clip is open. `AppRootView` puts this in the
+    /// environment, because a player creates its view model before it can read the cache and the services from it.
+    func makeDubbingViewModel() -> DubbingViewModel {
+        DubbingViewModel(cache: dubbedAudioCache, services: dubbingServices)
     }
 
     func makeCommentsViewModel(videoID: UUID) -> CommentsViewModel {

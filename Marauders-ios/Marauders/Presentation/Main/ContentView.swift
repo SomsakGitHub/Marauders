@@ -19,8 +19,8 @@ struct ContentView: View {
     let clipLikesViewModel: ClipLikesViewModel
     let followsViewModel: UserFollowsViewModel
     let friendLocationsViewModel: FriendLocationsViewModel
+    let languageModelsViewModel: LanguageModelsViewModel
 
-    @State private var languageModelsViewModel = LanguageModelsViewModel()
     @State private var showingSignIn = false
     @State private var signInDismissalID = 0
 
@@ -167,6 +167,9 @@ struct ContentView: View {
         makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
         clipLikesViewModel: container.clipLikesViewModel,
         followsViewModel: container.followsViewModel,
-        friendLocationsViewModel: container.friendLocationsViewModel
+        friendLocationsViewModel: container.friendLocationsViewModel,
+        languageModelsViewModel: container.languageModelsViewModel
     )
+    .environment(\.dubbingViewModelFactory, DubbingViewModelFactory(make: { container.makeDubbingViewModel() }))
+    .environment(\.listeningLanguageAvailability, container.listeningLanguageAvailability)
 }

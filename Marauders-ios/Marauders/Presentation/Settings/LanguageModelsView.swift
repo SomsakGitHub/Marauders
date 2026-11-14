@@ -124,7 +124,7 @@ struct LanguageModelsView: View {
         switch status {
         case .failed(let message): message
         case .downloading(let progress?)
-        where model.kind == .languageDetection && progress >= LanguageDetectionModelStore.downloadShare:
+        where model.kind == .languageDetection && progress >= LanguageDetectionModel.downloadShare:
             String(localized: "Preparing on this iPhone…")
         case .downloading(let progress?): String(localized: "Downloading… \(Int(progress * 100))%")
         case .downloading(nil): String(localized: "Downloading…")

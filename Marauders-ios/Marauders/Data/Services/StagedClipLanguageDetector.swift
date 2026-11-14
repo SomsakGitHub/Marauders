@@ -39,6 +39,14 @@ extension LanguageEvidence {
     }
 }
 
+/// `LanguageEvidence.transcriptIsPlausible` for the view model that dubs a clip, which only knows
+/// `TranscriptLanguageChecking`.
+struct NaturalLanguageTranscriptChecker: TranscriptLanguageChecking {
+    func isPlausible(text: String, confidence: Double, languageCode: String) -> Bool {
+        LanguageEvidence.transcriptIsPlausible(text: text, confidence: confidence, languageCode: languageCode)
+    }
+}
+
 /// Recognizes a sample as one candidate language. A seam so the staging logic can be tested.
 protocol SpeechEvidenceProviding {
     /// Candidates this iPhone can recognize right now without downloading anything.

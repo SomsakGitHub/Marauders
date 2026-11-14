@@ -35,6 +35,9 @@ final class DubbingViewModel {
     private let acoustic: any AcousticLanguageIdentifying
     private let consent: LanguageDetectionConsent
     private let transcriber: any AcousticTranscribing
+    private let systemSpeech: any SystemSpeechTranscribing
+    private let voices: any NarrationVoiceChoosing
+    private let transcriptLanguage: any TranscriptLanguageChecking
     private let requestSpeechPermission: () async -> Bool
     private var cacheContext: (videoID: UUID, sourceURL: URL, target: ListeningLanguage)?
     /// The clip's local file once downloaded for detection, kept so translating does not fetch it again.
@@ -42,30 +45,28 @@ final class DubbingViewModel {
     /// Counts requests, so work that belongs to a request the viewer has left can tell and stop.
     private(set) var generation = 0
 
-    /// `cache` has no default: the real one is a Data type, so the composition root hands it in (the clip player reads
-    /// it from `EnvironmentValues.dubbedAudioCache`). The other collaborators default to the real thing.
+    /// `cache` and `services` have no defaults: the real ones are Data types, so the composition root builds them and
+    /// the clip player hands the view model over (it reads a factory from `EnvironmentValues.dubbingViewModelFactory`).
     init(
         cache: any DubbedAudioCaching,
+        services: DubbingServices,
         reports: DubbedAudioReportMemory? = nil,
-        detector: (any ClipLanguageDetecting)? = nil,
-        loader: (any ClipFileLoading)? = nil,
         memo: DetectedLanguageMemo? = nil,
-        models: (any LanguageDetectionModelManaging)? = nil,
-        acoustic: (any AcousticLanguageIdentifying)? = nil,
-        transcriber: (any AcousticTranscribing)? = nil,
-        consent: LanguageDetectionConsent? = nil,
-        requestSpeechPermission: (() async -> Bool)? = nil
+        consent: LanguageDetectionConsent? = nil
     ) {
         self.cache = cache
         self.reports = reports ?? DubbedAudioReportMemory.shared
-        self.detector = detector ?? StagedClipLanguageDetector()
-        self.loader = loader ?? ClipFileLoader()
+        self.detector = services.detector
+        self.loader = services.loader
         self.memo = memo ?? DetectedLanguageMemo.shared
-        self.models = models ?? LanguageDetectionModelStore.shared
-        self.acoustic = acoustic ?? WhisperEngine.shared
-        self.transcriber = transcriber ?? WhisperEngine.shared
+        self.models = services.models
+        self.acoustic = services.acoustic
+        self.transcriber = services.transcriber
+        self.systemSpeech = services.systemSpeech
+        self.voices = services.voices
+        self.transcriptLanguage = services.transcriptLanguage
         self.consent = consent ?? LanguageDetectionConsent.shared
-        self.requestSpeechPermission = requestSpeechPermission ?? { await SpeechPermission.request() }
+        self.requestSpeechPermission = services.requestSpeechPermission
     }
 
     /// Decides how to give the viewer AI audio in `target`: saved audio if someone already made it,
@@ -278,7 +279,7 @@ final class DubbingViewModel {
             Task { @MainActor in
                 guard let self, self.generation == current else { return }
                 // The last part of the progress is the iPhone preparing the model, which is not a download.
-                let share = LanguageDetectionModelStore.downloadShare
+                let share = LanguageDetectionModel.downloadShare
                 let percent = Int(fraction / share * 100)
                 if fraction >= share {
                     self.message = String(localized: "Preparing the language detection model on this iPhone…")
@@ -382,7 +383,7 @@ final class DubbingViewModel {
                 else { throw DubbingError.unavailable }
                 speech = recognizer
             }
-            guard let voice = SpeechVoiceCatalog.voice(for: target) else {
+            guard let voice = narrationVoice(for: target) else {
                 throw DubbingError.voiceUnavailable(language: targetName)
             }
             // Apple's recognizers need the viewer's permission; the Whisper model runs inside the app without it.
@@ -489,6 +490,13 @@ final class DubbingViewModel {
         guard current == generation else { throw CancellationError() }
     }
 
+    /// The system's own default voice for the best installed voice's language tag, so the viewer's voice settings
+    /// apply. Nil when no voice is installed for `language`.
+    func narrationVoice(for language: ListeningLanguage) -> AVSpeechSynthesisVoice? {
+        guard let tag = voices.voiceLanguageTag(for: language) else { return nil }
+        return AVSpeechSynthesisVoice(language: tag)
+    }
+
     /// The words of the clip at `videoURL`, as the text that is translated next. Apple's engines read it in
     /// 20-second windows, one after the other; the Whisper model reads the whole file in one go, because a
     /// fixed window can start in the middle of a word and then come back empty. Throws `speechUnclear` when
@@ -528,7 +536,7 @@ final class DubbingViewModel {
                 characters == 0
                 ? 0 : pieces.reduce(0.0) { $0 + $1.confidence * Double($1.text.count) } / Double(characters)
             guard
-                LanguageEvidence.transcriptIsPlausible(
+                transcriptLanguage.isPlausible(
                     text: text, confidence: confidence, languageCode: language.translationCode)
             else {
                 throw DubbingError.speechUnclear
@@ -555,7 +563,7 @@ final class DubbingViewModel {
                     throw DubbingError.failed
                 }
             case .recognizer, .speechTranscriber:
-                transcript = try await SpeechAnalyzerTranscriber.transcribe(
+                transcript = try await systemSpeech.transcribe(
                     file: url, localeIdentifier: language.speechLocale, downloadModelIfNeeded: true,
                     timeout: .seconds(60)
                 )
