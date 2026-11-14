@@ -121,4 +121,5 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView(languageModels: LanguageModelsViewModel(manager: NoopLanguageModelManager()))
+        .environment(\.listeningLanguageAvailability, NoopListeningLanguageAvailability())
 }

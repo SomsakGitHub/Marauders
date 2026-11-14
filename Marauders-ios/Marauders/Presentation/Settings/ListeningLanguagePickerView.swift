@@ -11,6 +11,8 @@ struct ListeningLanguagePickerView: View {
     /// Called after a choice is made, for example to close a sheet and start dubbing.
     var onChosen: (() -> Void)?
 
+    @Environment(\.listeningLanguageAvailability) private var availability
+
     var body: some View {
         List {
             Section {
@@ -67,7 +69,17 @@ struct ListeningLanguagePickerView: View {
         .navigationTitle("Listening language")
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("listeningLanguage.root")
-        .task { await viewModel.refresh() }
+        .task { await viewModel.refresh(using: installedAvailability) }
+    }
+
+    /// The check `AppRootView` installed. A Debug build stops without one, so a window or preview that forgot it shows
+    /// up at once; a Release build carries on, offering every language.
+    private var installedAvailability: any ListeningLanguageAvailability {
+        if let availability { return availability }
+        assertionFailure(
+            "No availability check installed for the listening language picker: add .environment(\\.listeningLanguageAvailability, …) above it"
+        )
+        return NoopListeningLanguageAvailability()
     }
 
     private var checkmark: some View {
@@ -84,7 +96,7 @@ struct ListeningLanguagePickerView: View {
 
 #Preview {
     NavigationStack {
-        ListeningLanguagePickerView(
-            viewModel: ListeningLanguagePickerViewModel(availability: NoopListeningLanguageAvailability()))
+        ListeningLanguagePickerView(viewModel: ListeningLanguagePickerViewModel())
     }
+    .environment(\.listeningLanguageAvailability, NoopListeningLanguageAvailability())
 }

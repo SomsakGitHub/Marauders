@@ -19,16 +19,11 @@ final class ListeningLanguagePickerViewModel {
     }
 
     private let store: ListeningLanguageStore
-    private let availability: any ListeningLanguageAvailability
     private(set) var unavailable: Set<String> = []
     private(set) var isChecking = true
 
-    init(
-        store: ListeningLanguageStore = .shared,
-        availability: any ListeningLanguageAvailability = SystemListeningLanguageAvailability()
-    ) {
+    init(store: ListeningLanguageStore = .shared) {
         self.store = store
-        self.availability = availability
     }
 
     var isAutomatic: Bool { store.explicit == nil }
@@ -54,7 +49,9 @@ final class ListeningLanguagePickerViewModel {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    func refresh() async {
+    /// Asks which languages this iPhone cannot serve. The check comes with the call because the screens that own this
+    /// view model create it before they can read the environment the check is installed in.
+    func refresh(using availability: any ListeningLanguageAvailability) async {
         let result = await availability.unavailableLanguageCodes()
         // When every language looks unavailable the check itself is not working (for example in
         // the simulator), and disabling every row would leave the viewer unable to choose.

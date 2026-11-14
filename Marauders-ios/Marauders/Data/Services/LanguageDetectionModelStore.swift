@@ -7,18 +7,6 @@ import CoreML
 import Foundation
 @preconcurrency import WhisperKit
 
-enum LanguageDetectionModelError: LocalizedError, Equatable {
-    case incompleteDownload
-    case unusable
-
-    var errorDescription: String? {
-        switch self {
-        case .incompleteDownload: String(localized: "The download didn't finish. Try again.")
-        case .unusable: String(localized: "The downloaded model couldn't be used on this iPhone. Try again.")
-        }
-    }
-}
-
 /// Keeps the language detection model (Whisper base, converted for Core ML) on this iPhone.
 ///
 /// Everything lives in one folder under Application Support that is excluded from backups, because it
@@ -74,8 +62,6 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
     private let release: Release
     private let root: URL
     private let installer: Installer?
-    /// The share of the progress bar taken by downloading the model; the rest is checking and preparing it.
-    static let downloadShare = 0.9
 
     private var installTask: Task<Void, Never>?
     private var installToken: UUID?
@@ -243,7 +229,7 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
             revision: release.modelRevision,
             matching: ["\(release.modelFolderName)/*"]
         ) { progress in
-            let value = progress.fractionCompleted * Self.downloadShare
+            let value = progress.fractionCompleted * LanguageDetectionModel.downloadShare
             Task { await self.report(value, token: token) }
         }
         try Task.checkCancellation()
@@ -252,7 +238,7 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
             revision: release.tokenizerRevision,
             matching: ["config.json", "tokenizer_config.json", "tokenizer.json"]
         )
-        report(Self.downloadShare + 0.02, token: token)
+        report(LanguageDetectionModel.downloadShare + 0.02, token: token)
         try Task.checkCancellation()
 
         guard let folders = completeFolders() else {

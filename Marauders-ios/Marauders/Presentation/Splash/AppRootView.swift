@@ -25,7 +25,8 @@ struct AppRootView: View {
                 makeCommentsViewModel: { container.makeCommentsViewModel(videoID: $0) },
                 clipLikesViewModel: container.clipLikesViewModel,
                 followsViewModel: container.followsViewModel,
-                friendLocationsViewModel: container.friendLocationsViewModel
+                friendLocationsViewModel: container.friendLocationsViewModel,
+                languageModelsViewModel: container.languageModelsViewModel
             )
             .opacity(isShowingSplash ? 0 : 1)
 
@@ -35,7 +36,8 @@ struct AppRootView: View {
                     .zIndex(1)
             }
         }
-        .environment(\.dubbedAudioCache, container.dubbedAudioCache)
+        .environment(\.dubbingViewModelFactory, DubbingViewModelFactory(make: { container.makeDubbingViewModel() }))
+        .environment(\.listeningLanguageAvailability, container.listeningLanguageAvailability)
         .animation(AppRuntimeConfiguration.isUITesting ? nil : .easeOut(duration: 0.32), value: isShowingSplash)
         .task {
             await presentSplash()

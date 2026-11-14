@@ -2,16 +2,15 @@ import AVFoundation
 import Foundation
 import Speech
 
-struct SpeechTranscript: Sendable {
-    let text: String
-    let confidence: Double
-}
-
-/// Why a speech model could not be made ready, so the viewer is told the real reason.
-nonisolated enum SpeechModelInstallError: Error, Equatable {
-    /// The system lets an app keep only a few speech languages downloaded.
-    case limitReached
-    case downloadFailed
+/// Hands `SpeechAnalyzerTranscriber` to the view model that dubs a clip, which only knows `SystemSpeechTranscribing`.
+struct SystemSpeechTranscriber: SystemSpeechTranscribing {
+    func transcribe(file: URL, localeIdentifier: String, downloadModelIfNeeded: Bool, timeout: Duration)
+        async throws -> SpeechTranscript?
+    {
+        try await SpeechAnalyzerTranscriber.transcribe(
+            file: file, localeIdentifier: localeIdentifier, downloadModelIfNeeded: downloadModelIfNeeded,
+            timeout: timeout)
+    }
 }
 
 /// Transcribes a short audio file with the iOS 26 `SpeechAnalyzer`, entirely on device.

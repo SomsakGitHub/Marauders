@@ -21,24 +21,26 @@ struct ClipPlayerView: View {
     /// When set, dubbing into this language starts as soon as the player opens.
     var requestDubbingTarget: ListeningLanguage?
 
-    @Environment(\.dubbedAudioCache) private var dubbedAudioCache
+    @Environment(\.dubbingViewModelFactory) private var dubbingViewModelFactory
 
-    /// The player owns the view model that dubs the clip, and that view model needs the cache when it is created,
-    /// which a `@State` initial value cannot read from the environment. So this view reads it and hands it down.
+    /// The player owns the view model that dubs the clip, and that view model needs the saved-audio cache and the
+    /// on-device services when it is created, which a `@State` initial value cannot read from the environment. So
+    /// this view reads the factory and hands the view model down.
     var body: some View {
         ClipPlayerContent(
             clip: clip, userCoordinate: userCoordinate, onClose: onClose, onOpenInFeed: onOpenInFeed,
             onOpenAuthor: onOpenAuthor, onDelete: onDelete, requestDubbingTarget: requestDubbingTarget,
-            dubbing: DubbingViewModel(cache: installedCache))
+            dubbing: makeDubbing())
     }
 
-    /// The cache `AppRootView` installed. A Debug build stops without one, so a window or preview that forgot it shows
-    /// up at once; a Release build carries on, finding and keeping no saved audio.
-    private var installedCache: any DubbedAudioCaching {
-        if let dubbedAudioCache { return dubbedAudioCache }
+    /// The view model the factory `AppRootView` installed builds. A Debug build stops without one, so a window or
+    /// preview that forgot it shows up at once; a Release build carries on with services that do nothing, finding and
+    /// keeping no saved audio.
+    private func makeDubbing() -> DubbingViewModel {
+        if let dubbingViewModelFactory { return dubbingViewModelFactory.make() }
         assertionFailure(
-            "No cache installed for AI audio: add .environment(\\.dubbedAudioCache, …) above the clip player")
-        return NoDubbedAudioCache()
+            "No factory installed for AI audio: add .environment(\\.dubbingViewModelFactory, …) above the clip player")
+        return DubbingViewModel(cache: NoDubbedAudioCache(), services: .unavailable)
     }
 }
 
