@@ -20,8 +20,9 @@ final class AppDependencyContainer {
     let followsViewModel: UserFollowsViewModel
     let friendLocationsViewModel: FriendLocationsViewModel
     /// The saved AI audio that viewers share, which every clip player's dubbing view model reads and writes. It is not
-    /// behind `transport`, so a 401 on its routes does not end the session.
-    private let dubbedAudioCache: any DubbedAudioCaching = DubbedAudioCacheClient()
+    /// behind `transport`, so a 401 on its routes does not end the session; it does trade a token the Worker rejected
+    /// for a new one, like every client that sends the session's token.
+    private let dubbedAudioCache: any DubbedAudioCaching
     /// The on-device engines that find a clip's language, write its speech down and read the translation aloud.
     private let dubbingServices = DubbingServices.onDevice()
     /// The Settings screen's list of on-device language models and how far each download has got.
@@ -51,6 +52,7 @@ final class AppDependencyContainer {
         let tokenStore: APIAccessTokenStore
         let refreshTokenStore: APIRefreshTokenStore
         let baseTransport: HTTPClient
+        let refresher: any TokenRefreshing
         let usesRejectedUITestSession = UITestRejectedSession.isRequested
         if usesRejectedUITestSession {
             let rejectedSession = UITestRejectedSession()
@@ -58,12 +60,18 @@ final class AppDependencyContainer {
             tokenStore = rejectedSession
             refreshTokenStore = rejectedSession
             baseTransport = UITestRejectingHTTPClient()
+            // Over the same in-memory stores: no refresh token in them, so the 401 ends the session.
+            refresher = TokenRefresher(
+                accessTokenStore: rejectedSession, refreshTokenStore: rejectedSession, authAPI: AuthAPIClient())
         } else {
             sessionStore = KeychainAuthSessionStore()
             tokenStore = KeychainAPIAccessTokenStore()
             refreshTokenStore = KeychainAPIRefreshTokenStore()
             baseTransport = URLSessionHTTPClient()
+            refresher = Self.tokenRefresher
         }
+        dubbedAudioCache = DubbedAudioCacheClient(
+            client: APITransportComposition.quiet(base: URLSessionHTTPClient(), refresher: Self.tokenRefresher))
         #if DEBUG
             let devAuth: (any DevAuthExchanging)? = DevAuthAPIClient()
         #else
@@ -78,11 +86,14 @@ final class AppDependencyContainer {
         let reportRejected: @Sendable (String) async -> Void = { accessToken in
             await authViewModel.handleRejectedAccessToken(accessToken)
         }
-        // Reads are repeated on a transient failure below the reporter, so a 401 is reported once, never retried.
-        let transport = RejectedSessionReportingHTTPClient(
-            base: RetryingHTTPClient(base: baseTransport), report: reportRejected)
+        // A 401 goes to the refresh layer first, which trades the token for a new one and sends the request again.
+        // Only a session that cannot be saved reaches the reporter as a 401. Reads are repeated on a transient failure
+        // below both, so a 401 is never retried.
+        let transport = APITransportComposition.api(
+            base: baseTransport, refresher: refresher, reportRejected: reportRejected)
         // The feed repeats its own reads (FeedAPIClient), so it gets no second layer of retries.
-        let feedTransport = RejectedSessionReportingHTTPClient(base: baseTransport, report: reportRejected)
+        let feedTransport = APITransportComposition.feed(
+            base: baseTransport, refresher: refresher, reportRejected: reportRejected)
 
         if let feedRepository {
             self.feedRepository = feedRepository
@@ -237,15 +248,24 @@ final class AppDependencyContainer {
         }
     }
 
+    /// The one refresher of the process. Every transport asks this one, the monitor that runs while the app is closed
+    /// included, because a refresh token is single use: two refreshers in one process could spend it twice and end the
+    /// session they were meant to keep. It reads and writes the Keychain, where the session is kept.
+    static let tokenRefresher = TokenRefresher(
+        accessTokenStore: KeychainAPIAccessTokenStore(),
+        refreshTokenStore: KeychainAPIRefreshTokenStore(),
+        authAPI: AuthAPIClient()
+    )
+
     /// The one monitor that sends the viewer's location while the app is closed. `MaraudersApp` starts it at launch,
     /// before any container exists (iOS may launch the app in the background just to hand over a location), so it
-    /// reaches the Worker on its own: a 401 there stops it instead of ending the session, which the next launch's own
-    /// requests do.
+    /// reaches the Worker on its own: a 401 that a refresh cannot heal stops it instead of ending the session, which
+    /// the next launch's own requests do. A day-old token is healed, so it keeps sending past its first day.
     static let backgroundLocationMonitor = BackgroundLocationMonitor(
         report: ReportUserLocationUseCase(
             repository: DefaultUserLocationRepository(
                 apiClient: UserLocationAPIClient(
-                    client: URLSessionHTTPClient(),
+                    client: APITransportComposition.quiet(base: URLSessionHTTPClient(), refresher: tokenRefresher),
                     authorization: SessionAPIAuthorization(tokenStore: KeychainAPIAccessTokenStore())
                 )
             )
