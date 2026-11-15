@@ -42,6 +42,21 @@ enum HTTPMultipartPart: Sendable {
 protocol HTTPClient: Sendable {
     func data(_ request: URLRequest) async throws -> HTTPClientResponse
     func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse
+    /// Like `upload(_:multipart:)`, and tells `progress` how much of the body has been sent while it goes. `progress`
+    /// is called on any thread.
+    func upload(_ request: URLRequest, multipart: [HTTPMultipartPart], progress: UploadProgressHandler?) async throws
+        -> HTTPClientResponse
+}
+
+extension HTTPClient {
+    /// For a client that cannot tell how far an upload has got: it uploads and never calls `progress`.
+    nonisolated func upload(
+        _ request: URLRequest,
+        multipart: [HTTPMultipartPart],
+        progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
+        try await upload(request, multipart: multipart)
+    }
 }
 
 /// `HTTPClient` backed by `URLSession`.
@@ -73,6 +88,14 @@ struct URLSessionHTTPClient: HTTPClient {
     }
 
     nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
+        try await upload(request, multipart: multipart, progress: nil)
+    }
+
+    nonisolated func upload(
+        _ request: URLRequest,
+        multipart: [HTTPMultipartPart],
+        progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
         let boundary = "marauders.boundary.\(UUID().uuidString)"
         var request = request
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -84,7 +107,10 @@ struct URLSessionHTTPClient: HTTPClient {
 
         do {
             try await MultipartBodyWriter.write(multipart, boundary: boundary, to: bodyFile)
-            let (data, response) = try await session.upload(for: request, fromFile: bodyFile)
+            // A new delegate for every transfer: it remembers the last percent it reported, and a replay after a 401
+            // sends the body again from the start.
+            let delegate = progress.map { UploadProgressDelegate(handler: $0) }
+            let (data, response) = try await session.upload(for: request, fromFile: bodyFile, delegate: delegate)
             return try Self.makeResponse(data: data, response: response)
         } catch {
             throw Self.surfaced(error)

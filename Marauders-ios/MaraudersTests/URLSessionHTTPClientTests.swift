@@ -329,6 +329,38 @@ struct URLSessionHTTPClientTests {
 
         #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
     }
+
+    // MARK: - upload progress
+
+    /// `didSendBodyData` is never delivered through a `URLProtocol` stub, so this goes over a real socket.
+    @Test(.timeLimit(.minutes(1)))
+    func uploadReportsProgressOverARealConnectionAndEndsAtOne() async throws {
+        let server = LoopbackHTTPServer()
+        let serverURL = try await server.start()
+        defer { server.stop() }
+
+        let bytes = Data((0..<3_000_000).map { UInt8(truncatingIfNeeded: $0) })
+        let clip = try Self.makeTemporaryFile(bytes)
+        defer { try? FileManager.default.removeItem(at: clip) }
+
+        var request = URLRequest(url: serverURL)
+        request.httpMethod = "POST"
+        let log = UploadProgressLog()
+
+        let response = try await URLSessionHTTPClient(session: URLSession(configuration: .ephemeral))
+            .upload(
+                request,
+                multipart: [.fileAt(name: "file", filename: "big.mp4", mimeType: "video/mp4", url: clip)],
+                progress: log.handler)
+
+        let values = log.values
+        #expect(response.statusCode == 201)
+        #expect(!values.isEmpty)
+        #expect(values.allSatisfy { (0.0...1.0).contains($0) })
+        #expect(values == values.sorted())
+        #expect(values.last == 1.0)
+        #expect((server.receivedBodyByteCounts.first ?? 0) >= 3_000_000)
+    }
 }
 
 // MARK: - helpers
