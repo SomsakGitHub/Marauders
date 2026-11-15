@@ -1,6 +1,6 @@
 import Foundation
 
-struct ClipAudioAssessment: Sendable, Equatable, Codable, Hashable {
+nonisolated struct ClipAudioAssessment: Sendable, Equatable, Codable, Hashable {
     enum Signal: String, Sendable, Codable { case detected, noTrack, quietSamples, unknown }
     enum Content: String, Sendable, Codable { case speech, music, mixed, unknown }
     var content: Content = .unknown
@@ -28,7 +28,7 @@ struct NoopClipAudioInspector: ClipAudioInspecting {
     func inspect(fileURL: URL) async -> ClipAudioAssessment { .init(signal: .unknown) }
 }
 
-struct SpokenLanguageAssessment: Codable, Hashable, Sendable {
+nonisolated struct SpokenLanguageAssessment: Codable, Hashable, Sendable {
     var status: String
     var code: String?
     var confidence: Double?
