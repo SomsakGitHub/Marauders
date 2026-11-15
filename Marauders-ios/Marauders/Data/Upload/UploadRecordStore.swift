@@ -29,13 +29,15 @@ nonisolated struct UploadRecordStore: Sendable {
         try excluded.setResourceValues(values)
     }
 
-    /// The records on disk, the oldest first. A record file that cannot be read, or has another version than
-    /// `UploadRecord.currentVersion`, can never be used and is deleted.
+    /// The records on disk, the oldest first. A record file that was read but cannot be decoded, or has another
+    /// version than `UploadRecord.currentVersion`, can never be used and is deleted. A file that cannot be read at all
+    /// is kept, left out of the list and looked at again by the next call: the default file protection keeps every
+    /// file closed between a restart and the first unlock, and the system can start the app in that time.
     func records() -> [UploadRecord] {
         var readable: [UploadRecord] = []
         for file in files(withExtension: "json") {
-            if let data = try? Data(contentsOf: file),
-                let record = try? JSONDecoder().decode(UploadRecord.self, from: data),
+            guard let data = try? Data(contentsOf: file) else { continue }
+            if let record = try? JSONDecoder().decode(UploadRecord.self, from: data),
                 record.version == UploadRecord.currentVersion
             {
                 readable.append(record)
@@ -72,14 +74,16 @@ nonisolated struct UploadRecordStore: Sendable {
         FileManager.default.fileExists(atPath: bodyURL(id: id).path)
     }
 
-    /// Deletes every body no record on disk belongs to, such as one whose staging was cut short, or one whose record
-    /// file could not be read (that file is deleted too, as in `records()`).
+    /// Deletes every body that no record file belongs to, such as one whose staging was cut short. A record file that
+    /// was read and found of no use is deleted first, as in `records()`, and stops owning its body; one that cannot be
+    /// read at all still owns it, so the body stays with it.
     ///
     /// Call it only while no body is being staged: a body counts as an orphan from the moment it is written until its
     /// record is saved.
     func removeOrphanBodies() {
-        let owned = Set(records().map { bodyURL(id: $0.id).lastPathComponent })
-        for file in files(withExtension: "multipart") where !owned.contains(file.lastPathComponent) {
+        _ = records()
+        let owners = Set(files(withExtension: "json").map(Self.stem(of:)))
+        for file in files(withExtension: "multipart") where !owners.contains(Self.stem(of: file)) {
             try? FileManager.default.removeItem(at: file)
         }
     }
@@ -90,6 +94,11 @@ nonisolated struct UploadRecordStore: Sendable {
 
     private static func name(of id: UUID) -> String {
         id.uuidString.lowercased()
+    }
+
+    /// The id a record file or a body file is named by: its file name without the extension.
+    private static func stem(of file: URL) -> String {
+        file.deletingPathExtension().lastPathComponent
     }
 
     private func files(withExtension pathExtension: String) -> [URL] {

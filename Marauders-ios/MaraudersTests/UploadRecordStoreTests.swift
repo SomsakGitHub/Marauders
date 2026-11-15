@@ -54,6 +54,14 @@ struct UploadRecordStoreTests {
         try FileManager.default.contentsOfDirectory(atPath: store.directory.path).sorted()
     }
 
+    private static func recordFile(of id: UUID, in store: UploadRecordStore) -> URL {
+        store.directory.appending(path: "\(id.uuidString.lowercased()).json")
+    }
+
+    private static func setMode(_ mode: Int, of file: URL) throws {
+        try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: file.path)
+    }
+
     @Test func aSavedRecordComesBackEqual() throws {
         try Self.withStore { store in
             let record = Self.record()
@@ -147,6 +155,30 @@ struct UploadRecordStoreTests {
         }
     }
 
+    @Test func aRecordFileThatCannotBeReadIsKeptAndSkipped() throws {
+        try Self.withStore { store in
+            let readable = Self.record(createdAt: Date(timeIntervalSince1970: 1_800_000_000))
+            let closed = Self.record(createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+            try store.save(readable)
+            try store.save(closed)
+            // A file the app cannot open, as the default file protection makes every file between a restart and the
+            // first unlock. The mode is put back at the end, for the folder to be removed.
+            let closedFile = Self.recordFile(of: closed.id, in: store)
+            try Self.setMode(0, of: closedFile)
+            defer { try? Self.setMode(0o600, of: closedFile) }
+            // The premise: the file really cannot be read now.
+            #expect(throws: (any Error).self) { _ = try Data(contentsOf: closedFile) }
+
+            // It is left out of the list, and left on disk.
+            #expect(store.records() == [readable])
+            #expect(FileManager.default.fileExists(atPath: closedFile.path))
+
+            // It is looked at again: once it can be read, the next call lists it.
+            try Self.setMode(0o600, of: closedFile)
+            #expect(store.records() == [closed, readable])
+        }
+    }
+
     @Test func anOrphanBodyIsRemovedAndABodyWithARecordIsKept() throws {
         try Self.withStore { store in
             let kept = Self.record()
@@ -154,18 +186,38 @@ struct UploadRecordStoreTests {
             try Self.writeBody(of: kept.id, in: store)
             let orphan = UUID()
             try Self.writeBody(of: orphan, in: store)
-            // A record file that cannot be read names no body: what it left behind is an orphan too.
-            let unreadable = UUID()
-            try Data("this is not json".utf8).write(
-                to: store.directory.appending(path: "\(unreadable.uuidString.lowercased()).json"))
-            try Self.writeBody(of: unreadable, in: store)
+            // A record file that holds garbage is read, found of no use and deleted, so what it left behind is an
+            // orphan too.
+            let garbled = UUID()
+            try Data("this is not json".utf8).write(to: Self.recordFile(of: garbled, in: store))
+            try Self.writeBody(of: garbled, in: store)
 
             store.removeOrphanBodies()
 
             #expect(store.bodyExists(id: kept.id))
             #expect(store.bodyExists(id: orphan) == false)
-            #expect(store.bodyExists(id: unreadable) == false)
+            #expect(store.bodyExists(id: garbled) == false)
             #expect(store.records() == [kept])
+        }
+    }
+
+    @Test func aBodyWhoseRecordFileCannotBeReadIsNotAnOrphan() throws {
+        try Self.withStore { store in
+            let closed = Self.record()
+            try store.save(closed)
+            try Self.writeBody(of: closed.id, in: store)
+            let closedFile = Self.recordFile(of: closed.id, in: store)
+            try Self.setMode(0, of: closedFile)
+            defer { try? Self.setMode(0o600, of: closedFile) }
+            #expect(throws: (any Error).self) { _ = try Data(contentsOf: closedFile) }
+
+            store.removeOrphanBodies()
+
+            // The record may be perfectly good once it can be read, and the body is the viewer's clip.
+            #expect(store.bodyExists(id: closed.id))
+            #expect(FileManager.default.fileExists(atPath: closedFile.path))
+            try Self.setMode(0o600, of: closedFile)
+            #expect(store.records() == [closed])
         }
     }
 
