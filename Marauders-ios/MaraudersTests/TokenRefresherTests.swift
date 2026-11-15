@@ -61,6 +61,75 @@ struct TokenRefresherTests {
         #expect(h.stores.refreshToken == h.r2)
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func aCallerWithAnOlderTokenOfTheSameAccountSharesTheCallThatIsInFlight() async throws {
+        let gate = SignOutGate()
+        let h = Harness(gate: gate)
+        h.api.enqueue(.failure(AuthAPIError.serverError(500)))
+        let older = TestAccessToken.make(subject: "user-1", expiresIn: 30)
+
+        let starter = Task { await h.refresher.refreshedAccessToken(replacing: h.a1) }
+        await h.api.waitForCalls(1)
+        let joiner = Task { await h.refresher.refreshedAccessToken(replacing: older) }
+        // Time for the joiner to reach the refresher and wait for the call that is in flight.
+        try await Task.sleep(for: .milliseconds(200))
+        await gate.open()
+
+        // The same account, so the same answer. Looking at the store instead would hand it the token just rejected.
+        #expect(await starter.value.unavailableError as? AuthAPIError == .serverError(500))
+        #expect(await joiner.value.unavailableError as? AuthAPIError == .serverError(500))
+        #expect(h.api.refreshCalls == 1)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func aCallerOfAnotherAccountIsNotHandedTheTokenOfARefreshThatIsInFlight() async throws {
+        let gate = SignOutGate()
+        let h = Harness(gate: gate)
+        h.api.enqueue(.success(h.pair))
+        let anotherAccount = TestAccessToken.make(subject: "user-2", expiresIn: 60)
+
+        let starter = Task { await h.refresher.refreshedAccessToken(replacing: h.a1) }
+        await h.api.waitForCalls(1)
+        let joiner = Task { await h.refresher.refreshedAccessToken(replacing: anotherAccount) }
+        try await Task.sleep(for: .milliseconds(200))
+        await gate.open()
+
+        #expect(await starter.value.refreshedToken == h.a2)
+        // A request of the second account is never replayed with the first account's token.
+        #expect(await joiner.value.isRejected)
+        #expect(h.api.refreshCalls == 1)
+        #expect(h.stores.accessToken == h.a2)
+        #expect(h.stores.refreshToken == h.r2)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func aCallerWhoseSessionIsTheStoredOneIsNotGivenTheVerdictOnSomeoneElsesRefresh() async throws {
+        let gate = SignOutGate()
+        let h = Harness(gate: gate)
+        let otherAccessToken = TestAccessToken.make(subject: "user-2", expiresIn: 60)
+        let otherRefreshToken = newRefreshToken()
+        let otherNewAccessToken = TestAccessToken.make(subject: "user-2", expiresIn: 86_400)
+        let otherNewRefreshToken = newRefreshToken()
+        h.api.enqueue(.success(h.pair))
+        h.api.enqueue(.success(AuthTokens(accessToken: otherNewAccessToken, refreshToken: otherNewRefreshToken)))
+
+        let starter = Task { await h.refresher.refreshedAccessToken(replacing: h.a1) }
+        await h.api.waitForCalls(1)
+        // The viewer signs out and someone else signs in while the Worker is still answering; their token is rejected.
+        h.stores.accessToken = otherAccessToken
+        h.stores.refreshToken = otherRefreshToken
+        let joiner = Task { await h.refresher.refreshedAccessToken(replacing: otherAccessToken) }
+        try await Task.sleep(for: .milliseconds(200))
+        await gate.open()
+
+        // The call in the air was for the first viewer and writes nothing now. The second viewer's own refresh follows.
+        #expect(await starter.value.isRejected)
+        #expect(await joiner.value.refreshedToken == otherNewAccessToken)
+        #expect(h.api.refreshTokensGiven == [h.r1, otherRefreshToken])
+        #expect(h.stores.accessToken == otherNewAccessToken)
+        #expect(h.stores.refreshToken == otherNewRefreshToken)
+    }
+
     @Test func aCallerWhoseTokenWasAlreadyReplacedGetsTheStoredOneWithoutACall() async {
         let h = Harness()
         // An earlier refresh already stored the new pair; this caller met the rejection with the old token.

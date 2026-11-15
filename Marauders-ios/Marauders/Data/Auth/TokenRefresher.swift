@@ -7,10 +7,12 @@ import Foundation
 
 /// Trades the stored refresh token for a new access token when the Worker answers a request with 401.
 ///
-/// Every request that meets the same 401 waits for one call: the first starts it, the others wait for its answer. The
-/// refresh token is single use and the Worker revokes the whole family of a token that is spent twice, so two calls in
-/// a row would end the session they were meant to keep. A request that meets the rejection after the call has finished
-/// finds the new token already stored and takes that.
+/// Every request that meets the same 401, or the 401 of another token of the same account, waits for one call: the
+/// first starts it, the others wait for its answer. A request of anyone else waits for that call to end and is then
+/// looked at on its own, because the answer is not about its session. The refresh token is single use and the Worker
+/// revokes the whole family of a token that is spent twice, so two calls in a row would end the session they were meant
+/// to keep. A request that meets the rejection after the call has finished finds the new token already stored and takes
+/// that.
 ///
 /// The stored tokens belong to the viewer, who can sign out or sign in as someone else while the Worker is answering.
 /// Every look at them and every write happens in one hop to the main actor, where the sign-in and sign-out code runs
@@ -23,7 +25,7 @@ actor TokenRefresher: TokenRefreshing {
     private let refreshTokenStore: any APIRefreshTokenStore
     private let authAPI: any AuthAPIClientProtocol
     private let retryDelay: Duration
-    private var inFlight: Task<TokenRefreshOutcome, Never>?
+    private var inFlight: Flight?
 
     /// - Parameter retryDelay: How long to wait before asking again after a failure to reach the Worker.
     init(
@@ -39,16 +41,22 @@ actor TokenRefresher: TokenRefreshing {
     }
 
     func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome {
-        if let inFlight { return await inFlight.value }
-        // Unstructured on purpose: a caller that is cancelled stops waiting but does not cancel the call for everyone
-        // else. The task ends the flight itself, in the same turn on the actor as its last step, so no caller can join
-        // a call that has already finished and be handed a token it has just seen rejected.
+        while let flight = inFlight {
+            let outcome = await flight.task.value
+            if flight.answers(for: rejectedAccessToken) { return outcome }
+            // The call was for someone else's session, and its answer says nothing about this caller's. It is over now:
+            // look at the stored session for this caller's own token, as a caller who met no call in flight does.
+        }
+        // Unstructured on purpose: a caller that is cancelled must not cancel the call for everyone else. It does not
+        // stop waiting for it either, and gets the answer like the rest. The task ends the flight itself, in the same
+        // turn on the actor as its last step, so no caller can join a call that has already finished and be handed a
+        // token it has just seen rejected.
         let task = Task {
             let outcome = await self.refresh(replacing: rejectedAccessToken)
             self.inFlight = nil
             return outcome
         }
-        inFlight = task
+        inFlight = Flight(task: task, rejectedAccessToken: rejectedAccessToken)
         return await task.value
     }
 
@@ -111,6 +119,25 @@ actor TokenRefresher: TokenRefreshing {
         if error is URLError || error is HTTPClientError { return true }
         if case .serverError(let status)? = error as? AuthAPIError { return [502, 503, 504].contains(status) }
         return false
+    }
+
+    // MARK: - the call in flight
+
+    /// The one call to the Worker that is running, and the token whose rejection started it.
+    private nonisolated struct Flight: Sendable {
+        let task: Task<TokenRefreshOutcome, Never>
+        let rejectedAccessToken: String
+
+        /// Whether the call's answer is also the answer for a caller who met the rejection of `callerToken`: the same
+        /// rejection, or another token of the same account. The answer says nothing about anyone else's session, and a
+        /// token that names no account cannot be told apart from someone else's.
+        func answers(for callerToken: String) -> Bool {
+            if callerToken == rejectedAccessToken { return true }
+            guard let caller = APIAccessTokenSubject.subject(of: callerToken),
+                let started = APIAccessTokenSubject.subject(of: rejectedAccessToken)
+            else { return false }
+            return caller == started
+        }
     }
 
     // MARK: - the stored session
