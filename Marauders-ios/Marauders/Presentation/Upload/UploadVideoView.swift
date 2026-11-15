@@ -101,10 +101,7 @@ struct UploadVideoView: View {
                         Task { await viewModel.upload() }
                     } label: {
                         if viewModel.isUploading {
-                            HStack {
-                                ProgressView()
-                                Text("Uploading…")
-                            }
+                            uploadingLabel
                         } else {
                             Text("Upload to Feed")
                                 .frame(maxWidth: .infinity)
@@ -157,6 +154,32 @@ struct UploadVideoView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Turn on location for Marauders in Settings to tag your clip.")
+            }
+        }
+    }
+
+    /// What the Upload button shows while a clip uploads: a bar that fills as the body is sent, and a spinner once every
+    /// byte is out and the app waits for the Worker's answer.
+    @ViewBuilder
+    private var uploadingLabel: some View {
+        if let label = viewModel.uploadProgressLabel {
+            if viewModel.isFinishingUpload {
+                HStack {
+                    ProgressView()
+                        .accessibilityIdentifier("upload.progress")
+                    Text(label)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView(value: viewModel.uploadProgress ?? 0)
+                        .accessibilityIdentifier("upload.progress")
+                    Text(label)
+                }
+            }
+        } else {
+            HStack {
+                ProgressView()
+                Text("Uploading…")
             }
         }
     }
