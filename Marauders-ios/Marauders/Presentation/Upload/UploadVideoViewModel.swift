@@ -17,6 +17,8 @@ final class UploadVideoViewModel {
     var isCheckingAudio = false
     var audioAssessment: ClipAudioAssessment?
     var isUploading = false
+    /// How much of the clip's body has been sent, from 0 to 1, while it uploads. `nil` when nothing is uploading.
+    private(set) var uploadProgress: Double?
     var isResolvingClipLocation = false
     var statusMessage: String?
     var isSuccess = false
@@ -29,6 +31,8 @@ final class UploadVideoViewModel {
     private let prepareVideo: PrepareVideoForUploadUseCase
     private let uploadVideo: UploadFeedVideoUseCase
     private let videoLocationReader: VideoLocationReading
+    /// Asks iOS for time to finish an upload if the app leaves the screen meanwhile; answers how to give it back.
+    private let holdAwake: @MainActor (String) -> @MainActor () -> Void
     private var pickerStagingURL: URL?
     /// Called with the clip the server stored, once the upload succeeded.
     var onUploaded: ((_ uploaded: FeedVideo) async -> Void)?
@@ -36,15 +40,19 @@ final class UploadVideoViewModel {
     private let locationManager: LocationManaging
     private let locationDelegateBridge = LocationManagerDelegateBridge()
     private var pendingClipLocationRequest = false
+    /// Counts uploads, so a report from an upload that has ended cannot move the bar of the next one.
+    private var uploadAttempt = 0
 
     init(
         prepareVideo: PrepareVideoForUploadUseCase,
         uploadVideo: UploadFeedVideoUseCase,
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()
+        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector(),
+        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = BackgroundExecution.begin
     ) {
         self.audioInspector = audioInspector
+        self.holdAwake = holdAwake
         self.prepareVideo = prepareVideo
         self.uploadVideo = uploadVideo
         self.locationManager = locationManager
@@ -63,6 +71,17 @@ final class UploadVideoViewModel {
             && !isResolvingClipLocation
             && uploadFileURL != nil
             && clipLocation != nil
+    }
+
+    /// All the bytes are sent and the app waits for the Worker's answer.
+    var isFinishingUpload: Bool { isUploading && (uploadProgress ?? 0) >= 1 }
+
+    /// "Uploading… 42%" (rounded down), "Finishing…" once all bytes are sent, `nil` when nothing is uploading. It never
+    /// says 100%, because that would claim the clip is stored before the Worker has said so.
+    var uploadProgressLabel: String? {
+        guard let uploadProgress else { return nil }
+        if uploadProgress >= 1 { return "Finishing…" }
+        return "Uploading… \(Int((uploadProgress * 100).rounded(.down)))%"
     }
 
     func resetPickedFile() {
@@ -169,6 +188,11 @@ final class UploadVideoViewModel {
     }
 
     func upload() async {
+        // A second call while one runs would start another transfer and reset the first one's bar.
+        guard !isUploading else {
+            AppLog.warning("upload", "upload requested while an upload is running")
+            return
+        }
         guard let uploadFileURL else {
             AppLog.warning("upload", "upload tapped but no file")
             return
@@ -179,10 +203,20 @@ final class UploadVideoViewModel {
             return
         }
 
+        // Released last, after the flags below are cleared, and on every way out: success, a thrown error, a cancel.
+        let release = holdAwake("Upload video")
+        defer { release() }
+
         isUploading = true
+        uploadProgress = 0
+        uploadAttempt += 1
+        let attempt = uploadAttempt
         statusMessage = nil
         isSuccess = false
-        defer { isUploading = false }
+        defer {
+            isUploading = false
+            uploadProgress = nil
+        }
 
         AppLog.info("upload", "upload started")
 
@@ -191,7 +225,10 @@ final class UploadVideoViewModel {
                 fileURL: uploadFileURL,
                 clipLocation: clipLocation,
                 caption: caption,
-                audioAssessment: audioAssessment
+                audioAssessment: audioAssessment,
+                progress: { [weak self] fraction in
+                    Task { @MainActor in self?.applyUploadProgress(fraction, attempt: attempt) }
+                }
             )
             isSuccess = true
             statusMessage = "Upload complete — opening feed"
@@ -214,6 +251,14 @@ final class UploadVideoViewModel {
             isSuccess = false
             AppLog.error("upload", "upload failed: \(error.localizedDescription)")
         }
+    }
+
+    /// Called from the transfer's thread through a hop to the main actor, so it can arrive after the upload ended or
+    /// after the next one began: only the upload that is running may move the bar. A report that is not a number is
+    /// dropped: min and max cannot clamp NaN, and the label would trap on it.
+    private func applyUploadProgress(_ fraction: Double, attempt: Int) {
+        guard isUploading, attempt == uploadAttempt, !fraction.isNaN else { return }
+        uploadProgress = min(max(fraction, 0), 1)
     }
 
     private func configureLocationManagerIfNeeded() {

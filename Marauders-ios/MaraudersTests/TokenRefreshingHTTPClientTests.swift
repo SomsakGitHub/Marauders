@@ -253,6 +253,21 @@ struct TokenRefreshingHTTPClientTests {
         #expect(transport.requests.last == expected)
     }
 
+    @Test func anUploadReportsProgressForTheFirstTryAndTheReplay() async throws {
+        let transport = RecordingTransport(
+            [.success(reply(401)), .success(reply(201))], reportingProgress: [0.5, 1.0])
+        let client = TokenRefreshingHTTPClient(base: transport, refresher: ScriptedRefresher(.refreshed("new")))
+        let log = UploadProgressLog()
+
+        let response = try await client.upload(
+            request(method: "POST"), multipart: [.field(name: "caption", value: "hello")], progress: log.handler)
+
+        #expect(response.statusCode == 201)
+        #expect(transport.requests.count == 2)
+        #expect(
+            log.values == [0.5, 1.0, 0.5, 1.0], "the replay sends the body again, from 0, through the same handler")
+    }
+
     @Test func anUploadWhoseRefreshIsRejectedOrUnavailableIsNotReplayed() async throws {
         let parts: [HTTPMultipartPart] = [.field(name: "caption", value: "hello")]
 

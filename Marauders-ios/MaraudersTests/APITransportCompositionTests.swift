@@ -65,6 +65,20 @@ struct APITransportCompositionTests {
         #expect(await log.tokens.isEmpty)
     }
 
+    @Test func theApiStackDeliversUploadProgressToTheCaller() async throws {
+        let transport = RecordingTransport([.success(reply(201))], reportingProgress: [0.5, 1.0])
+        let log = UploadProgressLog()
+        let client = APITransportComposition.api(
+            base: transport, refresher: ScriptedRefresher(), reportRejected: { _ in })
+
+        let response = try await client.upload(
+            request(token: "old", method: "POST"), multipart: [.field(name: "caption", value: "hello")],
+            progress: log.handler)
+
+        #expect(response.statusCode == 201)
+        #expect(log.values == [0.5, 1.0])
+    }
+
     // MARK: - the stacks that report: api and feed
 
     @Test(arguments: [ReportingStack.api, ReportingStack.feed])

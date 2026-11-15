@@ -118,14 +118,16 @@ struct UploadVideoViewModelTests {
             result: .failure(StubError.uploadFailed)),
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()
+        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector(),
+        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = { _ in {} }
     ) -> UploadVideoViewModel {
         UploadVideoViewModel(
             prepareVideo: PrepareVideoForUploadUseCase(exporter: exporter),
             uploadVideo: UploadFeedVideoUseCase(repository: uploadRepository),
             locationManager: locationManager,
             videoLocationReader: videoLocationReader,
-            audioInspector: audioInspector
+            audioInspector: audioInspector,
+            holdAwake: holdAwake
         )
     }
 
@@ -392,5 +394,311 @@ struct UploadVideoViewModelTests {
         #expect(viewModel.clipLocation == Self.bangkok)
         #expect(viewModel.isResolvingClipLocation == false)
         #expect(viewModel.statusMessage == nil)
+    }
+
+    // MARK: - Upload progress
+
+    private static let uploadedClip = FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!)
+
+    /// A model with a clip and a place, ready for a tap on Upload.
+    private func makeUploadReadyViewModel(
+        _ repository: VideoUploadRepository,
+        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = { _ in {} }
+    ) throws -> UploadVideoViewModel {
+        let model = makeViewModel(uploadRepository: repository, holdAwake: holdAwake)
+        model.uploadFileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 4)
+        model.applyClipLocation(Self.bangkok)
+        return model
+    }
+
+    @Test func theBarStartsAtZeroWhenTheUploadStarts() async throws {
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+
+        #expect(model.isUploading)
+        #expect(model.uploadProgress == 0)
+        #expect(model.uploadProgressLabel == "Uploading… 0%")
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+    }
+
+    @Test func theLabelRoundsDownAndEndsWithTheUpload() async throws {
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+
+        await repository.report(0.425)
+        #expect(model.uploadProgressLabel == "Uploading… 42%")
+        await repository.report(0.999)
+        #expect(model.uploadProgressLabel == "Uploading… 99%")
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+        #expect(model.uploadProgress == nil)
+        #expect(model.uploadProgressLabel == nil)
+    }
+
+    @Test func allBytesSentShowsFinishingNotOneHundredPercent() async throws {
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+
+        await repository.report(1.0)
+
+        #expect(model.isFinishingUpload)
+        #expect(model.uploadProgressLabel == "Finishing…")
+        #expect(model.uploadProgressLabel?.contains("100") == false)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+    }
+
+    @Test func aReportThatRestartsAtZeroLowersTheBar() async throws {
+        // A 401 after the whole body went out makes the app refresh the token and send the upload again from 0.
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+
+        await repository.report(1.0)
+        #expect(model.isFinishingUpload)
+        await repository.report(0.1)
+
+        #expect(model.uploadProgress == 0.1)
+        #expect(!model.isFinishingUpload)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+    }
+
+    @Test func aReportIsClampedToTheRange() async throws {
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+
+        await repository.report(1.7)
+        #expect(model.uploadProgress == 1.0)
+        await repository.report(-0.3)
+        #expect(model.uploadProgress == 0)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+    }
+
+    @Test func aLateReportAfterTheUploadEndedChangesNothing() async throws {
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+        let handler = try #require(repository.handlers.first)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+        handler(0.97)
+        await repository.settle()
+
+        #expect(model.uploadProgress == nil)
+        #expect(model.uploadProgressLabel == nil)
+    }
+
+    @Test func aReportFromAnEarlierUploadCannotMoveTheNextBar() async throws {
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let first = Task { await model.upload() }
+        await repository.waitUntilUploading()
+        let oldHandler = try #require(repository.handlers.first)
+        repository.end(with: .failure(StubError.uploadFailed))
+        await first.value
+        #expect(model.uploadFileURL != nil)
+
+        let second = Task { await model.upload() }
+        await repository.waitUntilUploading(2)
+        oldHandler(0.9)
+        await repository.settle()
+
+        #expect(model.isUploading)
+        #expect(model.uploadProgress == 0)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await second.value
+    }
+
+    @Test func aReportThatIsNotANumberChangesNothing() async throws {
+        // min and max cannot clamp NaN, and `Int(.nan)` in the label would trap.
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+        await repository.report(0.5)
+        try #require(model.uploadProgress == 0.5)
+
+        await repository.report(.nan)
+
+        try #require(model.uploadProgress == 0.5)
+        #expect(model.uploadProgressLabel == "Uploading… 50%")
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+    }
+
+    @Test func aSecondCallWhileUploadingStartsNothingAndLeavesTheBarAlone() async throws {
+        // The button is disabled while uploading, yet two calls can overlap (a double tap during a stall).
+        let holds = BackgroundHolds()
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository, holdAwake: { holds.begin($0) })
+        let first = Task { await model.upload() }
+        await repository.waitUntilUploading()
+        await repository.report(0.5)
+
+        let second = Task { await model.upload() }
+        await repository.settle()
+
+        #expect(repository.handlers.count == 1)
+        #expect(holds.begun.count == 1)
+        #expect(model.uploadProgress == 0.5)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await first.value
+        await second.value
+        #expect(holds.released == 1)
+    }
+
+    // MARK: - Background task
+
+    @Test func theUploadHoldsABackgroundTaskUntilItEnds() async throws {
+        let holds = BackgroundHolds()
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository, holdAwake: { holds.begin($0) })
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+
+        #expect(holds.begun == ["Upload video"])
+        #expect(holds.released == 0)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+        #expect(holds.released == 1)
+    }
+
+    @Test func theTaskIsReleasedOnceWhenTheUploadFails() async throws {
+        let holds = BackgroundHolds()
+        let repository = RecordingVideoUploadRepository(result: .failure(StubError.uploadFailed))
+        let model = try makeUploadReadyViewModel(repository, holdAwake: { holds.begin($0) })
+
+        await model.upload()
+
+        #expect(model.statusMessage == "upload failed")
+        #expect(holds.begun.count == 1)
+        #expect(holds.released == 1)
+    }
+
+    @Test func theTaskIsReleasedOnceWhenTheUploadIsCancelled() async throws {
+        let holds = BackgroundHolds()
+        let model = try makeUploadReadyViewModel(SleepingUploadRepository(), holdAwake: { holds.begin($0) })
+        let upload = Task { await model.upload() }
+        // The task begins the background task and reaches the repository in its first run on the main actor.
+        for _ in 0..<100 where holds.begun.isEmpty { await Task.yield() }
+        #expect(holds.begun.count == 1)
+        #expect(holds.released == 0)
+
+        upload.cancel()
+        await upload.value
+
+        #expect(holds.released == 1)
+        #expect(!model.isUploading)
+    }
+
+    @Test func aTapThatStartsNothingHoldsNoTask() async throws {
+        let holds = BackgroundHolds()
+        let model = makeViewModel(holdAwake: { holds.begin($0) })
+
+        await model.upload()
+        model.uploadFileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 4)
+        await model.upload()
+
+        #expect(model.statusMessage == "Set the clip location before uploading")
+        #expect(holds.begun.isEmpty)
+        #expect(holds.released == 0)
+    }
+
+    /// Records every background task the view model begins and every one it gives back.
+    @MainActor
+    private final class BackgroundHolds {
+        private(set) var begun: [String] = []
+        private(set) var released = 0
+
+        func begin(_ name: String) -> @MainActor () -> Void {
+            begun.append(name)
+            return { [self] in released += 1 }
+        }
+    }
+
+    /// A repository whose upload waits until the task running it is cancelled, then throws, like a transfer that stops.
+    private final class SleepingUploadRepository: VideoUploadRepository, @unchecked Sendable {
+        func upload(
+            fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String
+        ) async throws -> FeedVideo {
+            try await Task.sleep(for: .seconds(60))
+            return FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!)
+        }
+    }
+
+    /// A repository that holds every upload until the test ends it, and keeps the progress handler each upload was
+    /// given (oldest first), so a test can report through an old handler after a new upload has started.
+    private final class HeldUploadRepository: VideoUploadRepository, @unchecked Sendable {
+        private(set) var handlers: [UploadProgressHandler] = []
+        private var held: [CheckedContinuation<FeedVideo, Error>] = []
+        private var waiter: CheckedContinuation<Void, Never>?
+
+        func upload(
+            fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String
+        ) async throws -> FeedVideo {
+            try await upload(
+                fileURL: fileURL, mimeType: mimeType, clipLocation: clipLocation, caption: caption,
+                audioAssessment: nil, progress: nil)
+        }
+
+        func upload(
+            fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String,
+            audioAssessment: ClipAudioAssessment?, progress: UploadProgressHandler?
+        ) async throws -> FeedVideo {
+            try await withCheckedThrowingContinuation { continuation in
+                held.append(continuation)
+                handlers.append(progress ?? { _ in })
+                waiter?.resume()
+                waiter = nil
+            }
+        }
+
+        /// Returns once `uploads` uploads have started.
+        func waitUntilUploading(_ uploads: Int = 1) async {
+            while handlers.count < uploads {
+                await withCheckedContinuation { waiter = $0 }
+            }
+        }
+
+        /// Reports through the newest upload's handler, then lets the main actor apply what that queued.
+        func report(_ fraction: Double) async {
+            handlers.last?(fraction)
+            await settle()
+        }
+
+        /// The handler hops to the main actor, so give the hop time to land before a test reads the model.
+        func settle() async {
+            for _ in 0..<5 { await Task.yield() }
+        }
+
+        /// Ends every upload that is being held: one, unless a test lets a second call through.
+        func end(with result: Result<FeedVideo, Error>) {
+            let ending = held
+            held = []
+            for continuation in ending { continuation.resume(with: result) }
+        }
     }
 }

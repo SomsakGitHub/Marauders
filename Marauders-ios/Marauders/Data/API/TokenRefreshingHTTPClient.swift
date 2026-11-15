@@ -24,8 +24,8 @@ nonisolated struct SessionRefreshUnavailableError: LocalizedError, Equatable {
 ///   is, so a caller's own retry of transient failures still applies. Anything else is one typed error,
 ///   `SessionRefreshUnavailableError`.
 ///
-/// An upload is replayed with the same parts: a 401 means the Worker applied nothing. The app's requests carry their
-/// body as data, so the replay sends the same bytes.
+/// An upload is replayed with the same parts: a 401 means the Worker applied nothing. A part that names a file (a clip)
+/// is copied into the body again, so the replay sends the same bytes as long as the file is still there.
 struct TokenRefreshingHTTPClient: HTTPClient {
     private let base: any HTTPClient
     private let refresher: any TokenRefreshing
@@ -49,7 +49,16 @@ struct TokenRefreshingHTTPClient: HTTPClient {
     }
 
     nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
-        try await send(request) { try await base.upload($0, multipart: multipart) }
+        try await upload(request, multipart: multipart, progress: nil)
+    }
+
+    /// A replay reports through the same `progress`, starting again from 0, so a caller sees the bar restart.
+    nonisolated func upload(
+        _ request: URLRequest,
+        multipart: [HTTPMultipartPart],
+        progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
+        try await send(request) { try await base.upload($0, multipart: multipart, progress: progress) }
     }
 
     /// `perform` sends a request; the replay goes through it too, so an upload goes out again with the same parts.

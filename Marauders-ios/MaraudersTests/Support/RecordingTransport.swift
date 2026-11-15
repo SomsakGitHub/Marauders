@@ -15,10 +15,12 @@ import Foundation
 /// requests arrive from the tasks of the code under test while the test reads what was recorded, which the lock makes
 /// safe.
 nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
-    /// What an upload carried, in a form a test can compare: `HTTPMultipartPart` itself cannot be compared.
+    /// What an upload carried, in a form a test can compare: `HTTPMultipartPart` itself cannot be compared. A part that
+    /// is copied from a file at send time (`fileAt`) is recorded by its URL, not by its bytes.
     enum RecordedPart: Equatable, Sendable {
         case field(name: String, value: String)
         case file(name: String, filename: String, mimeType: String, data: Data)
+        case fileAt(name: String, filename: String, mimeType: String, url: URL)
     }
 
     /// What a request after the end of the list ends with.
@@ -29,17 +31,21 @@ nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
     private let lock = NSLock()
     private var script: [Result<HTTPClientResponse, any Error>]
     private let responder: Responder?
+    private let reportingProgress: [Double]
     private var seen: [URLRequest] = []
     private var seenUploads: [[RecordedPart]] = []
 
-    init(_ script: [Result<HTTPClientResponse, any Error>]) {
+    /// - Parameter reportingProgress: What every upload tells its progress handler, in order, before it is answered.
+    init(_ script: [Result<HTTPClientResponse, any Error>], reportingProgress: [Double] = []) {
         self.script = script
         self.responder = nil
+        self.reportingProgress = reportingProgress
     }
 
-    init(responder: @escaping Responder) {
+    init(responder: @escaping Responder, reportingProgress: [Double] = []) {
         self.script = []
         self.responder = responder
+        self.reportingProgress = reportingProgress
     }
 
     /// Every request that arrived, uploads included, in the order they arrived.
@@ -54,10 +60,17 @@ nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
     }
 
     func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
+        try await upload(request, multipart: multipart, progress: nil)
+    }
+
+    func upload(
+        _ request: URLRequest, multipart: [HTTPMultipartPart], progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
         lock.withLock {
             seen.append(request)
             seenUploads.append(multipart.map(Self.recorded))
         }
+        for fraction in reportingProgress { progress?(fraction) }
         return try await answer(request)
     }
 
@@ -76,6 +89,8 @@ nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
             return .field(name: name, value: value)
         case .file(let name, let filename, let mimeType, let data):
             return .file(name: name, filename: filename, mimeType: mimeType, data: data)
+        case .fileAt(let name, let filename, let mimeType, let url):
+            return .fileAt(name: name, filename: filename, mimeType: mimeType, url: url)
         }
     }
 }

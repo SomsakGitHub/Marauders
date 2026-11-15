@@ -179,6 +179,8 @@ sequenceDiagram
 
 `PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present; `ClipLocationPickerView` lets the user search for or adjust the place) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `FastClipAudioInspector` classifies the exported audio on-device (speech / music / mixed, advisory only, never blocks upload) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, the `audioAssessment` JSON, plus optional `caption` typed in the upload form; blank values are omitted).
 
+The export file is copied into the multipart body in 1 MiB chunks (`MultipartBodyWriter`), so a clip is never held whole in memory, and `URLSession` sends the body from that file. `UploadVideoViewModel` shows how much of the body has been sent (`Uploading… 42%`, rounded down, then `Finishing…` until the Worker answers, so the row never says 100% before the clip is stored). It also holds a `beginBackgroundTask` (`BackgroundExecution`) for the whole upload, which gives the transfer about 30 seconds if the viewer leaves the app; a longer absence still ends the connection and the viewer sees the existing error.
+
 ### Map tab
 
 - **Data:** `GET /v1/map/clips` (same response as the feed, `forMap` in `FeedAPIClient`) via `VideoFeedViewModel.loadMapClips(country:)` into `mapFilteredClips`, independent of the feed list; clips with both `latitude` / `longitude` get a `FeedVideo.mapCoordinate`. The response also carries `authorName` / `caption`, used by client-side search.
@@ -286,7 +288,7 @@ Full detail (cache contract, local processing limits, language detection, Dutch/
 **Isolation model (intentional split):**
 
 - **MainActor:** `FeedPlayerEngine`, ViewModels, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only. It is the default, so a Domain or Data type that must not be tied to it is marked `nonisolated`.
-- **`@concurrent`:** with approachable concurrency a `nonisolated async` function keeps running on its caller's actor (`NonisolatedNonsendingByDefault`), so long file or media work that is not inside an actor opts out with `@concurrent`: the multipart body writer of `URLSessionHTTPClient` (clips up to 100 MB), `FastClipAudioInspector.inspect`, `DubbedAudioCacheEncoding.encode`, `SpeechAudioPreparation.chunks` and `detectionWindows`.
+- **`@concurrent`:** with approachable concurrency a `nonisolated async` function keeps running on its caller's actor (`NonisolatedNonsendingByDefault`), so long file or media work that is not inside an actor opts out with `@concurrent`: `MultipartBodyWriter` (clips up to 100 MB), `FastClipAudioInspector.inspect`, `DubbedAudioCacheEncoding.encode`, `SpeechAudioPreparation.chunks` and `detectionWindows`.
 - **Sendable value types:** `FeedVideo`, `FeedPlayerPhase`, `FeedLoadState`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` — safe across `Task` boundaries.
 - **Callbacks into `async`:** `withChecked(Throwing)Continuation` wraps completion-handler and delegate APIs, for example the `URLSession` download in `FeedCacheDownloader`, the speech permission request and the MP4 export for upload.
 - **Callbacks into the main actor:** UIKit scroll callbacks already run there, so `VerticalFeedPagingView` reports a settled page straight to its `@MainActor` delegate. AVFoundation and Core Animation observers (`PlayerSlot` in `FeedPlayerEngine.swift`, and `FeedPlayerLayerHostView`) get closures that are not isolated to the main actor, so they hop back with `Task { @MainActor in … }` and first check that the item or layer is still the current one.
@@ -439,9 +441,10 @@ sequenceDiagram
   Export-->>VM: temp .mp4 URL
   View->>VM: upload()
   VM->>Up: execute(fileURL:)
-  Up->>Repo: upload(fileURL:mimeType:)
+  Up->>Repo: upload(fileURL:mimeType:progress:)
   Repo->>API: multipart POST
   API->>Worker: POST /v1/videos
+  API-->>VM: progress 0…1 while the body is sent
   Worker-->>API: FeedVideo item
   API-->>VM: success
   VM-->>Coord: onUploaded
@@ -533,7 +536,7 @@ flowchart LR
 |-------|----------|----------------|
 | Library import | `PickedVideoFile` → tmp | After successful export, or when user picks another clip / clears |
 | H.264 export | tmp `.mp4` (`uploadFileURL`) | After successful upload, failed prepare, new pick, or reset |
-| Multipart body | tmp (upload client) | Immediately after `URLSession.upload` completes |
+| Multipart body | tmp (upload client); the clip is copied into it in 1 MiB chunks | Immediately after `URLSession.upload` completes |
 
 `TemporaryFileCleanup` only deletes URLs under the system temp directory (defense in depth). Logs record byte counts and outcomes, not file paths or video content.
 

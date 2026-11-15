@@ -52,7 +52,8 @@ struct VideoUploadAPIClient: Sendable {
         mimeType: String,
         clipLocation: ClipLocation,
         caption: String = "",
-        audioAssessment: ClipAudioAssessment? = nil
+        audioAssessment: ClipAudioAssessment? = nil,
+        progress: UploadProgressHandler? = nil
     ) async throws -> FeedVideo {
         guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
@@ -79,17 +80,15 @@ struct VideoUploadAPIClient: Sendable {
         request.setValue(authHeader, forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 300
 
-        let fileData = try Data(contentsOf: fileURL)
         let parts = multipartParts(
-            fileName: fileURL.lastPathComponent,
+            fileURL: fileURL,
             mimeType: mimeType,
-            fileData: fileData,
             clipLocation: clipLocation,
             caption: caption,
             audioAssessment: audioAssessment
         )
 
-        let response = try await client.upload(request, multipart: parts)
+        let response = try await client.upload(request, multipart: parts, progress: progress)
 
         let bodySnippet = Self.snippet(from: response.data)
         AppLog.info("api.upload", "response status=\(response.statusCode) body=\(bodySnippet)")
@@ -123,9 +122,8 @@ struct VideoUploadAPIClient: Sendable {
     }
 
     private func multipartParts(
-        fileName: String,
+        fileURL: URL,
         mimeType: String,
-        fileData: Data,
         clipLocation: ClipLocation,
         caption: String,
         audioAssessment: ClipAudioAssessment?
@@ -143,7 +141,8 @@ struct VideoUploadAPIClient: Sendable {
         if !trimmedCaption.isEmpty {
             parts.append(.field(name: "caption", value: trimmedCaption))
         }
-        parts.append(.file(name: "file", filename: fileName, mimeType: mimeType, data: fileData))
+        // The clip is copied from disk into the body when the body is written, never read into memory here.
+        parts.append(.fileAt(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, url: fileURL))
         return parts
     }
 

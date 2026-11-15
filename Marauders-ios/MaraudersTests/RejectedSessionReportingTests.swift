@@ -99,6 +99,24 @@ struct RejectedSessionReportingTests {
         #expect(await reports.tokens == [Self.token])
     }
 
+    @Test func anUploadForwardsItsProgressAndStillReportsA401() async throws {
+        let reports = RejectionLog()
+        let log = UploadProgressLog()
+        let transport = RecordingTransport(
+            [.success(HTTPClientResponse(data: Data(), statusCode: 401))], reportingProgress: [1.0])
+        let client = RejectedSessionReportingHTTPClient(base: transport, report: { await reports.add($0) })
+
+        let response = try await client.upload(
+            request(authorization: "Bearer \(Self.token)", method: "POST"),
+            multipart: [.field(name: "caption", value: "hello")],
+            progress: log.handler
+        )
+
+        #expect(response.statusCode == 401)
+        #expect(await reports.tokens == [Self.token])
+        #expect(log.values == [1.0])
+    }
+
     @Test func aFailedRequestPassesItsErrorOnAndReportsNothing() async {
         let reports = RejectionLog()
         let client = RejectedSessionReportingHTTPClient(

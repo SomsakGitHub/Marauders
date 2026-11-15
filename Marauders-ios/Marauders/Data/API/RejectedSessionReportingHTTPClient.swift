@@ -28,7 +28,15 @@ struct RejectedSessionReportingHTTPClient: HTTPClient {
     }
 
     nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
-        let response = try await base.upload(request, multipart: multipart)
+        try await upload(request, multipart: multipart, progress: nil)
+    }
+
+    nonisolated func upload(
+        _ request: URLRequest,
+        multipart: [HTTPMultipartPart],
+        progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
+        let response = try await base.upload(request, multipart: multipart, progress: progress)
         await reportIfRejected(request, response)
         return response
     }
