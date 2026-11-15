@@ -557,7 +557,15 @@ private final class AppleAnswers: @unchecked Sendable {
 }
 
 private struct UnusedAuthAPI: AuthAPIClientProtocol {
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
         throw AuthAPIError.invalidResponse
     }
 }

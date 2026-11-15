@@ -29,9 +29,9 @@ struct SignInWithAppleUseCase {
 
     func execute(userID: String, identityToken: String, countryCode: String) async throws {
         guard AuthUserID.isValid(userID) else { throw SignInError.invalidAccount }
-        let accessToken = try await authAPI.exchangeAppleIdentityToken(identityToken, countryCode: countryCode)
+        let tokens = try await authAPI.exchangeAppleIdentityToken(identityToken, countryCode: countryCode)
         try sessionStore.saveUserID(userID)
-        try tokenStore.saveAccessToken(accessToken)
+        try tokenStore.saveAccessToken(tokens.accessToken)
     }
 }
 
@@ -53,9 +53,9 @@ struct SignInWithAppleUseCase {
         }
 
         func execute(secret: String, label: String, userID: String, countryCode: String) async throws {
-            let accessToken = try await devAuth.accessToken(secret: secret, label: label, countryCode: countryCode)
+            let tokens = try await devAuth.tokens(secret: secret, label: label, countryCode: countryCode)
             try sessionStore.saveUserID(userID)
-            try tokenStore.saveAccessToken(accessToken)
+            try tokenStore.saveAccessToken(tokens.accessToken)
         }
     }
 #endif

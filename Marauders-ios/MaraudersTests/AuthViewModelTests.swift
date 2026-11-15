@@ -111,25 +111,49 @@ struct AuthViewModelTests {
 private struct StubAuthAPIClient: AuthAPIClientProtocol {
     static let stubToken = String(repeating: "x", count: 40)
 
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
-        Self.stubToken
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
+        AuthTokens(accessToken: Self.stubToken, refreshToken: nil)
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        throw AuthAPIError.invalidResponse
     }
 }
 
 private struct FailingAuthAPIClient: AuthAPIClientProtocol {
     let error: AuthAPIError
 
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
         throw error
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        throw AuthAPIError.invalidResponse
     }
 }
 
 private final class RecordingAuthAPIClient: AuthAPIClientProtocol, @unchecked Sendable {
     private(set) var receivedCountryCode: String?
 
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
         receivedCountryCode = countryCode
-        return String(repeating: "x", count: 40)
+        return AuthTokens(accessToken: String(repeating: "x", count: 40), refreshToken: nil)
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        throw AuthAPIError.invalidResponse
     }
 }
 

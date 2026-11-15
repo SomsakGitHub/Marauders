@@ -122,9 +122,9 @@ struct AuthUserIDTests {
         init(returning token: String) { outcome = .success(token) }
         init(throwing error: AuthAPIError) { outcome = .failure(error) }
 
-        func accessToken(secret: String, label: String, countryCode: String) async throws -> String {
+        func tokens(secret: String, label: String, countryCode: String) async throws -> AuthTokens {
             calls.append(Call(secret: secret, label: label, countryCode: countryCode))
-            return try outcome.get()
+            return AuthTokens(accessToken: try outcome.get(), refreshToken: nil)
         }
     }
 #endif
@@ -142,9 +142,17 @@ private final class WorkerSpy: AuthAPIClientProtocol, @unchecked Sendable {
     init(returning token: String) { outcome = .success(token) }
     init(throwing error: AuthAPIError) { outcome = .failure(error) }
 
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
         calls.append(Call(identityToken: identityToken, countryCode: countryCode))
-        return try outcome.get()
+        return AuthTokens(accessToken: try outcome.get(), refreshToken: nil)
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        throw AuthAPIError.invalidResponse
     }
 }
 
