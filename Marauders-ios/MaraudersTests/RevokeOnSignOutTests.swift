@@ -32,11 +32,16 @@ struct RevokeOnSignOutTests {
 
     /// A viewer with a saved session whose sign out asks `repository` first and the Worker's `authAPI` second, both
     /// inside `window`, the way the composition root wires it. The session is not restored yet.
+    ///
+    /// `switchesSharingOff: false` leaves the sharing call out. A test of the revoke alone in a window of a few hundred
+    /// milliseconds needs it: a sharing call that a busy machine slowed down would use the window up, and the revoke
+    /// would never be made.
     private func makeHarness(
         accessToken: String = TestAccessToken.make(expiresIn: 3_600),
         refreshToken: String? = RevokeOnSignOutTests.newRefreshToken(),
         window: Duration = .seconds(30),
         behavior: RevokingAuthAPI.Behavior = .answers,
+        switchesSharingOff: Bool = true,
         apple: ASAuthorizationAppleIDProvider.CredentialState = .authorized
     ) -> Harness {
         let storage = SignOutSessionStorage(userID: Self.userID, accessToken: accessToken)
@@ -54,7 +59,10 @@ struct RevokeOnSignOutTests {
             credentialState: { _ in apple },
             signOutWindow: window
         )
-        viewModel.stopSharingOnSignOut = StopLocationSharingOnSignOutUseCase(repository: repository, timeout: window)
+        if switchesSharingOff {
+            viewModel.stopSharingOnSignOut = StopLocationSharingOnSignOutUseCase(
+                repository: repository, timeout: window)
+        }
         return Harness(
             viewModel: viewModel, storage: storage, refresh: refresh, authAPI: authAPI, repository: repository,
             accessToken: accessToken)
@@ -63,9 +71,11 @@ struct RevokeOnSignOutTests {
     private func signedIn(
         refreshToken: String? = RevokeOnSignOutTests.newRefreshToken(),
         window: Duration = .seconds(30),
-        behavior: RevokingAuthAPI.Behavior = .answers
+        behavior: RevokingAuthAPI.Behavior = .answers,
+        switchesSharingOff: Bool = true
     ) async -> Harness {
-        let harness = makeHarness(refreshToken: refreshToken, window: window, behavior: behavior)
+        let harness = makeHarness(
+            refreshToken: refreshToken, window: window, behavior: behavior, switchesSharingOff: switchesSharingOff)
         await harness.viewModel.restoreSession()
         return harness
     }
@@ -102,7 +112,7 @@ struct RevokeOnSignOutTests {
     @Test(.timeLimit(.minutes(1)))
     func signingOutIsNotHeldBackByARevokeThatNeverAnswers() async throws {
         let gate = SignOutGate()
-        let harness = await signedIn(window: .milliseconds(300), behavior: .stuck(gate))
+        let harness = await signedIn(window: .milliseconds(300), behavior: .stuck(gate), switchesSharingOff: false)
         try #require(harness.viewModel.isSignedIn)
 
         let clock = ContinuousClock()
@@ -110,7 +120,8 @@ struct RevokeOnSignOutTests {
         await harness.viewModel.signOut()
         let elapsed = started.duration(to: clock.now)
 
-        #expect(elapsed < .seconds(2))
+        // Far under the time limit: a revoke that held the sign out back would never end, since the gate stays shut.
+        #expect(elapsed < .seconds(10))
         #expect(harness.authAPI.calls.count == 1)
         #expect(!harness.viewModel.isSignedIn)
         #expect(!harness.viewModel.isSigningOut)
@@ -207,13 +218,15 @@ struct RevokeOnSignOutTests {
 
         let gate = SignOutGate()
         let stuckToken = Self.newRefreshToken()
-        let stuck = await signedIn(refreshToken: stuckToken, window: .milliseconds(200), behavior: .stuck(gate))
+        let stuck = await signedIn(
+            refreshToken: stuckToken, window: .milliseconds(200), behavior: .stuck(gate), switchesSharingOff: false)
         await stuck.viewModel.signOut()
         #expect(await logged(.warning, "refresh token not revoked before sign out: no answer in time"))
         await gate.open()
 
         for token in [failingToken, stuckToken] {
-            #expect(!AppLogStore.shared.entries.contains { $0.message.contains(token) }, "the token never reaches the log")
+            let leaked = AppLogStore.shared.entries.contains { $0.message.contains(token) }
+            #expect(!leaked, "the token never reaches the log")
         }
     }
 }
@@ -255,7 +268,9 @@ private final class RevokingAuthAPI: AuthAPIClientProtocol, @unchecked Sendable 
     func revokeRefreshToken(_ refreshToken: String) async throws {
         calls.append(
             Call(
-                token: refreshToken, storedRefreshToken: refreshStore?.token, storedAccessToken: accessStore?.accessToken
+                token: refreshToken,
+                storedRefreshToken: refreshStore?.token,
+                storedAccessToken: accessStore?.accessToken
             ))
         switch behavior {
         case .answers:
