@@ -31,6 +31,8 @@ final class UploadVideoViewModel {
     private let prepareVideo: PrepareVideoForUploadUseCase
     private let uploadVideo: UploadFeedVideoUseCase
     private let videoLocationReader: VideoLocationReading
+    /// Asks iOS for time to finish an upload if the app leaves the screen meanwhile; answers how to give it back.
+    private let holdAwake: @MainActor (String) -> @MainActor () -> Void
     private var pickerStagingURL: URL?
     /// Called with the clip the server stored, once the upload succeeded.
     var onUploaded: ((_ uploaded: FeedVideo) async -> Void)?
@@ -46,9 +48,11 @@ final class UploadVideoViewModel {
         uploadVideo: UploadFeedVideoUseCase,
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
-        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector()
+        audioInspector: any ClipAudioInspecting = NoopClipAudioInspector(),
+        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = BackgroundExecution.begin
     ) {
         self.audioInspector = audioInspector
+        self.holdAwake = holdAwake
         self.prepareVideo = prepareVideo
         self.uploadVideo = uploadVideo
         self.locationManager = locationManager
@@ -193,6 +197,10 @@ final class UploadVideoViewModel {
             AppLog.warning("upload", "upload tapped but no clip location")
             return
         }
+
+        // Released last, after the flags below are cleared, and on every way out: success, a thrown error, a cancel.
+        let release = holdAwake("Upload video")
+        defer { release() }
 
         isUploading = true
         uploadProgress = 0

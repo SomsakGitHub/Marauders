@@ -46,8 +46,7 @@ final class BackgroundLocationMonitor {
         locationManager: BackgroundLocationManaging = CLLocationManager(),
         report: ReportUserLocationUseCase,
         defaults: UserDefaults = .standard,
-        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = BackgroundLocationMonitor
-            .beginBackgroundTask,
+        holdAwake: @escaping @MainActor (String) -> @MainActor () -> Void = BackgroundExecution.begin,
         now: @escaping () -> Date = Date.init,
         isProtectedDataAvailable: @escaping () -> Bool = { UIApplication.shared.isProtectedDataAvailable },
         notificationCenter: NotificationCenter = .default
@@ -166,6 +165,7 @@ final class BackgroundLocationMonitor {
             let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         else { return }
         let generation = generation
+        // iOS gives an app it woke for a location only a few seconds: keep it running until the report is through.
         let release = holdAwake("Share location")
         Task {
             defer { release() }
@@ -190,29 +190,5 @@ final class BackgroundLocationMonitor {
         default:
             return false
         }
-    }
-
-    /// Keeps the app running until a report is through, since iOS gives an app it woke for a location only a few
-    /// seconds. Answers how to let it go.
-    static func beginBackgroundTask(_ name: String) -> @MainActor () -> Void {
-        let task = BackgroundTask(name: name)
-        return { task.end() }
-    }
-}
-
-@MainActor
-private final class BackgroundTask {
-    private var identifier = UIBackgroundTaskIdentifier.invalid
-
-    init(name: String) {
-        identifier = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
-            self?.end()
-        }
-    }
-
-    func end() {
-        guard identifier != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(identifier)
-        identifier = .invalid
     }
 }
