@@ -200,47 +200,54 @@ describe("refresh token statements", () => {
   });
 });
 
+// Helpers for the tests that go through worker.fetch.
+
+const baseEnv = { DATABASE_URL, JWT_SIGNING_SECRET: JWT_SECRET };
+
+type Pair = { accessToken: string; refreshToken: string };
+
+type Script = {
+  /** What the Neon rate counter answers: 31 is over the limit of 30. */
+  rateCount?: number;
+  /** Rows for the first, second, ... refresh_tokens statement; later ones get none. */
+  rows?: unknown[][];
+  /** Makes every refresh_tokens statement fail with this error. */
+  failWith?: Error;
+  /** The id the user upsert answers; USER when left out. */
+  userId?: string;
+};
+
+/** Answers rate-limit statements and the user upsert itself, and refresh_tokens statements as the test scripts them. */
+function script(s: Script = {}): void {
+  let next = 0;
+  respondWith((query) => {
+    if (/rate_limit_counters/.test(query.text)) return [{ count: s.rateCount ?? 1 }];
+    if (/INSERT INTO app_users/.test(query.text)) return [{ id: s.userId ?? USER }];
+    if (/refresh_tokens/.test(query.text)) {
+      if (s.failWith) throw s.failWith;
+      return s.rows?.[next++] ?? [];
+    }
+    throw new Error(`unexpected statement: ${query.text}`);
+  });
+}
+
+const refreshStatements = () => queries.filter((query) => /refresh_tokens/.test(query.text));
+
+function post(path: string, body: unknown, env: object = baseEnv): Promise<Response> {
+  const raw = typeof body === "string" ? body : JSON.stringify(body);
+  return worker.fetch(
+    new Request(`https://api.test${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: raw,
+    }),
+    env as never,
+  );
+}
+
 describe("the refresh and sign-out routes", () => {
-  const baseEnv = { DATABASE_URL, JWT_SIGNING_SECRET: JWT_SECRET };
-
-  type Script = {
-    /** What the Neon rate counter answers: 31 is over the limit of 30. */
-    rateCount?: number;
-    /** Rows for the first, second, ... refresh_tokens statement; later ones get none. */
-    rows?: unknown[][];
-    failWith?: Error;
-  };
-
-  /** Answers rate-limit statements itself and refresh_tokens statements as the test scripts them. */
-  function script(s: Script = {}): void {
-    let next = 0;
-    respondWith((query) => {
-      if (/rate_limit_counters/.test(query.text)) return [{ count: s.rateCount ?? 1 }];
-      if (/refresh_tokens/.test(query.text)) {
-        if (s.failWith) throw s.failWith;
-        return s.rows?.[next++] ?? [];
-      }
-      throw new Error(`unexpected statement: ${query.text}`);
-    });
-  }
-
-  const refreshStatements = () => queries.filter((query) => /refresh_tokens/.test(query.text));
-
-  function post(path: string, body: unknown, env: object = baseEnv): Promise<Response> {
-    const raw = typeof body === "string" ? body : JSON.stringify(body);
-    return worker.fetch(
-      new Request(`https://api.test${path}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: raw,
-      }),
-      env as never,
-    );
-  }
   const refresh = (body: unknown, env?: object) => post("/v1/auth/refresh", body, env);
   const signOut = (body: unknown, env?: object) => post("/v1/auth/signout", body, env);
-
-  type Pair = { accessToken: string; refreshToken: string };
 
   const wrongShapes: unknown[] = [
     {},
@@ -456,5 +463,111 @@ describe("the refresh and sign-out routes", () => {
         assert.ok(!logged.includes(secret), "a token or hash reached a log line");
       }
     });
+  });
+});
+
+describe("sign-in and the refresh token", () => {
+  const DEV_SECRET = "test-dev-login-secret-0123456789abcdef";
+  const signInEnv = { ...baseEnv, APPLE_CLIENT_ID: "com.example.test", DEV_LOGIN_SECRET: DEV_SECRET };
+
+  const signInRoutes = [
+    {
+      path: "/v1/auth/apple",
+      body: (extra: object) => ({ identityToken: "valid-identity-token-0123456789", ...extra }),
+    },
+    {
+      path: "/v1/auth/dev",
+      body: (extra: object) => ({ secret: DEV_SECRET, label: "alice", ...extra }),
+    },
+  ];
+
+  /** The statements that change what a sign-in stores: the user upsert and the refresh token. */
+  const writes = () => queries.filter((query) => /app_users|refresh_tokens/.test(query.text));
+
+  beforeEach(() => {
+    resetFakeNeon();
+    script();
+  });
+
+  for (const route of signInRoutes) {
+    describe(`POST ${route.path}`, () => {
+      const signIn = (extra: object = {}) => post(route.path, route.body(extra), signInEnv);
+
+      for (const extra of [{}, { supportsRefreshTokens: false }, { supportsRefreshTokens: null }]) {
+        it(`answers exactly today's { accessToken }, valid 30 days, to a client that sends ${JSON.stringify(extra)}`, async () => {
+          const res = await signIn(extra);
+
+          assert.equal(res.status, 200);
+          const body = (await res.json()) as Record<string, unknown>;
+          assert.deepEqual(Object.keys(body), ["accessToken"]);
+          const claims = decodeJwt(body.accessToken as string);
+          assert.equal(claims.sub, USER);
+          assert.equal((claims.exp ?? 0) - (claims.iat ?? 0), 30 * DAY);
+          assert.equal(refreshStatements().length, 0);
+        });
+      }
+
+      it("answers a pair with a 1-day access token to a client that asks for a refresh token, and stores only its hash", async () => {
+        const res = await signIn({ supportsRefreshTokens: true });
+
+        assert.equal(res.status, 200);
+        const pair = (await res.json()) as Pair;
+        assert.deepEqual(Object.keys(pair).sort(), ["accessToken", "refreshToken"]);
+        const claims = decodeJwt(pair.accessToken);
+        assert.equal(claims.sub, USER);
+        assert.equal((claims.exp ?? 0) - (claims.iat ?? 0), DAY);
+        assert.ok(isWellFormedRefreshToken(pair.refreshToken));
+
+        const inserts = refreshStatements();
+        assert.equal(inserts.length, 1);
+        assert.match(inserts[0].text, /INSERT INTO refresh_tokens/);
+        assert.ok(inserts[0].values.includes(USER));
+        assert.ok(inserts[0].values.includes(await hashRefreshToken(pair.refreshToken)));
+        assert.ok(!inserts[0].values.includes(pair.refreshToken), "a raw token is never stored");
+      });
+
+      it("starts a new family at every sign-in", async () => {
+        const first = (await (await signIn({ supportsRefreshTokens: true })).json()) as Pair;
+        const second = (await (await signIn({ supportsRefreshTokens: true })).json()) as Pair;
+
+        assert.notEqual(first.refreshToken, second.refreshToken);
+        const inserts = refreshStatements();
+        assert.equal(inserts.length, 2);
+        assert.ok(inserts[0].values.includes(await hashRefreshToken(first.refreshToken)));
+        assert.ok(inserts[1].values.includes(await hashRefreshToken(second.refreshToken)));
+      });
+
+      for (const flag of ["true", 1, {}, []]) {
+        it(`answers 400 to a flag of the wrong type, ${JSON.stringify(flag)}, before anything is written`, async () => {
+          const res = await signIn({ supportsRefreshTokens: flag });
+
+          assert.equal(res.status, 400);
+          assert.equal(writes().length, 0);
+        });
+      }
+
+      it("answers 500 and hands out no token when the refresh token cannot be stored", async () => {
+        script({ failWith: new Error("insert failed") });
+
+        const res = await signIn({ supportsRefreshTokens: true });
+
+        assert.equal(res.status, 500);
+        const text = await res.text();
+        assert.ok(!text.includes("accessToken"), text);
+        assert.ok(!text.includes("refreshToken"), text);
+      });
+    });
+  }
+
+  it("still answers 401 to an identity token Apple refuses", async () => {
+    const res = await post(
+      "/v1/auth/apple",
+      { identityToken: "invalid-identity-token-0123456789", supportsRefreshTokens: true },
+      signInEnv,
+    );
+
+    assert.equal(res.status, 401);
+    assert.deepEqual(await res.json(), { error: "invalid apple identity token" });
+    assert.equal(writes().length, 0);
   });
 });
