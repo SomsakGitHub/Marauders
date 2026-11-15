@@ -15,7 +15,8 @@
     "test:comments": "node scripts/test-comments.mjs",
     "test:likes": "node scripts/test-likes.mjs",
     "test:follows": "node scripts/test-follows.mjs",
-    "test:auth-refresh": "node scripts/test-auth-refresh.mjs"
+    "test:auth-refresh": "node scripts/test-auth-refresh.mjs",
+    "test:upload-idempotency": "node scripts/test-upload-idempotency.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

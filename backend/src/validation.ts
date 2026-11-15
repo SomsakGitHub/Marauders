@@ -191,6 +191,20 @@ export function parseUploadCoordinates(
   return { latitude, longitude };
 }
 
+/**
+ * The optional Idempotency-Key header of an upload: null when the header is absent, a lower-case UUID when it is well
+ * formed. Anything else, an empty value included, is refused, so a damaged key never passes for no key.
+ */
+export function parseUploadIdempotencyKey(raw: string | null): string | null {
+  if (raw === null) {
+    return null;
+  }
+  if (raw.length !== 36 || !UUID_RE.test(raw)) {
+    throw new FeedValidationError("Idempotency-Key must be a UUID");
+  }
+  return raw.toLowerCase();
+}
+
 export function extensionForVideoMime(mime: string): "mp4" | "mov" {
   if (mime === "video/mp4") {
     return "mp4";
