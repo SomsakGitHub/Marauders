@@ -8,6 +8,14 @@ import Testing
 
 @testable import Marauders
 
+// The simulator reports no protection class for a file: no NSFileProtectionKey, and one fixed class from the URL
+// resource values whatever the file was written with. A check on the class can only fail on a device.
+#if targetEnvironment(simulator)
+    private let platformHasFileProtectionClasses = false
+#else
+    private let platformHasFileProtectionClasses = true
+#endif
+
 /// Every test works in a folder of its own under `NSTemporaryDirectory()` and removes it afterwards; none touches the
 /// app's real `Application Support/PendingUpload`.
 struct UploadBodyStagerTests {
@@ -141,14 +149,19 @@ struct UploadBodyStagerTests {
         }
     }
 
-    @Test func theBodyFileHasNoCompleteProtection() async throws {
+    @Test(
+        .enabled(
+            if: platformHasFileProtectionClasses,
+            "The simulator reports no file protection classes, so this check can only fail on a device."))
+    func theBodyFileHasNoCompleteProtection() async throws {
         try await Self.withStaging { staging in
             let stager = Self.stager(staging, available: .max)
             _ = try await stager.stage(id: staging.id, parts: staging.parts, clipByteCount: staging.clipByteCount)
 
             // A locked phone must still be able to read the body, so the file keeps the default protection. The
             // value is compared as the text the system gives it: a failed cast to FileProtectionType would pass for
-            // any file.
+            // any file. This runs on a device only: the simulator reports no protection class, so the check could not
+            // fail there, and the trait on the test skips it.
             let attributes = try FileManager.default.attributesOfItem(
                 atPath: staging.store.bodyURL(id: staging.id).path)
             let protection = attributes[.protectionKey].map { "\($0)" }
