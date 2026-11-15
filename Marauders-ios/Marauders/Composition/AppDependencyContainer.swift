@@ -72,9 +72,14 @@ final class AppDependencyContainer {
         let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
         // Every API client talks through this one, so the Worker answering 401 to a request that carried the session's
         // token ends the session in one place, AuthViewModel, instead of in each client and screen.
-        let transport = RejectedSessionReportingHTTPClient(base: baseTransport) { accessToken in
+        let reportRejected: @Sendable (String) async -> Void = { accessToken in
             await authViewModel.handleRejectedAccessToken(accessToken)
         }
+        // Reads are repeated on a transient failure below the reporter, so a 401 is reported once, never retried.
+        let transport = RejectedSessionReportingHTTPClient(
+            base: RetryingHTTPClient(base: baseTransport), report: reportRejected)
+        // The feed repeats its own reads (FeedAPIClient), so it gets no second layer of retries.
+        let feedTransport = RejectedSessionReportingHTTPClient(base: baseTransport, report: reportRejected)
 
         if let feedRepository {
             self.feedRepository = feedRepository
@@ -83,7 +88,7 @@ final class AppDependencyContainer {
         } else {
             self.feedRepository = DefaultFeedRepository(
                 apiClient: FeedAPIClient(
-                    client: transport,
+                    client: feedTransport,
                     authorization: apiAuthorization
                 ))
         }
