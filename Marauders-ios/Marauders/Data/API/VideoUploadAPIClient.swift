@@ -5,11 +5,11 @@
 
 import Foundation
 
-struct VideoUploadAPIResponse: Decodable, Sendable {
+nonisolated struct VideoUploadAPIResponse: Decodable, Sendable {
     let item: FeedVideo
 }
 
-enum VideoUploadAPIError: LocalizedError, Equatable {
+nonisolated enum VideoUploadAPIError: LocalizedError, Equatable {
     case fileTooLarge
     case unsupportedFormat
     case notAuthenticated
@@ -33,7 +33,7 @@ enum VideoUploadAPIError: LocalizedError, Equatable {
 }
 
 struct VideoUploadAPIClient: Sendable {
-    static let maxUploadBytes: Int64 = 100 * 1024 * 1024
+    static let maxUploadBytes: Int64 = VideoUploadForm.maxUploadBytes
 
     private let client: HTTPClient
     private let authorization: APIAuthorization?
@@ -55,15 +55,15 @@ struct VideoUploadAPIClient: Sendable {
         audioAssessment: ClipAudioAssessment? = nil,
         progress: UploadProgressHandler? = nil
     ) async throws -> FeedVideo {
-        guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
+        // The form is nonisolated and cannot log, so the two refusals are logged here.
+        let fileSize: Int64
+        do {
+            fileSize = try VideoUploadForm.validatedSize(of: fileURL, mimeType: mimeType)
+        } catch VideoUploadAPIError.unsupportedFormat {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
             throw VideoUploadAPIError.unsupportedFormat
-        }
-
-        let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
-        let fileSize = (attributes[.size] as? NSNumber)?.int64Value ?? 0
-        guard fileSize > 0, fileSize <= Self.maxUploadBytes else {
-            AppLog.error("api.upload", "file size invalid bytes=\(fileSize)")
+        } catch VideoUploadAPIError.fileTooLarge {
+            AppLog.error("api.upload", "file size invalid")
             throw VideoUploadAPIError.fileTooLarge
         }
 
@@ -72,15 +72,10 @@ struct VideoUploadAPIClient: Sendable {
             throw VideoUploadAPIError.notAuthenticated
         }
 
-        let requestURL = try APIConfiguration.videoUploadURL()
-        AppLog.info("api.upload", "POST \(requestURL.host ?? "?")/v1/videos bytes=\(fileSize)")
+        let request = try VideoUploadForm.request(authorizationHeader: authHeader)
+        AppLog.info("api.upload", "POST \(request.url?.host ?? "?")/v1/videos bytes=\(fileSize)")
 
-        var request = URLRequest(url: requestURL)
-        request.httpMethod = "POST"
-        request.setValue(authHeader, forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 300
-
-        let parts = multipartParts(
+        let parts = VideoUploadForm.parts(
             fileURL: fileURL,
             mimeType: mimeType,
             clipLocation: clipLocation,
@@ -94,20 +89,16 @@ struct VideoUploadAPIClient: Sendable {
         AppLog.info("api.upload", "response status=\(response.statusCode) body=\(bodySnippet)")
 
         guard response.isSuccess else {
-            if let serverMessage = parseServerErrorMessage(from: response.data) {
+            if let serverMessage = VideoUploadForm.serverMessage(from: response.data) {
                 throw UploadErrorMessage(message: serverMessage)
             }
             throw VideoUploadAPIError.serverError(response.statusCode)
         }
 
         do {
-            let decoded = try JSONDecoder().decode(VideoUploadAPIResponse.self, from: response.data)
-            guard decoded.item.streamURL.scheme?.lowercased() == "https" else {
-                AppLog.error("api.upload", "stream URL not HTTPS")
-                throw VideoUploadAPIError.invalidResponse
-            }
-            AppLog.info("api.upload", "decoded item id=\(decoded.item.id.uuidString)")
-            return decoded.item
+            let item = try VideoUploadForm.decodeItem(from: response.data)
+            AppLog.info("api.upload", "decoded item id=\(item.id.uuidString)")
+            return item
         } catch {
             AppLog.error("api.upload", "JSON decode failed: \(error.localizedDescription) body=\(bodySnippet)")
             throw VideoUploadAPIError.invalidResponse
@@ -119,38 +110,6 @@ struct VideoUploadAPIClient: Sendable {
             return "<non-utf8 len=\(data.count)>"
         }
         return text.replacingOccurrences(of: "\n", with: " ")
-    }
-
-    private func multipartParts(
-        fileURL: URL,
-        mimeType: String,
-        clipLocation: ClipLocation,
-        caption: String,
-        audioAssessment: ClipAudioAssessment?
-    ) -> [HTTPMultipartPart] {
-        var parts: [HTTPMultipartPart] = [
-            .field(name: "latitude", value: String(clipLocation.latitude)),
-            .field(name: "longitude", value: String(clipLocation.longitude)),
-        ]
-        if let audioAssessment, let data = try? JSONEncoder().encode(audioAssessment),
-            let json = String(data: data, encoding: .utf8)
-        {
-            parts.append(.field(name: "audioAssessment", value: json))
-        }
-        let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedCaption.isEmpty {
-            parts.append(.field(name: "caption", value: trimmedCaption))
-        }
-        // The clip is copied from disk into the body when the body is written, never read into memory here.
-        parts.append(.fileAt(name: "file", filename: fileURL.lastPathComponent, mimeType: mimeType, url: fileURL))
-        return parts
-    }
-
-    private func parseServerErrorMessage(from data: Data) -> String? {
-        struct ErrorBody: Decodable {
-            let error: String
-        }
-        return (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
     }
 }
 
