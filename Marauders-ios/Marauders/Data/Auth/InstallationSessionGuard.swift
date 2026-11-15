@@ -11,7 +11,8 @@ enum InstallationSessionGuard {
                 for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             try resetIfNeeded(
                 marker: root.appendingPathComponent("Installation/session-initialized"),
-                sessionStore: KeychainAuthSessionStore(), tokenStore: KeychainAPIAccessTokenStore())
+                sessionStore: KeychainAuthSessionStore(), tokenStore: KeychainAPIAccessTokenStore(),
+                refreshTokenStore: KeychainAPIRefreshTokenStore())
             isReady = true
         } catch {
             // Never restore old credentials when the reset or marker write fails.
@@ -20,12 +21,14 @@ enum InstallationSessionGuard {
         }
     }
 
-    static func resetIfNeeded(marker: URL, sessionStore: any AuthSessionStore, tokenStore: any APIAccessTokenStore)
-        throws
-    {
+    static func resetIfNeeded(
+        marker: URL, sessionStore: any AuthSessionStore, tokenStore: any APIAccessTokenStore,
+        refreshTokenStore: any APIRefreshTokenStore
+    ) throws {
         guard !FileManager.default.fileExists(atPath: marker.path) else { return }
-        // Do not create the marker unless both credentials have been removed.
+        // Do not create the marker unless every credential has been removed.
         try tokenStore.clearAccessToken()
+        try refreshTokenStore.clearRefreshToken()
         try sessionStore.clear()
         var directory = marker.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
