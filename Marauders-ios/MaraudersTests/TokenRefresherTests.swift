@@ -18,6 +18,7 @@ struct TokenRefresherTests {
     private struct Harness {
         let stores: RecordingTokenStores
         let api: ScriptedAuthAPI
+        let clock: FakeClock
         let refresher: TokenRefresher
         let a1 = TestAccessToken.make(subject: "user-1", expiresIn: 60)
         let a2 = TestAccessToken.make(subject: "user-1", expiresIn: 86_400)
@@ -32,8 +33,11 @@ struct TokenRefresherTests {
         init(gate: SignOutGate? = nil) {
             api = ScriptedAuthAPI(gate: gate)
             stores = RecordingTokenStores()
+            let clock = FakeClock()
+            self.clock = clock
             refresher = TokenRefresher(
-                accessTokenStore: stores, refreshTokenStore: stores, authAPI: api, retryDelay: .zero)
+                accessTokenStore: stores, refreshTokenStore: stores, authAPI: api, retryDelay: .zero,
+                now: { clock.now })
             stores.accessToken = a1
             stores.refreshToken = r1
         }
@@ -81,21 +85,29 @@ struct TokenRefresherTests {
         #expect(h.api.refreshCalls == 1)
     }
 
-    @Test(.timeLimit(.minutes(1)))
-    func aCallerOfAnotherAccountIsNotHandedTheTokenOfARefreshThatIsInFlight() async throws {
+    @Test(.timeLimit(.minutes(1)), arguments: CallerOfAnotherSession.allCases)
+    func aCallerThatIsNotTheStartersAccountIsNotHandedTheTokenOfARefreshThatIsInFlight(
+        caller: CallerOfAnotherSession
+    ) async throws {
         let gate = SignOutGate()
         let h = Harness(gate: gate)
         h.api.enqueue(.success(h.pair))
-        let anotherAccount = TestAccessToken.make(subject: "user-2", expiresIn: 60)
+        let callersToken: String
+        switch caller {
+        case .anotherAccount:
+            callersToken = TestAccessToken.make(subject: "user-2", expiresIn: 60)
+        case .noAccountAtAll:
+            callersToken = TestAccessToken.make(claims: ["exp": Int(Date().timeIntervalSince1970) + 60])
+        }
 
         let starter = Task { await h.refresher.refreshedAccessToken(replacing: h.a1) }
         await h.api.waitForCalls(1)
-        let joiner = Task { await h.refresher.refreshedAccessToken(replacing: anotherAccount) }
+        let joiner = Task { await h.refresher.refreshedAccessToken(replacing: callersToken) }
         try await Task.sleep(for: .milliseconds(200))
         await gate.open()
 
         #expect(await starter.value.refreshedToken == h.a2)
-        // A request of the second account is never replayed with the first account's token.
+        // A request of anyone else is never replayed with the first account's token.
         #expect(await joiner.value.isRejected)
         #expect(h.api.refreshCalls == 1)
         #expect(h.stores.accessToken == h.a2)
@@ -338,6 +350,110 @@ struct TokenRefresherTests {
         #expect(h.stores.events.isEmpty)
     }
 
+    // MARK: - the Worker cannot be asked
+
+    @Test func requestsThatMeetARejectionWhileTheWorkerCannotAnswerMakeOneCall() async {
+        let h = Harness()
+        h.api.enqueue(.failure(AuthAPIError.serverError(500)))
+        // What a second call to the Worker would get.
+        h.api.enqueue(.success(h.pair))
+
+        var outcomes: [TokenRefreshOutcome] = []
+        for _ in 0..<5 {
+            outcomes.append(await h.refresher.refreshedAccessToken(replacing: h.a1))
+        }
+
+        #expect(outcomes.allSatisfy { $0.unavailableError as? AuthAPIError == .serverError(500) })
+        #expect(h.api.refreshCalls == 1, "every request that meets the rejection does not ask the Worker again")
+        #expect(h.stores.events.isEmpty)
+        #expect(h.stores.accessToken == h.a1)
+        #expect(h.stores.refreshToken == h.r1)
+    }
+
+    @Test(arguments: [
+        AuthAPIError.serverError(429) as any Error,
+        AuthAPIError.serverError(500),
+        AuthAPIError.serverError(405),
+        AuthAPIError.invalidResponse,
+        // These two are asked a second time before they are given up on: that is still one attempt.
+        URLError(.timedOut),
+        AuthAPIError.serverError(503),
+    ])
+    func everyKindOfAnswerThatIsNotAVerdictIsOneAttemptForEveryRequestThatFollows(failure: any Error) async {
+        let h = Harness()
+        for _ in 0..<4 { h.api.enqueue(.failure(failure)) }
+        h.api.enqueue(.success(h.pair))
+
+        _ = await h.refresher.refreshedAccessToken(replacing: h.a1)
+        let callsOfTheFirstAttempt = h.api.refreshCalls
+        for _ in 0..<4 { _ = await h.refresher.refreshedAccessToken(replacing: h.a1) }
+
+        #expect(callsOfTheFirstAttempt >= 1)
+        #expect(h.api.refreshCalls == callsOfTheFirstAttempt, "the requests that follow do not ask the Worker")
+        #expect(h.stores.events.isEmpty)
+    }
+
+    @Test func aPairWithoutAUsableRefreshTokenIsNotAskedForAgainEither() async {
+        let h = Harness()
+        h.api.enqueue(.success(AuthTokens(accessToken: h.a2, refreshToken: nil)))
+        h.api.enqueue(.success(h.pair))
+
+        _ = await h.refresher.refreshedAccessToken(replacing: h.a1)
+        let next = await h.refresher.refreshedAccessToken(replacing: h.a1)
+
+        #expect(next.unavailableError as? AuthAPIError == .invalidResponse)
+        #expect(h.api.refreshCalls == 1)
+    }
+
+    @Test func aRefreshTokenThatCouldNotBeSavedIsNotAskedForAgainEither() async {
+        let h = Harness()
+        h.api.enqueue(.success(h.pair))
+        h.api.enqueue(.success(h.pair))
+        h.stores.refreshSaveError = KeychainFailure()
+
+        _ = await h.refresher.refreshedAccessToken(replacing: h.a1)
+        let next = await h.refresher.refreshedAccessToken(replacing: h.a1)
+
+        #expect(next.unavailableError is KeychainFailure)
+        #expect(h.api.refreshCalls == 1)
+    }
+
+    @Test func theWorkerIsAskedAgainOnceTheTimeToLeaveItAloneIsOver() async {
+        let h = Harness()
+        h.api.enqueue(.failure(AuthAPIError.serverError(500)))
+        h.api.enqueue(.success(h.pair))
+
+        _ = await h.refresher.refreshedAccessToken(replacing: h.a1)
+        h.clock.advance(by: .seconds(9))
+        let beforeItIsOver = await h.refresher.refreshedAccessToken(replacing: h.a1)
+        h.clock.advance(by: .seconds(2))
+        let afterItIsOver = await h.refresher.refreshedAccessToken(replacing: h.a1)
+
+        #expect(beforeItIsOver.unavailableError as? AuthAPIError == .serverError(500))
+        #expect(afterItIsOver.refreshedToken == h.a2)
+        #expect(h.api.refreshTokensGiven == [h.r1, h.r1])
+        #expect(h.stores.accessToken == h.a2)
+        #expect(h.stores.refreshToken == h.r2)
+    }
+
+    @Test func aViewerWhoSignedInSinceIsNotKeptWaitingForTheOneBefore() async {
+        let h = Harness()
+        let otherAccessToken = TestAccessToken.make(subject: "user-2", expiresIn: 60)
+        let otherRefreshToken = newRefreshToken()
+        let otherNewAccessToken = TestAccessToken.make(subject: "user-2", expiresIn: 86_400)
+        h.api.enqueue(.failure(AuthAPIError.serverError(500)))
+        h.api.enqueue(.success(AuthTokens(accessToken: otherNewAccessToken, refreshToken: newRefreshToken())))
+
+        _ = await h.refresher.refreshedAccessToken(replacing: h.a1)
+        // Someone else signs in at once, and their access token is rejected: the Worker is not left alone for them.
+        h.stores.accessToken = otherAccessToken
+        h.stores.refreshToken = otherRefreshToken
+        let outcome = await h.refresher.refreshedAccessToken(replacing: otherAccessToken)
+
+        #expect(outcome.refreshedToken == otherNewAccessToken)
+        #expect(h.api.refreshTokensGiven == [h.r1, otherRefreshToken])
+    }
+
     // MARK: - saving the new pair
 
     @Test func theNewRefreshTokenIsSavedBeforeTheAccessToken() async {
@@ -549,7 +665,27 @@ nonisolated enum SubjectMismatch: CaseIterable, Sendable {
     case neitherHasASubject
 }
 
+/// Who else can meet a rejection while the first viewer's refresh is in the air.
+nonisolated enum CallerOfAnotherSession: CaseIterable, Sendable {
+    case anotherAccount
+    /// A token that names no account is not known to be the first viewer's.
+    case noAccountAtAll
+}
+
 private struct KeychainFailure: Error {}
+
+/// The time a test sets: it starts at the real now and moves only when the test moves it.
+nonisolated private final class FakeClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private let start = ContinuousClock.now
+    private var passed: Duration = .zero
+
+    var now: ContinuousClock.Instant { lock.withLock { start.advanced(by: passed) } }
+
+    func advance(by duration: Duration) {
+        lock.withLock { passed += duration }
+    }
+}
 
 private func newRefreshToken() -> String {
     // 32 hex characters and 11 more make 43 base64url characters, the shape the Worker issues.

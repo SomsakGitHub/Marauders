@@ -19,25 +19,41 @@ import Foundation
 /// its own store calls, so nothing can change them between the look and the write. A refresh whose session is no longer
 /// the stored one writes nothing.
 ///
+/// When the Worker gives no verdict (it cannot be reached, is down, is rate limiting, or answers with something that is
+/// not a refresh), that answer stands for ten seconds for the refresh token it was asked with: a request that meets a
+/// rejection in that time gets it without another call. Otherwise a Worker that cannot answer would be asked once for
+/// every request on screen, each of them slower for it, and the calls would spend the sign-in rate limit that everyone
+/// behind the same address shares.
+///
 /// It never clears a store and never signs anyone out: it reports what happened and the caller decides.
 actor TokenRefresher: TokenRefreshing {
     private let accessTokenStore: any APIAccessTokenStore
     private let refreshTokenStore: any APIRefreshTokenStore
     private let authAPI: any AuthAPIClientProtocol
     private let retryDelay: Duration
+    private let unavailableCooldown: Duration
+    private let now: @Sendable () -> ContinuousClock.Instant
     private var inFlight: Flight?
+    private var cooldown: Cooldown?
 
-    /// - Parameter retryDelay: How long to wait before asking again after a failure to reach the Worker.
+    /// - Parameters:
+    ///   - retryDelay: How long to wait before asking again after a failure to reach the Worker.
+    ///   - unavailableCooldown: How long the Worker is left alone after an answer that is not a verdict.
+    ///   - now: The time, which a test sets.
     init(
         accessTokenStore: any APIAccessTokenStore,
         refreshTokenStore: any APIRefreshTokenStore,
         authAPI: any AuthAPIClientProtocol,
-        retryDelay: Duration = .seconds(1)
+        retryDelay: Duration = .seconds(1),
+        unavailableCooldown: Duration = .seconds(10),
+        now: @escaping @Sendable () -> ContinuousClock.Instant = { ContinuousClock.now }
     ) {
         self.accessTokenStore = accessTokenStore
         self.refreshTokenStore = refreshTokenStore
         self.authAPI = authAPI
         self.retryDelay = retryDelay
+        self.unavailableCooldown = unavailableCooldown
+        self.now = now
     }
 
     func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome {
@@ -77,6 +93,11 @@ actor TokenRefresher: TokenRefreshing {
         guard let refreshToken = stored.refreshToken, APIRefreshTokenFormat.isValid(refreshToken) else {
             return await rejectedOutcome()
         }
+        // The Worker could not answer a moment ago for this session. It is left alone, and a request that meets the
+        // rejection in the meantime gets the same answer without a call.
+        if let cooldown, cooldown.refreshToken == refreshToken, now() < cooldown.until {
+            return .unavailable(cooldown.error)
+        }
 
         let tokens: AuthTokens
         do {
@@ -84,11 +105,11 @@ actor TokenRefresher: TokenRefreshing {
         } catch AuthAPIError.refreshRejected {
             return await rejectedOutcome()
         } catch {
-            return await unavailableOutcome(error)
+            return await unavailableOutcome(error, for: refreshToken)
         }
         // Every answer to a refresh carries the next refresh token; one without it cannot keep the session going.
         guard let newRefreshToken = tokens.refreshToken, APIRefreshTokenFormat.isValid(newRefreshToken) else {
-            return await unavailableOutcome(AuthAPIError.invalidResponse)
+            return await unavailableOutcome(AuthAPIError.invalidResponse, for: refreshToken)
         }
 
         switch await save(accessToken: tokens.accessToken, refreshToken: newRefreshToken, replacing: refreshToken) {
@@ -98,7 +119,7 @@ actor TokenRefresher: TokenRefreshing {
         case .sessionChanged:
             return await rejectedOutcome()
         case .failed(let error):
-            return await unavailableOutcome(error)
+            return await unavailableOutcome(error, for: refreshToken)
         }
     }
 
@@ -138,6 +159,14 @@ actor TokenRefresher: TokenRefreshing {
             else { return false }
             return caller == started
         }
+    }
+
+    /// Why the Worker is not asked for a while: it could not answer for this refresh token, and the answer it gave
+    /// stands until `until`.
+    private nonisolated struct Cooldown: Sendable {
+        let refreshToken: String
+        let until: ContinuousClock.Instant
+        let error: any Error
     }
 
     // MARK: - the stored session
@@ -190,7 +219,10 @@ actor TokenRefresher: TokenRefreshing {
         return .rejected
     }
 
-    private func unavailableOutcome(_ error: any Error) async -> TokenRefreshOutcome {
+    /// The answer when the Worker could not give a verdict for `refreshToken`. It starts the cooldown for that token: a
+    /// session that has since been refreshed or replaced holds another token, which the cooldown does not cover.
+    private func unavailableOutcome(_ error: any Error, for refreshToken: String) async -> TokenRefreshOutcome {
+        cooldown = Cooldown(refreshToken: refreshToken, until: now().advanced(by: unavailableCooldown), error: error)
         await AppLog.warning("api.refresh", "unavailable (\(type(of: error)))")
         return .unavailable(error)
     }
