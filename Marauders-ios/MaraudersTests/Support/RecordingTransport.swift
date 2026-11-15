@@ -15,10 +15,12 @@ import Foundation
 /// requests arrive from the tasks of the code under test while the test reads what was recorded, which the lock makes
 /// safe.
 nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
-    /// What an upload carried, in a form a test can compare: `HTTPMultipartPart` itself cannot be compared.
+    /// What an upload carried, in a form a test can compare: `HTTPMultipartPart` itself cannot be compared. A part that
+    /// is copied from a file at send time (`fileAt`) is recorded by its URL, not by its bytes.
     enum RecordedPart: Equatable, Sendable {
         case field(name: String, value: String)
         case file(name: String, filename: String, mimeType: String, data: Data)
+        case fileAt(name: String, filename: String, mimeType: String, url: URL)
     }
 
     /// What a request after the end of the list ends with.
@@ -76,6 +78,8 @@ nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
             return .field(name: name, value: value)
         case .file(let name, let filename, let mimeType, let data):
             return .file(name: name, filename: filename, mimeType: mimeType, data: data)
+        case .fileAt(let name, let filename, let mimeType, let url):
+            return .fileAt(name: name, filename: filename, mimeType: mimeType, url: url)
         }
     }
 }

@@ -280,6 +280,55 @@ struct URLSessionHTTPClientTests {
         #expect(sent.body.subdata(in: head.count..<head.count + bytes.count) == bytes)
         #expect(sent.body.suffix(tail.count) == tail)
     }
+
+    @Test func uploadSendsALargeFileFromDiskWithoutLosingBytes() async throws {
+        // 3_000_000 bytes span three 1 MiB chunks, the last one short.
+        let bytes = Data((0..<3_000_000).map { UInt8(truncatingIfNeeded: $0) })
+        let clip = try Self.makeTemporaryFile(bytes)
+        defer { try? FileManager.default.removeItem(at: clip) }
+
+        let sent = try await upload([.fileAt(name: "file", filename: "big.mp4", mimeType: "video/mp4", url: clip)])
+        let boundary = try #require(Self.boundary(in: sent.request.value(forHTTPHeaderField: "Content-Type") ?? ""))
+
+        let head = Data(
+            "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"big.mp4\"\r\nContent-Type: video/mp4\r\n\r\n"
+                .utf8)
+        let tail = Data("\r\n--\(boundary)--\r\n".utf8)
+        #expect(sent.body.count == head.count + bytes.count + tail.count)
+        #expect(sent.body.prefix(head.count) == head)
+        #expect(sent.body.subdata(in: head.count..<head.count + bytes.count) == bytes)
+        #expect(sent.body.suffix(tail.count) == tail)
+    }
+
+    @Test func aClipFileThatIsGoneFailsBeforeTheRequestAndLeavesNoBody() async throws {
+        let directory = try Self.makeScratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        // The system may purge the temporary folder while the app is away: the clip is not there any more.
+        let gone = FileManager.default.temporaryDirectory.appendingPathComponent("gone-\(UUID().uuidString).mp4")
+
+        let session = StubURLSessionFactory.make { request in
+            Issue.record("The request must not go out without its clip")
+            return (StubURLSessionFactory.httpResponse(for: request, statusCode: 201), Data())
+        }
+        defer { StubURLSessionFactory.reset(session) }
+
+        do {
+            _ = try await URLSessionHTTPClient(session: session, temporaryDirectory: directory)
+                .upload(
+                    Self.postRequest(),
+                    multipart: [.fileAt(name: "file", filename: "gone.mp4", mimeType: "video/mp4", url: gone)])
+            Issue.record("Expected a failure")
+        } catch let error as HTTPClientError {
+            guard case .transport = error else {
+                Issue.record("Expected a transport error, got \(error)")
+                return
+            }
+        } catch {
+            Issue.record("Expected an HTTPClientError, got \(error)")
+        }
+
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).isEmpty)
+    }
 }
 
 // MARK: - helpers
@@ -320,6 +369,12 @@ private extension URLSessionHTTPClientTests {
             .appendingPathComponent("url-session-client-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    static func makeTemporaryFile(_ bytes: Data) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("clip-\(UUID().uuidString).mp4")
+        try bytes.write(to: url)
+        return url
     }
 
     static func boundary(in contentType: String) -> String? {

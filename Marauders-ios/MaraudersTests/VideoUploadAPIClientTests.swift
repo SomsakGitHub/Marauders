@@ -215,6 +215,32 @@ struct VideoUploadAPIClientTests {
             )
         }
     }
+
+    @Test func uploadSendsTheClipAsAFileBackedPartAndNeverAsData() async throws {
+        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let answer = Self.uploadResponseJSON(id: UUID(), streamURL: "https://cdn.example.com/v.mp4")
+        let transport = RecordingTransport([.success(HTTPClientResponse(data: answer, statusCode: 201))])
+        let client = VideoUploadAPIClient(client: transport, authorization: Self.testAuthorization)
+
+        _ = try await client.upload(
+            fileURL: fileURL,
+            mimeType: "video/mp4",
+            clipLocation: Self.sampleClipLocation,
+            caption: "Sunset"
+        )
+
+        #expect(
+            transport.uploadedParts == [
+                [
+                    .field(name: "latitude", value: "13.7563"),
+                    .field(name: "longitude", value: "100.5018"),
+                    .field(name: "caption", value: "Sunset"),
+                    .fileAt(name: "file", filename: fileURL.lastPathComponent, mimeType: "video/mp4", url: fileURL),
+                ]
+            ])
+    }
 }
 
 private struct StubTestAPIAuthorization: APIAuthorization {

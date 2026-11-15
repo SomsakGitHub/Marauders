@@ -34,6 +34,8 @@ enum HTTPClientError: LocalizedError, Equatable {
 enum HTTPMultipartPart: Sendable {
     case field(name: String, value: String)
     case file(name: String, filename: String, mimeType: String, data: Data)
+    /// A file that is copied into the body in chunks when the body is written, so it is never held whole in memory.
+    case fileAt(name: String, filename: String, mimeType: String, url: URL)
 }
 
 /// Abstraction over the networking transport so API clients can be swapped in tests.
@@ -81,7 +83,7 @@ struct URLSessionHTTPClient: HTTPClient {
         defer { try? FileManager.default.removeItem(at: bodyFile) }
 
         do {
-            try await Self.writeMultipartBody(multipart, boundary: boundary, to: bodyFile)
+            try await MultipartBodyWriter.write(multipart, boundary: boundary, to: bodyFile)
             let (data, response) = try await session.upload(for: request, fromFile: bodyFile)
             return try Self.makeResponse(data: data, response: response)
         } catch {
@@ -106,46 +108,5 @@ private extension URLSessionHTTPClient {
         default:
             return HTTPClientError.transport(error.localizedDescription)
         }
-    }
-
-    /// Runs off the caller's actor: writing a clip of up to 100 MB is a long synchronous job.
-    @concurrent
-    static func writeMultipartBody(_ parts: [HTTPMultipartPart], boundary: String, to url: URL) async throws {
-        try Data().write(to: url)
-        let handle = try FileHandle(forWritingTo: url)
-        defer { try? handle.close() }
-
-        for part in parts {
-            switch part {
-            case .field(let name, let value):
-                let head = "--\(boundary)\r\nContent-Disposition: form-data; name=\"\(escaped(name))\"\r\n\r\n"
-                try handle.write(contentsOf: Data(head.utf8))
-                try handle.write(contentsOf: Data(value.utf8))
-            case .file(let name, let filename, let mimeType, let data):
-                let head =
-                    "--\(boundary)\r\n"
-                    + "Content-Disposition: form-data; name=\"\(escaped(name))\"; filename=\"\(escaped(filename))\"\r\n"
-                    + "Content-Type: \(mimeType)\r\n\r\n"
-                try handle.write(contentsOf: Data(head.utf8))
-                try handle.write(contentsOf: data)
-            }
-            try handle.write(contentsOf: Data("\r\n".utf8))
-        }
-        try handle.write(contentsOf: Data("--\(boundary)--\r\n".utf8))
-    }
-
-    /// Percent-encodes what would end a quoted header value early, the way a browser does for a form upload.
-    /// Walks unicode scalars because "\r\n" is a single `Character` and would slip past a character match.
-    nonisolated static func escaped(_ value: String) -> String {
-        var result = String.UnicodeScalarView()
-        for scalar in value.unicodeScalars {
-            switch scalar {
-            case "\"": result.append(contentsOf: "%22".unicodeScalars)
-            case "\r": result.append(contentsOf: "%0D".unicodeScalars)
-            case "\n": result.append(contentsOf: "%0A".unicodeScalars)
-            default: result.append(scalar)
-            }
-        }
-        return String(result)
     }
 }
