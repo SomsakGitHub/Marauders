@@ -84,15 +84,8 @@ struct DubbedAudioCacheClient: DubbedAudioCaching {
     /// reports apart from another's on this iPhone; the Worker still checks the token itself.
     var reporterID: String? {
         guard let bearer = authorization.bearerAuthorizationHeader() else { return nil }
-        let parts = bearer.split(separator: " ").last?.split(separator: ".") ?? []
-        guard parts.count >= 2 else { return "signed-in" }
-        var payload = parts[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-        payload += String(repeating: "=", count: (4 - payload.count % 4) % 4)
-        guard let data = Data(base64Encoded: payload),
-            let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let sub = claims["sub"] as? String, !sub.isEmpty
-        else { return "signed-in" }
-        return sub
+        let token = bearer.split(separator: " ").last.map(String.init) ?? bearer
+        return APIAccessTokenSubject.subject(of: token) ?? "signed-in"
     }
     private struct ReportReply: Decodable { let status: String }
     func report(videoID: UUID, sourceURL: URL, language: ListeningLanguage) async throws -> DubbedAudioReportOutcome {
