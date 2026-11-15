@@ -38,44 +38,13 @@ struct StopLocationSharingOnSignOutUseCase {
 
     func execute() async -> Outcome {
         let repository = repository
-        let timeout = timeout
-        // The call and the timer race, and the sign out goes on with whichever ends first. A task group would wait for
-        // the call too, however long a transport that ignores cancellation takes; this does not.
-        return await withCheckedContinuation { continuation in
-            let race = Race(continuation)
-            race.call = Task {
-                do {
-                    _ = try await repository.setSharing(false)
-                    race.finish(.switchedOff)
-                } catch {
-                    race.finish(.failed(reason: error.localizedDescription))
-                }
-            }
-            race.timer = Task {
-                do { try await Task.sleep(for: timeout) } catch { return }
-                race.finish(.timedOut)
-            }
+        switch await TimeBoundedCall.run(timeout: timeout, { _ = try await repository.setSharing(false) }) {
+        case .finished:
+            return .switchedOff
+        case .failed(let reason):
+            return .failed(reason: reason)
+        case .timedOut:
+            return .timedOut
         }
-    }
-}
-
-/// Hands the first outcome to the waiting sign out and stops the other task, so neither outlives the answer: a call
-/// that was given up is cancelled, and a timer that is no longer needed ends.
-@MainActor
-private final class Race {
-    private var continuation: CheckedContinuation<StopLocationSharingOnSignOutUseCase.Outcome, Never>?
-    var call: Task<Void, Never>?
-    var timer: Task<Void, Never>?
-
-    init(_ continuation: CheckedContinuation<StopLocationSharingOnSignOutUseCase.Outcome, Never>) {
-        self.continuation = continuation
-    }
-
-    func finish(_ outcome: StopLocationSharingOnSignOutUseCase.Outcome) {
-        guard let continuation else { return }
-        self.continuation = nil
-        continuation.resume(returning: outcome)
-        call?.cancel()
-        timer?.cancel()
     }
 }

@@ -30,6 +30,9 @@ final class AuthViewModel {
     private let tokenStore: APIAccessTokenStore
     private let refreshTokenStore: APIRefreshTokenStore
     private let signInWithApple: SignInWithAppleUseCase
+    private let revokeRefreshTokenOnSignOut: RevokeRefreshTokenOnSignOutUseCase
+    /// How long a sign out waits for the Worker in all: the location sharing call and the refresh token revoke share it.
+    private let signOutWindow: Duration
     #if DEBUG
         private let signInAsDevUserUseCase: SignInAsDevUserUseCase?
     #endif
@@ -48,13 +51,17 @@ final class AuthViewModel {
         authAPI: AuthAPIClientProtocol,
         devAuth: (any DevAuthExchanging)? = nil,
         credentialState: @escaping CredentialStateProvider = AuthViewModel.appleCredentialState,
-        signsInAsTestUserOnSimulator: Bool = false
+        signsInAsTestUserOnSimulator: Bool = false,
+        signOutWindow: Duration = StopLocationSharingOnSignOutUseCase.defaultTimeout
     ) {
         self.sessionStore = sessionStore
         self.tokenStore = tokenStore
         self.refreshTokenStore = refreshTokenStore
+        self.signOutWindow = signOutWindow
         self.signInWithApple = SignInWithAppleUseCase(
             authAPI: authAPI, sessionStore: sessionStore, tokenStore: tokenStore, refreshTokenStore: refreshTokenStore)
+        self.revokeRefreshTokenOnSignOut = RevokeRefreshTokenOnSignOutUseCase(
+            authAPI: authAPI, refreshTokenStore: refreshTokenStore)
         #if DEBUG
             self.signInAsDevUserUseCase = devAuth.map {
                 SignInAsDevUserUseCase(
@@ -203,21 +210,50 @@ final class AuthViewModel {
         }
     #endif
 
-    /// Ends the session the viewer asked to end. Their location sharing is switched off on the Worker first, while the
-    /// token still works, so their last location stops showing on their mutual followers' maps; that call is best
-    /// effort and never holds the sign out back. A session that ended without this (the Worker rejected the token, or it
-    /// ran out) goes through `handleRejectedAccessToken` or `restoreSession` instead and cannot make the call.
+    /// Ends the session the viewer asked to end. The Worker is told first, while the tokens still work: their location
+    /// sharing is switched off, so their last location stops showing on their mutual followers' maps, and then their
+    /// refresh token is revoked, so no copy of it can be traded for a session again. Both calls are best effort, share
+    /// one `signOutWindow` and never hold the sign out back. A session that ended without this (the Worker rejected the
+    /// token, or it ran out) goes through `handleRejectedAccessToken` or `restoreSession` instead and cannot make them.
     func signOut() async {
         guard !isSigningOut else { return }
         isSigningOut = true
         defer { isSigningOut = false }
         // A Simulator test user who signs out stays out until the app is launched again.
         signsInAsTestUserOnSimulator = false
-        if isSignedIn { await switchLocationSharingOff() }
+        if isSignedIn { await tellTheWorkerTheSessionIsEnding() }
         clearStoredSession()
         isSignedIn = false
         errorMessage = nil
         AppLog.info("auth", "signed out")
+    }
+
+    private func tellTheWorkerTheSessionIsEnding() async {
+        let clock = ContinuousClock()
+        let started = clock.now
+        await switchLocationSharingOff()
+        let remaining = signOutWindow - started.duration(to: clock.now)
+        guard remaining > .zero else {
+            // Only worth a line for a session that has something to revoke.
+            if refreshTokenStore.loadRefreshToken() != nil {
+                AppLog.warning("auth", "refresh token not revoked before sign out: no time left")
+            }
+            return
+        }
+        await revokeRefreshToken(within: remaining)
+    }
+
+    private func revokeRefreshToken(within timeout: Duration) async {
+        switch await revokeRefreshTokenOnSignOut.execute(within: timeout) {
+        case .revoked:
+            AppLog.info("auth", "refresh token revoked before sign out")
+        case .nothingToRevoke:
+            break
+        case .failed(let reason):
+            AppLog.warning("auth", "refresh token not revoked before sign out: \(reason)")
+        case .timedOut:
+            AppLog.warning("auth", "refresh token not revoked before sign out: no answer in time")
+        }
     }
 
     private func switchLocationSharingOff() async {
