@@ -1,4 +1,5 @@
 import { DUBBING_LANGUAGES } from "./audio/cache";
+import { isWellFormedRefreshToken } from "./auth/refreshToken";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -304,6 +305,18 @@ export function parseAppleAuthBody(body: unknown): {
   }
 
   return { identityToken: trimmed, country: rawCountry.trim().toUpperCase() };
+}
+
+/** The body of `/v1/auth/refresh` and `/v1/auth/signout`. The message never repeats what was sent. */
+export function parseRefreshBody(body: unknown): { refreshToken: string } {
+  if (!body || typeof body !== "object") {
+    throw new FeedValidationError("invalid request body");
+  }
+  const refreshToken = (body as Record<string, unknown>).refreshToken;
+  if (!isWellFormedRefreshToken(refreshToken)) {
+    throw new FeedValidationError("refreshToken is invalid");
+  }
+  return { refreshToken };
 }
 
 export function parseLocationBody(body: unknown): {

@@ -1,7 +1,9 @@
 // Runs test/authRefresh.test.ts (refresh tokens, the refresh and sign-out routes, sign-in with a refresh token) with
-// node:test. The test and the Worker code are bundled with esbuild into the OS temp directory. Three modules are swapped
-// so nothing leaves the process: @neondatabase/serverless for a programmable fake driver, src/db/users for an in-memory
-// fake, and src/auth/appleIdentityToken for a fake that never contacts Apple.
+// node:test. The test and the Worker code are bundled with esbuild into the OS temp directory. Two modules are swapped
+// so nothing leaves the process: @neondatabase/serverless for a programmable fake driver, and
+// src/auth/appleIdentityToken for a fake that never contacts Apple. src/db/users is NOT swapped: the tests go through
+// src/index.ts, which bundles every route, and test/fakes/users.ts exports only what the dev sign-in route needs.
+// The real users module runs on the fake driver, and the tests script the row its statement returns.
 //
 // Usage: npm run test:auth-refresh
 
@@ -36,12 +38,6 @@ function swapModule(name, filter, real, fake) {
   };
 }
 
-const useFakeUsers = swapModule(
-  "fake-users",
-  /db\/users$/,
-  path.join(root, "src", "db", "users"),
-  path.join(root, "test", "fakes", "users.ts"),
-);
 const useFakeApple = swapModule(
   "fake-apple",
   /appleIdentityToken$/,
@@ -61,7 +57,7 @@ try {
     format: "esm",
     target: "node22",
     tsconfig: path.join(root, "tsconfig.json"),
-    plugins: [useFakeNeon, useFakeUsers, useFakeApple],
+    plugins: [useFakeNeon, useFakeApple],
     logLevel: "warning",
   });
   const result = spawnSync(process.execPath, ["--test", outfile], { stdio: "inherit" });
