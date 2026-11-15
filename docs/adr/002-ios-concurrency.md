@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Brought in line with the code on 2026-11-15: `FeedStore` is now `VideoFeedViewModel`, and the `Task { @MainActor }` hop moved from the scroll view coordinator to the AVFoundation observers.
 
 ## Context
 
@@ -12,14 +12,17 @@ Feed playback loads `AVURLAsset` / `AVPlayerItem` over the network while UIKit s
 
 | Layer | Isolation | Responsibility |
 |-------|-----------|----------------|
-| SwiftUI + `FeedStore` + `FeedPlayerEngine` | `@MainActor` | UI state, `AVPlayer` control, layer visibility |
+| SwiftUI + `VideoFeedViewModel` + `FeedPlayerEngine` | `@MainActor` | UI state, `AVPlayer` control, layer visibility |
 | `FeedAPIClient` / `VideoUploadAPIClient` | `Sendable` | `URLSession` async I/O; no shared mutable state |
 | `FeedMediaPreparationService` | `actor` | Asset cache, prefetch until `readyToPlay`, `beginPlaybackItem` for visible slot |
-| `VerticalPagingFeedScrollView` coordinator | UIKit thread → `Task { @MainActor }` | Page settle updates bindings and playback hooks |
+| `VerticalPagingFeedScrollView` coordinator | `@MainActor` | UIKit scroll callbacks arrive on the main actor; page settle updates bindings and playback hooks directly |
+| `PlayerSlot` (in `FeedPlayerEngine.swift`) and `FeedPlayerLayerHostView` observers | AVFoundation callback → `Task { @MainActor }` | KVO and end-of-item events update the engine, after checking the item or layer is still current |
+
+More actors and `@concurrent` helpers came later under the same split (state that several callers share, or work that must stay off the main actor). The current set is in [ARCHITECTURE.md](../../ARCHITECTURE.md), section "Swift 6 concurrency".
 
 ### Feed reload
 
-`FeedStore.reload()` uses a **generation counter** so stale responses from overlapping `reload()` calls (pull-to-refresh + tab switch) are ignored.
+`VideoFeedViewModel.reload()` uses a **generation counter** (`reloadGeneration`) so stale responses from overlapping `reload()` calls (pull-to-refresh + tab switch) are ignored.
 
 ### Prefetch vs playback
 
@@ -33,5 +36,5 @@ Feed playback loads `AVURLAsset` / `AVPlayerItem` over the network while UIKit s
 
 ## References
 
-- [ARCHITECTURE.md](../../ARCHITECTURE.md) — Swift 6 concurrency table
+- [ARCHITECTURE.md](../../ARCHITECTURE.md) — Swift 6 concurrency: settings, actors and isolation model
 - [ADR-001](001-feed-playback-dual-player.md) — dual player + UIKit paging

@@ -267,18 +267,30 @@ Full detail (cache contract, local processing limits, language detection, Dutch/
 |---------|--------|
 | Language | **Swift 6** (`SWIFT_VERSION = 6.0`) |
 | Deployment target | **iOS 27.0** (`IPHONEOS_DEPLOYMENT_TARGET`, the same for the app and both test targets) |
-| Default isolation | **MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION`) |
+| Default isolation | **MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION`, app target only) |
 | Strictness | Approachable concurrency (`SWIFT_APPROACHABLE_CONCURRENCY`) |
+
+**Actors.** Five, each owning state that several callers share, or work that must stay off the main actor:
+
+| Actor | Owns |
+|-------|------|
+| `FeedMediaPreparationService` | `AVURLAsset` cache, prefetch until `readyToPlay`, `beginPlaybackItem` for visible-slot loads — runs off the main actor between `await` points |
+| `FeedStartupCache` | The startup cache's files in `Caches` (two clips at most, 12 MiB each, 6 h); see **Startup cache** under Prefetch |
+| `WhisperEngine` | The one on-device Whisper model for language detection and transcription: loaded once however many callers ask, unloaded after 20 s without use |
+| `LanguageDetectionModelStore` | The Whisper model's files: one install that every caller joins (a caller that is cancelled stops waiting, the download goes on), and removal that stops a running install first |
+| `VideoThumbnailLoader` | Map-pin thumbnails for HTTPS clips, 40 at most in memory |
 
 **Isolation model (intentional split):**
 
-- **MainActor:** `FeedPlayerEngine`, ViewModels, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only.
-- **`FeedMediaPreparationService` (actor):** `AVURLAsset` cache, prefetch until `readyToPlay`, `beginPlaybackItem` for visible-slot loads — runs off the main actor between `await` points.
+- **MainActor:** `FeedPlayerEngine`, ViewModels, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only. It is the default, so a Domain or Data type that must not be tied to it is marked `nonisolated`.
+- **`@concurrent`:** with approachable concurrency a `nonisolated async` function keeps running on its caller's actor (`NonisolatedNonsendingByDefault`), so long file or media work that is not inside an actor opts out with `@concurrent`: the multipart body writer of `URLSessionHTTPClient` (clips up to 100 MB), `FastClipAudioInspector.inspect`, `DubbedAudioCacheEncoding.encode`, `SpeechAudioPreparation.chunks` and `detectionWindows`.
 - **Sendable value types:** `FeedVideo`, `FeedPlayerPhase`, `FeedLoadState`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` — safe across `Task` boundaries.
-- **UIKit bridge:** `VerticalPagingFeedScrollView` settle callbacks use `Task { @MainActor in … }` before updating bindings / engine.
+- **Callbacks into `async`:** `withChecked(Throwing)Continuation` wraps completion-handler and delegate APIs, for example the `URLSession` download in `FeedCacheDownloader`, the speech permission request and the MP4 export for upload.
+- **Callbacks into the main actor:** UIKit scroll callbacks already run there, so `VerticalFeedPagingView` reports a settled page straight to its `@MainActor` delegate. AVFoundation and Core Animation observers (`PlayerSlot` in `FeedPlayerEngine.swift`, and `FeedPlayerLayerHostView`) get closures that are not isolated to the main actor, so they hop back with `Task { @MainActor in … }` and first check that the item or layer is still the current one.
+- **Not checked by the compiler:** `FeedCacheDownloader`, `NarrationFileWriter` and `AudioClassificationScores` are `@unchecked Sendable` (a framework calls them back on its own thread) and guard their state with an `NSLock`; the three `nonisolated(unsafe)` properties of `FeedCacheDownloader` are only touched under that lock. The `UITest…` doubles are `@unchecked Sendable` too. `Translation` and `WhisperKit` are imported `@preconcurrency`, which relaxes Sendable diagnostics for their types.
 - **Feed reload:** `VideoFeedViewModel` ignores stale API results when a newer `reload()` started while the previous request was in flight.
 - **Feed pagination:** scroll near the end → `loadMoreIfNearEnd` with `cursor` = last loaded id; upload → `reload()`; Map tab → `syncHeadWithServer()` merges new clips into the shared list (pins update).
-- **Tests:** engine tests `@MainActor`; `FeedMediaPreparationServiceTests` cover HTTPS rules on the actor.
+- **Tests:** engine tests `@MainActor`; `FeedMediaPreparationServiceTests` cover HTTPS rules on the actor; `FeedStartupCacheTests` and `LanguageDetectionModelStoreTests` swap the download and install work for fakes, so no network is needed.
 
 See **[ADR-002](docs/adr/002-ios-concurrency.md)** for rationale.
 
