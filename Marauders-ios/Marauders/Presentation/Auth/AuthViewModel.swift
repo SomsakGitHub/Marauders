@@ -28,6 +28,7 @@ final class AuthViewModel {
 
     private let sessionStore: AuthSessionStore
     private let tokenStore: APIAccessTokenStore
+    private let refreshTokenStore: APIRefreshTokenStore
     private let signInWithApple: SignInWithAppleUseCase
     #if DEBUG
         private let signInAsDevUserUseCase: SignInAsDevUserUseCase?
@@ -35,10 +36,15 @@ final class AuthViewModel {
     private let credentialState: CredentialStateProvider
     /// Debug Simulator builds with a dev login secret: no session means becoming the test user, until a sign out.
     private var signsInAsTestUserOnSimulator: Bool
+    /// Moves whenever the stored session is ended or replaced: a sign out, a rejection, a new sign in. A refresh never
+    /// moves it, because that renews the session that is stored. `restoreSession()` compares it across Apple's answer
+    /// to tell whether the answer is still about the stored session.
+    @ObservationIgnored private var sessionGeneration = 0
 
     init(
         sessionStore: AuthSessionStore,
         tokenStore: APIAccessTokenStore,
+        refreshTokenStore: APIRefreshTokenStore,
         authAPI: AuthAPIClientProtocol,
         devAuth: (any DevAuthExchanging)? = nil,
         credentialState: @escaping CredentialStateProvider = AuthViewModel.appleCredentialState,
@@ -46,11 +52,14 @@ final class AuthViewModel {
     ) {
         self.sessionStore = sessionStore
         self.tokenStore = tokenStore
+        self.refreshTokenStore = refreshTokenStore
         self.signInWithApple = SignInWithAppleUseCase(
-            authAPI: authAPI, sessionStore: sessionStore, tokenStore: tokenStore)
+            authAPI: authAPI, sessionStore: sessionStore, tokenStore: tokenStore, refreshTokenStore: refreshTokenStore)
         #if DEBUG
             self.signInAsDevUserUseCase = devAuth.map {
-                SignInAsDevUserUseCase(devAuth: $0, sessionStore: sessionStore, tokenStore: tokenStore)
+                SignInAsDevUserUseCase(
+                    devAuth: $0, sessionStore: sessionStore, tokenStore: tokenStore,
+                    refreshTokenStore: refreshTokenStore)
             }
         #endif
         self.credentialState = credentialState
@@ -70,12 +79,14 @@ final class AuthViewModel {
         defer { isCheckingCredential = false }
 
         // A token past its `exp`, or one whose `exp` cannot be read, is a session that has ended: the Worker would
-        // answer 401 to it. It is treated like a missing token.
+        // answer 401 to it. It is treated like a missing token, unless a refresh token is stored. Then the first
+        // request that meets the 401 trades it for a new access token and the session lives on. Nothing is refreshed
+        // here: opening the app asks the Worker nothing.
         guard let userID = sessionStore.loadUserID(),
             AuthUserID.isValid(userID),
             let accessToken = tokenStore.loadAccessToken(),
             APIAccessTokenFormat.isValid(accessToken),
-            !APIAccessTokenExpiry.isExpired(accessToken)
+            !APIAccessTokenExpiry.isExpired(accessToken) || hasUsableRefreshToken
         else {
             clearStoredSession()
             isSignedIn = false
@@ -97,10 +108,12 @@ final class AuthViewModel {
             }
         #endif
 
+        let generation = sessionGeneration
         let state = await credentialState(userID)
-        // The Worker may have rejected this token, or the viewer signed out or in again, while Apple was answering.
-        // The answer is about a session that is gone then, and must not bring it back.
-        guard tokenStore.loadAccessToken() == accessToken else { return }
+        // The Worker may have rejected this session, or the viewer signed out or in again, while Apple was answering.
+        // The answer is about a session that is gone then: it must not bring it back, and must not wipe the new one.
+        // A refresh in the meantime changes the tokens but not the session, so it does not count.
+        guard sessionGeneration == generation else { return }
         switch state {
         case .authorized:
             isSignedIn = true
@@ -146,6 +159,7 @@ final class AuthViewModel {
         do {
             try await signInWithApple.execute(
                 userID: userID, identityToken: identityToken, countryCode: selectedCountryCode)
+            sessionGeneration += 1
             isSignedIn = true
             errorMessage = nil
             AppLog.info("auth", "signed in with Apple (API session established)")
@@ -171,6 +185,7 @@ final class AuthViewModel {
                     userID: DevLogin.userIDPrefix + label,
                     countryCode: selectedCountryCode
                 )
+                sessionGeneration += 1
                 isSignedIn = true
                 errorMessage = nil
                 AppLog.info("auth", "signed in as dev user \(label)")
@@ -230,8 +245,16 @@ final class AuthViewModel {
     }
 
     private func clearStoredSession() {
+        sessionGeneration += 1
         try? sessionStore.clear()
         try? tokenStore.clearAccessToken()
+        try? refreshTokenStore.clearRefreshToken()
+    }
+
+    /// A refresh token of the shape the Worker issues is stored. Whether the Worker still accepts it is for the refresh
+    /// itself to find out.
+    private var hasUsableRefreshToken: Bool {
+        refreshTokenStore.loadRefreshToken().map(APIRefreshTokenFormat.isValid) ?? false
     }
 
     private static func userFacingMessage(for error: Error) -> String {

@@ -49,16 +49,19 @@ final class AppDependencyContainer {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
         let tokenStore: APIAccessTokenStore
+        let refreshTokenStore: APIRefreshTokenStore
         let baseTransport: HTTPClient
         let usesRejectedUITestSession = UITestRejectedSession.isRequested
         if usesRejectedUITestSession {
             let rejectedSession = UITestRejectedSession()
             sessionStore = rejectedSession
             tokenStore = rejectedSession
+            refreshTokenStore = rejectedSession
             baseTransport = UITestRejectingHTTPClient()
         } else {
             sessionStore = KeychainAuthSessionStore()
             tokenStore = KeychainAPIAccessTokenStore()
+            refreshTokenStore = KeychainAPIRefreshTokenStore()
             baseTransport = URLSessionHTTPClient()
         }
         #if DEBUG
@@ -67,8 +70,8 @@ final class AppDependencyContainer {
             let devAuth: (any DevAuthExchanging)? = nil
         #endif
         let authViewModel = AuthViewModel(
-            sessionStore: sessionStore, tokenStore: tokenStore, authAPI: AuthAPIClient(), devAuth: devAuth,
-            signsInAsTestUserOnSimulator: true)
+            sessionStore: sessionStore, tokenStore: tokenStore, refreshTokenStore: refreshTokenStore,
+            authAPI: AuthAPIClient(), devAuth: devAuth, signsInAsTestUserOnSimulator: true)
         let apiAuthorization = SessionAPIAuthorization(tokenStore: tokenStore)
         // Every API client talks through this one, so the Worker answering 401 to a request that carried the session's
         // token ends the session in one place, AuthViewModel, instead of in each client and screen.

@@ -9,12 +9,17 @@ import Testing
 
 @MainActor
 struct AuthViewModelTests {
+    /// The shape of a real refresh token: 43 base64url characters.
+    private static let refreshToken = String(repeating: "Ab-_0", count: 8) + "xyz"
+    private static let userID = "001234.abcdef.5678"
+
     @Test func completeSignInPersistsUserAndAccessToken() async {
         let store = InMemoryAuthSessionStore()
         let tokenStore = InMemoryAPIAccessTokenStore()
         let viewModel = AuthViewModel(
             sessionStore: store,
             tokenStore: tokenStore,
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: StubAuthAPIClient()
         )
 
@@ -26,11 +31,27 @@ struct AuthViewModelTests {
         #expect(viewModel.errorMessage == nil)
     }
 
+    @Test func completeSignInKeepsTheRefreshTokenTheWorkerGave() async {
+        let refresh = MemoryRefreshTokenStore(token: String(repeating: "s", count: 43))
+        let viewModel = AuthViewModel(
+            sessionStore: InMemoryAuthSessionStore(),
+            tokenStore: InMemoryAPIAccessTokenStore(),
+            refreshTokenStore: refresh,
+            authAPI: StubAuthAPIClient(refreshToken: Self.refreshToken)
+        )
+
+        await viewModel.completeSignIn(userID: Self.userID, identityToken: String(repeating: "a", count: 32))
+
+        #expect(viewModel.isSignedIn)
+        #expect(refresh.token == Self.refreshToken, "the new pair replaces what an earlier session left")
+    }
+
     @Test func completeSignInRejectsEmptyUserID() async {
         let store = InMemoryAuthSessionStore()
         let viewModel = AuthViewModel(
             sessionStore: store,
             tokenStore: InMemoryAPIAccessTokenStore(),
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: StubAuthAPIClient()
         )
 
@@ -44,6 +65,7 @@ struct AuthViewModelTests {
         let viewModel = AuthViewModel(
             sessionStore: InMemoryAuthSessionStore(),
             tokenStore: InMemoryAPIAccessTokenStore(),
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: FailingAuthAPIClient(error: AuthAPIError.serverError(503))
         )
 
@@ -58,6 +80,7 @@ struct AuthViewModelTests {
         let viewModel = AuthViewModel(
             sessionStore: InMemoryAuthSessionStore(),
             tokenStore: InMemoryAPIAccessTokenStore(),
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: FailingAuthAPIClient(error: AuthAPIError.serverError(400))
         )
 
@@ -77,6 +100,7 @@ struct AuthViewModelTests {
         let viewModel = AuthViewModel(
             sessionStore: InMemoryAuthSessionStore(),
             tokenStore: InMemoryAPIAccessTokenStore(),
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: client
         )
         viewModel.selectedCountryCode = "JP"
@@ -96,6 +120,7 @@ struct AuthViewModelTests {
         let viewModel = AuthViewModel(
             sessionStore: store,
             tokenStore: tokenStore,
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: StubAuthAPIClient()
         )
         await viewModel.completeSignIn(userID: "user-1", identityToken: String(repeating: "b", count: 32))
@@ -106,13 +131,79 @@ struct AuthViewModelTests {
         #expect(store.savedUserID == nil)
         #expect(tokenStore.savedToken == nil)
     }
+
+    @Test func signingOutClearsBothTokens() async throws {
+        let tokenStore = InMemoryAPIAccessTokenStore()
+        let refresh = MemoryRefreshTokenStore()
+        let viewModel = AuthViewModel(
+            sessionStore: InMemoryAuthSessionStore(),
+            tokenStore: tokenStore,
+            refreshTokenStore: refresh,
+            authAPI: StubAuthAPIClient(refreshToken: Self.refreshToken)
+        )
+        await viewModel.completeSignIn(userID: "user-1", identityToken: String(repeating: "b", count: 32))
+        try #require(refresh.token == Self.refreshToken)
+        try #require(tokenStore.savedToken != nil)
+
+        await viewModel.signOut()
+
+        #expect(tokenStore.savedToken == nil)
+        #expect(refresh.token == nil)
+    }
+
+    @Test func aRejectedTokenClearsTheRefreshTokenToo() {
+        let store = InMemoryAuthSessionStore()
+        let tokenStore = InMemoryAPIAccessTokenStore()
+        let refresh = MemoryRefreshTokenStore()
+        let viewModel = AuthViewModel(
+            sessionStore: store,
+            tokenStore: tokenStore,
+            refreshTokenStore: refresh,
+            authAPI: StubAuthAPIClient()
+        )
+        let token = TestAccessToken.make(expiresIn: 3_600)
+        store.savedUserID = Self.userID
+        tokenStore.savedToken = token
+        refresh.token = Self.refreshToken
+
+        viewModel.handleRejectedAccessToken(token)
+
+        #expect(store.savedUserID == nil)
+        #expect(tokenStore.savedToken == nil)
+        #expect(refresh.token == nil)
+    }
+
+    @Test func restoringWithAnUnreadableUserIDClearsTheRefreshToken() async {
+        let store = InMemoryAuthSessionStore()
+        let tokenStore = InMemoryAPIAccessTokenStore()
+        let refresh = MemoryRefreshTokenStore()
+        let viewModel = AuthViewModel(
+            sessionStore: store,
+            tokenStore: tokenStore,
+            refreshTokenStore: refresh,
+            authAPI: StubAuthAPIClient()
+        )
+        store.savedUserID = "   "
+        tokenStore.savedToken = TestAccessToken.make(expiresIn: 3_600)
+        refresh.token = Self.refreshToken
+
+        await viewModel.restoreSession()
+
+        #expect(!viewModel.isSignedIn)
+        #expect(store.savedUserID == nil)
+        #expect(tokenStore.savedToken == nil)
+        #expect(refresh.token == nil)
+    }
 }
 
 private struct StubAuthAPIClient: AuthAPIClientProtocol {
     static let stubToken = String(repeating: "x", count: 40)
 
+    /// What the Worker hands out with the access token, when it hands one out.
+    var refreshToken: String?
+
     func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
-        AuthTokens(accessToken: Self.stubToken, refreshToken: nil)
+        AuthTokens(accessToken: Self.stubToken, refreshToken: refreshToken)
     }
 
     func refreshTokens(using refreshToken: String) async throws -> AuthTokens {

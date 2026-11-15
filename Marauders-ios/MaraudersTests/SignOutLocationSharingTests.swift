@@ -35,6 +35,7 @@ struct SignOutLocationSharingTests {
         let viewModel = AuthViewModel(
             sessionStore: storage,
             tokenStore: storage,
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: NoAuthAPI(),
             credentialState: { _ in .authorized }
         )
@@ -182,6 +183,7 @@ struct SignOutLocationSharingTests {
         let viewModel = AuthViewModel(
             sessionStore: storage,
             tokenStore: storage,
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: NoAuthAPI(),
             credentialState: { _ in .authorized }
         )
@@ -198,7 +200,9 @@ struct SignOutLocationSharingTests {
     @Test func aViewerWhoIsNotSignedInAsksTheWorkerNothing() async {
         let storage = SignOutSessionStorage()
         let repository = SignOutSharingRepository(sharing: true)
-        let viewModel = AuthViewModel(sessionStore: storage, tokenStore: storage, authAPI: NoAuthAPI())
+        let viewModel = AuthViewModel(
+            sessionStore: storage, tokenStore: storage, refreshTokenStore: MemoryRefreshTokenStore(),
+            authAPI: NoAuthAPI())
         viewModel.stopSharingOnSignOut = StopLocationSharingOnSignOutUseCase(repository: repository)
 
         await viewModel.signOut()
@@ -298,6 +302,7 @@ struct SignOutLocationSharingEndToEndTests {
         let viewModel = AuthViewModel(
             sessionStore: storage,
             tokenStore: storage,
+            refreshTokenStore: MemoryRefreshTokenStore(),
             authAPI: NoAuthAPI(),
             credentialState: { _ in .authorized }
         )
