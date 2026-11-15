@@ -215,7 +215,9 @@ struct TokenRefreshingHTTPClientTests {
     }
 
     @Test func theTypedErrorReadsAsAServiceError() {
-        #expect(SessionRefreshUnavailableError().errorDescription == "The service is temporarily unavailable. Please try again.")
+        let message = SessionRefreshUnavailableError().errorDescription
+
+        #expect(message == "The service is temporarily unavailable. Please try again.")
     }
 
     // MARK: - uploads

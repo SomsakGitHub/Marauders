@@ -311,7 +311,9 @@ struct TokenRefresherTests {
         let outcome = await h.refresher.refreshedAccessToken(replacing: h.a1)
 
         #expect(outcome.refreshedToken == h.a2)
-        #expect(h.api.refreshTokensGiven == [h.r1, h.r1], "the repeat carries the same token: the Worker takes it twice")
+        #expect(
+            h.api.refreshTokensGiven == [h.r1, h.r1], "the repeat carries the same token: the Worker takes it twice"
+        )
         #expect(h.stores.accessToken == h.a2)
         #expect(h.stores.refreshToken == h.r2)
     }

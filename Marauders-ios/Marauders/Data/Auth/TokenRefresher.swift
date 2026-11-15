@@ -130,7 +130,8 @@ actor TokenRefresher: TokenRefreshing {
     private func exchange(_ refreshToken: String) async throws -> AuthTokens {
         do {
             return try await authAPI.refreshTokens(using: refreshToken)
-        } catch where Self.isWorthAskingAgain(error) {
+        } catch {
+            guard Self.isWorthAskingAgain(error) else { throw error }
             try? await Task.sleep(for: retryDelay)
             return try await authAPI.refreshTokens(using: refreshToken)
         }
