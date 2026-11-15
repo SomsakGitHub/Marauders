@@ -238,11 +238,11 @@ Jenkins ดูแลเฉพาะแอป iOS. Worker (`backend/`) **deploy �
 - `db:migrate` อ่าน `DATABASE_URL` จาก `backend/.dev.vars` (gitignored, ดู `backend/.env.example`) ไม่ใช่จาก `wrangler secret`; ถ้าไม่มีบรรทัดนี้จะ error ตั้งแต่ครั้งแรก
 - `db:migrate` รัน `backend/sql/` ตั้งแต่ 001 ถึง 022 ยกเว้น `004_purge_feed_videos.sql`
   (purge — รันเองด้วยมือเท่านั้น); รายการไฟล์เป็น array ที่เขียนตายตัวใน
-  `scripts/migrate.mjs` ไฟล์ใหม่ เช่น `023_*.sql` จะไม่ถูกรันจนกว่าจะเพิ่มชื่อลงใน array นั้น
+  `scripts/migrate.mjs` ไฟล์ใหม่ เช่น `024_*.sql` จะไม่ถูกรันจนกว่าจะเพิ่มชื่อลงใน array นั้น
 - secrets ตั้งด้วย `wrangler secret put`: `DATABASE_URL`, `JWT_SIGNING_SECRET`,
   `APPLE_CLIENT_ID` และ `DEV_LOGIN_SECRET` (optional)
 - เทสต์ backend: `npm run typecheck` (`tsc --noEmit`), `npm run test:feed`,
-  `npm run test:dubbed-audio`, `npm run test:dev-auth`, `npm run test:comments`, `npm run test:likes`, `npm run test:follows`, `npm run test:auth-refresh` (ทั้งหมดเป็น node script) และมี `node scripts/test-audio-assessment.mjs` กับ
+  `npm run test:dubbed-audio`, `npm run test:dev-auth`, `npm run test:comments`, `npm run test:likes`, `npm run test:follows`, `npm run test:auth-refresh`, `npm run test:upload-idempotency` (ทั้งหมดเป็น node script) และมี `node scripts/test-audio-assessment.mjs` กับ
   `node scripts/test-upload.mjs` ที่ไม่มี npm script (`test-upload.mjs` ยิง endpoint workers.dev จริง ไม่ใช่เทสต์ในเครื่อง)
 - bindings ใน `wrangler.toml`: R2 `VIDEOS` → bucket `marauders-videos` (prefix `videos/`, `avatars/`, `translations/`) และ rate limit `RATE_LIMITER`, `AUTH_RATE_LIMITER`
 

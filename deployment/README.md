@@ -26,7 +26,7 @@ cd backend
 npm run db:migrate
 ```
 
-`db:migrate` (`scripts/migrate.mjs`) รัน `backend/sql/` ตามลำดับ: `001` → `003`, แล้ว `005` → `018` (รวม `002_seed.sql` ซึ่งตอนนี้เป็นแค่คอมเมนต์ ไม่มีข้อมูลเดโม)
+`db:migrate` (`scripts/migrate.mjs`) รัน `backend/sql/` ตามลำดับ: `001` → `003`, แล้ว `005` → `023` (รวม `002_seed.sql` ซึ่งตอนนี้เป็นแค่คอมเมนต์ ไม่มีข้อมูลเดโม)
 
 - **ไม่รัน `004_purge_feed_videos.sql`** — ลบทุกแถวใน `feed_videos` ต้องรันเองด้วยมือเมื่อจำเป็น (แนะนำ `npm run db:purge` ซึ่งลบทั้ง DB และ R2)
 - `db:migrate` อ่าน `DATABASE_URL` จาก `backend/.dev.vars` เท่านั้น (ไม่อ่าน `wrangler secret`) — ก่อน deploy ต้องให้ค่านี้ชี้ production ไม่ใช่ dev branch ของ Neon
@@ -81,6 +81,8 @@ npm run db:migrate
 
 **ก่อน deploy Worker ที่มีไลก์ ต้องรัน migration `018` ก่อนเสมอ:** query ของฟีดนับไลก์จากตาราง `video_likes` ถ้า deploy ก่อนรัน migration ฟีดจะตอบ 500 `failed to load feed` ทุกคำขอ (ต่างจากความคิดเห็นที่พังแค่ชีต) ตรวจหลัง deploy: `curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=1"` ต้องได้ `likeCount` ในทุก item ถ้าได้ 500 ให้เปิด `npx wrangler tail` จะเห็น `42P01` (ไม่มีตาราง `video_likes`)
 
+**ก่อน deploy Worker ที่รับ `Idempotency-Key` ต้องรัน migration `023` ก่อนเสมอ:** คำขอ `POST /v1/videos` ที่ส่ง header นี้จะอ่านและเขียนคอลัมน์ `feed_videos.upload_key` ถ้ายังไม่มีคอลัมน์ Worker จะตอบ 500 `upload lookup failed` ส่วนคำขอที่ไม่มี header ไม่แตะคอลัมน์นี้ (แอปรุ่นเก่าที่ไม่ส่ง header จึงไม่เสีย) ตรวจหลังรัน migration แบบอ่านอย่างเดียว: ต้องมีคอลัมน์ `feed_videos.upload_key` และ index `feed_videos_owner_upload_key_uidx` Rollback: `npx wrangler rollback 961faf99-cc24-4b92-9b1c-38a440524baf` (รุ่นที่ใช้งานก่อน deploy นี้) คอลัมน์ที่เพิ่มปล่อยไว้ได้เพราะ Worker รุ่นเก่าไม่แตะมัน ถ้าต้องการเอาออกจริง: `ALTER TABLE feed_videos DROP COLUMN upload_key` (index หายไปพร้อมกัน)
+
 ### ตรวจก่อน deploy
 
 ```bash
@@ -92,6 +94,7 @@ npm run test:dev-auth
 npm run test:comments
 npm run test:likes
 npm run test:auth-refresh
+npm run test:upload-idempotency
 ```
 
 นอกจากนี้มี `scripts/test-audio-assessment.mjs` (ไม่มี npm script รันด้วย `node scripts/test-audio-assessment.mjs`, ทำงานในเครื่อง) ส่วน `scripts/test-upload.mjs` **ไม่ใช่เช็คก่อน deploy** — ยิง POST ไฟล์ปลอมไปที่ URL production โดยไม่มี Authorization จึงได้ 401

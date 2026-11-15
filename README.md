@@ -74,7 +74,7 @@ Marauders/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
-│   ├── sql/                # schema, seed, migrations 001–022
+│   ├── sql/                # schema, seed, migrations 001–023
 │   ├── scripts/            # migrate, test-*, HLS/purge utilities
 │   ├── test/               # authDev, comments, commentsRoutes, likes, follows, followLists, friendLocations tests + fakes (users, neon)
 │   └── wrangler.toml
@@ -97,7 +97,7 @@ Marauders/
 ```bash
 cd backend
 npm install
-npm run db:migrate    # รัน migration ใน backend/sql/ (001–022 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
+npm run db:migrate    # รัน migration ใน backend/sql/ (001–023 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
 ```
 
 หรือรัน SQL ใน Neon SQL Editor ตามไฟล์ใน `backend/sql/` ทีละไฟล์
@@ -262,6 +262,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend likes | `npm run test:likes` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route like/unlike (auth, 404/401/429, ไม่นับซ้ำ) และ `likeCount` / `likedByViewer` ในฟีด |
 | Backend follows | `npm run test:follows` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route follow/unfollow (auth, handle ที่ใช้ไม่ได้, 404/401/422/429, ไม่นับซ้ำ), จำนวนผู้ติดตามกับ `followedByViewer` / `isViewer` ในโปรไฟล์ และ `postedByViewer` / `authorFollowedByViewer` ในฟีด (guest ไม่ถามเรื่องการติดตามเลย) รวมทั้ง `test/friendLocations.test.ts` ที่ตรวจ route แชร์ตำแหน่ง (ต้องติดตามกันและเปิดแชร์ทั้งสองฝ่าย, ผู้ที่ไม่แชร์ไม่เห็นใคร, 400/401/429) และ `test/followLists.test.ts` ที่ตรวจ route รายชื่อผู้ติดตาม / กำลังติดตาม (auth, handle กับ cursor ที่ใช้ไม่ได้, 404/401/429/500 ที่ไม่เผยข้อความของฐานข้อมูล, ลำดับกับหน้าถัดไป, `followedByViewer` / `isViewer`, และต้องมาก่อน route โปรไฟล์ที่รับทุกอย่างหลัง `/v1/users/`) SQL ของรายชื่อรันกับ PostgreSQL 18.3 ผ่าน PGlite 0.5.8 ด้วย Worker จริงแล้ว 13/13 ข้อ (ลำดับกับเวลาเท่ากัน, สามหน้าต่อกัน, cursor ของบัญชีที่เลิกติดตาม / เปลี่ยนชื่อ / ถูกลบ, เวลาห่างกัน 1 ไมโครวินาที, `followedByViewer` / `isViewer`, ความยาวรายชื่อเท่ากับจำนวนในโปรไฟล์, 404 กับ `@Alice` / `alice`) สคริปต์ที่ใช้เป็นของชั่วคราวและไม่ได้เก็บใน repo |
 | Backend auth refresh | `npm run test:auth-refresh` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver และ fake ของการตรวจ Apple identity token ที่ไม่ติดต่อ Apple (59 เทสต์) ตรวจ refresh token: รูปแบบกับ hash ของ token, access token อายุ 1 วันกับ 30 วัน, statement ออก / หมุน / ยกเลิกทั้งตระกูล / ฐานข้อมูลพัง, route `POST /v1/auth/refresh` กับ `/v1/auth/signout` ผ่าน `worker.fetch` จริง (400, `401` ที่ body เดียวกันทุกกรณี, `500` ที่ไม่เคยเป็น `401`, `204` แม้เป็น token ที่ไม่รู้จัก, ไม่ต้องมี Bearer), rate limit `auth` ที่ใช้ร่วมกับ sign in, log ที่ไม่มี token หรือ hash, และ sign in ทั้งสอง route ทั้งแบบมีและไม่มี `supportsRefreshTokens` SQL ของการหมุน token รันกับ PostgreSQL 18.3 ผ่าน PGlite 0.5.8 แล้ว 9/9 ข้อ (ใช้ครั้งแรก, ใช้ซ้ำภายใน 60 วินาที, ใช้ซ้ำหลังจากนั้นแล้วยกเลิกทั้งตระกูล, หมดอายุ, ถูกยกเลิก, sign out) ส่วนการใช้ token เดียวกันสองครั้งพร้อมกันพิสูจน์ไม่ได้ เพราะ PGlite มีการเชื่อมต่อเดียว สคริปต์ที่ใช้เป็นของชั่วคราวและไม่ได้เก็บใน repo |
+| Backend upload idempotency key | `npm run test:upload-idempotency` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver และ fake ของ R2 (15 เทสต์) ตรวจ header `Idempotency-Key` ของ `POST /v1/videos`: ค่าที่ไม่ใช่ UUID ได้ 400 ก่อนอ่านหรือเก็บอะไร, key ที่เก็บไว้แล้วได้ 200 พร้อมคลิปเดิมโดยไม่อ่าน body และไม่แตะ R2, key ใหม่ได้ 201, สองคำขอที่ใช้ key เดียวกันเหลือคลิปเดียว (ฝ่ายแพ้ลบไฟล์ของตัวเอง), key เป็นของบัญชีที่ส่งมา, lookup ที่ล้มได้ 500 โดยไม่เขียนอะไร, คำขอที่ไม่มี header ใช้เส้นทางเดิม และ replay นับรวมใน rate limit ของ upload (ชุดนี้ไม่รัน SQL: migration 023 กับสอง statement นี้รันบน PGlite 0.5.8 / PostgreSQL 18.3 แล้ว 12 จาก 12 เคส ในสคริปต์ชั่วคราวที่ไม่เก็บใน repo) |
 | Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) รวมทั้ง `commentCount` ในทุก query ที่ list คลิป (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
