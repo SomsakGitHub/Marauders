@@ -135,6 +135,14 @@ function mapFeedRows(rows: FeedRow[]): FeedItemJson[] {  return rows.map((row) =
   });
 }
 
+/** Thrown when a keyed insert finds the account's upload key already taken: a request with the same key won. */
+export class UploadKeyConflictError extends Error {
+  constructor() {
+    super("upload key conflict");
+    this.name = "UploadKeyConflictError";
+  }
+}
+
 export async function insertFeedVideo(
   databaseUrl: string,
   streamUrl: string,
@@ -143,10 +151,52 @@ export async function insertFeedVideo(
   ownerUserId: string,
   caption: string = "",
   audioAssessment: Record<string, unknown> | null = null,
+  uploadKey: string | null = null,
 ): Promise<FeedItemJson> {
   assertHttpsStreamUrl(streamUrl);
 
   const sql = neon(databaseUrl);
+
+  if (uploadKey !== null) {
+    // The insert below plus the key. A second request with the same key for this account inserts nothing and gets no
+    // row back, which is how the caller learns that it lost the race.
+    const keyedRows = (await sql`
+      INSERT INTO feed_videos (
+        stream_url,
+        author_name,
+        caption,
+        sort_order,
+        latitude,
+        longitude,
+        owner_user_id,
+        audio_assessment,
+        upload_key
+      )
+      VALUES (
+        ${streamUrl},
+        COALESCE((SELECT handle FROM app_users WHERE id = ${ownerUserId}::uuid), ${UPLOAD_AUTHOR_NAME}),
+        ${caption},
+        (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM feed_videos),
+        ${latitude},
+        ${longitude},
+        ${ownerUserId}::uuid,
+        ${audioAssessment === null ? null : JSON.stringify(audioAssessment)}::jsonb,
+        ${uploadKey}::uuid
+      )
+      ON CONFLICT (owner_user_id, upload_key) WHERE upload_key IS NOT NULL DO NOTHING
+      RETURNING id, stream_url, latitude, longitude, author_name,
+        (SELECT avatar_url FROM app_users WHERE id = ${ownerUserId}::uuid) AS avatar_url,
+        caption, audio_assessment
+    `) as FeedRow[];
+
+    const keyedRow = keyedRows[0];
+    if (!keyedRow) {
+      throw new UploadKeyConflictError();
+    }
+    return mapUploadedRow(keyedRow);
+  }
+
+  // Without a key this is the statement every build before the key ran: it never reads or writes upload_key.
   const rows = (await sql`
     INSERT INTO feed_videos (
       stream_url,
@@ -178,6 +228,30 @@ export async function insertFeedVideo(
     throw new Error("insert failed");
   }
 
+  return mapUploadedRow(row);
+}
+
+/** The clip an account stored under an upload key, or null when the key is new to the account. */
+export async function findFeedVideoByUploadKey(
+  databaseUrl: string,
+  ownerUserId: string,
+  uploadKey: string,
+): Promise<FeedItemJson | null> {
+  const sql = neon(databaseUrl);
+  const rows = (await sql`
+    SELECT v.id, v.stream_url, v.latitude, v.longitude, COALESCE(u.handle, v.author_name) AS author_name, u.avatar_url, v.caption, v.audio_assessment
+    FROM feed_videos v
+    LEFT JOIN app_users u ON u.id = v.owner_user_id
+    WHERE v.owner_user_id = ${ownerUserId}::uuid AND v.upload_key = ${uploadKey}::uuid
+    LIMIT 1
+  `) as FeedRow[];
+
+  const row = rows[0];
+  return row ? mapUploadedRow(row) : null;
+}
+
+/** The answer for a clip its uploader just stored or stored earlier: counters at zero, posted by the viewer. */
+function mapUploadedRow(row: FeedRow): FeedItemJson {
   return {
     id: row.id,
     streamURL: row.stream_url,
@@ -191,7 +265,7 @@ export async function insertFeedVideo(
     likeCount: 0,
     likedByViewer: false,
     commentCount: 0,
-    // Only the uploader is answered with the new clip.
+    // Only the uploader is answered with the clip.
     postedByViewer: true,
     authorFollowedByViewer: false,
   };

@@ -1,5 +1,9 @@
 import { parseAudioAssessment } from "../audio/assessment";
-import { insertFeedVideo } from "../db/feed";
+import {
+  findFeedVideoByUploadKey,
+  insertFeedVideo,
+  UploadKeyConflictError,
+} from "../db/feed";
 import {
   MP4_FASTSTART_MAX_BYTES,
   mp4ApplyFastStart,
@@ -11,6 +15,7 @@ import {
   parseUploadCaption,
   parseUploadCoordinates,
   parseUploadFile,
+  parseUploadIdempotencyKey,
   resolveVideoMime,
 } from "../validation";
 
@@ -29,6 +34,29 @@ export async function handleVideoUpload(
   }
   if (!env.VIDEOS) {
     return jsonError(503, "video storage is not configured");
+  }
+
+  // The key is read before the body: a replay carries none, and a key that is already stored answers without one.
+  let uploadKey: string | null;
+  try {
+    uploadKey = parseUploadIdempotencyKey(request.headers.get("Idempotency-Key"));
+  } catch (error) {
+    if (error instanceof FeedValidationError) {
+      return jsonError(error.status, error.message);
+    }
+    throw error;
+  }
+  if (uploadKey !== null) {
+    try {
+      const stored = await findFeedVideoByUploadKey(env.DATABASE_URL, ownerUserId, uploadKey);
+      if (stored) {
+        return jsonOk({ item: stored }, 200);
+      }
+    } catch (lookupError) {
+      // Falling through to a new upload could make the duplicate the key exists to prevent.
+      console.error("upload key lookup failed", lookupError);
+      return jsonError(500, "upload lookup failed");
+    }
   }
 
   const contentType = request.headers.get("Content-Type") ?? "";
@@ -88,6 +116,7 @@ export async function handleVideoUpload(
         ownerUserId,
         caption,
         parseAudioAssessment(formData.get("audioAssessment")),
+        uploadKey,
       );
     } catch (databaseError) {
       console.error("database insert failed", databaseError);
@@ -95,6 +124,17 @@ export async function handleVideoUpload(
         await env.VIDEOS.delete(objectKey);
       } catch {
         // best-effort rollback
+      }
+      if (databaseError instanceof UploadKeyConflictError && uploadKey !== null) {
+        // A request with the same key stored its clip first: answer with that clip.
+        try {
+          const winner = await findFeedVideoByUploadKey(env.DATABASE_URL, ownerUserId, uploadKey);
+          if (winner) {
+            return jsonOk({ item: winner }, 200);
+          }
+        } catch (lookupError) {
+          console.error("upload key lookup failed", lookupError);
+        }
       }
       const detail =
         databaseError instanceof Error ? databaseError.message : "unknown";
