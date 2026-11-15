@@ -69,4 +69,55 @@ struct UploadFeedVideoUseCaseTests {
             _ = try await useCase.execute(fileURL: file, clipLocation: Self.bangkok)
         }
     }
+
+    @Test func executeForwardsTheProgressHandlerToTheRepository() async throws {
+        let file = try TestFixtureFiles.temporaryVideoFile(byteCount: 4)
+        let video = FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!)
+        let useCase = UploadFeedVideoUseCase(repository: ProgressReportingRepository(video: video, fraction: 0.5))
+        let log = UploadProgressLog()
+
+        let result = try await useCase.execute(fileURL: file, clipLocation: Self.bangkok, progress: log.handler)
+
+        #expect(result == video)
+        #expect(log.values == [0.5])
+    }
+
+    @Test func aRepositoryThatKnowsNothingOfProgressStillUploads() async throws {
+        let file = try TestFixtureFiles.temporaryVideoFile(byteCount: 4)
+        let video = FeedVideo(streamURL: URL(string: "https://example.com/v.mp4")!)
+        let repository = RecordingVideoUploadRepository(result: .success(video))
+        let useCase = UploadFeedVideoUseCase(repository: repository)
+        let log = UploadProgressLog()
+
+        let result = try await useCase.execute(fileURL: file, clipLocation: Self.bangkok, progress: log.handler)
+
+        #expect(result == video)
+        #expect(repository.uploadCount == 1)
+        #expect(log.values.isEmpty)
+    }
+}
+
+/// A repository that implements the progress overload and reports one fraction through it.
+private final class ProgressReportingRepository: VideoUploadRepository, @unchecked Sendable {
+    private let video: FeedVideo
+    private let fraction: Double
+
+    init(video: FeedVideo, fraction: Double) {
+        self.video = video
+        self.fraction = fraction
+    }
+
+    func upload(
+        fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String
+    ) async throws -> FeedVideo {
+        video
+    }
+
+    func upload(
+        fileURL: URL, mimeType: String, clipLocation: ClipLocation, caption: String,
+        audioAssessment: ClipAudioAssessment?, progress: UploadProgressHandler?
+    ) async throws -> FeedVideo {
+        progress?(fraction)
+        return video
+    }
 }

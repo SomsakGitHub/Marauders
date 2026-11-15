@@ -52,7 +52,8 @@ struct VideoUploadAPIClient: Sendable {
         mimeType: String,
         clipLocation: ClipLocation,
         caption: String = "",
-        audioAssessment: ClipAudioAssessment? = nil
+        audioAssessment: ClipAudioAssessment? = nil,
+        progress: UploadProgressHandler? = nil
     ) async throws -> FeedVideo {
         guard mimeType == "video/mp4" || mimeType == "video/quicktime" else {
             AppLog.error("api.upload", "unsupported mime=\(mimeType)")
@@ -87,7 +88,7 @@ struct VideoUploadAPIClient: Sendable {
             audioAssessment: audioAssessment
         )
 
-        let response = try await client.upload(request, multipart: parts)
+        let response = try await client.upload(request, multipart: parts, progress: progress)
 
         let bodySnippet = Self.snippet(from: response.data)
         AppLog.info("api.upload", "response status=\(response.statusCode) body=\(bodySnippet)")

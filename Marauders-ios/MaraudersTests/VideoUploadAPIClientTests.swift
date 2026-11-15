@@ -216,6 +216,45 @@ struct VideoUploadAPIClientTests {
         }
     }
 
+    @Test func uploadReportsHowMuchOfTheBodyWasSent() async throws {
+        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let videoID = UUID()
+        let answer = Self.uploadResponseJSON(id: videoID, streamURL: "https://cdn.example.com/v.mp4")
+        let transport = RecordingTransport(
+            [.success(HTTPClientResponse(data: answer, statusCode: 201))], reportingProgress: [0.4, 1.0])
+        let client = VideoUploadAPIClient(client: transport, authorization: Self.testAuthorization)
+        let log = UploadProgressLog()
+
+        let item = try await client.upload(
+            fileURL: fileURL,
+            mimeType: "video/mp4",
+            clipLocation: Self.sampleClipLocation,
+            progress: log.handler
+        )
+
+        #expect(item.id == videoID)
+        #expect(log.values == [0.4, 1.0])
+    }
+
+    @Test func theRepositoryAndTheUseCaseDeliverProgressToo() async throws {
+        let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let answer = Self.uploadResponseJSON(id: UUID(), streamURL: "https://cdn.example.com/v.mp4")
+        let transport = RecordingTransport(
+            [.success(HTTPClientResponse(data: answer, statusCode: 201))], reportingProgress: [0.4, 1.0])
+        let apiClient = VideoUploadAPIClient(client: transport, authorization: Self.testAuthorization)
+        let useCase = UploadFeedVideoUseCase(repository: DefaultVideoUploadRepository(apiClient: apiClient))
+        let log = UploadProgressLog()
+
+        _ = try await useCase.execute(
+            fileURL: fileURL, clipLocation: Self.sampleClipLocation, progress: log.handler)
+
+        #expect(log.values == [0.4, 1.0])
+    }
+
     @Test func uploadSendsTheClipAsAFileBackedPartAndNeverAsData() async throws {
         let fileURL = try TestFixtureFiles.temporaryVideoFile(byteCount: 64)
         defer { try? FileManager.default.removeItem(at: fileURL) }
