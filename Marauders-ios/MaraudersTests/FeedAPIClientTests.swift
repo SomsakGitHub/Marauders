@@ -264,6 +264,29 @@ struct FeedAPIClientTests {
         #expect(sentAuthorizations == ["Bearer test-session-token-1234567890", nil])
     }
 
+    /// The refresh behind the 401 could not be made, so nothing is known about the session: it is not signed out, and
+    /// the clips still load, as a guest sees them.
+    @Test(arguments: [false, true])
+    func anUnavailableSessionStillLoadsTheFeed(forMap: Bool) async throws {
+        let videoID = UUID(uuidString: "55555555-5555-5555-5555-555555555555")!
+        let body = FeedAPIClientTests.feedResponseJSON(items: [
+            (id: videoID, streamURL: "https://cdn.example.com/v/guest.mp4")
+        ])
+        let transport = RecordingTransport([
+            .failure(SessionRefreshUnavailableError()),
+            .success(HTTPClientResponse(data: body, statusCode: 200)),
+        ])
+        let client = FeedAPIClient(
+            client: transport, maxAttempts: 1, retryDelayNs: { _ in 0 }, authorization: SignedInAuthorization())
+
+        let page = try await client.fetchFeed(forMap: forMap)
+
+        #expect(page.items.map(\.id) == [videoID])
+        #expect(
+            transport.requests.map { $0.value(forHTTPHeaderField: "Authorization") }
+                == ["Bearer test-session-token-1234567890", nil])
+    }
+
     @Test func theGuestReadIsAskedOnlyOnce() async {
         nonisolated(unsafe) var sentAuthorizations: [String?] = []
         let session = StubURLSessionFactory.make { request in

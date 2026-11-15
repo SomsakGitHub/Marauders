@@ -163,6 +163,45 @@ struct CommentsAPIClientTests {
         #expect(requests.last?.value(forHTTPHeaderField: "Authorization") == nil)
     }
 
+    /// The refresh behind a 401 could not be made, so nothing is known about the session: the comments still load, read
+    /// as a guest, and nobody is signed out.
+    @Test func anUnavailableSessionStillLoadsTheComments() async throws {
+        let transport = RecordingTransport([
+            .failure(SessionRefreshUnavailableError()),
+            .success(HTTPClientResponse(data: Data(Self.listPayload.utf8), statusCode: 200)),
+        ])
+
+        let client = CommentsAPIClient(client: transport, authorization: Self.authorization)
+        let page = try await client.fetchComments(videoID: Self.videoID)
+
+        #expect(page.items.count == 2)
+        #expect(transport.requests.count == 2)
+        #expect(transport.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer test-token")
+        #expect(transport.requests.last?.value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
+    /// Writing needs the session, so there is no guest read to fall back to: the viewer is told the service is
+    /// unavailable, not that they must sign in.
+    @Test func postingWithAnUnavailableSessionSurfacesTheServiceError() async {
+        let transport = RecordingTransport([.failure(SessionRefreshUnavailableError())])
+
+        let client = CommentsAPIClient(client: transport, authorization: Self.authorization)
+        await #expect(throws: SessionRefreshUnavailableError.self) {
+            _ = try await client.postComment(videoID: Self.videoID, body: "Hello")
+        }
+        #expect(transport.requests.count == 1)
+    }
+
+    @Test func deletingWithAnUnavailableSessionSurfacesTheServiceError() async {
+        let transport = RecordingTransport([.failure(SessionRefreshUnavailableError())])
+
+        let client = CommentsAPIClient(client: transport, authorization: Self.authorization)
+        await #expect(throws: SessionRefreshUnavailableError.self) {
+            try await client.deleteComment(videoID: Self.videoID, commentID: Self.commentID)
+        }
+        #expect(transport.requests.count == 1)
+    }
+
     @Test func fetchGivesUpWhenEvenTheGuestReadIsRejected() async {
         var requests: [URLRequest] = []
         let session = StubURLSessionFactory.make { request in

@@ -25,13 +25,10 @@ struct CommentsAPIClient: Sendable {
         let requestURL = try APIConfiguration.commentsURL(videoID: videoID, limit: limit, cursor: cursor)
         AppLog.info("api.comments", "GET \(requestURL.host ?? "?")/v1/videos/<id>/comments")
 
+        // The Worker rejects a bad session even on reads, so they are read as a guest instead of failing.
         let bearer = authorization?.bearerAuthorizationHeader()
-        var response = try await client.data(Self.listRequest(url: requestURL, bearer: bearer))
-        if response.statusCode == 401, bearer != nil {
-            // The Worker rejects a bad session even on reads, so read as a guest instead of failing.
-            AppLog.warning("api.comments", "session rejected, reading as guest")
-            response = try await client.data(Self.listRequest(url: requestURL, bearer: nil))
-        }
+        let response = try await client.dataFallingBackToGuest(
+            Self.listRequest(url: requestURL, bearer: bearer), logCategory: "api.comments")
 
         switch response.statusCode {
         case 404:
