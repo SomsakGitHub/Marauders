@@ -188,6 +188,11 @@ final class UploadVideoViewModel {
     }
 
     func upload() async {
+        // A second call while one runs would start another transfer and reset the first one's bar.
+        guard !isUploading else {
+            AppLog.warning("upload", "upload requested while an upload is running")
+            return
+        }
         guard let uploadFileURL else {
             AppLog.warning("upload", "upload tapped but no file")
             return
@@ -249,9 +254,10 @@ final class UploadVideoViewModel {
     }
 
     /// Called from the transfer's thread through a hop to the main actor, so it can arrive after the upload ended or
-    /// after the next one began: only the upload that is running may move the bar.
+    /// after the next one began: only the upload that is running may move the bar. A report that is not a number is
+    /// dropped: min and max cannot clamp NaN, and the label would trap on it.
     private func applyUploadProgress(_ fraction: Double, attempt: Int) {
-        guard isUploading, attempt == uploadAttempt else { return }
+        guard isUploading, attempt == uploadAttempt, !fraction.isNaN else { return }
         uploadProgress = min(max(fraction, 0), 1)
     }
 

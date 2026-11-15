@@ -529,6 +529,46 @@ struct UploadVideoViewModelTests {
         await second.value
     }
 
+    @Test func aReportThatIsNotANumberChangesNothing() async throws {
+        // min and max cannot clamp NaN, and `Int(.nan)` in the label would trap.
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository)
+        let upload = Task { await model.upload() }
+        await repository.waitUntilUploading()
+        await repository.report(0.5)
+        try #require(model.uploadProgress == 0.5)
+
+        await repository.report(.nan)
+
+        try #require(model.uploadProgress == 0.5)
+        #expect(model.uploadProgressLabel == "Uploading… 50%")
+
+        repository.end(with: .success(Self.uploadedClip))
+        await upload.value
+    }
+
+    @Test func aSecondCallWhileUploadingStartsNothingAndLeavesTheBarAlone() async throws {
+        // The button is disabled while uploading, yet two calls can overlap (a double tap during a stall).
+        let holds = BackgroundHolds()
+        let repository = HeldUploadRepository()
+        let model = try makeUploadReadyViewModel(repository, holdAwake: { holds.begin($0) })
+        let first = Task { await model.upload() }
+        await repository.waitUntilUploading()
+        await repository.report(0.5)
+
+        let second = Task { await model.upload() }
+        await repository.settle()
+
+        #expect(repository.handlers.count == 1)
+        #expect(holds.begun.count == 1)
+        #expect(model.uploadProgress == 0.5)
+
+        repository.end(with: .success(Self.uploadedClip))
+        await first.value
+        await second.value
+        #expect(holds.released == 1)
+    }
+
     // MARK: - Background task
 
     @Test func theUploadHoldsABackgroundTaskUntilItEnds() async throws {
@@ -613,7 +653,7 @@ struct UploadVideoViewModelTests {
     /// given (oldest first), so a test can report through an old handler after a new upload has started.
     private final class HeldUploadRepository: VideoUploadRepository, @unchecked Sendable {
         private(set) var handlers: [UploadProgressHandler] = []
-        private var held: CheckedContinuation<FeedVideo, Error>?
+        private var held: [CheckedContinuation<FeedVideo, Error>] = []
         private var waiter: CheckedContinuation<Void, Never>?
 
         func upload(
@@ -629,7 +669,7 @@ struct UploadVideoViewModelTests {
             audioAssessment: ClipAudioAssessment?, progress: UploadProgressHandler?
         ) async throws -> FeedVideo {
             try await withCheckedThrowingContinuation { continuation in
-                held = continuation
+                held.append(continuation)
                 handlers.append(progress ?? { _ in })
                 waiter?.resume()
                 waiter = nil
@@ -654,10 +694,11 @@ struct UploadVideoViewModelTests {
             for _ in 0..<5 { await Task.yield() }
         }
 
-        /// Ends the upload that is being held.
+        /// Ends every upload that is being held: one, unless a test lets a second call through.
         func end(with result: Result<FeedVideo, Error>) {
-            held?.resume(with: result)
-            held = nil
+            let ending = held
+            held = []
+            for continuation in ending { continuation.resume(with: result) }
         }
     }
 }
