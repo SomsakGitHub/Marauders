@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Brought in line with the code on 2026-11-15: `FeedStore` is now `VideoFeedViewModel`, and the `Task { @MainActor }` hop moved from the scroll view coordinator to the AVFoundation observers.
+Accepted. Brought in line with the code on 2026-11-15: `FeedStore` is now `VideoFeedViewModel`, and the `Task { @MainActor }` hop moved from the scroll view coordinator to the AVFoundation observers. `TokenRefresher` was added to the table with token refresh (ADR-007).
 
 ## Context
 
@@ -17,6 +17,7 @@ Feed playback loads `AVURLAsset` / `AVPlayerItem` over the network while UIKit s
 | `FeedMediaPreparationService` | `actor` | Asset cache, prefetch until `readyToPlay`, `beginPlaybackItem` for visible slot |
 | `VerticalPagingFeedScrollView` coordinator | `@MainActor` | UIKit scroll callbacks arrive on the main actor; page settle updates bindings and playback hooks directly |
 | `PlayerSlot` (in `FeedPlayerEngine.swift`) and `FeedPlayerLayerHostView` observers | AVFoundation callback → `Task { @MainActor }` | KVO and end-of-item events update the engine, after checking the item or layer is still current |
+| `TokenRefresher` | `actor` | The one refresh in flight ([ADR-007](007-token-refresh.md)): requests that meet a 401 together wait for the same call, and the stored tokens are read and written in one hop to the main actor, where sign-in and sign-out run their own store calls |
 
 More actors and `@concurrent` helpers came later under the same split (state that several callers share, or work that must stay off the main actor). The current set is in [ARCHITECTURE.md](../../ARCHITECTURE.md), section "Swift 6 concurrency".
 

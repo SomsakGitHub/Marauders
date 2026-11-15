@@ -16,7 +16,7 @@
 | **ไลก์** | ปุ่มหัวใจบน rail ของฟีดกดถูกใจ / เลิกถูกใจคลิป พร้อมจำนวนไลก์ หรือแตะคลิปสองครั้งเพื่อไลก์พร้อมหัวใจเด้งแบบ TikTok ผู้เยี่ยมชมเห็นจำนวนแต่ต้องล็อกอินก่อนกด |
 | **Settings** | เลือก **ภาษาที่ฟัง** (listening language) และดาวน์โหลด/จัดการโมเดลภาษา (Whisper base สำหรับตรวจภาษาในคลิป) |
 | **AI dubbing** | ผู้ชมเลือกฟังเสียงต้นฉบับหรือเสียงพากย์ AI ในภาษาของตัวเอง; แปลและสร้างเสียงบน iPhone ของผู้ชม แล้วแชร์ไฟล์ผ่านแคชบน R2 — รายละเอียดใน [deployment/AI_DUBBING.md](deployment/AI_DUBBING.md) |
-| **Auth** | Sign in with Apple → แลก identity token เป็น session; เลือกประเทศตอน login (Debug build บน Simulator ใช้ `/v1/auth/dev` แทนได้) |
+| **Auth** | Sign in with Apple → แลก identity token เป็น session (access token อายุ 1 วัน + refresh token อายุ 90 วัน ต่ออายุทุกครั้งที่ใช้ — เมื่อได้ 401 แอปแลก token ใหม่เองโดยผู้ใช้ไม่ต้อง sign in ใหม่ ดู [ADR-007](docs/adr/007-token-refresh.md)); เลือกประเทศตอน login (Debug build บน Simulator ใช้ `/v1/auth/dev` แทนได้) |
 | **API** | REST บน Workers, validate input ฝั่งเซิร์ฟเวอร์ |
 | **Debug** | แท็บ Log ในแอป (เฉพาะ **Debug** build, `#if DEBUG`) + `os.Logger` |
 
@@ -74,7 +74,7 @@ Marauders/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
-│   ├── sql/                # schema, seed, migrations 001–020
+│   ├── sql/                # schema, seed, migrations 001–022
 │   ├── scripts/            # migrate, test-*, HLS/purge utilities
 │   ├── test/               # authDev, comments, commentsRoutes, likes, follows, followLists, friendLocations tests + fakes (users, neon)
 │   └── wrangler.toml
@@ -97,7 +97,7 @@ Marauders/
 ```bash
 cd backend
 npm install
-npm run db:migrate    # รัน migration ใน backend/sql/ (001–018 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
+npm run db:migrate    # รัน migration ใน backend/sql/ (001–022 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
 ```
 
 หรือรัน SQL ใน Neon SQL Editor ตามไฟล์ใน `backend/sql/` ทีละไฟล์
@@ -142,8 +142,10 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 |--------|------|----------|
 | `GET` | `/health` | health check |
 | `GET` | `/v1/map/clips?limit=20&country=<ISO2>` | หมุดแผนที่ ใช้ข้อมูลชุดเดียวกับฟีด (รวมคลิปของตัวเอง) |
-| `POST` | `/v1/auth/apple` | `{ identityToken, country? }` → `{ accessToken }` (Sign in with Apple) |
-| `POST` | `/v1/auth/dev` | `{ secret, label, country? }` → `{ accessToken }` — เฉพาะเมื่อ Worker ตั้ง `DEV_LOGIN_SECRET`, ไม่งั้น `404` (ใช้กับ Debug build บน Simulator) |
+| `POST` | `/v1/auth/apple` | `{ identityToken, country?, supportsRefreshTokens? }` → `{ accessToken, refreshToken? }` (Sign in with Apple) — ถ้าส่ง `supportsRefreshTokens: true` จะได้ `refreshToken` กับ access token อายุ 1 วัน ถ้าไม่ส่งจะได้ access token อายุ 30 วันเหมือนเดิม (แอปรุ่นที่ติดตั้งไว้แล้วไม่ถูกบังคับให้ sign in ทุกวัน) |
+| `POST` | `/v1/auth/dev` | `{ secret, label, country?, supportsRefreshTokens? }` → `{ accessToken, refreshToken? }` — เฉพาะเมื่อ Worker ตั้ง `DEV_LOGIN_SECRET`, ไม่งั้น `404` (ใช้กับ Debug build บน Simulator) |
+| `POST` | `/v1/auth/refresh` | `{ refreshToken }` → `{ accessToken, refreshToken }` — แลก refresh token (ใช้ได้ครั้งเดียว อายุ 90 วันนับจากที่ออก) เป็นคู่ใหม่ ไม่ต้องมี Bearer; token ที่ไม่รับ (ไม่รู้จัก, ถูกยกเลิก, หมดอายุ, ถูกใช้ซ้ำ) ตอบ `401` ข้อความเดียวกันหมด, body ผิดรูป `400`, ฐานข้อมูลพัง `500` (ไม่เคยเป็น `401`) |
+| `POST` | `/v1/auth/signout` | `{ refreshToken }` → `204` — ยกเลิก refresh token ทั้งตระกูล (ตอบ `204` แม้เป็น token ที่ไม่รู้จัก), body ผิดรูป `400`, ไม่ต้องมี Bearer |
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | ฟีด; ทุกคนเห็นคลิปชุดเดียวกัน รวมคลิปของตัวเอง (Bearer ไม่เปลี่ยนผลลัพธ์ แต่ถ้าส่งมาและไม่ถูกต้องจะคืน 401); คำตอบมี `viewerID` เมื่อส่ง Bearer |
 | `POST` | `/v1/videos` | `multipart/form-data`: `file` + `latitude` + `longitude` + `caption` (ไม่บังคับ) + `audioAssessment` (JSON ไม่บังคับ) — ต้องส่ง `Authorization: Bearer <accessToken>` |
 | `DELETE` | `/v1/videos/:id` | ลบคลิปของตัวเอง (ลบทั้ง row และไฟล์ใน R2) — ต้องส่ง Bearer |
@@ -237,7 +239,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - `DATABASE_URL` เก็บใน **Wrangler secret** / `backend/.dev.vars` (gitignore) — ไม่ใส่ใน repo  
 - API validate query/body ฝั่ง Worker; อัปโหลดจำกัดชนิดไฟล์และขนาด  
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
-- **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT (เก็บใน Keychain); อัปโหลดต้องมี Bearer token  
+- **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT อายุ 1 วัน + refresh token อายุ 90 วัน (เก็บใน Keychain ทั้งคู่); อัปโหลดต้องมี Bearer token; เมื่อได้ `401` แอปแลก refresh token เป็นคู่ใหม่แล้วส่ง request เดิมซ้ำหนึ่งครั้ง ผู้ใช้ถูก sign out ก็ต่อเมื่อไม่มี refresh token ให้ลอง, Worker ไม่รับ refresh token หรือ request ที่ส่งซ้ำด้วย token ใหม่ยังถูกปฏิเสธ (การแลกที่ทำไม่ได้เพราะออฟไลน์ / `429` / `5xx` ไม่ทำให้ sign out)  
 - **Dev login:** `/v1/auth/dev` ปิดอยู่จนกว่าจะตั้ง `DEV_LOGIN_SECRET` (ปล่อยว่างใน production) และฝั่งแอป compile เฉพาะ Debug
 - **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user, ติดตาม / เลิกติดตาม 30 ครั้ง/นาทีต่อ user, เปิด / ปิดแชร์ตำแหน่ง 20 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
 
@@ -259,6 +261,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend dev login | `npm run test:dev-auth` | ใช้ `node:test` + fake users |
 | Backend likes | `npm run test:likes` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route like/unlike (auth, 404/401/429, ไม่นับซ้ำ) และ `likeCount` / `likedByViewer` ในฟีด |
 | Backend follows | `npm run test:follows` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver ตรวจ route follow/unfollow (auth, handle ที่ใช้ไม่ได้, 404/401/422/429, ไม่นับซ้ำ), จำนวนผู้ติดตามกับ `followedByViewer` / `isViewer` ในโปรไฟล์ และ `postedByViewer` / `authorFollowedByViewer` ในฟีด (guest ไม่ถามเรื่องการติดตามเลย) รวมทั้ง `test/friendLocations.test.ts` ที่ตรวจ route แชร์ตำแหน่ง (ต้องติดตามกันและเปิดแชร์ทั้งสองฝ่าย, ผู้ที่ไม่แชร์ไม่เห็นใคร, 400/401/429) และ `test/followLists.test.ts` ที่ตรวจ route รายชื่อผู้ติดตาม / กำลังติดตาม (auth, handle กับ cursor ที่ใช้ไม่ได้, 404/401/429/500 ที่ไม่เผยข้อความของฐานข้อมูล, ลำดับกับหน้าถัดไป, `followedByViewer` / `isViewer`, และต้องมาก่อน route โปรไฟล์ที่รับทุกอย่างหลัง `/v1/users/`) SQL ของรายชื่อรันกับ PostgreSQL 18.3 ผ่าน PGlite 0.5.8 ด้วย Worker จริงแล้ว 13/13 ข้อ (ลำดับกับเวลาเท่ากัน, สามหน้าต่อกัน, cursor ของบัญชีที่เลิกติดตาม / เปลี่ยนชื่อ / ถูกลบ, เวลาห่างกัน 1 ไมโครวินาที, `followedByViewer` / `isViewer`, ความยาวรายชื่อเท่ากับจำนวนในโปรไฟล์, 404 กับ `@Alice` / `alice`) สคริปต์ที่ใช้เป็นของชั่วคราวและไม่ได้เก็บใน repo |
+| Backend auth refresh | `npm run test:auth-refresh` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver และ fake ของการตรวจ Apple identity token ที่ไม่ติดต่อ Apple (59 เทสต์) ตรวจ refresh token: รูปแบบกับ hash ของ token, access token อายุ 1 วันกับ 30 วัน, statement ออก / หมุน / ยกเลิกทั้งตระกูล / ฐานข้อมูลพัง, route `POST /v1/auth/refresh` กับ `/v1/auth/signout` ผ่าน `worker.fetch` จริง (400, `401` ที่ body เดียวกันทุกกรณี, `500` ที่ไม่เคยเป็น `401`, `204` แม้เป็น token ที่ไม่รู้จัก, ไม่ต้องมี Bearer), rate limit `auth` ที่ใช้ร่วมกับ sign in, log ที่ไม่มี token หรือ hash, และ sign in ทั้งสอง route ทั้งแบบมีและไม่มี `supportsRefreshTokens` SQL ของการหมุน token รันกับ PostgreSQL 18.3 ผ่าน PGlite 0.5.8 แล้ว 9/9 ข้อ (ใช้ครั้งแรก, ใช้ซ้ำภายใน 60 วินาที, ใช้ซ้ำหลังจากนั้นแล้วยกเลิกทั้งตระกูล, หมดอายุ, ถูกยกเลิก, sign out) ส่วนการใช้ token เดียวกันสองครั้งพร้อมกันพิสูจน์ไม่ได้ เพราะ PGlite มีการเชื่อมต่อเดียว สคริปต์ที่ใช้เป็นของชั่วคราวและไม่ได้เก็บใน repo |
 | Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) รวมทั้ง `commentCount` ในทุก query ที่ list คลิป (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
 | iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |

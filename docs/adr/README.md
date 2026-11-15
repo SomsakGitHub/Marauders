@@ -10,5 +10,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [004](004-single-app-target.md) | Single app target (no SPM split yet) |
 | [005](005-coordinator-router.md) | Coordinator + Router for tab flows |
 | [006](006-feed-get-retry.md) | Retry transient failures on GET feed only |
+| [007](007-token-refresh.md) | Rotating refresh tokens and a refresh under every 401 |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)
