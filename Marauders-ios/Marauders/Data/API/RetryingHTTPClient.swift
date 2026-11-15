@@ -47,7 +47,15 @@ struct RetryingHTTPClient: HTTPClient {
     }
 
     nonisolated func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
-        try await base.upload(request, multipart: multipart)
+        try await upload(request, multipart: multipart, progress: nil)
+    }
+
+    nonisolated func upload(
+        _ request: URLRequest,
+        multipart: [HTTPMultipartPart],
+        progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
+        try await base.upload(request, multipart: multipart, progress: progress)
     }
 
     private nonisolated static func isIdempotent(_ request: URLRequest) -> Bool {

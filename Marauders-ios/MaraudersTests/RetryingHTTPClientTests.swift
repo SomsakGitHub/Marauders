@@ -93,4 +93,20 @@ struct RetryingHTTPClientTests {
         #expect(try await Self.client(upload).upload(Self.request("POST"), multipart: []).statusCode == 503)
         #expect(upload.calls == 1)
     }
+
+    @Test func anUploadForwardsItsProgressAndIsStillNeverRepeated() async throws {
+        let transport = RecordingTransport(
+            [
+                .success(HTTPClientResponse(data: Data(), statusCode: 503)),
+                .success(HTTPClientResponse(data: Data(), statusCode: 201)),
+            ], reportingProgress: [0.25])
+        let log = UploadProgressLog()
+        let client = RetryingHTTPClient(base: transport, maxAttempts: 3, delayNanoseconds: { _ in 0 })
+
+        let response = try await client.upload(Self.request("POST"), multipart: [], progress: log.handler)
+
+        #expect(response.statusCode == 503)
+        #expect(transport.requests.count == 1)
+        #expect(log.values == [0.25])
+    }
 }

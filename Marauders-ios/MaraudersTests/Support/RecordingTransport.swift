@@ -31,17 +31,21 @@ nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
     private let lock = NSLock()
     private var script: [Result<HTTPClientResponse, any Error>]
     private let responder: Responder?
+    private let reportingProgress: [Double]
     private var seen: [URLRequest] = []
     private var seenUploads: [[RecordedPart]] = []
 
-    init(_ script: [Result<HTTPClientResponse, any Error>]) {
+    /// - Parameter reportingProgress: What every upload tells its progress handler, in order, before it is answered.
+    init(_ script: [Result<HTTPClientResponse, any Error>], reportingProgress: [Double] = []) {
         self.script = script
         self.responder = nil
+        self.reportingProgress = reportingProgress
     }
 
-    init(responder: @escaping Responder) {
+    init(responder: @escaping Responder, reportingProgress: [Double] = []) {
         self.script = []
         self.responder = responder
+        self.reportingProgress = reportingProgress
     }
 
     /// Every request that arrived, uploads included, in the order they arrived.
@@ -56,10 +60,17 @@ nonisolated final class RecordingTransport: HTTPClient, @unchecked Sendable {
     }
 
     func upload(_ request: URLRequest, multipart: [HTTPMultipartPart]) async throws -> HTTPClientResponse {
+        try await upload(request, multipart: multipart, progress: nil)
+    }
+
+    func upload(
+        _ request: URLRequest, multipart: [HTTPMultipartPart], progress: UploadProgressHandler?
+    ) async throws -> HTTPClientResponse {
         lock.withLock {
             seen.append(request)
             seenUploads.append(multipart.map(Self.recorded))
         }
+        for fraction in reportingProgress { progress?(fraction) }
         return try await answer(request)
     }
 
