@@ -8,9 +8,12 @@ import Foundation
 /// UI tests only (`UITEST` plus `UITEST_REJECTED_SESSION`): a signed-in viewer whose session the Worker has rejected.
 ///
 /// The profile and the comments then go through their real API clients over `UITestRejectingHTTPClient`, so the 401
-/// reaches the same code a real one does. Both stores live in memory: the sign-out that 401 causes must never touch
-/// the Keychain of the app installed on the device.
-nonisolated final class UITestRejectedSession: AuthSessionStore, APIAccessTokenStore, @unchecked Sendable {
+/// reaches the same code a real one does. All three stores live in memory: the sign-out that 401 causes must never
+/// touch the Keychain of the app installed on the device. The refresh token starts empty, like a session that was
+/// signed in before refresh tokens existed, so there is nothing to spend and the 401 ends the session as it always did.
+nonisolated final class UITestRejectedSession: AuthSessionStore, APIAccessTokenStore, APIRefreshTokenStore,
+    @unchecked Sendable
+{
     static let launchArgument = "UITEST_REJECTED_SESSION"
     /// Long enough to pass `APIAccessTokenFormat.isValid`, so the clients attach it.
     static let accessToken = "ui-test-rejected-session-token"
@@ -22,6 +25,7 @@ nonisolated final class UITestRejectedSession: AuthSessionStore, APIAccessTokenS
     private let lock = NSLock()
     private var userID: String? = "ui-test-user"
     private var token: String? = UITestRejectedSession.accessToken
+    private var refreshToken: String?
 
     func loadUserID() -> String? { lock.withLock { userID } }
     func saveUserID(_ userID: String) throws { lock.withLock { self.userID = userID } }
@@ -30,6 +34,10 @@ nonisolated final class UITestRejectedSession: AuthSessionStore, APIAccessTokenS
     func loadAccessToken() -> String? { lock.withLock { token } }
     func saveAccessToken(_ token: String) throws { lock.withLock { self.token = token } }
     func clearAccessToken() throws { lock.withLock { token = nil } }
+
+    func loadRefreshToken() -> String? { lock.withLock { refreshToken } }
+    func saveRefreshToken(_ token: String) throws { lock.withLock { refreshToken = token } }
+    func clearRefreshToken() throws { lock.withLock { refreshToken = nil } }
 }
 
 /// Answers 401 to any request that carries a token, as the Worker does for a session it rejects. A guest's

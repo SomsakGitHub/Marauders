@@ -1,5 +1,5 @@
 import { verifyAppleIdentityToken } from "../auth/appleIdentityToken";
-import { signAccessToken } from "../auth/accessToken";
+import { issueSession } from "../auth/session";
 import { upsertUserByAppleSub } from "../db/users";
 import type { Env } from "../index";
 import { FeedValidationError, parseAppleAuthBody } from "../validation";
@@ -27,8 +27,9 @@ export async function handleAppleAuth(
 
   let identityToken: string;
   let country: string | null;
+  let supportsRefreshTokens: boolean;
   try {
-    ({ identityToken, country } = parseAppleAuthBody(body));
+    ({ identityToken, country, supportsRefreshTokens } = parseAppleAuthBody(body));
   } catch (error) {
     if (error instanceof FeedValidationError) {
       return jsonError(error.status, error.message);
@@ -36,20 +37,22 @@ export async function handleAppleAuth(
     return jsonError(400, "invalid request");
   }
 
+  let userId: string;
   try {
     const appleSub = await verifyAppleIdentityToken(
       identityToken,
       env.APPLE_CLIENT_ID,
     );
-    const userId = await upsertUserByAppleSub(
-      env.DATABASE_URL,
-      appleSub,
-      country,
-    );
-    const accessToken = await signAccessToken(userId, env.JWT_SIGNING_SECRET);
-    return jsonResponse({ accessToken });
+    userId = await upsertUserByAppleSub(env.DATABASE_URL, appleSub, country);
   } catch {
     return jsonError(401, "invalid apple identity token");
+  }
+
+  // Outside the try above: a refresh token that cannot be stored is our failure, not a bad identity token.
+  try {
+    return jsonResponse(await issueSession(env, userId, supportsRefreshTokens));
+  } catch {
+    return jsonError(500, "sign in failed");
   }
 }
 

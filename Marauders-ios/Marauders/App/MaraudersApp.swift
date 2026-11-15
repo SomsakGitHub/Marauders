@@ -12,6 +12,10 @@ struct MaraudersApp: App {
     init() {
         _ = AppLog.launchUptime
         InstallationSessionGuard.bootstrap()
+        #if DEBUG
+            // After the reset above, which is what makes the stored token readable, and before anything uses it.
+            DebugSessionFault.applyIfRequested()
+        #endif
         // Before the UI, which a launch in the background for a location never shows.
         if !AppRuntimeConfiguration.isUITesting {
             AppDependencyContainer.backgroundLocationMonitor.resume()

@@ -3,6 +3,7 @@ import { listFeedVideos } from "./db/feed";
 import { clientIp, enforceDatabaseRateLimit, isRateLimited } from "./rateLimit";
 import { handleAppleAuth } from "./routes/authApple";
 import { handleDevAuth } from "./routes/authDev";
+import { handleRefresh, handleSignOut } from "./routes/authRefresh";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
@@ -33,7 +34,7 @@ export interface Env {
   DEV_LOGIN_SECRET?: string;
   /** General per-IP limit for reads/writes; see wrangler.toml. */
   RATE_LIMITER?: RateLimit;
-  /** Stricter per-IP limit for the Apple sign-in endpoint. */
+  /** Stricter per-IP limit for the sign-in, refresh and sign-out endpoints. */
   AUTH_RATE_LIMITER?: RateLimit;
 }
 
@@ -59,6 +60,15 @@ function rateLimitedResponse(retryAfterSeconds = 60): Response {
 
 /** Limit rules for the authoritative Neon-backed limiter. */
 const AUTH_RATE_LIMIT = { scope: "auth", limit: 30, windowSeconds: 60 };
+
+/** Sign-in, refresh and sign-out answer to POST only and share the one `auth` limit above. */
+const AUTH_ROUTES = new Map<string, (request: Request, env: Env) => Promise<Response>>([
+  ["/v1/auth/apple", handleAppleAuth],
+  ["/v1/auth/dev", handleDevAuth],
+  ["/v1/auth/refresh", handleRefresh],
+  ["/v1/auth/signout", handleSignOut],
+]);
+
 const UPLOAD_RATE_LIMIT = { scope: "upload", limit: 10, windowSeconds: 60 };
 
 function withCors(response: Response, request: Request): Response {
@@ -149,8 +159,7 @@ export default {
       url.pathname.startsWith("/v1/") &&
       !url.pathname.startsWith("/v1/media/")
     ) {
-      const isAuthRoute =
-        url.pathname === "/v1/auth/apple" || url.pathname === "/v1/auth/dev";
+      const isAuthRoute = AUTH_ROUTES.has(url.pathname);
       const limiter = isAuthRoute ? env.AUTH_RATE_LIMITER : env.RATE_LIMITER;
       const key = `${isAuthRoute ? "auth" : "api"}:${clientIp(request)}`;
       if (await isRateLimited(limiter, key)) {
@@ -158,10 +167,8 @@ export default {
       }
     }
 
-    if (
-      (url.pathname === "/v1/auth/apple" || url.pathname === "/v1/auth/dev") &&
-      request.method === "POST"
-    ) {
+    const authHandler = AUTH_ROUTES.get(url.pathname);
+    if (authHandler && request.method === "POST") {
       const decision = await enforceDatabaseRateLimit(
         env.DATABASE_URL,
         AUTH_RATE_LIMIT,
@@ -173,9 +180,7 @@ export default {
           request,
         );
       }
-      const handler =
-        url.pathname === "/v1/auth/dev" ? handleDevAuth : handleAppleAuth;
-      return withCors(await handler(request, env), request);
+      return withCors(await authHandler(request, env), request);
     }
 
     // The map reads the same list as the feed; installed apps still call it by its own path.

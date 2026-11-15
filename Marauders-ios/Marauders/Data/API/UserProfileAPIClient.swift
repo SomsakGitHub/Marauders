@@ -80,13 +80,10 @@ struct UserProfileAPIClient: Sendable {
         let requestURL = try APIConfiguration.publicUserProfileURL(handle: handle)
         AppLog.info("api.profile", "GET \(requestURL.host ?? "?")/v1/users/<handle>")
 
+        // The Worker rejects a bad session even on this public read, so it is read as a guest instead of failing.
         let bearer = authorization?.bearerAuthorizationHeader()
-        var response = try await client.data(Self.publicProfileRequest(url: requestURL, bearer: bearer))
-        if response.statusCode == 401, bearer != nil {
-            // The Worker rejects a bad session even on this public read, so read as a guest instead of failing.
-            AppLog.warning("api.profile", "session rejected, reading as guest")
-            response = try await client.data(Self.publicProfileRequest(url: requestURL, bearer: nil))
-        }
+        let response = try await client.dataFallingBackToGuest(
+            Self.publicProfileRequest(url: requestURL, bearer: bearer), logCategory: "api.profile")
         if response.statusCode == 404 {
             throw UserProfileAPIError.notFound
         }

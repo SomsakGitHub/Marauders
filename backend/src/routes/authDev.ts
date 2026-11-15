@@ -1,6 +1,7 @@
-import { signAccessToken } from "../auth/accessToken";
+import { issueSession } from "../auth/session";
 import { upsertUserByAppleSub } from "../db/users";
 import type { Env } from "../index";
+import { FeedValidationError, parseSupportsRefreshTokens } from "../validation";
 
 const MIN_SECRET_LENGTH = 32;
 const LABEL_PATTERN = /^[a-z0-9_-]{1,32}$/;
@@ -53,14 +54,23 @@ export async function handleDevAuth(
     country = record.country.trim().toUpperCase();
   }
 
+  let supportsRefreshTokens: boolean;
+  try {
+    supportsRefreshTokens = parseSupportsRefreshTokens(record.supportsRefreshTokens);
+  } catch (error) {
+    if (error instanceof FeedValidationError) {
+      return jsonError(error.status, error.message);
+    }
+    return jsonError(400, "invalid request");
+  }
+
   try {
     const userId = await upsertUserByAppleSub(
       env.DATABASE_URL,
       `dev:${record.label}`,
       country,
     );
-    const accessToken = await signAccessToken(userId, env.JWT_SIGNING_SECRET);
-    return jsonResponse({ accessToken });
+    return jsonResponse(await issueSession(env, userId, supportsRefreshTokens));
   } catch {
     return jsonError(500, "dev login failed");
   }

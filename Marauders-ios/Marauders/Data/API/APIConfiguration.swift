@@ -83,6 +83,24 @@ enum APIConfiguration {
         return url
     }
 
+    /// Trades a refresh token for a new access and refresh token (POST, no Authorization header).
+    static func refreshAuthURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/auth/refresh", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
+    /// Ends a session on the Worker by revoking the refresh token's whole family (POST, no Authorization header).
+    static func signOutAuthURL() throws -> URL {
+        let base = try apiBaseURL()
+        guard let url = URL(string: "v1/auth/signout", relativeTo: base) else {
+            throw APIConfigurationError.invalidBaseURL
+        }
+        return url
+    }
+
     #if DEBUG
         static func devAuthURL() throws -> URL {
             let base = try apiBaseURL()

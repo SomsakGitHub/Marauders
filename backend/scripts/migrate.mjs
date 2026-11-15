@@ -47,6 +47,7 @@ for (const file of [
     "../sql/019_user_follows.sql",
     "../sql/020_location_sharing.sql",
     "../sql/021_background_location_consent.sql",
+    "../sql/022_refresh_tokens.sql",
 ]) {
   for (const statement of statementsFromFile(file)) {
     await pool.query(statement);

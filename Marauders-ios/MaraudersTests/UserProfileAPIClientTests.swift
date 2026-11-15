@@ -234,6 +234,24 @@ struct UserProfileAPIClientTests {
         #expect(profile.followedByViewer == false)
     }
 
+    /// The refresh behind a 401 could not be made, so nothing is known about the session: the profile is still shown,
+    /// as a guest sees it, and nobody is signed out.
+    @Test func anUnavailableSessionStillLoadsAPublicProfile() async throws {
+        let payload =
+            #"{"handle":"@friend","videoCount":0,"videos":[],"followerCount":1,"followingCount":0,"followedByViewer":false,"isViewer":false}"#
+        let transport = RecordingTransport([
+            .failure(SessionRefreshUnavailableError()),
+            .success(HTTPClientResponse(data: Data(payload.utf8), statusCode: 200)),
+        ])
+
+        let profile = try await UserProfileAPIClient(client: transport, authorization: Self.authorization)
+            .fetchPublicProfile(handle: "@friend")
+
+        #expect(transport.requests.map { $0.value(forHTTPHeaderField: "Authorization") } == ["Bearer test-token", nil])
+        #expect(profile.handle == "@friend")
+        #expect(profile.followedByViewer == false)
+    }
+
     /// A Worker that predates follows sends none of the fields.
     @Test func fetchPublicProfileWithoutFollowFieldsStillDecodes() async throws {
         let payload = #"{"handle":"@friend","country":null,"videoCount":0,"videos":[]}"#

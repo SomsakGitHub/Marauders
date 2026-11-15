@@ -91,6 +91,7 @@ npm run test:dubbed-audio
 npm run test:dev-auth
 npm run test:comments
 npm run test:likes
+npm run test:auth-refresh
 ```
 
 นอกจากนี้มี `scripts/test-audio-assessment.mjs` (ไม่มี npm script รันด้วย `node scripts/test-audio-assessment.mjs`, ทำงานในเครื่อง) ส่วน `scripts/test-upload.mjs` **ไม่ใช่เช็คก่อน deploy** — ยิง POST ไฟล์ปลอมไปที่ URL production โดยไม่มี Authorization จึงได้ 401

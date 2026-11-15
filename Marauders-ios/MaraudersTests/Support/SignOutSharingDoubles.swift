@@ -77,6 +77,9 @@ final class SignOutSharingRepository: LocationSharingRepository, @unchecked Send
     var gate: SignOutGate?
     /// A change answers this late, but gives way to cancellation the way a `URLSession` request does.
     var delay: Duration?
+    /// Runs when a change arrives, so a test can change the world while the call is under way (a refresh swapping the
+    /// stored refresh token, say).
+    var whileAsked: (() -> Void)?
     private(set) var calls: [Call] = []
     /// How many changes were cancelled while they waited for `delay`.
     private(set) var cancelledCalls = 0
@@ -91,6 +94,7 @@ final class SignOutSharingRepository: LocationSharingRepository, @unchecked Send
 
     func setSharing(_ enabled: Bool) async throws -> Bool {
         calls.append(Call(enabled: enabled, accessToken: session?.accessToken, userID: session?.userID))
+        whileAsked?()
         if let gate { await gate.wait() }
         if let delay {
             do {

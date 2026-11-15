@@ -34,16 +34,7 @@ struct RejectedSessionReportingHTTPClient: HTTPClient {
     }
 
     private nonisolated func reportIfRejected(_ request: URLRequest, _ response: HTTPClientResponse) async {
-        guard response.statusCode == 401, let accessToken = Self.bearerToken(of: request) else { return }
+        guard response.statusCode == 401, let accessToken = request.bearerToken else { return }
         await report(accessToken)
-    }
-
-    private nonisolated static func bearerToken(of request: URLRequest) -> String? {
-        let scheme = "Bearer "
-        guard let header = request.value(forHTTPHeaderField: "Authorization"), header.hasPrefix(scheme) else {
-            return nil
-        }
-        let token = header.dropFirst(scheme.count).trimmingCharacters(in: .whitespaces)
-        return token.isEmpty ? nil : token
     }
 }

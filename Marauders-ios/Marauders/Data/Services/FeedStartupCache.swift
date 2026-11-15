@@ -261,9 +261,16 @@ final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
         self.makeCache = makeCache
     }
 
+    /// The folder name of a session's clips: the SHA-256 of the account the token belongs to, so a refreshed token (a new
+    /// string for the same viewer) finds the clips saved before it. A token whose account cannot be read is kept apart
+    /// by the token itself, and a guest by a name of its own. Hashed, so no folder name carries an id or a token.
+    private static func scope(for token: String?) -> String {
+        let identity = token.map { APIAccessTokenSubject.subject(of: $0) ?? $0 } ?? "guest"
+        return SHA256.hash(data: Data(identity.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
     private func sessionCache() -> FeedStartupCache {
-        let token = tokenProvider() ?? "guest"
-        let scope = SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
+        let scope = Self.scope(for: tokenProvider())
         if let cache = caches[scope] { return cache }
         let cache = makeCache(directory.appending(path: scope, directoryHint: .isDirectory))
         caches[scope] = cache

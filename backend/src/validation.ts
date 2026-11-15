@@ -1,4 +1,5 @@
 import { DUBBING_LANGUAGES } from "./audio/cache";
+import { isWellFormedRefreshToken } from "./auth/refreshToken";
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -278,9 +279,24 @@ export function assertHttpsStreamUrl(url: string): void {
   }
 }
 
+/**
+ * The optional `supportsRefreshTokens` of the sign-in bodies. Absent, null and false all mean "this client cannot
+ * refresh" (an installed build), so only a real boolean is accepted and anything else is a mistake worth a 400.
+ */
+export function parseSupportsRefreshTokens(value: unknown): boolean {
+  if (value === undefined || value === null || value === false) {
+    return false;
+  }
+  if (value === true) {
+    return true;
+  }
+  throw new FeedValidationError("supportsRefreshTokens must be a boolean");
+}
+
 export function parseAppleAuthBody(body: unknown): {
   identityToken: string;
   country: string | null;
+  supportsRefreshTokens: boolean;
 } {
   if (!body || typeof body !== "object") {
     throw new FeedValidationError("invalid request body");
@@ -295,15 +311,29 @@ export function parseAppleAuthBody(body: unknown): {
     throw new FeedValidationError("identityToken length is invalid");
   }
 
+  const supportsRefreshTokens = parseSupportsRefreshTokens(record.supportsRefreshTokens);
+
   const rawCountry = record.country;
   if (rawCountry === undefined || rawCountry === null) {
-    return { identityToken: trimmed, country: null };
+    return { identityToken: trimmed, country: null, supportsRefreshTokens };
   }
   if (typeof rawCountry !== "string" || !/^[A-Za-z]{2}$/.test(rawCountry.trim())) {
     throw new FeedValidationError("country must be a 2-letter ISO code");
   }
 
-  return { identityToken: trimmed, country: rawCountry.trim().toUpperCase() };
+  return { identityToken: trimmed, country: rawCountry.trim().toUpperCase(), supportsRefreshTokens };
+}
+
+/** The body of `/v1/auth/refresh` and `/v1/auth/signout`. The message never repeats what was sent. */
+export function parseRefreshBody(body: unknown): { refreshToken: string } {
+  if (!body || typeof body !== "object") {
+    throw new FeedValidationError("invalid request body");
+  }
+  const refreshToken = (body as Record<string, unknown>).refreshToken;
+  if (!isWellFormedRefreshToken(refreshToken)) {
+    throw new FeedValidationError("refreshToken is invalid");
+  }
+  return { refreshToken };
 }
 
 export function parseLocationBody(body: unknown): {

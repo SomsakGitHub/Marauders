@@ -15,12 +15,18 @@ import Testing
 @MainActor
 struct SessionRestoreExpiryTests {
     private static let userID = "001234.abcdef.5678"
+    /// The shape of a real refresh token: 43 base64url characters.
+    private static let refreshToken = String(repeating: "Ab-_0", count: 8) + "xyz"
+    private static let nextRefreshToken = String(repeating: "Zy_-9", count: 8) + "abc"
 
-    private func makeViewModel(_ storage: MemorySessionStorage, apple: AppleAnswers) -> AuthViewModel {
+    private func makeViewModel(
+        _ storage: MemorySessionStorage, apple: AppleAnswers, authAPI: any AuthAPIClientProtocol = UnusedAuthAPI()
+    ) -> AuthViewModel {
         AuthViewModel(
             sessionStore: storage,
             tokenStore: storage,
-            authAPI: UnusedAuthAPI(),
+            refreshTokenStore: storage,
+            authAPI: authAPI,
             credentialState: apple.provider
         )
     }
@@ -114,6 +120,81 @@ struct SessionRestoreExpiryTests {
         #expect(storage.accessToken == nil)
     }
 
+    // MARK: a refresh token keeps the session of an access token that has run out
+
+    /// The first request that meets the 401 trades the refresh token for a new access token; opening the app asks the
+    /// Worker nothing.
+    @Test func anExpiredAccessTokenWithARefreshTokenKeepsTheSession() async {
+        let expired = TestAccessToken.make(expiresIn: -60)
+        let storage = MemorySessionStorage(userID: Self.userID, accessToken: expired, refreshToken: Self.refreshToken)
+        let apple = AppleAnswers(.authorized)
+        let authAPI = CountingAuthAPI()
+        let viewModel = makeViewModel(storage, apple: apple, authAPI: authAPI)
+
+        await viewModel.restoreSession()
+
+        #expect(viewModel.isSignedIn)
+        #expect(!viewModel.isCheckingCredential)
+        #expect(storage.userID == Self.userID)
+        #expect(storage.accessToken == expired)
+        #expect(storage.refreshToken == Self.refreshToken)
+        #expect(apple.askedUserIDs == [Self.userID])
+        #expect(authAPI.callCount == 0, "no refresh at launch")
+    }
+
+    @Test func anExpiredAccessTokenWithoutARefreshTokenStillEndsTheSession() async {
+        let storage = MemorySessionStorage(
+            userID: Self.userID, accessToken: TestAccessToken.make(expiresIn: -60), refreshToken: nil)
+        let apple = AppleAnswers(.authorized)
+        let viewModel = makeViewModel(storage, apple: apple)
+
+        await viewModel.restoreSession()
+
+        #expect(!viewModel.isSignedIn)
+        #expect(storage.userID == nil)
+        #expect(storage.accessToken == nil)
+        #expect(apple.askedUserIDs.isEmpty)
+    }
+
+    @Test func anExpiredAccessTokenWithAMalformedRefreshTokenEndsTheSession() async {
+        let storage = MemorySessionStorage(
+            userID: Self.userID, accessToken: TestAccessToken.make(expiresIn: -60), refreshToken: "short")
+        let apple = AppleAnswers(.authorized)
+        let viewModel = makeViewModel(storage, apple: apple)
+
+        await viewModel.restoreSession()
+
+        #expect(!viewModel.isSignedIn)
+        #expect(storage.userID == nil)
+        #expect(storage.accessToken == nil)
+        #expect(storage.refreshToken == nil, "the unusable token goes with the session")
+        #expect(apple.askedUserIDs.isEmpty)
+    }
+
+    /// A refresh renews the session that is stored; it is not a sign out or a new sign in, so Apple's answer still
+    /// belongs to it and the viewer stays signed in.
+    @Test func aRefreshWhileAppleIsAnsweringKeepsTheSession() async {
+        let old = TestAccessToken.make(subject: "same-user", expiresIn: 60)
+        let new = TestAccessToken.make(subject: "same-user", expiresIn: 3_600)
+        let next = Self.nextRefreshToken
+        let storage = MemorySessionStorage(userID: Self.userID, accessToken: old, refreshToken: Self.refreshToken)
+        let apple = AppleAnswers(.authorized)
+        let viewModel = makeViewModel(storage, apple: apple)
+        apple.whileAnswering = {
+            // What the refresher does: a new pair for the session that is stored.
+            storage.accessToken = new
+            storage.refreshToken = next
+        }
+
+        await viewModel.restoreSession()
+
+        #expect(viewModel.isSignedIn)
+        #expect(!viewModel.isCheckingCredential)
+        #expect(storage.userID == Self.userID)
+        #expect(storage.accessToken == new)
+        #expect(storage.refreshToken == next)
+    }
+
     @Test(arguments: [ASAuthorizationAppleIDProvider.CredentialState.revoked, .notFound])
     func appleRevokingTheAccountEndsTheSession(state: ASAuthorizationAppleIDProvider.CredentialState) async {
         let storage = MemorySessionStorage(userID: Self.userID, accessToken: TestAccessToken.make(expiresIn: 3_600))
@@ -148,12 +229,14 @@ struct SessionRestoreExpiryTests {
     @Test func aNewSignInWhileAppleIsAnsweringIsNotUndone() async {
         let old = TestAccessToken.make(subject: "old", expiresIn: 3_600)
         let new = TestAccessToken.make(subject: "new", expiresIn: 3_600)
-        let storage = MemorySessionStorage(userID: Self.userID, accessToken: old)
+        let userID = Self.userID
+        let storage = MemorySessionStorage(userID: userID, accessToken: old)
         let apple = AppleAnswers(.revoked)
-        let viewModel = makeViewModel(storage, apple: apple)
+        let signIn = SignInAuthAPI(tokens: AuthTokens(accessToken: new, refreshToken: nil))
+        let viewModel = makeViewModel(storage, apple: apple, authAPI: signIn)
         apple.whileAnswering = {
             // The viewer signs in again; the answer about the old account must not wipe the new session.
-            storage.accessToken = new
+            await viewModel.completeSignIn(userID: userID, identityToken: String(repeating: "i", count: 32))
         }
 
         await viewModel.restoreSession()
@@ -176,6 +259,7 @@ struct RejectedAccessTokenTests {
         let viewModel = AuthViewModel(
             sessionStore: storage,
             tokenStore: storage,
+            refreshTokenStore: storage,
             authAPI: UnusedAuthAPI(),
             credentialState: { _ in .authorized }
         )
@@ -228,7 +312,8 @@ struct RejectedAccessTokenTests {
 
     @Test func aRejectionWhileSignedOutChangesNothing() {
         let storage = MemorySessionStorage()
-        let viewModel = AuthViewModel(sessionStore: storage, tokenStore: storage, authAPI: UnusedAuthAPI())
+        let viewModel = AuthViewModel(
+            sessionStore: storage, tokenStore: storage, refreshTokenStore: storage, authAPI: UnusedAuthAPI())
 
         viewModel.handleRejectedAccessToken(TestAccessToken.make(expiresIn: 3_600))
 
@@ -266,6 +351,7 @@ struct RejectedSessionEndToEndTests {
         let viewModel = AuthViewModel(
             sessionStore: storage,
             tokenStore: storage,
+            refreshTokenStore: storage,
             authAPI: UnusedAuthAPI(),
             credentialState: { _ in .authorized }
         )
@@ -422,7 +508,8 @@ struct RejectedSessionEndToEndTests {
 
     @Test func aGuestIsUnaffectedByA401() async {
         let storage = MemorySessionStorage()
-        let viewModel = AuthViewModel(sessionStore: storage, tokenStore: storage, authAPI: UnusedAuthAPI())
+        let viewModel = AuthViewModel(
+            sessionStore: storage, tokenStore: storage, refreshTokenStore: storage, authAPI: UnusedAuthAPI())
         var sentAuthorizations: [String?] = []
         let session = StubURLSessionFactory.make { request in
             sentAuthorizations.append(request.value(forHTTPHeaderField: "Authorization"))
@@ -504,14 +591,18 @@ private func respond(_ request: URLRequest, _ status: Int, _ body: String = "") 
 
 // nonisolated: Swift 6.4 would make a class that conforms to these MainActor-isolated protocols MainActor-isolated, but
 // the tests change the token from `@Sendable` closures and from the stub's URLProtocol thread, which the lock makes safe.
-nonisolated private final class MemorySessionStorage: AuthSessionStore, APIAccessTokenStore, @unchecked Sendable {
+nonisolated private final class MemorySessionStorage: AuthSessionStore, APIAccessTokenStore, APIRefreshTokenStore,
+    @unchecked Sendable
+{
     private let lock = NSLock()
     private var storedUserID: String?
     private var storedAccessToken: String?
+    private var storedRefreshToken: String?
 
-    init(userID: String? = nil, accessToken: String? = nil) {
+    init(userID: String? = nil, accessToken: String? = nil, refreshToken: String? = nil) {
         storedUserID = userID
         storedAccessToken = accessToken
+        storedRefreshToken = refreshToken
     }
 
     var userID: String? {
@@ -524,6 +615,11 @@ nonisolated private final class MemorySessionStorage: AuthSessionStore, APIAcces
         set { lock.withLock { storedAccessToken = newValue } }
     }
 
+    var refreshToken: String? {
+        get { lock.withLock { storedRefreshToken } }
+        set { lock.withLock { storedRefreshToken = newValue } }
+    }
+
     func loadUserID() -> String? { userID }
     func saveUserID(_ userID: String) throws { self.userID = userID }
     func clear() throws { userID = nil }
@@ -531,6 +627,10 @@ nonisolated private final class MemorySessionStorage: AuthSessionStore, APIAcces
     func loadAccessToken() -> String? { accessToken }
     func saveAccessToken(_ token: String) throws { accessToken = token }
     func clearAccessToken() throws { accessToken = nil }
+
+    func loadRefreshToken() -> String? { refreshToken }
+    func saveRefreshToken(_ token: String) throws { refreshToken = token }
+    func clearRefreshToken() throws { refreshToken = nil }
 }
 
 /// What Apple answers about the account behind a saved session, and which accounts it was asked about.
@@ -556,8 +656,53 @@ private final class AppleAnswers: @unchecked Sendable {
     }
 }
 
+/// Counts every call it gets, and refuses all of them.
+private final class CountingAuthAPI: AuthAPIClientProtocol, @unchecked Sendable {
+    private(set) var callCount = 0
+
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
+        callCount += 1
+        throw AuthAPIError.invalidResponse
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        callCount += 1
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        callCount += 1
+        throw AuthAPIError.invalidResponse
+    }
+}
+
+/// Answers a sign-in with the given pair.
+private struct SignInAuthAPI: AuthAPIClientProtocol {
+    let tokens: AuthTokens
+
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
+        tokens
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        throw AuthAPIError.invalidResponse
+    }
+}
+
 private struct UnusedAuthAPI: AuthAPIClientProtocol {
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> String {
+    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        throw AuthAPIError.invalidResponse
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
         throw AuthAPIError.invalidResponse
     }
 }
