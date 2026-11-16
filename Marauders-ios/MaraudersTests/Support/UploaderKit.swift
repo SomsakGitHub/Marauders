@@ -188,6 +188,30 @@ nonisolated final class FakeStoredUploadResolver: StoredUploadResolving, @unchec
     }
 }
 
+/// A `TokenRefreshing` that notes the token it is asked about, then holds its answer until the test opens its gate, so
+/// a test can change the world while the refresh is out.
+///
+/// nonisolated: the uploader asks from its own actor while the test reads `asked`, which the lock makes safe.
+nonisolated final class GatedRefresher: TokenRefreshing, @unchecked Sendable {
+    let gate = SignOutGate()
+    private let outcome: TokenRefreshOutcome
+    private let lock = NSLock()
+    private var rejectedTokens: [String] = []
+
+    init(answering outcome: TokenRefreshOutcome) {
+        self.outcome = outcome
+    }
+
+    /// The rejected access token of every question, in order; noted before the refresher waits.
+    var asked: [String] { lock.withLock { rejectedTokens } }
+
+    func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome {
+        lock.withLock { rejectedTokens.append(rejectedAccessToken) }
+        await gate.wait()
+        return outcome
+    }
+}
+
 /// Collects every snapshot a stream gives, from a task of its own, until the stream ends or the probe is dropped.
 nonisolated final class SnapshotProbe: @unchecked Sendable {
     private let lock = NSLock()

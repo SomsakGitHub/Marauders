@@ -239,14 +239,8 @@ actor BackgroundClipUploader {
             applyProgress(recordID: recordID, sent: sent, expected: expected)
         case .receivedBody(let recordID, let data):
             bufferResponse(recordID: recordID, data: data)
-        case .completed(let recordID, let statusCode, _, _):
-            if let statusCode, (200..<300).contains(statusCode),
-                let body = responseBodies[recordID], let item = try? VideoUploadForm.decodeItem(from: body)
-            {
-                await finish(recordID: recordID, with: item)
-            } else {
-                // Task 6
-            }
+        case .completed(let recordID, let statusCode, let failure, let accessToken):
+            await complete(recordID: recordID, statusCode: statusCode, failure: failure, accessToken: accessToken)
         case .eventsFinished:
             // Task 7
             break

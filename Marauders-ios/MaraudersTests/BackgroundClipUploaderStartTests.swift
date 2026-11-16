@@ -11,26 +11,6 @@ import Testing
 /// How `BackgroundClipUploader` takes a clip on, follows its progress and settles a success. Events are applied with
 /// `apply(_:)` directly: nothing pumps the session's stream yet.
 struct BackgroundClipUploaderStartTests {
-    /// A refresher that notes the token it is asked about, then holds the answer until the test opens its gate.
-    private nonisolated final class HeldRefresher: TokenRefreshing, @unchecked Sendable {
-        let gate = SignOutGate()
-        private let outcome: TokenRefreshOutcome
-        private let lock = NSLock()
-        private var rejectedTokens: [String] = []
-
-        init(answering outcome: TokenRefreshOutcome) {
-            self.outcome = outcome
-        }
-
-        var asked: [String] { lock.withLock { rejectedTokens } }
-
-        func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome {
-            lock.withLock { rejectedTokens.append(rejectedAccessToken) }
-            await gate.wait()
-            return outcome
-        }
-    }
-
     private static func fileSize(of url: URL) -> Int64? {
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
         return (attributes?[.size] as? NSNumber)?.int64Value
@@ -257,6 +237,29 @@ struct BackgroundClipUploaderStartTests {
         #expect(!kit.store.bodyExists(id: record.id))
     }
 
+    @Test(arguments: [
+        UploadFailure.rejected("Upload failed (status 400)"), .connection("The network connection was lost."),
+        .responseLost,
+    ])
+    func aSuccessForARecordFailedForAnotherReasonIsIgnored(_ failure: UploadFailure) async throws {
+        let kit = UploaderKit()
+        defer { kit.cleanUp() }
+        let record = try kit.record(state: .failed(failure))
+        let namesBefore = kit.storedFileNames
+        let failed = UploadSnapshot.failed(message: failure.message, canRetry: failure.canRetry)
+        let probe = SnapshotProbe(await kit.uploader.snapshots())
+        #expect(await probe.waitForCount(1) == [failed])
+
+        await kit.uploader.apply(.receivedBody(recordID: record.id, data: UploaderKit.answer()))
+        await kit.uploader.apply(.completed(recordID: record.id, statusCode: 201, failure: nil, accessToken: "token"))
+        await UploaderKit.settle()
+
+        #expect(probe.values == [failed])
+        #expect(kit.store.records() == [record])
+        #expect(kit.storedFileNames == namesBefore)
+        #expect(kit.resolver.questions.isEmpty)
+    }
+
     // MARK: one slot
 
     @Test(arguments: [UploadRecordState.staged, .uploading(fraction: 0.3, refreshedOnce: false)])
@@ -296,8 +299,8 @@ struct BackgroundClipUploaderStartTests {
         #expect(kit.session.cancelled.isEmpty)
     }
 
-    @Test func aSecondStartWhileTheFirstIsStillStartingIsRefused() async throws {
-        let refresher = HeldRefresher(answering: .refreshed(UploaderKit.validToken()))
+    @Test(.timeLimit(.minutes(1))) func aSecondStartWhileTheFirstIsStillStartingIsRefused() async throws {
+        let refresher = GatedRefresher(answering: .refreshed(UploaderKit.validToken()))
         let kit = UploaderKit(token: UploaderKit.expiredToken(), refresher: refresher)
         defer { kit.cleanUp() }
         let first = try await kit.request()
@@ -317,8 +320,8 @@ struct BackgroundClipUploaderStartTests {
         #expect(kit.store.records().count == 1)
     }
 
-    @Test func aDiscardWhileStartWaitsForTheRefreshStartsNothing() async throws {
-        let refresher = HeldRefresher(answering: .refreshed(UploaderKit.validToken()))
+    @Test(.timeLimit(.minutes(1))) func aDiscardWhileStartWaitsForTheRefreshStartsNothing() async throws {
+        let refresher = GatedRefresher(answering: .refreshed(UploaderKit.validToken()))
         let kit = UploaderKit(token: UploaderKit.expiredToken(), refresher: refresher)
         defer { kit.cleanUp() }
         let probe = SnapshotProbe(await kit.uploader.snapshots())
@@ -338,6 +341,26 @@ struct BackgroundClipUploaderStartTests {
         #expect(kit.storedFileNames.isEmpty)
         #expect(kit.store.records().isEmpty)
         #expect(probe.values.last == .idle)
+    }
+
+    @Test(.timeLimit(.minutes(1))) func aDiscardWhileStartWaitsForARejectedRefreshReportsNothing() async throws {
+        let refresher = GatedRefresher(answering: .rejected)
+        let kit = UploaderKit(token: UploaderKit.expiredToken(), refresher: refresher)
+        defer { kit.cleanUp() }
+        await kit.listenForRejections()
+        let request = try await kit.request()
+
+        let start = Task { try await kit.uploader.start(request) }
+        await UploaderKit.waitUntil { !refresher.asked.isEmpty }
+        await kit.uploader.discard()
+        await refresher.gate.open()
+
+        await #expect(throws: ClipUploadError.unavailable) {
+            try await start.value
+        }
+        #expect(kit.reports.isEmpty)
+        #expect(kit.session.submissions.isEmpty)
+        #expect(kit.storedFileNames.isEmpty)
     }
 
     // MARK: the token
