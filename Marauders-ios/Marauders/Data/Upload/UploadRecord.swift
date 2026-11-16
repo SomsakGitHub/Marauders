@@ -6,8 +6,9 @@
 import Foundation
 
 /// One pending upload as it is kept on disk next to its staged body, so that it outlives the app: who it belongs to,
-/// how the body was written, and where the upload stands. It holds nothing else: no token, caption, coordinates or
-/// clip path.
+/// how the body was written, and where the upload stands. It holds no token and no clip path. A finished record also
+/// holds the clip the Worker answered with (its caption and coordinates among it), until the viewer has seen it; no
+/// other state holds a caption or coordinates.
 nonisolated struct UploadRecord: Codable, Equatable, Sendable {
     /// The layout of the record file. The store does not read a file of any other version.
     static let currentVersion = 1

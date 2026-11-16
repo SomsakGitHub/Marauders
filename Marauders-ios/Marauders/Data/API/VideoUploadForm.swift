@@ -5,9 +5,10 @@
 
 import Foundation
 
-/// The form of `POST /v1/videos`, shared by the two ways the app sends a clip: the foreground `VideoUploadAPIClient` and
-/// the background uploader. What a clip must be to go out, the parts of the form, the request that carries them, and how
-/// the Worker's answer is read are the same for both, so they are written once, here.
+/// The form of `POST /v1/videos`. The background uploader is how the app sends a clip; the foreground
+/// `VideoUploadAPIClient` uses the same form but is wired to nothing, and stays in the code until the owner removes it.
+/// What a clip must be to go out, the parts of the form, the request that carries them, and how the Worker's answer is
+/// read are written once, here.
 ///
 /// nonisolated, so the background uploader can use the form off the main actor. Only `request` stays on the main actor:
 /// it reads `APIConfiguration`, which logs through the main-actor `AppLog`.
