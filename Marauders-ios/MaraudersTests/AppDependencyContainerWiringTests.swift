@@ -40,4 +40,13 @@ struct AppDependencyContainerWiringTests {
         let cache = AppDependencyContainer().feedViewModel.mediaCache
         #expect((cache as? SessionFeedStartupCache) === FeedStartupCache.shared)
     }
+
+    @Test func theAuthViewModelIsGivenBothUploadHooks() {
+        // Presentation cannot name the uploader, so a view model left without its hooks would sign out and sign in
+        // without a word to it: the account's clip would stay on the phone, and another account's upload would stay
+        // ready to be sent.
+        let authViewModel = AppDependencyContainer().authViewModel
+        #expect(authViewModel.discardUploadOnSignOut != nil)
+        #expect(authViewModel.checkUploadOnSignIn != nil)
+    }
 }

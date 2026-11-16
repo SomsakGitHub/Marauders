@@ -19,6 +19,12 @@ struct MaraudersApp: App {
         // Before the UI, which a launch in the background for a location never shows.
         if !AppRuntimeConfiguration.isUITesting {
             AppDependencyContainer.backgroundLocationMonitor.resume()
+            // Creates the background upload session now, before any view: the system finds the session it relaunched
+            // the app for by its identifier, and hands it the events it held at once. `launch()` then starts applying
+            // them and checks the upload left on disk.
+            let uploader = AppDependencyContainer.clipUploader
+            AppLog.info("upload.bg", "launch")
+            Task { await uploader.launch() }
         }
     }
 
@@ -37,6 +43,12 @@ struct MaraudersApp: App {
             @unknown default:
                 break
             }
+        }
+        // The system relaunches the app, in the background, when the upload session has events for it, and runs this.
+        // It returns once the app has applied every event the system held (25 s at most), which is the moment the
+        // system may suspend the app again.
+        .backgroundTask(.urlSession(SystemBackgroundUploadSession.identifier)) { _ in
+            await AppDependencyContainer.clipUploader.awaitSystemEvents()
         }
     }
 }

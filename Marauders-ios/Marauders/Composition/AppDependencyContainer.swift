@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import UIKit
 
 /// Composition root — wires Domain use cases to Data implementations (Clean Architecture).
 @MainActor
@@ -119,9 +120,15 @@ final class AppDependencyContainer {
             startupCache: AppRuntimeConfiguration.isUITesting || feedRepository != nil ? nil : FeedStartupCache.shared
         )
 
+        // The Upload tab, a sign out and a sign in all talk to the one process-wide uploader. UI tests get one that
+        // never uploads, and never touch the real one, whose session would meet the system.
+        let uploader: any ClipUploading = AppRuntimeConfiguration.isUITesting ? IdleClipUploader() : Self.clipUploader
+        let uploads = ClipUploadUseCases(uploader: uploader)
+
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
         uploadViewModel = UploadVideoViewModel(
             prepareVideo: prepare,
+            uploads: uploads,
             videoLocationReader: AVAssetVideoLocationReader(),
             audioInspector: FastClipAudioInspector()
         )
@@ -157,6 +164,19 @@ final class AppDependencyContainer {
         // clear. Set here, not in the initializer: the repository talks through the transport, which reports back to it.
         authViewModel.stopSharingOnSignOut = StopLocationSharingOnSignOutUseCase(
             repository: resolveLocationSharingRepository)
+        // A sign out drops the viewer's pending upload; a sign in has the uploader check it against the account that
+        // signed in. Presentation cannot name the uploader, so they come here as use cases.
+        authViewModel.discardUploadOnSignOut = uploads.discard
+        authViewModel.checkUploadOnSignIn = uploads.reconcile
+        if !AppRuntimeConfiguration.isUITesting {
+            // A token the Worker rejects for good ends the session, as it does for every other client. Weak: the
+            // uploader outlives every container.
+            let reportRejectedUpload: @Sendable (String) async -> Void = { [weak authViewModel] accessToken in
+                await authViewModel?.handleRejectedAccessToken(accessToken)
+            }
+            let clipUploader = Self.clipUploader
+            Task { await clipUploader.setRejectionReporter(reportRejectedUpload) }
+        }
         friendLocationsViewModel = FriendLocationsViewModel(
             loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
             setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),
@@ -262,6 +282,28 @@ final class AppDependencyContainer {
             )
         )
     )
+
+    /// The one uploader of the process. `MaraudersApp` creates it at launch, before any container exists, because it
+    /// makes the background session: the system relaunches the app to tell it how an upload ended, and finds the
+    /// session by its identifier. It never needs a container or a screen, so an upload ends with the app closed.
+    static let clipUploader: BackgroundClipUploader = makeClipUploader()
+
+    private static func makeClipUploader() -> BackgroundClipUploader {
+        let store = UploadRecordStore(directory: UploadRecordStore.standardDirectory)
+        return BackgroundClipUploader(
+            store: store,
+            stager: UploadBodyStager(store: store),
+            session: SystemBackgroundUploadSession(),
+            accessTokens: KeychainAPIAccessTokenStore(),
+            refresher: tokenRefresher,
+            resolver: IdempotentReplayResolver(
+                client: APITransportComposition.quiet(base: URLSessionHTTPClient(), refresher: tokenRefresher)),
+            // A task created while the app is not active does not start until it is (measured on the phone), so a 401
+            // healed in the background is not sent again at once: the upload fails as interrupted, to try again.
+            policy: UploadPolicy(resubmitsWhileInBackground: false),
+            isAppActive: { await MainActor.run { UIApplication.shared.applicationState == .active } }
+        )
+    }
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {
         PublicProfileViewModel(

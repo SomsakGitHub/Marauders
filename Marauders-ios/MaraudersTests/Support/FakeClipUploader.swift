@@ -7,9 +7,10 @@ import Foundation
 
 @testable import Marauders
 
-/// A `ClipUploading` for the code that sits above the uploader (the use cases, the Upload tab, sign out): it notes what
-/// it is asked, publishes the snapshots a test hands it with `emit`, and can refuse a start, hold a start or a discard
-/// at a gate, and tell a test the moment a discard arrives (so the test can look at the world as it was then).
+/// A `ClipUploading` for the code that sits above the uploader (the use cases, the Upload tab, sign out and sign in):
+/// it notes what it is asked, publishes the snapshots a test hands it with `emit`, and can refuse a start, hold a
+/// start or a discard at a gate, and tell a test the moment a discard or a reconcile arrives (so the test can look at
+/// the world as it was then).
 ///
 /// nonisolated: the code under test calls it from its own tasks while the test reads the counts, which the lock makes
 /// safe.
@@ -21,6 +22,7 @@ nonisolated final class FakeClipUploader: ClipUploading, @unchecked Sendable {
         var startGate: SignOutGate?
         var discardGate: SignOutGate?
         var onDiscard: (@Sendable () -> Void)?
+        var onReconcile: (@Sendable () async -> Void)?
         var started: [ClipUploadRequest] = []
         var retries = 0
         var discards = 0
@@ -57,6 +59,14 @@ nonisolated final class FakeClipUploader: ClipUploading, @unchecked Sendable {
     var onDiscard: (@Sendable () -> Void)? {
         get { lock.withLock { state.onDiscard } }
         set { lock.withLock { state.onDiscard = newValue } }
+    }
+
+    /// Runs when a reconcile arrives, after it is counted, and the reconcile waits for it. It is async so that a test
+    /// can look at main-actor state while the reconcile is under way (is the viewer signed in yet?), or hold the
+    /// reconcile at a gate of its own.
+    var onReconcile: (@Sendable () async -> Void)? {
+        get { lock.withLock { state.onReconcile } }
+        set { lock.withLock { state.onReconcile = newValue } }
     }
 
     /// Every request `start` was given, in order, whether or not it was refused.
@@ -106,6 +116,10 @@ nonisolated final class FakeClipUploader: ClipUploading, @unchecked Sendable {
     }
 
     func reconcile() async {
-        lock.withLock { state.reconciles += 1 }
+        let hook = lock.withLock {
+            state.reconciles += 1
+            return state.onReconcile
+        }
+        await hook?()
     }
 }
