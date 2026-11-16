@@ -110,9 +110,23 @@ struct UploadVideoView: View {
                     .disabled(!viewModel.canUpload)
                 }
 
-                if let statusMessage = viewModel.statusMessage {
+                // A failed upload stays on screen with its buttons even when something else cleared the status line,
+                // because the viewer has no other way to act on it.
+                if let statusMessage = viewModel.statusMessage ?? viewModel.failedUpload?.message {
                     Section("Status") {
                         CopyableStatusBanner(message: statusMessage, isSuccess: viewModel.isSuccess)
+                        if let failedUpload = viewModel.failedUpload {
+                            if failedUpload.canRetry {
+                                Button("Try again") {
+                                    Task { await viewModel.retryUpload() }
+                                }
+                                .accessibilityIdentifier("upload.retry")
+                            }
+                            Button("Choose another video") {
+                                Task { await viewModel.chooseAnotherVideo() }
+                            }
+                            .accessibilityIdentifier("upload.chooseAnother")
+                        }
                     }
                 }
             }
@@ -122,7 +136,8 @@ struct UploadVideoView: View {
                 Task { await loadPickerItem(newItem) }
             }
             .onChange(of: viewModel.uploadFileURL) { _, url in
-                if url == nil, viewModel.isSuccess {
+                // The clip leaves the form when the uploader takes it, so the picker lets go of it too.
+                if url == nil, viewModel.isUploading || viewModel.isSuccess {
                     pickerItem = nil
                 }
             }

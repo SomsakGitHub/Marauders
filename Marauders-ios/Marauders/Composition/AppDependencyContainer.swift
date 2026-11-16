@@ -30,7 +30,6 @@ final class AppDependencyContainer {
     /// Which listening languages this iPhone cannot serve, which `AppRootView` puts in the environment for the picker.
     let listeningLanguageAvailability: any ListeningLanguageAvailability = SystemListeningLanguageAvailability()
     private let feedRepository: FeedRepository
-    private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
     private let profileRepository: UserProfileRepository
     private let commentRepository: CommentRepository
@@ -38,7 +37,6 @@ final class AppDependencyContainer {
 
     init(
         feedRepository: FeedRepository? = nil,
-        uploadRepository: VideoUploadRepository? = nil,
         videoExporter: VideoExporting? = nil,
         profileRepository: UserProfileRepository? = nil,
         commentRepository: CommentRepository? = nil,
@@ -107,11 +105,6 @@ final class AppDependencyContainer {
                 ))
         }
 
-        self.uploadRepository =
-            uploadRepository
-            ?? DefaultVideoUploadRepository(
-                apiClient: VideoUploadAPIClient(client: transport, authorization: apiAuthorization)
-            )
         self.videoExporter = videoExporter ?? DefaultVideoExporter()
 
         self.reportUserLocation = ReportUserLocationUseCase(
@@ -127,10 +120,8 @@ final class AppDependencyContainer {
         )
 
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
-        let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)
         uploadViewModel = UploadVideoViewModel(
             prepareVideo: prepare,
-            uploadVideo: upload,
             videoLocationReader: AVAssetVideoLocationReader(),
             audioInspector: FastClipAudioInspector()
         )

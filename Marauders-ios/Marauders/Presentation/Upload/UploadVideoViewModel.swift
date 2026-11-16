@@ -10,15 +10,18 @@ import Observation
 @MainActor
 @Observable
 final class UploadVideoViewModel {
+    /// An upload that ended without a clip, and whether Try again can work for it.
+    struct FailedUpload: Equatable {
+        let message: String
+        let canRetry: Bool
+    }
+
     var uploadFileURL: URL?
     var clipLocation: ClipLocation?
     var caption = ""
     var isPreparing = false
     var isCheckingAudio = false
     var audioAssessment: ClipAudioAssessment?
-    var isUploading = false
-    /// How much of the clip's body has been sent, from 0 to 1, while it uploads. `nil` when nothing is uploading.
-    private(set) var uploadProgress: Double?
     var isResolvingClipLocation = false
     var statusMessage: String?
     var isSuccess = false
@@ -29,23 +32,31 @@ final class UploadVideoViewModel {
     private let audioInspector: any ClipAudioInspecting
     private var preparationGeneration = 0
     private let prepareVideo: PrepareVideoForUploadUseCase
-    private let uploadVideo: UploadFeedVideoUseCase
+    private let uploads: ClipUploadUseCases
     private let videoLocationReader: VideoLocationReading
-    /// Asks iOS for time to finish an upload if the app leaves the screen meanwhile; answers how to give it back.
+    /// Asks iOS for time to hand the clip to the uploader if the app leaves the screen meanwhile; answers how to give
+    /// it back.
     private let holdAwake: @MainActor (String) -> @MainActor () -> Void
     private var pickerStagingURL: URL?
-    /// Called with the clip the server stored, once the upload succeeded.
+    /// Called with the clip the server stored, once, when the app is active.
     var onUploaded: ((_ uploaded: FeedVideo) async -> Void)?
 
     private let locationManager: LocationManaging
     private let locationDelegateBridge = LocationManagerDelegateBridge()
     private var pendingClipLocationRequest = false
-    /// Counts uploads, so a report from an upload that has ended cannot move the bar of the next one.
-    private var uploadAttempt = 0
+
+    /// Where the uploader says the upload stands: the screen shows this, and does no transfer of its own.
+    private var snapshot = UploadSnapshot.idle
+    /// The tap has handed the clip over and the uploader has not taken it on yet (it copies the clip first).
+    private var isStagingUpload = false
+    private var isAppActive = false
+    /// The clip the feed was last told about, so a snapshot that repeats cannot report it twice.
+    private var reportedFinishedID: UUID?
+    private var finishedReport: Task<Void, Never>?
 
     init(
         prepareVideo: PrepareVideoForUploadUseCase,
-        uploadVideo: UploadFeedVideoUseCase,
+        uploads: ClipUploadUseCases = ClipUploadUseCases(uploader: IdleClipUploader()),
         locationManager: LocationManaging = CLLocationManager(),
         videoLocationReader: VideoLocationReading = NoopVideoLocationReader(),
         audioInspector: any ClipAudioInspecting = NoopClipAudioInspector(),
@@ -54,7 +65,7 @@ final class UploadVideoViewModel {
         self.audioInspector = audioInspector
         self.holdAwake = holdAwake
         self.prepareVideo = prepareVideo
-        self.uploadVideo = uploadVideo
+        self.uploads = uploads
         self.locationManager = locationManager
         self.videoLocationReader = videoLocationReader
 
@@ -73,8 +84,26 @@ final class UploadVideoViewModel {
             && clipLocation != nil
     }
 
+    /// The clip is being handed to the uploader, or is on its way to the Worker.
+    var isUploading: Bool {
+        switch snapshot {
+        case .uploading, .finishing: true
+        case .idle, .finished, .failed: isStagingUpload
+        }
+    }
+
+    /// How much of the clip has been sent, from 0 to 1: 0 while it is handed over, 1 once every byte is sent. `nil` when
+    /// nothing is uploading.
+    var uploadProgress: Double? {
+        switch snapshot {
+        case .uploading(let fraction): fraction
+        case .finishing: 1
+        case .idle, .finished, .failed: isStagingUpload ? 0 : nil
+        }
+    }
+
     /// All the bytes are sent and the app waits for the Worker's answer.
-    var isFinishingUpload: Bool { isUploading && (uploadProgress ?? 0) >= 1 }
+    var isFinishingUpload: Bool { (uploadProgress ?? 0) >= 1 }
 
     /// "Uploading… 42%" (rounded down), "Finishing…" once all bytes are sent, `nil` when nothing is uploading. It never
     /// says 100%, because that would claim the clip is stored before the Worker has said so.
@@ -82,6 +111,12 @@ final class UploadVideoViewModel {
         guard let uploadProgress else { return nil }
         if uploadProgress >= 1 { return "Finishing…" }
         return "Uploading… \(Int((uploadProgress * 100).rounded(.down)))%"
+    }
+
+    /// The upload the uploader gave up on, while the viewer has not dealt with it.
+    var failedUpload: FailedUpload? {
+        guard case .failed(let message, let canRetry) = snapshot else { return nil }
+        return FailedUpload(message: message, canRetry: canRetry)
     }
 
     func resetPickedFile() {
@@ -111,6 +146,8 @@ final class UploadVideoViewModel {
         isCheckingAudio = false
         defer { if current == preparationGeneration { isPreparing = false; isCheckingAudio = false } }
         AppLog.info("upload", "prepare export from picker file")
+        // A failed upload still holds its record and its copy of the clip: choosing a new video gives both up.
+        if failedUpload != nil { await uploads.discard.execute() }
         let suggestedLocation = await videoLocationReader.location(fromVideoAt: sourceURL)
         guard current == preparationGeneration, !Task.isCancelled else { return }
         if let suggestedLocation { clipLocation = suggestedLocation }
@@ -188,7 +225,7 @@ final class UploadVideoViewModel {
     }
 
     func upload() async {
-        // A second call while one runs would start another transfer and reset the first one's bar.
+        // A second tap while one is under way would hand the same clip over twice.
         guard !isUploading else {
             AppLog.warning("upload", "upload requested while an upload is running")
             return
@@ -203,62 +240,110 @@ final class UploadVideoViewModel {
             return
         }
 
-        // Released last, after the flags below are cleared, and on every way out: success, a thrown error, a cancel.
+        // Covers the hand-over, which copies the clip into the app's own folder: released on every way out (handed over,
+        // refused, cancelled). From then on the system carries the upload, and the app needs no hold.
         let release = holdAwake("Upload video")
         defer { release() }
 
-        isUploading = true
-        uploadProgress = 0
-        uploadAttempt += 1
-        let attempt = uploadAttempt
+        isStagingUpload = true
+        defer { isStagingUpload = false }
         statusMessage = nil
         isSuccess = false
-        defer {
-            isUploading = false
-            uploadProgress = nil
-        }
 
         AppLog.info("upload", "upload started")
 
         do {
-            let item = try await uploadVideo.execute(
-                fileURL: uploadFileURL,
-                clipLocation: clipLocation,
-                caption: caption,
-                audioAssessment: audioAssessment,
-                progress: { [weak self] fraction in
-                    Task { @MainActor in self?.applyUploadProgress(fraction, attempt: attempt) }
-                }
+            try await uploads.start.execute(
+                ClipUploadRequest(
+                    fileURL: uploadFileURL,
+                    mimeType: "video/mp4",
+                    clipLocation: clipLocation,
+                    caption: caption,
+                    audioAssessment: audioAssessment
+                )
             )
-            isSuccess = true
-            statusMessage = "Upload complete — opening feed"
-            AppLog.info("upload", "upload OK videoId=\(item.id.uuidString)")
-            #if DEBUG
-                if let audioAssessment {
-                    AppLog.info(
-                        "upload.audio-check",
-                        "videoId=\(item.id.uuidString) signal=\(audioAssessment.signal) languageHint=\(audioAssessment.languageHint ?? "unknown")"
-                    )
-                }
-            #endif
-            discardExportStagingFile()
-            audioAssessment = nil
-            caption = ""
-            await onUploaded?(item)
-            AppLog.info("upload", "feed reload requested after upload")
         } catch {
             statusMessage = error.localizedDescription
             isSuccess = false
-            AppLog.error("upload", "upload failed: \(error.localizedDescription)")
+            AppLog.error("upload", "upload failed to start: \(error.localizedDescription)")
+            return
+        }
+        // The button stays disabled until the uploader's first snapshot says where things stand.
+        if case .idle = snapshot { snapshot = .uploading(fraction: 0) }
+        discardExportStagingFile()
+        audioAssessment = nil
+        caption = ""
+        AppLog.info("upload", "upload handed to the uploader")
+    }
+
+    /// Reads the uploader's snapshots for as long as the app lives. The root view runs it as a task of its own.
+    func observeUploads() async {
+        for await incoming in await uploads.observe.execute() {
+            apply(incoming)
+            await reportFinishedUploadIfNeeded()
         }
     }
 
-    /// Called from the transfer's thread through a hop to the main actor, so it can arrive after the upload ended or
-    /// after the next one began: only the upload that is running may move the bar. A report that is not a number is
-    /// dropped: min and max cannot clamp NaN, and the label would trap on it.
-    private func applyUploadProgress(_ fraction: Double, attempt: Int) {
-        guard isUploading, attempt == uploadAttempt, !fraction.isNaN else { return }
-        uploadProgress = min(max(fraction, 0), 1)
+    /// Whether the app is on screen. A clip that finished while it was not is reported once it is.
+    func setAppActive(_ isActive: Bool) {
+        isAppActive = isActive
+        guard isActive, case .finished = snapshot else { return }
+        finishedReport = Task { [weak self] in await self?.reportFinishedUploadIfNeeded() }
+    }
+
+    func retryUpload() async {
+        AppLog.info("upload", "try again tapped")
+        await uploads.retry.execute()
+    }
+
+    /// Gives the upload up, then clears the form for the next clip.
+    func chooseAnotherVideo() async {
+        AppLog.info("upload", "choose another video tapped")
+        await uploads.discard.execute()
+        resetPickedFile()
+    }
+
+    /// A fraction that is not a number is dropped, because min and max cannot clamp NaN and the label would trap on it.
+    private func apply(_ incoming: UploadSnapshot) {
+        switch incoming {
+        case .idle:
+            dropFailureMessage()
+            snapshot = .idle
+        case .finished:
+            snapshot = incoming
+        case .uploading(let fraction):
+            guard !fraction.isNaN else { return }
+            dropFailureMessage()
+            snapshot = .uploading(fraction: min(max(fraction, 0), 1))
+        case .finishing:
+            dropFailureMessage()
+            snapshot = .finishing
+        case .failed(let message, let canRetry):
+            snapshot = incoming
+            statusMessage = message
+            isSuccess = false
+            AppLog.error("upload", "upload failed canRetry=\(canRetry)")
+        }
+    }
+
+    /// A new attempt is under way, or the failed upload is gone (discarded): the message about it no longer applies.
+    /// Only that message goes; a status line about something else stays.
+    private func dropFailureMessage() {
+        guard case .failed(let message, _) = snapshot, statusMessage == message else { return }
+        statusMessage = nil
+    }
+
+    /// Tells the feed about a clip that finished, once, when the app is on screen. The uploader's record is deleted
+    /// first: a crash in between then costs only the move to the new clip, never a second report.
+    private func reportFinishedUploadIfNeeded() async {
+        guard isAppActive, case .finished(let video) = snapshot, reportedFinishedID != video.id else { return }
+        reportedFinishedID = video.id
+        isSuccess = true
+        statusMessage = "Upload complete — opening feed"
+        AppLog.info("upload", "upload OK videoId=\(video.id.uuidString)")
+        await uploads.discard.execute()
+        await onUploaded?(video)
+        AppLog.info("upload", "feed reload requested after upload")
     }
 
     private func configureLocationManagerIfNeeded() {
