@@ -12,7 +12,7 @@ protocol APIAccessTokenStore: Sendable {
     func clearAccessToken() throws
 }
 
-enum APIAccessTokenFormat {
+nonisolated enum APIAccessTokenFormat {
     static func isValid(_ token: String) -> Bool {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 20, trimmed.count <= 8192 else { return false }
