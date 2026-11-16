@@ -38,7 +38,7 @@ final class UploadVideoViewModel {
     /// it back.
     private let holdAwake: @MainActor (String) -> @MainActor () -> Void
     private var pickerStagingURL: URL?
-    /// Called with the clip the server stored, once, when the app is active.
+    /// Called with the clip the server stored, once, when the app is active and a viewer is signed in.
     var onUploaded: ((_ uploaded: FeedVideo) async -> Void)?
 
     private let locationManager: LocationManaging
@@ -50,6 +50,8 @@ final class UploadVideoViewModel {
     /// The tap has handed the clip over and the uploader has not taken it on yet (it copies the clip first).
     private var isStagingUpload = false
     private var isAppActive = false
+    /// Off until the root view says otherwise: a finished clip is never reported to nobody.
+    private var isSignedIn = false
     /// The clip the feed was last told about, so a snapshot that repeats cannot report it twice.
     private var reportedFinishedID: UUID?
     private var finishedReport: Task<Void, Never>?
@@ -287,7 +289,15 @@ final class UploadVideoViewModel {
     /// Whether the app is on screen. A clip that finished while it was not is reported once it is.
     func setAppActive(_ isActive: Bool) {
         isAppActive = isActive
-        guard isActive, case .finished = snapshot else { return }
+        guard isActive, isSignedIn, case .finished = snapshot else { return }
+        finishedReport = Task { [weak self] in await self?.reportFinishedUploadIfNeeded() }
+    }
+
+    /// Whether a viewer is signed in. A clip that finished while nobody was is reported once someone is: the sign in
+    /// has by then deleted the upload of another account, so only the viewer's own clip is left to report.
+    func setSignedIn(_ isSignedIn: Bool) {
+        self.isSignedIn = isSignedIn
+        guard isSignedIn, isAppActive, case .finished = snapshot else { return }
         finishedReport = Task { [weak self] in await self?.reportFinishedUploadIfNeeded() }
     }
 
@@ -333,10 +343,13 @@ final class UploadVideoViewModel {
         statusMessage = nil
     }
 
-    /// Tells the feed about a clip that finished, once, when the app is on screen. The uploader's record is deleted
-    /// first: a crash in between then costs only the move to the new clip, never a second report.
+    /// Tells the feed about a clip that finished, once, when the app is on screen and a viewer is signed in: never to
+    /// nobody, and never to another account. The uploader's record is deleted first: a crash in between then costs only
+    /// the move to the new clip, never a second report. While nobody is signed in the record stays on disk.
     private func reportFinishedUploadIfNeeded() async {
-        guard isAppActive, case .finished(let video) = snapshot, reportedFinishedID != video.id else { return }
+        guard isAppActive, isSignedIn, case .finished(let video) = snapshot, reportedFinishedID != video.id else {
+            return
+        }
         reportedFinishedID = video.id
         isSuccess = true
         statusMessage = "Upload complete — opening feed"

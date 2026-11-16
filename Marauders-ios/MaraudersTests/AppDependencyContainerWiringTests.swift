@@ -49,4 +49,47 @@ struct AppDependencyContainerWiringTests {
         #expect(authViewModel.discardUploadOnSignOut != nil)
         #expect(authViewModel.checkUploadOnSignIn != nil)
     }
+
+    // MARK: - The uploader's rejections
+
+    /// A container over stores of the test's own and over `uploader`, never the Keychain or the process-wide uploader
+    /// the whole test run shares.
+    private func makeContainer(
+        storage: SignOutSessionStorage = SignOutSessionStorage(),
+        uploader: BackgroundClipUploader
+    ) -> AppDependencyContainer {
+        AppDependencyContainer(
+            sessionStores: (session: storage, accessToken: storage, refreshToken: MemoryRefreshTokenStore()),
+            clipUploader: uploader)
+    }
+
+    @Test func theUploadersRejectionsReachTheViewerOfTheContainerThatConnectedThem() async throws {
+        let kit = UploaderKit()
+        defer { kit.cleanUp() }
+        let token = UploaderKit.validToken()
+        let storage = SignOutSessionStorage(userID: "user-1", accessToken: token)
+        let kept = makeContainer(storage: storage, uploader: kit.uploader)
+        await kept.connectUploaderRejections()
+
+        // SwiftUI builds a container for every new root view and keeps only the first; the others are dropped.
+        do { _ = makeContainer(uploader: kit.uploader) }
+        await UploaderKit.settle()
+
+        let report = try #require(await kit.uploader.rejectionReporter)
+        await report(token)
+
+        #expect(storage.accessToken == nil, "the viewer whose token the Worker rejected is signed out")
+        #expect(storage.userID == nil)
+        #expect(!kept.authViewModel.isSignedIn)
+    }
+
+    @Test func buildingAContainerConnectsNothingToTheUploader() async {
+        let kit = UploaderKit()
+        defer { kit.cleanUp() }
+
+        _ = makeContainer(uploader: kit.uploader)
+        await UploaderKit.settle()
+
+        #expect(await kit.uploader.rejectionReporter == nil)
+    }
 }

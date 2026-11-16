@@ -44,10 +44,17 @@ struct AppRootView: View {
             await presentSplash()
         }
         .task {
+            // Once, for the container this view keeps; the containers SwiftUI builds and drops connect nothing.
+            await container.connectUploaderRejections()
+        }
+        .task {
             await container.uploadViewModel.observeUploads()
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             container.uploadViewModel.setAppActive(phase == .active)
+        }
+        .onChange(of: container.authViewModel.isSignedIn, initial: true) { _, isSignedIn in
+            container.uploadViewModel.setSignedIn(isSignedIn)
         }
         .onAppear {
             VideoPlaybackConfigurator.activateAudioSessionIfNeeded()

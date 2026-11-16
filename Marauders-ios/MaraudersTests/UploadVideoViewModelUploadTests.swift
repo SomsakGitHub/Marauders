@@ -558,6 +558,7 @@ struct UploadVideoViewModelUploadTests {
         model.onUploaded = { reported.record($0) }
         let observer = observing(model)
         defer { observer.cancel() }
+        model.setSignedIn(true)
         model.setAppActive(true)
 
         uploader.emit(.finished(Self.uploadedClip))
@@ -585,6 +586,7 @@ struct UploadVideoViewModelUploadTests {
         model.onUploaded = { reported.record($0) }
         let observer = observing(model)
         defer { observer.cancel() }
+        model.setSignedIn(true)
         model.setAppActive(false)
 
         // The upload ends while the app is not on screen: the loop has read it once the bar is gone.
@@ -617,6 +619,85 @@ struct UploadVideoViewModelUploadTests {
     }
 
     @Test(.timeLimit(.minutes(1)))
+    func aFinishedUploadIsNotReportedWhileNobodyIsSignedIn() async throws {
+        let uploader = FakeClipUploader()
+        let model = makeViewModel(uploader: uploader)
+        let reported = ReportedClips(uploader: uploader)
+        model.onUploaded = { reported.record($0) }
+        let observer = observing(model)
+        defer { observer.cancel() }
+        model.setAppActive(true)
+        model.setSignedIn(false)
+
+        // The clip of a session that ended without a sign out: the loop has read it once the bar is gone.
+        uploader.emit(.uploading(fraction: 0.5))
+        await waitUntil { model.isUploading }
+        uploader.emit(.finished(Self.uploadedClip))
+        await waitUntil { !model.isUploading }
+        await UploaderKit.settle()
+
+        #expect(reported.videos.isEmpty, "nobody is signed in to be shown the clip")
+        #expect(uploader.discards == 0, "the record stays for the next sign in to keep or delete")
+        #expect(!model.isSuccess)
+        #expect(model.statusMessage == nil)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func aFinishedUploadIsReportedOnceWhenTheViewerSignsIn() async throws {
+        let uploader = FakeClipUploader()
+        let model = makeViewModel(uploader: uploader)
+        let reported = ReportedClips(uploader: uploader)
+        model.onUploaded = { reported.record($0) }
+        let observer = observing(model)
+        defer { observer.cancel() }
+        model.setAppActive(true)
+
+        uploader.emit(.uploading(fraction: 0.5))
+        await waitUntil { model.isUploading }
+        uploader.emit(.finished(Self.uploadedClip))
+        await waitUntil { !model.isUploading }
+        await UploaderKit.settle()
+        #expect(reported.videos.isEmpty, "signed out until told otherwise")
+
+        model.setSignedIn(true)
+        await waitUntil { reported.videos.count == 1 }
+
+        #expect(reported.videos.map(\.id) == [Self.uploadedClip.id])
+        #expect(uploader.discards == 1)
+        #expect(reported.discardsSeen == [1])
+        #expect(model.isSuccess)
+
+        // The root view passes the flag on every change, and once more at its start: none of that reports again.
+        model.setSignedIn(true)
+        model.setSignedIn(false)
+        model.setSignedIn(true)
+        await UploaderKit.settle()
+        #expect(reported.videos.count == 1)
+        #expect(uploader.discards == 1)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func aSignedInViewerIsNotShownTheClipWhileTheAppIsNotActive() async throws {
+        let uploader = FakeClipUploader()
+        let model = makeViewModel(uploader: uploader)
+        let reported = ReportedClips(uploader: uploader)
+        model.onUploaded = { reported.record($0) }
+        let observer = observing(model)
+        defer { observer.cancel() }
+        model.setAppActive(false)
+
+        uploader.emit(.uploading(fraction: 0.5))
+        await waitUntil { model.isUploading }
+        uploader.emit(.finished(Self.uploadedClip))
+        await waitUntil { !model.isUploading }
+        model.setSignedIn(true)
+        await UploaderKit.settle()
+
+        #expect(reported.videos.isEmpty)
+        #expect(uploader.discards == 0)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
     func theFeedIsToldOnlyOnceTheRecordIsDeleted() async throws {
         let gate = SignOutGate()
         let uploader = FakeClipUploader()
@@ -627,6 +708,7 @@ struct UploadVideoViewModelUploadTests {
         model.onUploaded = { _ in log.record("feed told") }
         let observer = observing(model)
         defer { observer.cancel() }
+        model.setSignedIn(true)
         model.setAppActive(true)
 
         uploader.emit(.finished(Self.uploadedClip))

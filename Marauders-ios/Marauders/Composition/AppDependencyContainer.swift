@@ -35,6 +35,8 @@ final class AppDependencyContainer {
     private let profileRepository: UserProfileRepository
     private let commentRepository: CommentRepository
     private let followListRepository: FollowListRepository
+    /// The uploader this container talks to; none under UI tests, whose uploader never uploads.
+    private let backgroundUploader: BackgroundClipUploader?
 
     init(
         feedRepository: FeedRepository? = nil,
@@ -44,7 +46,11 @@ final class AppDependencyContainer {
         clipLikeRepository: ClipLikeRepository? = nil,
         userFollowRepository: UserFollowRepository? = nil,
         locationSharingRepository: LocationSharingRepository? = nil,
-        followListRepository: FollowListRepository? = nil
+        followListRepository: FollowListRepository? = nil,
+        sessionStores: (
+            session: AuthSessionStore, accessToken: APIAccessTokenStore, refreshToken: APIRefreshTokenStore
+        )? = nil,
+        clipUploader: BackgroundClipUploader? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -62,6 +68,15 @@ final class AppDependencyContainer {
             // Over the same in-memory stores: no refresh token in them, so the 401 ends the session.
             refresher = TokenRefresher(
                 accessTokenStore: rejectedSession, refreshTokenStore: rejectedSession, authAPI: AuthAPIClient())
+        } else if let sessionStores {
+            // A test's own stores, which it can read back, in place of the Keychain the whole test run shares.
+            sessionStore = sessionStores.session
+            tokenStore = sessionStores.accessToken
+            refreshTokenStore = sessionStores.refreshToken
+            baseTransport = URLSessionHTTPClient()
+            refresher = TokenRefresher(
+                accessTokenStore: sessionStores.accessToken, refreshTokenStore: sessionStores.refreshToken,
+                authAPI: AuthAPIClient())
         } else {
             sessionStore = KeychainAuthSessionStore()
             tokenStore = KeychainAPIAccessTokenStore()
@@ -120,9 +135,11 @@ final class AppDependencyContainer {
             startupCache: AppRuntimeConfiguration.isUITesting || feedRepository != nil ? nil : FeedStartupCache.shared
         )
 
-        // The Upload tab, a sign out and a sign in all talk to the one process-wide uploader. UI tests get one that
-        // never uploads, and never touch the real one, whose session would meet the system.
-        let uploader: any ClipUploading = AppRuntimeConfiguration.isUITesting ? IdleClipUploader() : Self.clipUploader
+        // The Upload tab, a sign out and a sign in all talk to the one process-wide uploader (a test hands its own). UI
+        // tests get one that never uploads, and never touch the real one, whose session would meet the system.
+        let backgroundUploader = AppRuntimeConfiguration.isUITesting ? nil : (clipUploader ?? Self.clipUploader)
+        self.backgroundUploader = backgroundUploader
+        let uploader: any ClipUploading = backgroundUploader ?? IdleClipUploader()
         let uploads = ClipUploadUseCases(uploader: uploader)
 
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
@@ -168,15 +185,6 @@ final class AppDependencyContainer {
         // signed in. Presentation cannot name the uploader, so they come here as use cases.
         authViewModel.discardUploadOnSignOut = uploads.discard
         authViewModel.checkUploadOnSignIn = uploads.reconcile
-        if !AppRuntimeConfiguration.isUITesting {
-            // A token the Worker rejects for good ends the session, as it does for every other client. Weak: the
-            // uploader outlives every container.
-            let reportRejectedUpload: @Sendable (String) async -> Void = { [weak authViewModel] accessToken in
-                await authViewModel?.handleRejectedAccessToken(accessToken)
-            }
-            let clipUploader = Self.clipUploader
-            Task { await clipUploader.setRejectionReporter(reportRejectedUpload) }
-        }
         friendLocationsViewModel = FriendLocationsViewModel(
             loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
             setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),
@@ -303,6 +311,17 @@ final class AppDependencyContainer {
             policy: UploadPolicy(resubmitsWhileInBackground: false),
             isAppActive: { await MainActor.run { UIApplication.shared.applicationState == .active } }
         )
+    }
+
+    /// Has the uploader report a token the Worker rejected for good to this container's viewer, which ends the session,
+    /// as it does for every other client. `AppRootView` calls it once, for the container it keeps: SwiftUI builds a
+    /// container for every new root view and drops all but the first, so building one connects nothing. Weak: the
+    /// uploader outlives every container. Nothing to connect under UI tests, whose uploader never uploads.
+    func connectUploaderRejections() async {
+        guard let backgroundUploader else { return }
+        await backgroundUploader.setRejectionReporter { [weak authViewModel] accessToken in
+            await authViewModel?.handleRejectedAccessToken(accessToken)
+        }
     }
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {
