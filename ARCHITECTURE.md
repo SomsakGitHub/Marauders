@@ -95,7 +95,7 @@ A `/health` GET answers without auth. All `/v1/*` routes return JSON errors as `
 
 | Zone | Sensitive data | Controls |
 |------|----------------|----------|
-| iOS | Access token and refresh token (Keychain, never logged); disposable feed/media cache in `Caches`; on-device language models | ATS HTTPS; fail closed on non-HTTPS `streamURL`; cache keyed by account (a hash of the token's `sub`) and lifetime-limited; a 401 is first traded for a new token with the refresh token and the request repeated, and the session ends only when that cannot save it; without a refresh token, a token past its `exp`, or one the Worker answers 401, ends the session (the device only reads `exp`, the signature stays the Worker's to check) |
+| iOS | Access token and refresh token (Keychain, never logged); disposable feed/media cache in `Caches`; on-device language models; the body of a pending upload (the clip, its caption and its coordinates) in `Application Support/PendingUpload` until the Worker has stored the clip, the viewer discards it or 7 days have passed | ATS HTTPS; the pending-upload folder is excluded from backup, holds no token, is never logged, and its files are deleted when the clip is stored, when the Worker refuses it for good, when the viewer discards it or signs out, when another account signs in and after 7 days at the latest (*iOS — upload file lifecycle*); fail closed on non-HTTPS `streamURL`; cache keyed by account (a hash of the token's `sub`) and lifetime-limited; a 401 is first traded for a new token with the refresh token and the request repeated, and the session ends only when that cannot save it; without a refresh token, a token past its `exp`, or one the Worker answers 401, ends the session (the device only reads `exp`, the signature stays the Worker's to check) |
 | Worker | `DATABASE_URL`, `JWT_SIGNING_SECRET`, `APPLE_CLIENT_ID`, optional `DEV_LOGIN_SECRET`; refresh tokens (`refresh_tokens` keeps only their SHA-256) | Secret bindings; input validation on every write; `/v1/auth/dev` inert (404) unless its secret is set; a refresh token is single use and reuse revokes its whole family; the refresh and sign-out routes log nothing, so a token, its hash or a driver error that echoes either never reaches a log line |
 | R2 | Video objects | Key allowlist `videos/{uuid}.mp4\|mov` or `videos/{uuid}/master.m3u8\|segNNN.ts` |
 | R2 | Avatar objects | Key allowlist `avatars/{uuid}.{jpg\|jpeg\|png}` |
@@ -177,9 +177,66 @@ sequenceDiagram
 
 ### Upload path (client)
 
-`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present; `ClipLocationPickerView` lets the user search for or adjust the place) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `FastClipAudioInspector` classifies the exported audio on-device (speech / music / mixed, advisory only, never blocks upload) → `UploadFeedVideoUseCase` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, the `audioAssessment` JSON, plus optional `caption` typed in the upload form; blank values are omitted).
+`PhotosPicker` → `PickedVideoFile` → `AVAssetVideoLocationReader` pre-fills `ClipLocation` from the video's embedded ISO 6709 metadata (when present; `ClipLocationPickerView` lets the user search for or adjust the place) → `PrepareVideoForUploadUseCase` / `VideoExportService` (H.264 720p MP4) → `FastClipAudioInspector` classifies the exported audio on-device (speech / music / mixed, advisory only, never blocks upload) → `StartClipUploadUseCase` → `BackgroundClipUploader` → a background `URLSession` → `POST /v1/videos` (includes `latitude` / `longitude` from `ClipLocation`, the `audioAssessment` JSON, plus optional `caption` typed in the upload form; blank values are omitted; and an `Idempotency-Key`). The choice of a background session, what it was measured against and what it does not cover are in **[ADR-008](docs/adr/008-background-upload.md)**; the evidence is `docs/superpowers/notes/background-upload-spike.md`, cited below by its ids (A1, B6, D2 and so on). The uploader is Data and imports neither SwiftUI nor UIKit (whether the app is active is a closure the container hands over); `ClipUploading`, `UploadSnapshot` and the use cases are Domain, so Presentation reaches it only through `ClipUploadUseCases`.
 
-The export file is copied into the multipart body in 1 MiB chunks (`MultipartBodyWriter`), so a clip is never held whole in memory, and `URLSession` sends the body from that file. `UploadVideoViewModel` shows how much of the body has been sent (`Uploading… 42%`, rounded down, then `Finishing…` until the Worker answers, so the row never says 100% before the clip is stored). It also holds a `beginBackgroundTask` (`BackgroundExecution`) for the whole upload, which gives the transfer about 30 seconds if the viewer leaves the app; a longer absence still ends the connection and the viewer sees the existing error.
+**Hand-over.** `UploadVideoViewModel.upload()` holds a `beginBackgroundTask` (`BackgroundExecution`, about 30 seconds) only until the clip has been handed over, and calls `ClipUploadUseCases.start`. `BackgroundClipUploader.start` checks the clip (MP4 or MOV, more than 0 bytes and at most 100 MiB), trades an access token whose `exp` has passed for a new one through the shared `TokenRefresher`, writes the multipart body to `Application Support/PendingUpload/<id>.multipart` (`UploadBodyStager`: the form of `VideoUploadForm`, copied from the clip in 1 MiB chunks by `MultipartBodyWriter`, so a clip is never held whole in memory), saves the record `<id>.json` beside it, submits one task to the background session and returns. The Worker has not answered by then. From then on the view model only observes `UploadSnapshot`s and does no transfer of its own, and the export in `tmp` is deleted once `start` has returned. Fewer than the clip's size plus 50 MiB free fails before anything is written (`Not enough free space on this iPhone to upload the clip`): the check reads `volumeAvailableCapacityForImportantUsage`, a required-reason API that `PrivacyInfo.xcprivacy` declares as `NSPrivacyAccessedAPICategoryDiskSpace` with reason `E174.1`. The other start errors are `Uploading is not available` (no uploader, or the upload was discarded while it started) and `An upload is already in progress`. Under `UITEST` the view model gets an `IdleClipUploader`, which never uploads.
+
+**One record, one slot.** There is one upload at a time: a `staged` or `uploading` record refuses a second `start`, and a `finished` or `failed` one is replaced by it. `UploadRecord` (version 1) holds the `id`, the account's `sub`, the body file name, the boundary, the byte count, the creation time and the state, and nothing else: no token, caption, coordinates or clip path (a finished record also holds the clip the Worker answered with, until the viewer has seen it). **The `id` is the idempotency key**: every submission of this body, Try again included, sends it as `Idempotency-Key` (lower-case), so the Worker answers a repeat with the clip it already stored instead of making a second one (see *Upload* under *Backend — video on write and read*).
+
+| State | Meaning | The Upload tab shows |
+|-------|---------|----------------------|
+| `staged` | The body and the record are written; no task is known to be sending it yet | `Uploading… 0%` |
+| `uploading(fraction, refreshedOnce)` | A task is sending the body; `refreshedOnce` says its 401 was already healed once (Try again clears it) | `Uploading… 42%` (rounded down), and `Finishing…` once every byte is sent |
+| `finished(clip)` | The Worker stored the clip; the body is deleted and the record stays until the viewer has seen it | the feed reloads on the new clip |
+| `failed(reason)` | The upload ended without a clip | the reason's text, with **Try again** when it can work and **Choose another video** |
+
+**The session.** `SystemBackgroundUploadSession` (behind the seam `BackgroundUploadSession`, so the state machine is tested against a fake) owns the process's one `URLSession`, identifier `com.somsak.Marauders.upload`: `isDiscretionary = false`, cellular, expensive and constrained networks allowed, `timeoutIntervalForResource` of 24 hours (the ceiling for one upload, so a task that cannot finish ends as a failure and the tab never waits for ever) and `sessionSendsLaunchEvents = true`. It is made in `MaraudersApp.init`, before any view, so a relaunch by the system finds the session by its identifier and hands it the events it held at once; no `UIBackgroundModes` or other `Info.plist` entry is needed. A task is `uploadTask(with:fromFile:)` on the staged body (the only upload form a background session accepts): its `taskDescription` is the record id, its request is a `POST` with `Authorization: Bearer`, `Content-Type: multipart/form-data` with the recorded boundary and `Idempotency-Key`, a request timeout of 300 s, and the system is told to expect the body plus 1024 bytes out and 65 536 bytes back. The delegate's calls become an ordered `AsyncStream` of `UploadSessionEvent`s, made before the session so that nothing is lost before the uploader starts reading; the uploader applies them one at a time and keeps the Worker's answer up to 64 KiB. What the system does that the code relies on:
+
+- For an upload task `urlSession(_:dataTask:didReceive:completionHandler:)` is never called (A1, B7), so the status is read from the task when it ends, and it wins over a transport error, because a task can hold the Worker's 200 and still end cancelled or with a lost connection (A4).
+- `urlSessionDidFinishEvents` never arrives while the app is in the foreground (A1), and after a relaunch the system still lists a finished task until its events are delivered (B6, B5), so the uploader never filters its task list by state.
+- A task created while the app is in the foreground starts at once (D1). One created in a background wake does not start until the app is active (D2, B5), so the app resubmits nothing in the background: `UploadPolicy.resubmitsWhileInBackground` is `false` in production, a 401 met in a background wake ends as `failed(interrupted)`, and the viewer's Try again at the next open sends it again.
+- When the session has events for an app that is not running, the system relaunches it in the background within 0.11 s of the answer, and the scene's `.backgroundTask(.urlSession(id))` runs; there is no app delegate (D3, B6). The recreated session gets its events 0.10 to 0.24 s before the scene closure runs, so `awaitSystemEvents()` returns at once when they were already applied, and otherwise after 25 s at most.
+
+**How an upload ends.** The status wins over a transport failure (the Worker answered). After every `await` in a change of state the uploader reads the record again: an event for a record that is gone, or not in a state that takes it, is ignored and recreates nothing, and a real answer that arrives after the `interrupted` verdict still wins.
+
+| The task ends with | The record becomes | The viewer reads | Try again |
+|--------------------|--------------------|------------------|-----------|
+| 2xx and a clip with an https `streamURL` | `finished(clip)`, body deleted | the feed reloads on the clip, once, when the app is active | |
+| 2xx whose answer never arrived whole | one request with the same key and no body (`IdempotentReplayResolver`): the stored clip gives `finished(clip)`, anything else `failed(responseLost)` | `The clip may have been uploaded, but the answer was lost. Try again.` | yes |
+| 401, the first for this submission | one refresh through the shared `TokenRefresher`, then the same body and key again with the new token, only while the app is active and only for the same account | `Uploading…` again from 0% | |
+| 401 healed while the app is not active | `failed(interrupted)` | `The upload was interrupted. Try again.` | yes |
+| 401 again, or a refresh the Worker rejects | `failed(sessionEnded)`; the token is reported to `AuthViewModel` | `Your session ended. Sign in to try again.` | yes |
+| 401, and no refresh could be made (offline, 429, 5xx, no route) | `failed(unavailable)` | `The service is unavailable right now. Try again.` | yes |
+| 429 | `failed(rateLimited)` | `Too many uploads, try again in a minute` | yes |
+| 502, 503, 504 | `failed(unavailable)` | `The service is unavailable right now. Try again.` | yes |
+| any other 4xx | `failed(rejected)`, body deleted | the Worker's `error` text, else `Upload failed (status N)` | no |
+| any other status (a 500, say) | `failed(serverError)` | the Worker's `error` text, else `Upload failed (status N)` | yes |
+| no status, the network failed | `failed(connection)` | the transport's own text | yes |
+| no status, cancelled | `failed(interrupted)` | `The upload was interrupted. Try again.` | yes |
+| (found when the body is sent again, or at launch) the body is gone | `failed(bodyMissing)` | `The clip is no longer on this iPhone. Choose the video again.` | no |
+
+The app never sends a body again by itself after a 429, a 502, 503 or 504, any 5xx or a transport failure: nothing is retried until the viewer taps **Try again**. **Try again** (`retry()`) sends the same body under the same id and key, with the refresh flag cleared: with no token stored it fails as `sessionEnded`, a token of another account deletes the record and its body, an expired token is traded first, and nothing is sent when the session still lists the old task (its end settles the upload). **Choose another video** discards the upload (task, record and body) and clears the form, and picking another clip does the same for a failed upload.
+
+**Launch, sign-in and sign-out.**
+
+- **Launch.** `MaraudersApp.init` (unless UI tests run) takes `AppDependencyContainer.clipUploader`, the process's one `BackgroundClipUploader`, built as a static before any container exists, and starts `launch()`: it begins applying the session's events in order and then runs `reconcile()` on what is on disk. `reconcile()` also runs when a sign in completes, and never when the app returns to the foreground. It deletes a body that no record owns, a record 7 days after its `createdAt` (read from the record, never from a file date: file timestamps are privacy-manifest APIs) and, when an access token is stored, a record of another account (an unreadable `sub` counts as another account; with no token stored the record is kept). A `staged` record becomes `uploading` when the session lists its task and is sent now when it does not; an `uploading` record whose task is gone becomes `failed(interrupted)` (`failed(bodyMissing)` when its body is gone too); `finished` and `failed` records are kept, a finished one until the viewer has seen it. Everything this does needs neither the container nor a view, so a launch by the system can finish an upload alone.
+- **Sign out and sign in.** A sign out discards the pending upload (task, record and body) before the stored session is cleared, and a sign in checks it against the account that signed in before the viewer is marked signed in. Both go through `TimeBoundedCall` with a limit of 3 s (`uploadHookTimeout`), so a stuck uploader never holds either back. A session the Worker ended (a 401 that a refresh cannot heal) keeps the upload as `failed(sessionEnded)`, so the same account can finish it after signing in again, 7 days at most; the uploader never signs anyone out and never clears a store, and reports the rejected token through a reporter the container sets (`AuthViewModel.handleRejectedAccessToken`), and works with none.
+- **A finished clip reaches the feed once.** `UploadVideoViewModel` reports it to `onUploaded` (feed reload, focus on the clip, Feed tab) when the app is active, whether the upload ended while the viewer watched or while the app was closed. The uploader's record is discarded first, so a crash in between costs only the move to the new clip, never a second report.
+
+**Progress.** `UploadSnapshot.uploading(fraction:)` stays below 1 and every byte sent is `finishing`: `totalBytesSent` counts bytes handed to the socket, so it runs ahead of the wire (with the phone's Network Link Conditioner on its 3G profile it read 100% 52 s before the last byte left the phone, B8a). The Upload tab shows `Uploading… 42%` (rounded down) and then `Finishing…` until the Worker has answered, so a full bar never means a finished upload and the row never says 100%. The uploader saves and publishes progress only when the whole percent changes.
+
+**Limits** (the reasons are in [ADR-008](docs/adr/008-background-upload.md)):
+
+- **A swipe-away ends the upload.** iOS cancels an app's background transfers when the viewer swipes the app away, and nothing prevents it: the next launch shows `The upload was interrupted. Try again.`, and the record and its body stay for Try again. (Ending the process with `devicectl` is not a swipe-away: the system relaunched the app, B6.)
+- **A token refresh inside a background wake can be cut off by suspension**; [ADR-007](docs/adr/007-token-refresh.md) lists a refresh in a background wake as not covered. The token is checked when Upload is tapped, in the foreground, and traded first when its `exp` has passed (`start` and Try again do both), so a 401 in a background wake is rare.
+- **A rejected token costs one whole upload before the 401 arrives** (B8a: 346 s for a 12.4 MB body at 36 KB/s on the 3G profile, the answer 1.25 s after the last byte as an ordinary completion), and the body goes out a second time after the refresh. There is no probe before Try again and no watchdog on the 401 and 429 rows: the plan stands.
+- **A `staged` record left by a crash** (the process ended between saving the record and submitting the task) is sent by `reconcile` at the next launch with the stored token as it is, without trading an expired one first as `start` and Try again do, so the 401 then comes only after the whole body; and at a background relaunch such a record waits for the foreground (D2).
+- **The Worker's answer to the replay with no body** (spike A4) is unmeasured until migration 023 and the Worker deploy; the device check covers it. A replay under another account only misses (the Worker scopes the key by owner) and ends as `The clip may have been uploaded, but the answer was lost. Try again.`
+- **The Worker's memory limit for a large body is unmeasured** (it buffers a body two or three times over in an isolate with 128 MB, so the client's 100 MB cap may be above what it can take); this work does not make it worse.
+- **The Worker's lost answer after a commit** is not handled: see *Known limit of the key* under *Upload* in *Backend — video on write and read*. A replay of that key answers 200 with a clip whose file is gone, which the viewer can delete from Profile.
+- **The old in-process path stays in the code, unwired:** `UploadFeedVideoUseCase`, `VideoUploadRepository`, `DefaultVideoUploadRepository` and `VideoUploadAPIClient.upload`, with their tests. Nothing in Presentation or Composition names them, and deleting them is the owner's call. The avatar upload keeps the in-process `HTTPClient.upload`.
+
+**Rollout.** Migration 023 first, then the Worker deploy, then the app; each step is the owner's own yes, and a push builds no TestFlight build. A build that sends the key to a Worker without migration 023 is not supported: with the key code and no column every keyed upload answers 500 `upload lookup failed` (`deployment/README.md`), and an older Worker ignores the header, so a repeat is not recognised. Builds already installed send no key, so they keep working throughout.
 
 ### Map tab
 
@@ -274,7 +331,7 @@ Full detail (cache contract, local processing limits, language detection, Dutch/
 | Default isolation | **MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION`, app target only) |
 | Strictness | Approachable concurrency (`SWIFT_APPROACHABLE_CONCURRENCY`) |
 
-**Actors.** Six, each owning state that several callers share, or work that must stay off the main actor:
+**Actors.** Seven, each owning state that several callers share, or work that must stay off the main actor:
 
 | Actor | Owns |
 |-------|------|
@@ -284,11 +341,12 @@ Full detail (cache contract, local processing limits, language detection, Dutch/
 | `LanguageDetectionModelStore` | The Whisper model's files: one install that every caller joins (a caller that is cancelled stops waiting, the download goes on), and removal that stops a running install first |
 | `VideoThumbnailLoader` | Map-pin thumbnails for HTTPS clips, 40 at most in memory |
 | `TokenRefresher` | The one refresh in flight ([ADR-007](docs/adr/007-token-refresh.md)): requests that meet a 401 together wait for the same call to the Worker (callers of the same account share its answer, anyone else waits for it to end and is looked at on its own), which runs in a task the actor owns, so a caller that goes away does not cancel it; an answer that is not a verdict stands for 10 s for that refresh token, so a Worker that cannot answer is not asked once per request; the stored tokens are read and written in one hop to the main actor, so a refresh that finishes after a sign out, or after another account signed in, writes nothing. The process has one, shared by the container and `BackgroundLocationMonitor` |
+| `BackgroundClipUploader` | The pending upload ([ADR-008](docs/adr/008-background-upload.md)): the state machine of its record, the background session's events applied one at a time, and the `UploadSnapshot`s published to whoever watches. After every `await` in a change of state it reads the record again, so a late or reentrant event (a completion after Discard, after a sign out or after the `interrupted` verdict) changes nothing and recreates nothing; the stored token is read in one hop to the main actor. It never needs the container or a view, so a launch by the system can finish an upload alone. The process has one (`AppDependencyContainer.clipUploader`), made in `MaraudersApp.init` |
 
 **Isolation model (intentional split):**
 
 - **MainActor:** `FeedPlayerEngine`, ViewModels, `AppLogStore`, SwiftUI views — `AVPlayer` control and UI state only. It is the default, so a Domain or Data type that must not be tied to it is marked `nonisolated`.
-- **`@concurrent`:** with approachable concurrency a `nonisolated async` function keeps running on its caller's actor (`NonisolatedNonsendingByDefault`), so long file or media work that is not inside an actor opts out with `@concurrent`: `MultipartBodyWriter` (clips up to 100 MB), `FastClipAudioInspector.inspect`, `DubbedAudioCacheEncoding.encode`, `SpeechAudioPreparation.chunks` and `detectionWindows`.
+- **`@concurrent`:** with approachable concurrency a `nonisolated async` function keeps running on its caller's actor (`NonisolatedNonsendingByDefault`), so long file or media work that is not inside an actor opts out with `@concurrent`: `MultipartBodyWriter` and `UploadBodyStager.stage` (clips up to 100 MB), `FastClipAudioInspector.inspect`, `DubbedAudioCacheEncoding.encode`, `SpeechAudioPreparation.chunks` and `detectionWindows`.
 - **Sendable value types:** `FeedVideo`, `FeedPlayerPhase`, `FeedLoadState`, API DTOs, `FeedAPIClient` / `VideoUploadAPIClient` — safe across `Task` boundaries.
 - **Callbacks into `async`:** `withChecked(Throwing)Continuation` wraps completion-handler and delegate APIs, for example the `URLSession` download in `FeedCacheDownloader`, the speech permission request and the MP4 export for upload.
 - **Callbacks into the main actor:** UIKit scroll callbacks already run there, so `VerticalFeedPagingView` reports a settled page straight to its `@MainActor` delegate. AVFoundation and Core Animation observers (`PlayerSlot` in `FeedPlayerEngine.swift`, and `FeedPlayerLayerHostView`) get closures that are not isolated to the main actor, so they hop back with `Task { @MainActor in … }` and first check that the item or layer is still the current one.
@@ -426,9 +484,10 @@ sequenceDiagram
   participant VM as UploadVideoViewModel
   participant Prep as PrepareVideoForUploadUseCase
   participant Export as VideoExporting
-  participant Up as UploadFeedVideoUseCase
-  participant Repo as VideoUploadRepository
-  participant API as VideoUploadAPIClient
+  participant UC as ClipUploadUseCases
+  participant Port as ClipUploading
+  participant Up as BackgroundClipUploader
+  participant Session as BackgroundUploadSession
   participant Worker as Cloudflare Worker
   participant Coord as AppCoordinator
   participant FeedVM as VideoFeedViewModel
@@ -440,19 +499,22 @@ sequenceDiagram
   Prep->>Export: mp4URLForUpload (H.264 720p)
   Export-->>VM: temp .mp4 URL
   View->>VM: upload()
-  VM->>Up: execute(fileURL:)
-  Up->>Repo: upload(fileURL:mimeType:progress:)
-  Repo->>API: multipart POST
-  API->>Worker: POST /v1/videos
-  API-->>VM: progress 0…1 while the body is sent
-  Worker-->>API: FeedVideo item
-  API-->>VM: success
-  VM-->>Coord: onUploaded
+  VM->>UC: start.execute(ClipUploadRequest)
+  UC->>Port: start(request)
+  Port->>Up: start(request)
+  Up->>Up: trade an expired token, stage the body and its record in Application Support
+  Up->>Session: submit(request, bodyFile, recordID)
+  Up-->>VM: start returns, the temp .mp4 is deleted
+  Session->>Worker: POST /v1/videos with the Idempotency-Key, sent by the system
+  Worker-->>Session: 201 FeedVideo item, or 200 for a key already stored
+  Session-->>Up: sentBytes, receivedBody, completed (also after a relaunch)
+  Up-->>VM: UploadSnapshot through observe: uploading, finishing, finished or failed
+  VM-->>Coord: onUploaded, once, when the app is active
   Coord->>FeedVM: reload()
   Coord->>Router: showFeed()
 ```
 
-(`AppCoordinator` performs reload + tab change; see ADR-005.)
+(`AppCoordinator` performs reload + tab change; see ADR-005. The view model never names the uploader: `UploadVideoViewModel → ClipUploadUseCases → ClipUploading → BackgroundClipUploader → BackgroundUploadSession`, with `SystemBackgroundUploadSession` as the session in the app and a fake in tests. The in-process `UploadFeedVideoUseCase` → `VideoUploadRepository` → `VideoUploadAPIClient` chain this flow used to take is unwired.)
 
 ### Module map
 
@@ -461,7 +523,8 @@ Marauders-ios/Marauders/
   App/              MaraudersApp
   Composition/      AppDependencyContainer, DubbingServices+OnDevice, UITestRejectedSession
   Domain/           Entities, Repositories (protocols), Services (protocols), UseCases, Auth
-  Data/             API/, Auth/ (Keychain stores), Repositories/, Services/ (export, caches, speech, Whisper)
+  Data/             API/, Auth/ (Keychain stores), Repositories/, Services/ (export, caches, speech, Whisper),
+                    Upload/ (BackgroundClipUploader, SystemBackgroundUploadSession, UploadRecordStore, UploadBodyStager, IdempotentReplayResolver)
   Shared/           Logging/ (AppLog, AppLogStore), Configuration/ (AppRuntimeConfiguration, UITestFeedMode, DevLogin)
   Presentation/
     Navigation/     AppRouter, AppCoordinator, MainTab
@@ -487,7 +550,7 @@ Clients live in `Data/API/`; ViewModels never call them directly ([ADR-003](docs
 | Endpoint | Client | Method | Timeout | Client-side validation | Success | Error mapping |
 |----------|--------|--------|---------|------------------------|---------|----------------|
 | `/v1/feed?limit=&cursor=&country=` (map: `/v1/map/clips`) | `FeedAPIClient` | GET (Bearer when signed in; a 401 on a request that carried a token is retried once as a guest) | 30s | `limit` 1…50; each `streamURL` must be **HTTPS** | `FeedPage` (`[FeedVideo]` + `hasMore`) | `invalidLimit`, `invalidResponse`, `serverError(status)`; **retry** up to 3× on 502/503/504 + transient `URLError` ([ADR-006](docs/adr/006-feed-get-retry.md)) |
-| `/v1/videos` | `VideoUploadAPIClient` | POST multipart `file`, `latitude`, `longitude`, optional `caption`, `audioAssessment` | 300s | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng) | `unsupportedFormat`, `fileTooLarge`, `serverError(status)`, server `{ "error" }` message, `invalidResponse` |
+| `/v1/videos` | `BackgroundClipUploader` (`Data/Upload/`, over a background `URLSession`); its form is `VideoUploadForm`, which the unwired in-process `VideoUploadAPIClient` shares | POST multipart `file`, `latitude`, `longitude`, optional `caption`, `audioAssessment` (Bearer; `Content-Type` with the recorded boundary; `Idempotency-Key: <upload id, lower-case>`, the same for every submission of one body, so a repeat is answered with the clip already stored) | 300s per request, 24 h for the whole upload (`timeoutIntervalForResource`) | MIME `video/mp4` \| `video/quicktime`; size 1…100 MB; coords WGS84 | `FeedVideo` (+ optional lat/lng): 201 for a new clip, 200 for a key already stored | `start` throws `unsupportedFormat`, `fileTooLarge`, `notAuthenticated`, `SessionRefreshUnavailableError` (an expired token that could not be traded) or a `ClipUploadError`; every ending after the hand-over is an `UploadSnapshot.failed` (texts and rules in *Upload path (client)*) |
 | `/v1/users/me/location` | `UserLocationAPIClient` | POST JSON `{ latitude, longitude }` (Bearer) | 15s | coords WGS84 (validated server-side) | 200 `{ latitude, longitude }` | `notAuthenticated`, `serverError(status)`, `invalidResponse` |
 | `/v1/users/me/friend-locations` | `LocationSharingAPIClient` | GET (Bearer) | 15s | none | `FriendLocations` (`sharing`, `[FriendLocation]`; points off the Earth dropped) | `signInRequired` (no token or 401), `rateLimited` (429), `serverError(status)`, `invalidResponse` |
 | `/v1/users/me/location-sharing` | `LocationSharingAPIClient` | PUT JSON `{ enabled }` (Bearer; a sign out sends `false` before the token is cleared, giving up after 3 s) | 15s | none | `Bool` (`sharesLocation`) | `signInRequired` (no token or 401), `rateLimited` (429), `serverError(status)`, `invalidResponse` |
@@ -516,29 +579,36 @@ The clients keep their own error mapping above (`serverError(401)`, `notAuthenti
 
 **Tests:** `FeedAPIClientTests`, `VideoUploadAPIClientTests`, `UserLocationAPIClientTests`, `UserProfileAPIClientTests`, `CommentsAPIClientTests` use `StubURLProtocol` (no live network in CI); `RejectedSessionReportingTests` covers the wrapper and `SessionExpiryTests` the same real clients over it.
 
-**Not implemented:** automatic retry on **upload**, certificate pinning (ATS + HTTPS validation only). Authorization is attached through `APIAuthorization` (Keychain access token).
+**Not implemented:** certificate pinning (ATS + HTTPS validation only). Authorization is attached through `APIAuthorization` (Keychain access token); the background uploader reads the same token through `APIAccessTokenStore`.
+
+**Retried by hand, not automatically:** the app never sends a video's body again by itself after a 429, a 502, 503 or 504, any other 5xx or a transport failure (and the in-process `RetryingHTTPClient` never retried an upload); the viewer taps **Try again**, which sends the same body under the same key, so the Worker can never make a second clip. The only automatic repeats are the one 401 healed with a refreshed token while the app is active, and the request with no body that asks the Worker for a clip whose answer was lost (see *Upload path (client)*).
 
 ### iOS — upload file lifecycle (staging)
 
-User videos are **never** written to Documents or the photo library. All client-side bytes stay in **`NSTemporaryDirectory()`** until deleted.
+User videos are **never** written to Documents or the photo library. Until an upload has been handed over, the client-side bytes stay in **`NSTemporaryDirectory()`**. From the hand-over on, the body (the clip, its caption and its coordinates) lives in **`Application Support/PendingUpload`**, which survives the app being ended by the system, until the upload is over.
 
 ```mermaid
 flowchart LR
   Picker[PhotosPicker] --> Copy[PickedVideoFile copy to tmp]
   Copy --> Export[VideoExportService MP4 in tmp]
-  Export --> Multipart[VideoUploadAPIClient multipart tmp]
-  Multipart -->|after POST| DeleteM[delete multipart tmp]
   Export -->|after export OK| DeleteP[delete picker copy]
-  Export -->|after upload OK or new pick| DeleteE[delete export MP4]
+  Export --> Stage[UploadBodyStager writes the multipart body in Application Support]
+  Stage -->|the uploader has taken the clip| DeleteE[delete export MP4]
+  Stage --> Send[background URLSession sends the body file]
+  Send -->|clip stored| DeleteB[delete the body, the record stays until the viewer has seen the clip]
+  Send -->|refused for good, Discard, sign out, another account or 7 days| DeleteAll[delete the body and the record]
+  Send -->|any other failure| Keep[keep both for Try again]
 ```
 
 | Stage | Location | Removed when |
 |-------|----------|----------------|
 | Library import | `PickedVideoFile` → tmp | After successful export, or when user picks another clip / clears |
-| H.264 export | tmp `.mp4` (`uploadFileURL`) | After successful upload, failed prepare, new pick, or reset |
-| Multipart body | tmp (upload client); the clip is copied into it in 1 MiB chunks | Immediately after `URLSession.upload` completes |
+| H.264 export | tmp `.mp4` (`uploadFileURL`) | Once the uploader has staged the body (when `start` returns), or after a failed prepare, new pick, or reset. A start that fails (no space, no usable session) keeps it, so the viewer can tap Upload again |
+| Staged body | `Application Support/PendingUpload/<id>.multipart`; the clip is copied into it in 1 MiB chunks | The Worker stored the clip; a 4xx other than 401 and 429 (the Worker refused the upload for good); Discard (**Choose another video**, or a sign out); a record of another account (at launch, at a sign in, on Try again); 7 days after the record was created; no record owns it at launch (an orphan). It stays after a failure that allows Try again |
+| Record | `Application Support/PendingUpload/<id>.json` beside the body | The viewer has seen the finished clip (the view model discards it just before it reports the clip to the feed); Discard; a record of another account; 7 days after its `createdAt` |
+| Avatar multipart body | tmp (`URLSessionHTTPClient.upload`, the in-process path the avatar upload keeps) | Immediately after the upload completes |
 
-`TemporaryFileCleanup` only deletes URLs under the system temp directory (defense in depth). Logs record byte counts and outcomes, not file paths or video content.
+The staged folder is excluded from backup, and its files keep the default file protection, never `.complete`, so a locked phone can still read the body. Only `UploadRecordStore` deletes inside it, and `TemporaryFileCleanup` only deletes URLs under the system temp directory (defense in depth). Logs record byte counts and outcomes, not file paths or video content: the uploader's lines (`AppLog` category `upload.bg`) hold the first 8 characters of the record id and a state name, never a token, path, caption, coordinate or response body.
 
 ---
 
