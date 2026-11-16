@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import UIKit
 
 /// Composition root — wires Domain use cases to Data implementations (Clean Architecture).
 @MainActor
@@ -30,22 +31,26 @@ final class AppDependencyContainer {
     /// Which listening languages this iPhone cannot serve, which `AppRootView` puts in the environment for the picker.
     let listeningLanguageAvailability: any ListeningLanguageAvailability = SystemListeningLanguageAvailability()
     private let feedRepository: FeedRepository
-    private let uploadRepository: VideoUploadRepository
     private let videoExporter: VideoExporting
     private let profileRepository: UserProfileRepository
     private let commentRepository: CommentRepository
     private let followListRepository: FollowListRepository
+    /// The uploader this container talks to; none under UI tests, whose uploader never uploads.
+    private let backgroundUploader: BackgroundClipUploader?
 
     init(
         feedRepository: FeedRepository? = nil,
-        uploadRepository: VideoUploadRepository? = nil,
         videoExporter: VideoExporting? = nil,
         profileRepository: UserProfileRepository? = nil,
         commentRepository: CommentRepository? = nil,
         clipLikeRepository: ClipLikeRepository? = nil,
         userFollowRepository: UserFollowRepository? = nil,
         locationSharingRepository: LocationSharingRepository? = nil,
-        followListRepository: FollowListRepository? = nil
+        followListRepository: FollowListRepository? = nil,
+        sessionStores: (
+            session: AuthSessionStore, accessToken: APIAccessTokenStore, refreshToken: APIRefreshTokenStore
+        )? = nil,
+        clipUploader: BackgroundClipUploader? = nil
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
         let sessionStore: AuthSessionStore
@@ -63,6 +68,15 @@ final class AppDependencyContainer {
             // Over the same in-memory stores: no refresh token in them, so the 401 ends the session.
             refresher = TokenRefresher(
                 accessTokenStore: rejectedSession, refreshTokenStore: rejectedSession, authAPI: AuthAPIClient())
+        } else if let sessionStores {
+            // A test's own stores, which it can read back, in place of the Keychain the whole test run shares.
+            sessionStore = sessionStores.session
+            tokenStore = sessionStores.accessToken
+            refreshTokenStore = sessionStores.refreshToken
+            baseTransport = URLSessionHTTPClient()
+            refresher = TokenRefresher(
+                accessTokenStore: sessionStores.accessToken, refreshTokenStore: sessionStores.refreshToken,
+                authAPI: AuthAPIClient())
         } else {
             sessionStore = KeychainAuthSessionStore()
             tokenStore = KeychainAPIAccessTokenStore()
@@ -107,11 +121,6 @@ final class AppDependencyContainer {
                 ))
         }
 
-        self.uploadRepository =
-            uploadRepository
-            ?? DefaultVideoUploadRepository(
-                apiClient: VideoUploadAPIClient(client: transport, authorization: apiAuthorization)
-            )
         self.videoExporter = videoExporter ?? DefaultVideoExporter()
 
         self.reportUserLocation = ReportUserLocationUseCase(
@@ -126,11 +135,17 @@ final class AppDependencyContainer {
             startupCache: AppRuntimeConfiguration.isUITesting || feedRepository != nil ? nil : FeedStartupCache.shared
         )
 
+        // The Upload tab, a sign out and a sign in all talk to the one process-wide uploader (a test hands its own). UI
+        // tests get one that never uploads, and never touch the real one, whose session would meet the system.
+        let backgroundUploader = AppRuntimeConfiguration.isUITesting ? nil : (clipUploader ?? Self.clipUploader)
+        self.backgroundUploader = backgroundUploader
+        let uploader: any ClipUploading = backgroundUploader ?? IdleClipUploader()
+        let uploads = ClipUploadUseCases(uploader: uploader)
+
         let prepare = PrepareVideoForUploadUseCase(exporter: self.videoExporter)
-        let upload = UploadFeedVideoUseCase(repository: self.uploadRepository)
         uploadViewModel = UploadVideoViewModel(
             prepareVideo: prepare,
-            uploadVideo: upload,
+            uploads: uploads,
             videoLocationReader: AVAssetVideoLocationReader(),
             audioInspector: FastClipAudioInspector()
         )
@@ -166,6 +181,10 @@ final class AppDependencyContainer {
         // clear. Set here, not in the initializer: the repository talks through the transport, which reports back to it.
         authViewModel.stopSharingOnSignOut = StopLocationSharingOnSignOutUseCase(
             repository: resolveLocationSharingRepository)
+        // A sign out drops the viewer's pending upload; a sign in has the uploader check it against the account that
+        // signed in. Presentation cannot name the uploader, so they come here as use cases.
+        authViewModel.discardUploadOnSignOut = uploads.discard
+        authViewModel.checkUploadOnSignIn = uploads.reconcile
         friendLocationsViewModel = FriendLocationsViewModel(
             loadFriends: LoadFriendLocationsUseCase(repository: resolveLocationSharingRepository),
             setSharing: SetLocationSharingUseCase(repository: resolveLocationSharingRepository),
@@ -271,6 +290,39 @@ final class AppDependencyContainer {
             )
         )
     )
+
+    /// The one uploader of the process. `MaraudersApp` creates it at launch, before any container exists, because it
+    /// makes the background session: the system relaunches the app to tell it how an upload ended, and finds the
+    /// session by its identifier. It never needs a container or a screen, so an upload ends with the app closed.
+    static let clipUploader: BackgroundClipUploader = makeClipUploader()
+
+    private static func makeClipUploader() -> BackgroundClipUploader {
+        let store = UploadRecordStore(directory: UploadRecordStore.standardDirectory)
+        return BackgroundClipUploader(
+            store: store,
+            stager: UploadBodyStager(store: store),
+            session: SystemBackgroundUploadSession(),
+            accessTokens: KeychainAPIAccessTokenStore(),
+            refresher: tokenRefresher,
+            resolver: IdempotentReplayResolver(
+                client: APITransportComposition.quiet(base: URLSessionHTTPClient(), refresher: tokenRefresher)),
+            // A task created while the app is not active does not start until it is (measured on the phone), so a 401
+            // healed in the background is not sent again at once: the upload fails as interrupted, to try again.
+            policy: UploadPolicy(resubmitsWhileInBackground: false),
+            isAppActive: { await MainActor.run { UIApplication.shared.applicationState == .active } }
+        )
+    }
+
+    /// Has the uploader report a token the Worker rejected for good to this container's viewer, which ends the session,
+    /// as it does for every other client. `AppRootView` calls it once, for the container it keeps: SwiftUI builds a
+    /// container for every new root view and drops all but the first, so building one connects nothing. Weak: the
+    /// uploader outlives every container. Nothing to connect under UI tests, whose uploader never uploads.
+    func connectUploaderRejections() async {
+        guard let backgroundUploader else { return }
+        await backgroundUploader.setRejectionReporter { [weak authViewModel] accessToken in
+            await authViewModel?.handleRejectedAccessToken(accessToken)
+        }
+    }
 
     func makePublicProfileViewModel(handle: String) -> PublicProfileViewModel {
         PublicProfileViewModel(

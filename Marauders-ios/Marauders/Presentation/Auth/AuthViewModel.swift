@@ -19,6 +19,19 @@ final class AuthViewModel {
     /// the repositories exist: they talk through a transport that reports a rejected token back to this view model.
     @ObservationIgnored var stopSharingOnSignOut: StopLocationSharingOnSignOutUseCase?
 
+    /// Drops the viewer's pending upload (its clip, its record and its task) when they sign out, so nothing of the
+    /// account stays on the phone. The composition root sets it once the uploader exists.
+    @ObservationIgnored var discardUploadOnSignOut: DiscardClipUploadUseCase?
+
+    /// Lets the uploader check its stored upload against the account that has just signed in, before the viewer is
+    /// signed in, so a clip of another account is never sent under the new one. Set together with
+    /// `discardUploadOnSignOut`.
+    @ObservationIgnored var checkUploadOnSignIn: ReconcileClipUploadUseCase?
+
+    /// The longest a sign out waits to drop the upload, and a sign in waits to check it. A stuck uploader never holds
+    /// either one back for longer than this.
+    @ObservationIgnored var uploadHookTimeout: Duration = .seconds(3)
+
     /// Defaults to the country resolved from location; the user may override it before sign-in.
     /// Location permission and a successful lookup are still required by the sign-in gate.
     var selectedCountryCode: String = CountryCatalog.defaultCode()
@@ -167,6 +180,7 @@ final class AuthViewModel {
             try await signInWithApple.execute(
                 userID: userID, identityToken: identityToken, countryCode: selectedCountryCode)
             sessionGeneration += 1
+            await checkTheStoredUpload()
             isSignedIn = true
             errorMessage = nil
             AppLog.info("auth", "signed in with Apple (API session established)")
@@ -177,6 +191,21 @@ final class AuthViewModel {
             } else {
                 AppLog.error("auth", "API session exchange failed")
             }
+        }
+    }
+
+    /// Asks the uploader to check its stored upload against the session that was just stored: a clip of another account
+    /// is deleted there, never to be sent under this one. It runs before `isSignedIn` turns true, so the viewer cannot
+    /// try an upload that is not theirs. Best effort: a sign in is never held back for longer than `uploadHookTimeout`.
+    private func checkTheStoredUpload() async {
+        guard let check = checkUploadOnSignIn else { return }
+        switch await TimeBoundedCall.run(timeout: uploadHookTimeout, { await check.execute() }) {
+        case .finished:
+            break
+        case .failed(let reason):
+            AppLog.warning("auth", "upload not checked before sign in: \(reason)")
+        case .timedOut:
+            AppLog.warning("auth", "upload not checked before sign in: no answer in time")
         }
     }
 
@@ -193,6 +222,7 @@ final class AuthViewModel {
                     countryCode: selectedCountryCode
                 )
                 sessionGeneration += 1
+                await checkTheStoredUpload()
                 isSignedIn = true
                 errorMessage = nil
                 AppLog.info("auth", "signed in as dev user \(label)")
@@ -215,6 +245,9 @@ final class AuthViewModel {
     /// refresh token is revoked, so no copy of it can be traded for a session again. Both calls are best effort, share
     /// one `signOutWindow` and never hold the sign out back. A session that ended without this (the Worker rejected the
     /// token, or it ran out) goes through `handleRejectedAccessToken` or `restoreSession` instead and cannot make them.
+    ///
+    /// Then the viewer's pending upload is dropped, signed in or not, so nothing of the account stays on the phone. A
+    /// session that ended without a sign out keeps its upload: the same account can sign in again and try it again.
     func signOut() async {
         guard !isSigningOut else { return }
         isSigningOut = true
@@ -222,6 +255,7 @@ final class AuthViewModel {
         // A Simulator test user who signs out stays out until the app is launched again.
         signsInAsTestUserOnSimulator = false
         if isSignedIn { await tellTheWorkerTheSessionIsEnding() }
+        await discardThePendingUpload()
         clearStoredSession()
         isSignedIn = false
         errorMessage = nil
@@ -265,6 +299,20 @@ final class AuthViewModel {
             AppLog.warning("auth", "location sharing not switched off before sign out: \(reason)")
         case .timedOut:
             AppLog.warning("auth", "location sharing not switched off before sign out: no answer in time")
+        }
+    }
+
+    /// Best effort, like the two calls to the Worker: a stuck uploader never holds the sign out back for longer than
+    /// `uploadHookTimeout`.
+    private func discardThePendingUpload() async {
+        guard let discard = discardUploadOnSignOut else { return }
+        switch await TimeBoundedCall.run(timeout: uploadHookTimeout, { await discard.execute() }) {
+        case .finished:
+            break
+        case .failed(let reason):
+            AppLog.warning("auth", "upload not discarded before sign out: \(reason)")
+        case .timedOut:
+            AppLog.warning("auth", "upload not discarded before sign out: no answer in time")
         }
     }
 

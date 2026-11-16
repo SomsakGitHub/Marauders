@@ -5,7 +5,9 @@
 
 import Foundation
 
-struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
+/// nonisolated, so the upload code that runs off the main actor can hold, compare and decode a clip. Only
+/// `dubbingSourceLanguage`, which builds a main-actor dubbing type, stays on the main actor.
+nonisolated struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     let id: UUID
     let streamURL: URL
     let latitude: Double?
@@ -40,7 +42,7 @@ struct FeedVideo: Identifiable, Hashable, Sendable, Codable {
     }
 
     /// The dubbing source for the declared language; nil when unknown or not supported yet.
-    var dubbingSourceLanguage: DubbingSourceLanguage? {
+    @MainActor var dubbingSourceLanguage: DubbingSourceLanguage? {
         declaredSourceCode.flatMap { DubbingSourceLanguage(code: $0) }
     }
 

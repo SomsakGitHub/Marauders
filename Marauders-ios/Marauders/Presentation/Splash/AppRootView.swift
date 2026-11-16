@@ -8,6 +8,7 @@ import SwiftUI
 struct AppRootView: View {
     @State private var container = AppDependencyContainer()
     @State private var isShowingSplash = true
+    @Environment(\.scenePhase) private var scenePhase
 
     private static let minimumSplashDurationNs: UInt64 = 650_000_000
 
@@ -41,6 +42,19 @@ struct AppRootView: View {
         .animation(AppRuntimeConfiguration.isUITesting ? nil : .easeOut(duration: 0.32), value: isShowingSplash)
         .task {
             await presentSplash()
+        }
+        .task {
+            // Once, for the container this view keeps; the containers SwiftUI builds and drops connect nothing.
+            await container.connectUploaderRejections()
+        }
+        .task {
+            await container.uploadViewModel.observeUploads()
+        }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            container.uploadViewModel.setAppActive(phase == .active)
+        }
+        .onChange(of: container.authViewModel.isSignedIn, initial: true) { _, isSignedIn in
+            container.uploadViewModel.setSignedIn(isSignedIn)
         }
         .onAppear {
             VideoPlaybackConfigurator.activateAudioSessionIfNeeded()

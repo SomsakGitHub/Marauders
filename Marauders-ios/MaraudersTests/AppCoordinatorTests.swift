@@ -22,12 +22,7 @@ struct AppCoordinatorTests {
             )
         )
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
-        let uploadVM = UploadVideoViewModel(
-            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(
-                repository: MockUploadRepository(result: .failure(URLError(.cancelled)))
-            )
-        )
+        let uploadVM = UploadVideoViewModel(prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()))
 
         let coordinator = AppCoordinator(
             router: router,
@@ -49,11 +44,7 @@ struct AppCoordinatorTests {
         let repo = MockFeedRepositoryForCoordinator()
         repo.nextResult = .success(FeedPage(items: [uploaded, older], hasMore: false))
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
-        let uploadVM = UploadVideoViewModel(
-            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(
-                repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
-        )
+        let uploadVM = UploadVideoViewModel(prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()))
         let coordinator = AppCoordinator(router: router, feedViewModel: feedVM, uploadViewModel: uploadVM)
 
         await coordinator.handleUploadCompleted(uploaded: uploaded)
@@ -69,11 +60,7 @@ struct AppCoordinatorTests {
         repo.nextResult = .success(
             FeedPage(items: [FeedVideo(streamURL: URL(string: "https://example.com/other.mp4")!)], hasMore: false))
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
-        let uploadVM = UploadVideoViewModel(
-            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(
-                repository: MockUploadRepository(result: .failure(URLError(.cancelled))))
-        )
+        let uploadVM = UploadVideoViewModel(prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()))
         let coordinator = AppCoordinator(router: router, feedViewModel: feedVM, uploadViewModel: uploadVM)
 
         await coordinator.handleUploadCompleted(
@@ -101,12 +88,7 @@ struct AppCoordinatorTests {
             )
         )
         let feedVM = VideoFeedViewModel(fetchFeed: FetchFeedUseCase(repository: repo))
-        let uploadVM = UploadVideoViewModel(
-            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(
-                repository: MockUploadRepository(result: .failure(URLError(.cancelled)))
-            )
-        )
+        let uploadVM = UploadVideoViewModel(prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()))
         let coordinator = AppCoordinator(
             router: router,
             feedViewModel: feedVM,
@@ -130,12 +112,7 @@ struct AppCoordinatorTests {
         )
         await feedVM.reload()
 
-        let uploadVM = UploadVideoViewModel(
-            prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()),
-            uploadVideo: UploadFeedVideoUseCase(
-                repository: MockUploadRepository(result: .failure(URLError(.cancelled)))
-            )
-        )
+        let uploadVM = UploadVideoViewModel(prepareVideo: PrepareVideoForUploadUseCase(exporter: FailingExporter()))
         let coordinator = AppCoordinator(
             router: router,
             feedViewModel: feedVM,
@@ -187,19 +164,6 @@ private final class MockFeedRepositoryForCoordinator: FeedRepository, @unchecked
 
     func fetchFeed(limit: Int, cursor: UUID?) async throws -> FeedPage {
         try nextResult.get()
-    }
-}
-
-private struct MockUploadRepository: VideoUploadRepository {
-    let result: Result<FeedVideo, Error>
-
-    func upload(
-        fileURL: URL,
-        mimeType: String,
-        clipLocation: ClipLocation,
-        caption: String
-    ) async throws -> FeedVideo {
-        try result.get()
     }
 }
 
