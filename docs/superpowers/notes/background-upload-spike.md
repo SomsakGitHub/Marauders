@@ -8,7 +8,7 @@ Topic: Task 1 of `docs/superpowers/plans/2026-11-15-upload-resilience-cut-2-app.
 
 ### What was run
 
-- Simulator: iPhone 17 (model identifier iPhone18,3), iOS 27.2 (build 24B8117), UDID `902C645A-22D9-47F3-86B0-3E4623B6B2A9`. Xcode 27.2 (27B52).
+- Simulator: iPhone 17 (model identifier iPhone18,3), iOS 27.2 (build 24B8117). Xcode 27.2 (27B52).
 - A throwaway unit test, hosted in the Marauders app (process `Marauders`, bundle identifier `com.somsak.Marauders`), run through `xcodebuild test`. The test file was deleted after the runs and is not in the repository. **The app stayed in the foreground in every run.** Nothing below says what a background session does while the app is in the background, suspended, locked or relaunched; that is Part B.
 - Session: `URLSessionConfiguration.background(withIdentifier:)` with a fresh identifier per run, `isDiscretionary = false`, `sessionSendsLaunchEvents = true`, cellular, expensive and constrained networks allowed, `timeoutIntervalForResource = 86400`. The configuration reported `timeoutIntervalForRequest = 60` (the default) and `waitsForConnectivity = false`. The delegate sat on its own serial `OperationQueue` and logged every call with a `ContinuousClock` offset.
 - Task: `uploadTask(with:fromFile:)` on a 3,000,000-byte file, `POST http://127.0.0.1:<port>/` with `Authorization: Bearer ...`, `Idempotency-Key` and `Content-Type: application/octet-stream`, a `taskDescription` of `spike-record-<run>`, `countOfBytesClientExpectsToSend` 3,001,024 and `countOfBytesClientExpectsToReceive` 65,536.
@@ -101,7 +101,7 @@ These runs used HTTP/1.1 over loopback. Whether the real Worker, behind Cloudfla
 - A throwaway Debug build of the app with a spike panel on the Upload tab, built outside the repository and never committed (its source is gone with its scratch directory). It had its own background session (`com.somsak.Marauders.spike`: `isDiscretionary = false`, `sessionSendsLaunchEvents = true`, cellular, expensive and constrained networks allowed) and used `uploadTask(with:fromFile:)` on the multipart body that the real `VideoUploadForm` and `UploadBodyStager` staged, so the phone also ran Tasks 3 and 4. Every delegate call, app-state change and launch went to a file in the app container, with a timestamp, the app state and the seconds since the process started (flushed per line); `devicectl` pulled it. A relaunched process has no console, which is why the file was the record.
 - Target: the production Worker's upload endpoint, with `Authorization: Bearer ...` and an `Idempotency-Key`. The protocol was **h3** on every run (Cloudflare, Singapore edge). The deployed Worker does not read the key yet.
 - Bodies: 12,398,052 bytes in B1, B2, B4 and B8 (the exported clip was 12,397,271 bytes); 6,125,152 bytes in B6 and B5 (a shorter clip).
-- A slow link for the long cases: the phone's Network Link Conditioner (Settings, Developer), profile 3G. It carried about 30 KB/s: 12.4 MB took 346 s to leave the phone and 6.1 MB took 249 s. On Wi-Fi 12 MB leaves in 0.7 s, faster than a person can leave the app, so B2 (Home right after Start) and B4 (Airplane mode during the upload) ran without the profile, were over before anything was done, and are not valid.
+- A slow link for the long cases: the phone's Network Link Conditioner (Settings, Developer), profile 3G. It carried 25 to 36 KB/s: the 12.4 MB body took 346 s to leave the phone (36 KB/s) and the 6.1 MB body 249 s (25 KB/s). On Wi-Fi 12 MB leaves in 0.7 s, faster than a person can leave the app, so B2 (Home right after Start) and B4 (Airplane mode during the upload) ran without the profile, were over before anything was done, and are not valid.
 - Tokens: B1, B2 and B4 used the real token and made five real clips (removed from the Profile tab by the owner). B8, B6 and B5 used an invalid bearer token (40 random characters), which the Worker answers with 401 and makes nothing.
 - Offsets are seconds after the moment just before `resume()` unless the text says otherwise.
 
@@ -127,9 +127,10 @@ The Worker answers a bad token with 401 before it reads the body. Full 12.4 MB b
 
 | Offset | Event |
 |---|---|
-| +0.404 | `requestStart` |
+| +0.403 | `requestStart` |
 | +0.513 | `didSendBodyData` 2,097,152 (the send buffer) |
-| +27.9 to +265.6 | `didSendBodyData` about 1 MiB every 28 to 35 s (one gap of 58 s) |
+| +27.9 | `didSendBodyData` 2 MiB more (4 MiB in all) |
+| +57.0 to +265.6 | `didSendBodyData` 1 MiB every 28 to 35 s, with one gap of 58 s |
 | +294.2 | `totalBytesSent` 12,398,052: the counter reached 100 % |
 | +346.3 | `requestEnd`: the last byte left the phone, 52 s after the counter said 100 % |
 | +347.5 | `responseStart` 1.25 s after the last byte; `didReceive data` 35 bytes; `didCompleteWithError(nil)`, status 401 |
@@ -146,17 +147,17 @@ Start was at 10:41:17.05 (task `b6-7`); the app left the foreground 1.1 s later;
 | 10:45:28.650 | `responseEnd` |
 | **10:45:28.757** | **the system relaunches the app in the background, 107 ms after `responseEnd`** (nobody opened it) |
 | +0.619 s since launch | the spike recreates the session; `getAllTasks` lists `b6-7` as `completed`, 6,125,152 of 6,125,152 sent; the record files are readable |
-| +0.858 | `didReceive data`, 35 bytes |
+| +0.859 | `didReceive data`, 35 bytes |
 | +0.869 | `didCompleteWithError(nil)`, status 401 |
 | +0.870 | `urlSessionDidFinishEvents` (no system handler had been stored) |
 | +1.114 | the scene's `.backgroundTask(.urlSession(id))` closure starts, 0.24 s after the events had finished |
 | +1.119 | the closure ends |
 
-B5 leg 1 repeated it: relaunch at 10:52:48.050, 58 ms after `responseEnd`, `urlSessionDidFinishEvents` at +0.231 s, the scene closure at +0.332 s. So a SIGKILL from `devicectl` is not treated as a force quit: the system relaunches the app within about a tenth of a second of the answer. The staged body in Application Support was read by the system for the whole upload, and the phone was locked at least at the end (B3 was run inside this case, not on its own).
+B5 leg 1 repeated it: relaunch at 10:52:48.050, 58 ms after `responseEnd`, `urlSessionDidFinishEvents` at +0.231 s, the scene closure at +0.332 s. So a SIGKILL from `devicectl` is not treated as a force quit: the system relaunches the app within about a tenth of a second of the answer. The staged body in Application Support was read by the system for the whole upload. B3 (a locked phone) was run inside this case, not on its own: besides the lock state read at 10:45:44, the relaunched process was told at 10:49:39 that protected data had become available again (`UIApplicationProtectedDataDidBecomeAvailable`, which fires when a locked phone is unlocked), so the phone was locked until then; the log does not show its lock state at the moment of the relaunch itself. The two times the brief asks for: the first `didSendBodyData` came +0.510 s after `resume()` and the completion 252.6 s after it (a measure of the 3G profile, not of the lock).
 
 ### B5 and D2: a task created from a background wake (3G profile, invalid token, Chain on)
 
-Leg 1 (`b5-8`) started in the foreground at 10:50:30.9 and the process was ended 32 s later as in B6. The owner switched the profile off at about 10:52:40, so the body finished: `requestEnd` 10:52:47.867, `responseEnd` 10:52:47.992, and the system relaunched the app at 10:52:48.050. Inside that relaunch the spike created and resumed leg 2 (`b5-9`) from `didCompleteWithError` at +0.230 s (app state background); `willBeginDelayedRequest` was answered (continue loading) at +0.008 s, long before the process was suspended after +0.333 s.
+Leg 1 (`b5-8`) started in the foreground at 10:50:30.9 and the process was ended 32 s later as in B6. The owner switched the profile off at about 10:52:40 (an inference from the leg finishing sooner; the log does not show it), so the body finished: `requestEnd` 10:52:47.867, `responseEnd` 10:52:47.992, and the system relaunched the app at 10:52:48.050. Inside that relaunch the spike created and resumed leg 2 (`b5-9`) from `didCompleteWithError` at +0.230 s (app state background); `willBeginDelayedRequest` was answered (continue loading) at +0.008 s, long before the process was suspended after +0.333 s.
 
 | Leg | Created by | `resume()` to `requestStart` | `resume()` to `responseEnd` |
 |---|---|---|---|
@@ -169,18 +170,18 @@ From +0.333 s since the relaunch until the app was started with `devicectl` at 1
 ### B3, B2 and B4: what was not run on its own
 
 - B3 (lock the phone during an upload) was run inside B6: the upload went on and the app was relaunched with the phone locked at least at the end, and the record files were readable.
-- B2 and B4 are not valid (see "What was run"). They were not repeated: Task 6 settles a transport failure the same way whatever the system does in an Airplane flap, and the device check after Task 10 covers Airplane mode with the real app.
+- B2 and B4 are not valid (see "What was run"). They were not repeated: if the system reports a failure in an Airplane flap, Task 6 settles it as `failed(connection)` whatever the cause; a silent stall (Part A's A4a showed a background session retrying for minutes with no callback) would show only in the device check after Task 10, which covers Airplane mode with the real app.
 
 ### What Part B shows for the later tasks
 
-- **Task 6's 401 row.** A 401 reaches the app only after the whole body has gone out; on a slow link that is minutes, and the body goes out a second time after the refresh. The app trades an expired token before it submits (`start` and `retry`), so a 401 means a token the Worker rejects (revoked, rotated, signed out elsewhere), which is rare. Task 11's ADR records this. There is no hang to guard against (R8).
+- **Task 6's 401 row.** A 401 reaches the app only after the whole body has gone out; on a slow link that is minutes, and the body goes out a second time after the refresh. The app trades an expired token before it submits (`start` and `retry`), so a 401 means a token the Worker rejects (revoked, rotated, signed out elsewhere), which is rare. The ADR for this feature (Task 11) has to say so. There is no hang to guard against (R8).
 - **Progress.** `totalBytesSent` ran 52 s ahead of the wire on the 3G profile (A1b showed the same shape on the simulator). A fraction taken from it must not be shown as done; only the completion ends an upload.
-- **Task 7's reconcile after a relaunch.** `getAllTasks` listed the finished task (state `completed`, bytes sent equal to expected) at launch, about 0.24 s before its events were delivered; in Part A a running process listed nothing straight after a completion. `pendingRecordIDs` should not filter on `.running`; if it did, the record would be marked interrupted for a moment and the completion would upgrade it, which the plan allows.
+- **Task 7's reconcile after a relaunch.** `getAllTasks` listed the finished task (state `completed`, bytes sent equal to expected) at launch, 0.05 to 0.24 s before its events were delivered (B5 leg 1 and B6); in Part A a running process listed nothing straight after a completion. `pendingRecordIDs` should not filter on `.running`; if it did, the record would be marked interrupted for a moment and the completion would upgrade it, which the plan allows.
 - **Task 10's relaunch.** The system relaunches the app in the background within 0.11 s of the answer, and the recreated session receives its events at once, before the scene closure runs (0.10 s and 0.24 s later). `awaitSystemEvents` must return at once when `.eventsFinished` was already applied; both relaunches needed exactly that. A task created inside the relaunch does not start (D2).
 
 ## D1 to D3
 
-- **D1, a foreground task starts at once.** Every foreground run began its request within 0.09 s of `resume()` on Wi-Fi and within 0.6 s under the 3G profile (the plan's limit is 15 s, stop above 60 s). Tasks 5 to 10 are built as written, with no deferred-start handling.
-- **D2, `UploadPolicy.resubmitsWhileInBackground = false`.** The one task created from a background relaunch began 223 s after `resume()`, and only once the app was active again; the rule needed 2 of 3 runs under 2 minutes. A 401 that arrives while the app is not active ends in `failed(interrupted)`, and Try again sends the same body and key with the token the refresh already replaced.
+- **D1, a foreground task starts at once.** Every foreground run on Wi-Fi began its request within 0.11 s of `resume()` (B1, B2 and B4: 0.077 to 0.084 s; the two foreground legs of B5: 0.106 s and 0.006 s), and every one under the 3G profile within 0.6 s (the plan's limit is 15 s, stop above 60 s). Tasks 5 to 10 are built as written, with no deferred-start handling.
+- **D2, `UploadPolicy.resubmitsWhileInBackground = false`.** The one task created from a background relaunch began 223 s after `resume()`, and only once the app was active again. The brief's rule needs 2 of 3 runs under 2 minutes for `true`, and only this one run was made, of the relaunch variant only (a task created inside the relaunch that follows an ended process; the repeat with the app only suspended was not run). One miss does not make `true` impossible on paper, but it would need two clean runs that were not made; `false` is the conservative value (it costs one missed automatic heal of a rare 401), and each repeat costs the owner about 6 minutes. The cause is not established: the design doc assumed the system treats a task created while the app is in the background as discretionary, and this run fits that without proving it. After a successful refresh, a 401 that arrives while the app is not active ends in `failed(interrupted)`, and Try again sends the same body and key with the token the refresh already replaced (a rejected refresh gives `failed(sessionEnded)`, an unavailable one `failed(unavailable)`).
 - **D3, relaunch route A: the scene's `.backgroundTask(.urlSession(id))`.** After a SIGKILL the system relaunched the app in the background twice (B6, B5 leg 1), the recreated session received its events, and the scene closure ran 0.10 s and 0.24 s after them. The delegate adaptor is not needed.
 - **R8, no replay-first probe in Task 7 and no watchdog for Task 6's 401 and 429 rows.** The 401 of B8 arrived as an ordinary completion 1.25 s after the last byte, not as a hang and not as an error. The stored-key answer (A4) is still unmeasured: it needs migration 023 and the Worker deploy and goes into the device check.
