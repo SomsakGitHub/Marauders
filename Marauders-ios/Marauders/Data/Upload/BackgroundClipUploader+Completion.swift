@@ -167,9 +167,10 @@ extension BackgroundClipUploader {
     /// says so, and publishes the snapshot. A record that is gone or does not take a completion is left alone, and so
     /// is one already failed the same way.
     ///
-    /// - Returns: Whether the record took the verdict.
+    /// - Returns: Whether the record took the verdict, an unsaved verdict included: the token a caller reports is dead
+    ///   either way.
     @discardableResult
-    private func settle(recordID: UUID, as failure: UploadFailure, deleteBody: Bool = false) async -> Bool {
+    func settle(recordID: UUID, as failure: UploadFailure, deleteBody: Bool = false) async -> Bool {
         guard var record = record(recordID), Self.takesCompletion(record.state), record.state != .failed(failure) else {
             return false
         }

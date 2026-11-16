@@ -50,12 +50,20 @@ actor BackgroundClipUploader {
     var rejectionReporter: (@Sendable (String) async -> Void)?
     /// A `start` is running: it refuses a second one, and reconcile leaves the body it may be staging alone.
     var isStarting = false
+    /// A `retry()` is running: a second one returns at once, and reconcile leaves the record it staged alone.
+    var isRetrying = false
     /// Moved by every `discard()`, so a `start` or a retry that was waiting can tell it was discarded meanwhile.
     var discardCount = 0
     /// The Worker's answer so far, per record, up to `policy.responseBodyLimit` bytes.
     var responseBodies: [UUID: Data] = [:]
     /// Everyone reading `snapshots()`.
     var observers: [UUID: AsyncStream<UploadSnapshot>.Continuation] = [:]
+    /// Applies the session's events in order; started once, by `launch()`.
+    var pump: Task<Void, Never>?
+    /// The system handed its events over and no `awaitSystemEvents` call has taken that marker yet.
+    var eventsFinishedUnclaimed = false
+    /// The `awaitSystemEvents` calls waiting for the marker, the oldest first.
+    var systemEventsWaiters: [SystemEventsWaiter] = []
 
     init(
         store: UploadRecordStore,
@@ -77,6 +85,10 @@ actor BackgroundClipUploader {
         self.policy = policy
         self.now = now
         self.isAppActive = isAppActive
+    }
+
+    deinit {
+        pump?.cancel()
     }
 
     func setRejectionReporter(_ report: @escaping @Sendable (String) async -> Void) {
@@ -179,12 +191,23 @@ actor BackgroundClipUploader {
 
     /// The stored access token, when it is one: well formed and naming its account.
     private func usableAccessToken() async throws -> String {
-        let accessTokens = accessTokens
-        let stored = await MainActor.run { accessTokens.loadAccessToken() }
-        guard let stored, APIAccessTokenFormat.isValid(stored), APIAccessTokenSubject.subject(of: stored) != nil else {
+        guard let stored = await storedAccessToken(), stored.subject != nil else {
             throw VideoUploadAPIError.notAuthenticated
         }
-        return stored
+        return stored.token
+    }
+
+    /// The stored access token with the account it names, or nil when none is stored. The account is nil when the
+    /// token is not well formed or its `sub` cannot be read.
+    func storedAccessToken() async -> (token: String, subject: String?)? {
+        let accessTokens = accessTokens
+        guard let stored = await MainActor.run(body: { accessTokens.loadAccessToken() }) else { return nil }
+        return (stored, Self.accountSubject(of: stored))
+    }
+
+    /// The account `token` names, when it is well formed and its `sub` can be read.
+    static func accountSubject(of token: String) -> String? {
+        APIAccessTokenFormat.isValid(token) ? APIAccessTokenSubject.subject(of: token) : nil
     }
 
     // MARK: Snapshots
@@ -242,8 +265,7 @@ actor BackgroundClipUploader {
         case .completed(let recordID, let statusCode, let failure, let accessToken):
             await complete(recordID: recordID, statusCode: statusCode, failure: failure, accessToken: accessToken)
         case .eventsFinished:
-            // Task 7
-            break
+            systemEventsFinished()
         }
     }
 
@@ -301,3 +323,5 @@ actor BackgroundClipUploader {
         String(id.uuidString.lowercased().prefix(8))
     }
 }
+
+extension BackgroundClipUploader: ClipUploading {}
