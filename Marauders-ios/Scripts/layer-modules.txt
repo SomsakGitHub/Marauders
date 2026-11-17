@@ -1,0 +1,4 @@
+# Folders outside Marauders/ that belong to a layer: the source folders of local packages.
+# One per line:   <Layer>: <folder, from Marauders-ios/>   # what it holds
+Domain: Packages/MaraudersAuth/Sources/MaraudersAuth  # token rules, store protocols, the sign-in use cases
+Data: Packages/MaraudersAuth/Sources/MaraudersAuthData  # Keychain stores, the refresher, the install guard, the auth clients

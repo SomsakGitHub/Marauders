@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 struct APIAccessTokenExpiryTests {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)

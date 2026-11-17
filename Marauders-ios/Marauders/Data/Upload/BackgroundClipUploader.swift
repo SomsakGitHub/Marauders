@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// The rules a background upload follows.
 nonisolated struct UploadPolicy: Sendable {

@@ -4,22 +4,23 @@
 //
 
 import Foundation
+import MaraudersAuth
 import Security
 
 enum KeychainAuthSessionStoreError: Error {
     case unexpectedStatus(OSStatus)
 }
 
-struct KeychainAuthSessionStore: AuthSessionStore {
+public struct KeychainAuthSessionStore: AuthSessionStore {
     private let service: String
     private let account: String
 
-    init(service: String = "com.somsak.Marauders.auth", account: String = "appleUserID") {
+    public init(service: String = "com.somsak.Marauders.auth", account: String = "appleUserID") {
         self.service = service
         self.account = account
     }
 
-    func loadUserID() -> String? {
+    public func loadUserID() -> String? {
         guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
         var query: [String: Any] = baseQuery()
         query[kSecReturnData as String] = true
@@ -34,7 +35,7 @@ struct KeychainAuthSessionStore: AuthSessionStore {
         return userID
     }
 
-    func saveUserID(_ userID: String) throws {
+    public func saveUserID(_ userID: String) throws {
         guard Self.isValidUserID(userID) else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(errSecParam)
         }
@@ -62,7 +63,7 @@ struct KeychainAuthSessionStore: AuthSessionStore {
         throw KeychainAuthSessionStoreError.unexpectedStatus(updateStatus)
     }
 
-    func clear() throws {
+    public func clear() throws {
         let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(status)

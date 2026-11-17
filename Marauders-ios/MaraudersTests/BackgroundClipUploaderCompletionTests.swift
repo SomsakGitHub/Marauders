@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// How `BackgroundClipUploader` settles every way a task can end: a success with or without its answer, a 401 healed
 /// once, the Worker's refusals and failures, a transport failure and a cancelled task. Events are applied with

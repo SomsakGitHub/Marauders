@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// What `BackgroundClipUploader` does at launch with the upload left on disk (`reconcile`), the viewer's Try again
 /// (`retry`), the ordered pump `launch` starts, and the latch the scene waits on (`awaitSystemEvents`). Records are

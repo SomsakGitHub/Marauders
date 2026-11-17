@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// What a launch does with the upload left on disk, the viewer's Try again, and the wait for the system to hand its
 /// events over.

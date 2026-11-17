@@ -4,18 +4,19 @@
 //
 
 import Foundation
+import MaraudersAuth
 import Security
 
-struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
+public struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
     private let service: String
     private let account: String
 
-    init(service: String = "com.somsak.Marauders.auth", account: String = "apiAccessToken") {
+    public init(service: String = "com.somsak.Marauders.auth", account: String = "apiAccessToken") {
         self.service = service
         self.account = account
     }
 
-    func loadAccessToken() -> String? {
+    public func loadAccessToken() -> String? {
         guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
         var query: [String: Any] = baseQuery()
         query[kSecReturnData as String] = true
@@ -30,7 +31,7 @@ struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
         return token
     }
 
-    func saveAccessToken(_ token: String) throws {
+    public func saveAccessToken(_ token: String) throws {
         guard APIAccessTokenFormat.isValid(token) else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(errSecParam)
         }
@@ -58,7 +59,7 @@ struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
         throw KeychainAuthSessionStoreError.unexpectedStatus(updateStatus)
     }
 
-    func clearAccessToken() throws {
+    public func clearAccessToken() throws {
         let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(status)

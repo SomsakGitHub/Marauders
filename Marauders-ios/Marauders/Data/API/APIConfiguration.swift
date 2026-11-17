@@ -75,41 +75,8 @@ enum APIConfiguration {
         return url
     }
 
-    static func appleAuthURL() throws -> URL {
-        let base = try apiBaseURL()
-        guard let url = URL(string: "v1/auth/apple", relativeTo: base) else {
-            throw APIConfigurationError.invalidBaseURL
-        }
-        return url
-    }
-
-    /// Trades a refresh token for a new access and refresh token (POST, no Authorization header).
-    static func refreshAuthURL() throws -> URL {
-        let base = try apiBaseURL()
-        guard let url = URL(string: "v1/auth/refresh", relativeTo: base) else {
-            throw APIConfigurationError.invalidBaseURL
-        }
-        return url
-    }
-
-    /// Ends a session on the Worker by revoking the refresh token's whole family (POST, no Authorization header).
-    static func signOutAuthURL() throws -> URL {
-        let base = try apiBaseURL()
-        guard let url = URL(string: "v1/auth/signout", relativeTo: base) else {
-            throw APIConfigurationError.invalidBaseURL
-        }
-        return url
-    }
-
-    #if DEBUG
-        static func devAuthURL() throws -> URL {
-            let base = try apiBaseURL()
-            guard let url = URL(string: "v1/auth/dev", relativeTo: base) else {
-                throw APIConfigurationError.invalidBaseURL
-            }
-            return url
-        }
-    #endif
+    // The auth routes (`v1/auth/apple`, `/refresh`, `/signout`, `/dev`) are formed by the session module from
+    // `apiBaseURL()`: see `AuthModuleBridge` and `Packages/MaraudersAuth`.
 
     static func userLocationURL() throws -> URL {
         let base = try apiBaseURL()

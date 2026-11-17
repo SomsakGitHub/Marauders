@@ -6,6 +6,7 @@
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 @MainActor
 struct AuthViewModelTests {

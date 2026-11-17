@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// UI tests only (`UITEST` plus `UITEST_REJECTED_SESSION`): a signed-in viewer whose session the Worker has rejected.
 ///

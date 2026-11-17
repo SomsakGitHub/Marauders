@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// The refresh behind a 401 could not be made or did not give an answer, so nothing is known about the session. A
 /// caller gets this instead of the 401 it would have read as "signed out": the session is kept and the request can be

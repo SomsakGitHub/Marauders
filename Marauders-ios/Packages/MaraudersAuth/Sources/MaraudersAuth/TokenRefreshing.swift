@@ -6,7 +6,7 @@
 import Foundation
 
 /// What asking for a new access token came to, for the request that met the 401.
-nonisolated enum TokenRefreshOutcome: Sendable {
+public nonisolated enum TokenRefreshOutcome: Sendable {
     /// The session goes on with this access token: one the Worker just issued, or one an earlier refresh had stored.
     case refreshed(String)
     /// The session cannot be renewed: there is nothing to renew it with, the Worker refused the refresh token, or the
@@ -17,7 +17,7 @@ nonisolated enum TokenRefreshOutcome: Sendable {
 }
 
 /// Trades an access token the Worker rejected for one that works.
-nonisolated protocol TokenRefreshing: Sendable {
+public nonisolated protocol TokenRefreshing: Sendable {
     /// A token to use instead of `rejectedAccessToken`, which the Worker answered with 401.
     func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome
 }

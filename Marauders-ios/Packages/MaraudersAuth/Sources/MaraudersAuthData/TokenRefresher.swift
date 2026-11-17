@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// Trades the stored refresh token for a new access token when the Worker answers a request with 401.
 ///
@@ -26,7 +27,7 @@ import Foundation
 /// behind the same address shares.
 ///
 /// It never clears a store and never signs anyone out: it reports what happened and the caller decides.
-actor TokenRefresher: TokenRefreshing {
+public actor TokenRefresher: TokenRefreshing {
     private let accessTokenStore: any APIAccessTokenStore
     private let refreshTokenStore: any APIRefreshTokenStore
     private let authAPI: any AuthAPIClientProtocol
@@ -40,7 +41,7 @@ actor TokenRefresher: TokenRefreshing {
     ///   - retryDelay: How long to wait before asking again after a failure to reach the Worker.
     ///   - unavailableCooldown: How long the Worker is left alone after an answer that is not a verdict.
     ///   - now: The time, which a test sets.
-    init(
+    public init(
         accessTokenStore: any APIAccessTokenStore,
         refreshTokenStore: any APIRefreshTokenStore,
         authAPI: any AuthAPIClientProtocol,
@@ -56,7 +57,7 @@ actor TokenRefresher: TokenRefreshing {
         self.now = now
     }
 
-    func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome {
+    public func refreshedAccessToken(replacing rejectedAccessToken: String) async -> TokenRefreshOutcome {
         while let flight = inFlight {
             let outcome = await flight.task.value
             if flight.answers(for: rejectedAccessToken) { return outcome }
@@ -114,7 +115,7 @@ actor TokenRefresher: TokenRefreshing {
 
         switch await save(accessToken: tokens.accessToken, refreshToken: newRefreshToken, replacing: refreshToken) {
         case .saved:
-            await AppLog.info("api.refresh", "refreshed")
+            await AuthLog.info("api.refresh", "refreshed")
             return .refreshed(tokens.accessToken)
         case .sessionChanged:
             return await rejectedOutcome()
@@ -138,7 +139,7 @@ actor TokenRefresher: TokenRefreshing {
     }
 
     private nonisolated static func isWorthAskingAgain(_ error: any Error) -> Bool {
-        if error is URLError || error is HTTPClientError { return true }
+        if error is URLError || error is any AuthTransportFailure { return true }
         if case .serverError(let status)? = error as? AuthAPIError { return [502, 503, 504].contains(status) }
         return false
     }
@@ -216,7 +217,7 @@ actor TokenRefresher: TokenRefreshing {
     // MARK: - the log (never a token)
 
     private func rejectedOutcome() async -> TokenRefreshOutcome {
-        await AppLog.warning("api.refresh", "rejected")
+        await AuthLog.warning("api.refresh", "rejected")
         return .rejected
     }
 
@@ -224,7 +225,7 @@ actor TokenRefresher: TokenRefreshing {
     /// session that has since been refreshed or replaced holds another token, which the cooldown does not cover.
     private func unavailableOutcome(_ error: any Error, for refreshToken: String) async -> TokenRefreshOutcome {
         cooldown = Cooldown(refreshToken: refreshToken, until: now().advanced(by: unavailableCooldown), error: error)
-        await AppLog.warning("api.refresh", "unavailable (\(type(of: error)))")
+        await AuthLog.warning("api.refresh", "unavailable (\(type(of: error)))")
         return .unavailable(error)
     }
 }

@@ -4,20 +4,21 @@
 //
 
 import Foundation
+import MaraudersAuth
 import Security
 
 /// The refresh token in the Keychain, beside the access token (same service, another account) and kept under the same
 /// rule: nothing is read back before `InstallationSessionGuard` has cleared what a previous install left behind.
-struct KeychainAPIRefreshTokenStore: APIRefreshTokenStore {
+public struct KeychainAPIRefreshTokenStore: APIRefreshTokenStore {
     private let service: String
     private let account: String
 
-    init(service: String = "com.somsak.Marauders.auth", account: String = "apiRefreshToken") {
+    public init(service: String = "com.somsak.Marauders.auth", account: String = "apiRefreshToken") {
         self.service = service
         self.account = account
     }
 
-    func loadRefreshToken() -> String? {
+    public func loadRefreshToken() -> String? {
         guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
         var query: [String: Any] = baseQuery()
         query[kSecReturnData as String] = true
@@ -32,7 +33,7 @@ struct KeychainAPIRefreshTokenStore: APIRefreshTokenStore {
         return token
     }
 
-    func saveRefreshToken(_ token: String) throws {
+    public func saveRefreshToken(_ token: String) throws {
         guard APIRefreshTokenFormat.isValid(token) else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(errSecParam)
         }
@@ -60,7 +61,7 @@ struct KeychainAPIRefreshTokenStore: APIRefreshTokenStore {
         throw KeychainAuthSessionStoreError.unexpectedStatus(updateStatus)
     }
 
-    func clearRefreshToken() throws {
+    public func clearRefreshToken() throws {
         let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(status)

@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 struct AuthAPIResponse: Decodable, Sendable {
     let accessToken: String
@@ -22,33 +23,34 @@ struct AuthAPIResponse: Decodable, Sendable {
     }
 }
 
-struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
-    private let client: HTTPClient
+public struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
+    private let transport: any AuthTransport
+    private let baseURL: @MainActor () throws -> URL
 
-    init(session: URLSession = .shared) {
-        self.init(client: URLSessionHTTPClient(session: session))
+    /// - Parameters:
+    ///   - transport: Sends the requests; the app supplies its own HTTP client.
+    ///   - baseURL: The Worker's origin, asked for once per request.
+    public init(transport: any AuthTransport, baseURL: @escaping @MainActor () throws -> URL) {
+        self.transport = transport
+        self.baseURL = baseURL
     }
 
-    init(client: HTTPClient) {
-        self.client = client
-    }
-
-    func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
+    public func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
         let trimmed = identityToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 20, trimmed.count <= 8192 else {
             throw AuthAPIError.invalidIdentityToken
         }
 
         let request = try Self.jsonPost(
-            try APIConfiguration.appleAuthURL(),
+            try AuthRoute.apple.url(relativeTo: try baseURL()),
             timeout: 30,
             body: AppleSignInBody(
                 identityToken: trimmed, country: countryCode.uppercased(), supportsRefreshTokens: true)
         )
 
-        AppLog.info("api.auth", "POST /v1/auth/apple")
+        AuthLog.info("api.auth", "POST /v1/auth/apple")
 
-        let response = try await client.data(request)
+        let response = try await transport.data(request)
 
         guard response.isSuccess else {
             if response.statusCode == 401 {
@@ -60,13 +62,14 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
         return try JSONDecoder().decode(AuthAPIResponse.self, from: response.data).tokens()
     }
 
-    func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+    public func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
         let request = try Self.jsonPost(
-            try APIConfiguration.refreshAuthURL(), timeout: 30, body: RefreshTokenBody(refreshToken: refreshToken))
+            try AuthRoute.refresh.url(relativeTo: try baseURL()), timeout: 30,
+            body: RefreshTokenBody(refreshToken: refreshToken))
 
-        AppLog.info("api.auth", "POST /v1/auth/refresh")
+        AuthLog.info("api.auth", "POST /v1/auth/refresh")
 
-        let response = try await client.data(request)
+        let response = try await transport.data(request)
 
         guard response.isSuccess else {
             switch response.statusCode {
@@ -91,13 +94,14 @@ struct AuthAPIClient: AuthAPIClientProtocol, Sendable {
         return tokens
     }
 
-    func revokeRefreshToken(_ refreshToken: String) async throws {
+    public func revokeRefreshToken(_ refreshToken: String) async throws {
         let request = try Self.jsonPost(
-            try APIConfiguration.signOutAuthURL(), timeout: 10, body: RefreshTokenBody(refreshToken: refreshToken))
+            try AuthRoute.signOut.url(relativeTo: try baseURL()), timeout: 10,
+            body: RefreshTokenBody(refreshToken: refreshToken))
 
-        AppLog.info("api.auth", "POST /v1/auth/signout")
+        AuthLog.info("api.auth", "POST /v1/auth/signout")
 
-        let response = try await client.data(request)
+        let response = try await transport.data(request)
 
         guard response.isSuccess else {
             throw AuthAPIError.serverError(response.statusCode)

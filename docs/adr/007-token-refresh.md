@@ -41,4 +41,4 @@ The Worker issued one stateless **30-day** JWT at sign-in and had no way to rene
 - [ARCHITECTURE.md](../../ARCHITECTURE.md) — HTTP API contract ("A 401 ends the session"), Session end, Signing out, Data model
 - Design: `docs/superpowers/specs/2026-11-15-token-refresh-design.md`
 - `backend/src/routes/authRefresh.ts`, `backend/src/db/refreshTokens.ts`, `backend/sql/022_refresh_tokens.sql`
-- `Data/Auth/TokenRefresher.swift`, `Data/API/TokenRefreshingHTTPClient.swift`, `Composition/APITransportComposition.swift`
+- `Packages/MaraudersAuth/Sources/MaraudersAuthData/TokenRefresher.swift` (in `Data/Auth/` until [ADR-009](009-session-core-package.md)), `Data/API/TokenRefreshingHTTPClient.swift`, `Composition/APITransportComposition.swift`

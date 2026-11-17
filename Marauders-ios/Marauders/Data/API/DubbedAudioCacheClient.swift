@@ -1,4 +1,6 @@
 import Foundation
+import MaraudersAuth
+import MaraudersAuthData
 
 struct DubbedAudioCacheClient: DubbedAudioCaching {
     private let client: any HTTPClient
