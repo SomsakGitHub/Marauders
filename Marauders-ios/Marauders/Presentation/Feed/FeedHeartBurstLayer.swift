@@ -5,11 +5,6 @@
 
 import SwiftUI
 
-extension Color {
-    /// The red of a liked heart, on the rail and in a double tap's burst (TikTok's).
-    static let likeRed = Color(red: 254 / 255, green: 44 / 255, blue: 85 / 255)
-}
-
 /// A big heart a double tap leaves on the clip.
 struct FeedHeartBurst: Identifiable, Equatable {
     /// How long a heart takes to pop in, rise and fade; the feed drops it after that.

@@ -130,19 +130,10 @@ struct PublicProfileScreen: View {
 
     /// Red Follow as on TikTok; once followed it turns grey, and tapping it again stops following.
     private var followButton: some View {
-        let following = viewModel.isFollowing
-        return Button {
+        FollowButton(following: viewModel.isFollowing, minWidth: 140) {
             guard authViewModel.isSignedIn else { showingSignIn = true; return }
             viewModel.toggleFollow()
-        } label: {
-            (following ? Text("Following") : Text("Follow"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(following ? Color.primary : Color.white)
-                .frame(minWidth: 140)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(following ? Color(.systemGray5) : Color.likeRed)
-        .animation(.snappy, value: following)
         .accessibilityIdentifier("publicProfile.follow")
     }
 
@@ -182,7 +173,7 @@ struct PublicProfileScreen: View {
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            Button("Retry") {
+            Button("Try Again") {
                 Task { await viewModel.reload() }
             }
             .buttonStyle(.borderedProminent)

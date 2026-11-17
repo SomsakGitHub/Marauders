@@ -36,11 +36,7 @@ struct MapSearchBar: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay {
-            Capsule().strokeBorder(.quaternary, lineWidth: 0.5)
-        }
-        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+        .floatingChrome(in: Capsule())
         .accessibilityIdentifier("map.search")
     }
 }

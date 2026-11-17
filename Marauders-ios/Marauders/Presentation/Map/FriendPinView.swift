@@ -29,7 +29,7 @@ struct FriendPinView: View {
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(.ultraThinMaterial, in: Capsule())
+                .floatingBacking(in: Capsule())
             }
         }
         .buttonStyle(.plain)

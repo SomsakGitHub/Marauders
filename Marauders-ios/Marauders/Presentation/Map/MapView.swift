@@ -180,27 +180,18 @@ struct MapView: View {
 
             if friendLocations?.sharing == true, friendLocations?.located == false {
                 Text("Finding your location…")
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .floatingStatusPill()
                     .accessibilityIdentifier("map.findingLocation")
             } else if friendLocations?.sharing == true, friendLocations?.friends.isEmpty == true {
                 Text("No mutual followers are sharing their location yet")
-                    .font(.subheadline.weight(.medium))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .floatingStatusPill()
                     .accessibilityIdentifier("map.friendsEmpty")
             }
 
             if visibleClips.isEmpty, !allClips.isEmpty {
                 Text("No clips in this area")
-                    .font(.subheadline.weight(.medium))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .floatingStatusPill()
                     .accessibilityIdentifier("map.nearMeEmpty")
             }
         }
@@ -215,9 +206,7 @@ struct MapView: View {
             Text(countryFilterMenuFlag)
                 .font(.system(size: 24))
                 .frame(width: 44, height: 44)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay { Circle().strokeBorder(.quaternary, lineWidth: 0.5) }
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                .floatingChrome(in: Circle())
         }
         .accessibilityLabel("Map filters")
         .accessibilityIdentifier("map.filters")
@@ -250,12 +239,10 @@ struct MapView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
             .frame(minHeight: 44)
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay {
-                Capsule().strokeBorder(
-                    isSharing ? Color.green : Color.secondary.opacity(0.3), lineWidth: isSharing ? 1.5 : 0.5)
-            }
-            .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+            .floatingChrome(
+                in: Capsule(),
+                edge: isSharing ? Color.green : Color.secondary.opacity(0.3),
+                edgeWidth: isSharing ? 1.5 : 0.5)
         }
         .disabled(friendLocations?.sharing == nil || friendLocations?.isChangingSharing == true)
         .accessibilityElement(children: .ignore)
@@ -285,9 +272,7 @@ struct MapView: View {
                 .font(.headline)
                 .foregroundStyle(.primary)
                 .frame(width: 44, height: 44)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay { Circle().strokeBorder(.quaternary, lineWidth: 0.5) }
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+                .floatingChrome(in: Circle())
         }
         .accessibilityLabel("Current Location")
         .accessibilityIdentifier("map.currentLocation")

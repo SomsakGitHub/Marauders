@@ -158,18 +158,12 @@ private struct FollowListPane: View {
     /// Red Follow, grey Following, as on a profile. It reads and writes the viewer's shared follows, so the row, the
     /// feed's "+" and every profile agree.
     private func followButton(_ entry: FollowListEntry) -> some View {
-        let following = followsViewModel.isFollowing(entry.handle, fallback: entry.followedByViewer)
-        return Button {
+        FollowButton(
+            following: followsViewModel.isFollowing(entry.handle, fallback: entry.followedByViewer),
+            minWidth: 84
+        ) {
             followsViewModel.toggle(entry.handle, fallback: entry.followedByViewer)
-        } label: {
-            (following ? Text("Following") : Text("Follow"))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(following ? Color.primary : Color.white)
-                .frame(minWidth: 84)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(following ? Color(.systemGray5) : Color.likeRed)
-        .animation(.snappy, value: following)
         .accessibilityIdentifier("followList.follow")
     }
 

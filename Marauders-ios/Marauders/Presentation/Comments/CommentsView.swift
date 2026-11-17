@@ -181,7 +181,7 @@ struct CommentsView: View {
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            Button("Retry") {
+            Button("Try Again") {
                 Task { await viewModel.reload() }
             }
             .buttonStyle(.borderedProminent)

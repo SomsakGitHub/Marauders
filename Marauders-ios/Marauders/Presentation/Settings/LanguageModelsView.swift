@@ -97,7 +97,7 @@ struct LanguageModelsView: View {
         case .notInstalled:
             downloadButton(model, title: "Download")
         case .failed:
-            downloadButton(model, title: "Retry")
+            downloadButton(model, title: "Try Again")
         case .downloading(let progress):
             if let progress {
                 ProgressView(value: progress)
