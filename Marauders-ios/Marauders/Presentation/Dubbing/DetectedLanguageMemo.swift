@@ -12,16 +12,17 @@ import Observation
 @MainActor
 @Observable
 final class DetectedLanguageMemo {
-    static let shared: DetectedLanguageMemo = {
-        // UI tests start empty and never keep anything between runs.
+    /// The memo the app runs with, which the composition root builds once. UI tests start empty and never keep
+    /// anything between runs.
+    static func forApp(defaults: UserDefaults = .standard) -> DetectedLanguageMemo {
         if AppRuntimeConfiguration.isUITesting {
             let suite = "marauders.uitest.detected"
-            let defaults = UserDefaults(suiteName: suite) ?? .standard
-            defaults.removePersistentDomain(forName: suite)
-            return DetectedLanguageMemo(defaults: defaults)
+            let uiTestDefaults = UserDefaults(suiteName: suite) ?? .standard
+            uiTestDefaults.removePersistentDomain(forName: suite)
+            return DetectedLanguageMemo(defaults: uiTestDefaults)
         }
-        return DetectedLanguageMemo()
-    }()
+        return DetectedLanguageMemo(defaults: defaults)
+    }
 
     /// Bumped when the detector changed, so answers from the previous one (some of them wrong, such as
     /// Dutch read as German) are not trusted any more.

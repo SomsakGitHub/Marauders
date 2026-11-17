@@ -22,7 +22,7 @@ final class ListeningLanguagePickerViewModel {
     private(set) var unavailable: Set<String> = []
     private(set) var isChecking = true
 
-    init(store: ListeningLanguageStore = .shared) {
+    init(store: ListeningLanguageStore) {
         self.store = store
     }
 

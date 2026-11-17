@@ -141,6 +141,7 @@ struct LanguageModelsView: View {
 
 #Preview {
     NavigationStack {
-        LanguageModelsView(viewModel: LanguageModelsViewModel(manager: NoopLanguageModelManager()))
+        LanguageModelsView(
+            viewModel: LanguageModelsViewModel(manager: NoopLanguageModelManager(), listening: .standalone()))
     }
 }

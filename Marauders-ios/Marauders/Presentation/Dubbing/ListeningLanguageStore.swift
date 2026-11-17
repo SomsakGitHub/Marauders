@@ -12,18 +12,19 @@ import Observation
 @MainActor
 @Observable
 final class ListeningLanguageStore {
-    static let shared: ListeningLanguageStore = {
-        // UI tests get a fixed English + Thai viewer and never read or keep a saved choice.
+    /// The store the app runs with, which the composition root builds once and the screens read from the environment.
+    /// UI tests get a fixed English + Thai viewer and never read or keep a saved choice.
+    static func forApp(defaults: UserDefaults = .standard, memo: DetectedLanguageMemo) -> ListeningLanguageStore {
         if AppRuntimeConfiguration.isUITesting {
             let suite = "marauders.uitest.listening"
-            let defaults = UserDefaults(suiteName: suite) ?? .standard
-            defaults.removePersistentDomain(forName: suite)
+            let uiTestDefaults = UserDefaults(suiteName: suite) ?? .standard
+            uiTestDefaults.removePersistentDomain(forName: suite)
             return ListeningLanguageStore(
-                defaults: defaults, preferredLanguages: { ["en-US", "th-TH"] },
-                region: { "US" })
+                defaults: uiTestDefaults, preferredLanguages: { ["en-US", "th-TH"] },
+                region: { "US" }, memo: memo)
         }
-        return ListeningLanguageStore()
-    }()
+        return ListeningLanguageStore(defaults: defaults, memo: memo)
+    }
 
     private static let defaultsKey = "listeningLanguage"
 
@@ -33,16 +34,18 @@ final class ListeningLanguageStore {
     private let memo: DetectedLanguageMemo
     private(set) var explicit: ListeningLanguage?
 
+    /// `memo` has no default: the clip languages this iPhone has found are shared with the dubbing view models, so
+    /// whoever builds the store says which memo that is.
     init(
         defaults: UserDefaults = .standard,
         preferredLanguages: @escaping () -> [String] = { Locale.preferredLanguages },
         region: @escaping () -> String? = { Locale.current.region?.identifier },
-        memo: DetectedLanguageMemo? = nil
+        memo: DetectedLanguageMemo
     ) {
         self.defaults = defaults
         self.preferredLanguages = preferredLanguages
         self.region = region
-        self.memo = memo ?? DetectedLanguageMemo.shared
+        self.memo = memo
         explicit = defaults.string(forKey: Self.defaultsKey).flatMap { ListeningLanguage(identifier: $0) }
     }
 

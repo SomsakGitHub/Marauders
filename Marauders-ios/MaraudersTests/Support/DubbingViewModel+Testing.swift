@@ -34,4 +34,22 @@ extension DubbingViewModel {
         if let requestSpeechPermission { services.requestSpeechPermission = requestSpeechPermission }
         self.init(cache: cache, services: services, reports: reports, memo: memo, consent: consent)
     }
+
+    /// The production initializer with the three shared stores left out: each is one of the test's own, in a suite of
+    /// its own, so no test sees what another remembered.
+    convenience init(
+        cache: any DubbedAudioCaching, services: DubbingServices,
+        reports: DubbedAudioReportMemory? = nil, memo: DetectedLanguageMemo? = nil,
+        consent: LanguageDetectionConsent? = nil
+    ) {
+        self.init(
+            cache: cache, services: services,
+            reports: reports ?? DubbedAudioReportMemory(defaults: Self.isolatedDefaults()),
+            memo: memo ?? DetectedLanguageMemo(defaults: Self.isolatedDefaults()),
+            consent: consent ?? LanguageDetectionConsent())
+    }
+
+    private static func isolatedDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
+    }
 }

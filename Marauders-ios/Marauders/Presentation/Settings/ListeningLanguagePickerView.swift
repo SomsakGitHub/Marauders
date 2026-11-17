@@ -96,7 +96,7 @@ struct ListeningLanguagePickerView: View {
 
 #Preview {
     NavigationStack {
-        ListeningLanguagePickerView(viewModel: ListeningLanguagePickerViewModel())
+        ListeningLanguagePickerView(viewModel: ListeningLanguagePickerViewModel(store: .standalone()))
     }
     .environment(\.listeningLanguageAvailability, NoopListeningLanguageAvailability())
 }

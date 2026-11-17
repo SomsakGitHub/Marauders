@@ -18,7 +18,7 @@ final class LanguageModelsViewModel {
     private let listening: ListeningLanguageStore
     private var translationModel: LanguageModel?
 
-    init(manager: any LanguageModelManaging, listening: ListeningLanguageStore = .shared) {
+    init(manager: any LanguageModelManaging, listening: ListeningLanguageStore) {
         self.manager = manager
         self.listening = listening
     }

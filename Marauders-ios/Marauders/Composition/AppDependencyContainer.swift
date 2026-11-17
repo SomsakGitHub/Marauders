@@ -28,8 +28,23 @@ final class AppDependencyContainer {
     private let dubbedAudioCache: any DubbedAudioCaching
     /// The on-device engines that find a clip's language, write its speech down and read the translation aloud.
     private let dubbingServices = DubbingServices.onDevice()
+    /// What this iPhone has found out about the language of each clip, which the listening store reads and every
+    /// dubbing view model writes.
+    let detectedLanguageMemo: DetectedLanguageMemo
+    /// The viewer's listening language, which every screen that offers AI audio reads. `AppRootView` puts it in the
+    /// environment.
+    let listeningLanguageStore: ListeningLanguageStore
+    /// The view model of the listening-language picker, which Settings, the feed and the clip player share.
+    /// `AppRootView` puts it in the environment.
+    let listeningLanguagePicker: ListeningLanguagePickerViewModel
+    /// Whether the viewer said "Not now" to the language detection model during this run of the app.
+    let languageDetectionConsent: LanguageDetectionConsent
+    /// Which saved AI audio this iPhone has reported.
+    let dubbedAudioReportMemory: DubbedAudioReportMemory
+    /// The thumbnails of the map's pins and the profile's grid. `AppRootView` puts it in the environment.
+    let videoThumbnailLoader: VideoThumbnailLoader
     /// The Settings screen's list of on-device language models and how far each download has got.
-    let languageModelsViewModel = LanguageModelsViewModel(manager: AppleLanguageModelManager())
+    let languageModelsViewModel: LanguageModelsViewModel
     /// Which listening languages this iPhone cannot serve, which `AppRootView` puts in the environment for the picker.
     let listeningLanguageAvailability: any ListeningLanguageAvailability = SystemListeningLanguageAvailability()
     private let feedRepository: FeedRepository
@@ -52,9 +67,22 @@ final class AppDependencyContainer {
         sessionStores: (
             session: AuthSessionStore, accessToken: APIAccessTokenStore, refreshToken: APIRefreshTokenStore
         )? = nil,
-        clipUploader: BackgroundClipUploader? = nil
+        clipUploader: BackgroundClipUploader? = nil,
+        viewerDefaults: UserDefaults = .standard
     ) {
         let uiTestFeedMode = Self.uiTestFeedMode()
+        // The viewer's own choices and what this iPhone has learned about clips, which the screens and the dubbing view
+        // models share. A test hands its own defaults, so it never writes into the ones the whole test run shares.
+        let detectedLanguageMemo = DetectedLanguageMemo.forApp(defaults: viewerDefaults)
+        let listeningLanguageStore = ListeningLanguageStore.forApp(defaults: viewerDefaults, memo: detectedLanguageMemo)
+        self.detectedLanguageMemo = detectedLanguageMemo
+        self.listeningLanguageStore = listeningLanguageStore
+        listeningLanguagePicker = ListeningLanguagePickerViewModel(store: listeningLanguageStore)
+        languageDetectionConsent = LanguageDetectionConsent()
+        dubbedAudioReportMemory = DubbedAudioReportMemory.forApp(defaults: viewerDefaults)
+        videoThumbnailLoader = VideoThumbnailLoader()
+        languageModelsViewModel = LanguageModelsViewModel(
+            manager: AppleLanguageModelManager(), listening: listeningLanguageStore)
         let sessionStore: AuthSessionStore
         let tokenStore: APIAccessTokenStore
         let refreshTokenStore: APIRefreshTokenStore
@@ -356,7 +384,9 @@ final class AppDependencyContainer {
     /// A view model that dubs one clip, which the clip player owns while the clip is open. `AppRootView` puts this in the
     /// environment, because a player creates its view model before it can read the cache and the services from it.
     func makeDubbingViewModel() -> DubbingViewModel {
-        DubbingViewModel(cache: dubbedAudioCache, services: dubbingServices)
+        DubbingViewModel(
+            cache: dubbedAudioCache, services: dubbingServices, reports: dubbedAudioReportMemory,
+            memo: detectedLanguageMemo, consent: languageDetectionConsent)
     }
 
     func makeCommentsViewModel(videoID: UUID) -> CommentsViewModel {

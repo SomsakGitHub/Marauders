@@ -63,7 +63,8 @@ struct LanguageModelsViewModelTests {
     /// A store that always listens in Thai, isolated from the device's saved settings.
     private func thaiListener() -> ListeningLanguageStore {
         let store = ListeningLanguageStore(
-            defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!, preferredLanguages: { [] })
+            defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!, preferredLanguages: { [] },
+            memo: DetectedLanguageMemo(defaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!))
         store.choose(.thai)
         return store
     }

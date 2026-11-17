@@ -5,15 +5,17 @@ import Foundation
 /// the oldest entries are dropped past `limit`.
 @MainActor
 final class DubbedAudioReportMemory {
-    static let shared: DubbedAudioReportMemory = {
+    /// The memory the app runs with, which the composition root builds once. UI tests start empty and never keep
+    /// anything between runs.
+    static func forApp(defaults: UserDefaults = .standard) -> DubbedAudioReportMemory {
         if AppRuntimeConfiguration.isUITesting {
             let suite = "marauders.uitest.reported"
-            let defaults = UserDefaults(suiteName: suite) ?? .standard
-            defaults.removePersistentDomain(forName: suite)
-            return DubbedAudioReportMemory(defaults: defaults)
+            let uiTestDefaults = UserDefaults(suiteName: suite) ?? .standard
+            uiTestDefaults.removePersistentDomain(forName: suite)
+            return DubbedAudioReportMemory(defaults: uiTestDefaults)
         }
-        return DubbedAudioReportMemory()
-    }()
+        return DubbedAudioReportMemory(defaults: defaults)
+    }
 
     private static let storageKey = "reportedDubbedAudio.v1"
     private let defaults: UserDefaults

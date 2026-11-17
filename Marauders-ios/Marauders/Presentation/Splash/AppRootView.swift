@@ -39,6 +39,9 @@ struct AppRootView: View {
         }
         .environment(\.dubbingViewModelFactory, DubbingViewModelFactory(make: { container.makeDubbingViewModel() }))
         .environment(\.listeningLanguageAvailability, container.listeningLanguageAvailability)
+        .environment(\.listeningLanguageStore, container.listeningLanguageStore)
+        .environment(\.listeningLanguagePicker, container.listeningLanguagePicker)
+        .environment(\.videoThumbnailLoader, container.videoThumbnailLoader)
         .animation(AppRuntimeConfiguration.isUITesting ? nil : .easeOut(duration: 0.32), value: isShowingSplash)
         .task {
             await presentSplash()

@@ -46,7 +46,11 @@ struct VideoFeedView: View {
     /// English like the rest of their fixed viewer.
     private var commentLanguage: ListeningLanguage? {
         let country = AppRuntimeConfiguration.isUITesting ? "US" : Locale.current.region?.identifier
-        return CommentTranslation.language(forCountry: country) ?? ListeningLanguageStore.shared.effective
+        return CommentTranslation.language(forCountry: country) ?? listening.effective
+    }
+    @Environment(\.listeningLanguageStore) private var installedListening
+    private var listening: ListeningLanguageStore {
+        installedValue(installedListening, forKey: "\\.listeningLanguageStore") { .standalone() }
     }
     @State private var resumeAfterComments = false
     /// The comments the viewer posted and deleted here, on top of the counts the feed brought.

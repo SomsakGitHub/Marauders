@@ -50,6 +50,60 @@ struct AppDependencyContainerWiringTests {
         #expect(authViewModel.checkUploadOnSignIn != nil)
     }
 
+    // MARK: - The stores the screens share
+
+    /// A container whose language stores keep their choices in a suite of the test's own, never in the defaults the
+    /// whole test run shares.
+    private func makeContainerWithOwnDefaults() -> AppDependencyContainer {
+        AppDependencyContainer(viewerDefaults: UserDefaults(suiteName: "tests.\(UUID().uuidString)")!)
+    }
+
+    @Test func theListeningPickerAndTheStoreAreOneChoice() {
+        let container = makeContainerWithOwnDefaults()
+        #expect(container.listeningLanguagePicker.choose(.spanish))
+        #expect(container.listeningLanguageStore.explicit == .spanish)
+    }
+
+    @Test func theLanguageModelsScreenFollowsTheContainersListeningChoice() {
+        let container = makeContainerWithOwnDefaults()
+        container.listeningLanguageStore.choose(.thai)
+        #expect(
+            container.languageModelsViewModel.translationModels.map(\.id)
+                == LanguageModel.translationModels(for: [.thai]).map(\.id))
+    }
+
+    @Test func theListeningStoreReadsWhatTheContainersMemoRemembers() {
+        let container = makeContainerWithOwnDefaults()
+        let clip = FeedVideo(streamURL: URL(string: "https://example.com/a.mp4")!)
+        #expect(container.listeningLanguageStore.declaredCode(for: clip) == nil)
+        container.detectedLanguageMemo.remember("es", for: clip.id)
+        #expect(container.listeningLanguageStore.declaredCode(for: clip) == "es")
+    }
+
+    @Test func aDubbingViewModelTheContainerMakesSharesTheContainersStores() {
+        let container = makeContainerWithOwnDefaults()
+        let model = container.makeDubbingViewModel()
+        #expect(model.memo === container.detectedLanguageMemo)
+        #expect(model.reports === container.dubbedAudioReportMemory)
+        #expect(model.consent === container.languageDetectionConsent)
+    }
+
+    @Test func decliningTheDetectionModelIsRememberedByTheContainer() {
+        let container = makeContainerWithOwnDefaults()
+        #expect(!container.languageDetectionConsent.declined)
+        container.makeDubbingViewModel().declineDetectionModel()
+        #expect(container.languageDetectionConsent.declined)
+    }
+
+    @Test func nothingOneContainerRemembersReachesAnother() {
+        let first = makeContainerWithOwnDefaults()
+        let second = makeContainerWithOwnDefaults()
+        first.languageDetectionConsent.decline()
+        first.listeningLanguageStore.choose(.thai)
+        #expect(!second.languageDetectionConsent.declined)
+        #expect(second.listeningLanguageStore.explicit == nil)
+    }
+
     // MARK: - The uploader's rejections
 
     /// A container over stores of the test's own and over `uploader`, never the Keychain or the process-wide uploader

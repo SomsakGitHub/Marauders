@@ -119,15 +119,18 @@ struct ListeningLanguageTests {
 
     @Test func choiceIsSavedAndCanBeCleared() {
         let defaults = UserDefaults(suiteName: "tests.\(UUID().uuidString)")!
-        let first = ListeningLanguageStore(defaults: defaults, preferredLanguages: { [] })
+        func open() -> ListeningLanguageStore {
+            ListeningLanguageStore(defaults: defaults, preferredLanguages: { [] }, memo: memo())
+        }
+        let first = open()
         #expect(first.explicit == nil)
         first.choose(.spanish)
-        #expect(ListeningLanguageStore(defaults: defaults, preferredLanguages: { [] }).explicit == .spanish)
+        #expect(open().explicit == .spanish)
         first.choose(nil)
         #expect(first.explicit == nil)
-        #expect(ListeningLanguageStore(defaults: defaults, preferredLanguages: { [] }).explicit == nil)
+        #expect(open().explicit == nil)
         defaults.set("not-a-language", forKey: "listeningLanguage")
-        #expect(ListeningLanguageStore(defaults: defaults, preferredLanguages: { [] }).explicit == nil)
+        #expect(open().explicit == nil)
     }
 
     @Test func dubbingIsOfferedOnlyWhenItWouldChangeWhatTheViewerHears() {

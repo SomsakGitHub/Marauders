@@ -293,6 +293,11 @@ struct ProfileClipThumbnail: View {
     let clip: FeedVideo
 
     @State private var thumbnail: UIImage?
+    @Environment(\.videoThumbnailLoader) private var installedThumbnailLoader
+
+    private var thumbnails: VideoThumbnailLoader {
+        installedValue(installedThumbnailLoader, forKey: "\\.videoThumbnailLoader") { VideoThumbnailLoader() }
+    }
 
     var body: some View {
         Color.clear
@@ -310,7 +315,7 @@ struct ProfileClipThumbnail: View {
             .clipped()
             .contentShape(Rectangle())
             .task(id: clip.streamURL) {
-                thumbnail = await VideoThumbnailLoader.shared.thumbnail(
+                thumbnail = await thumbnails.thumbnail(
                     for: clip.streamURL,
                     maxPixelSize: 240
                 )

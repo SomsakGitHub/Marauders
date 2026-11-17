@@ -42,8 +42,18 @@ struct FeedClipActionRail: View {
 
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
-    @State private var languagePicker = ListeningLanguagePickerViewModel()
-    private let listening = ListeningLanguageStore.shared
+    @Environment(\.listeningLanguageStore) private var installedListening
+    @Environment(\.listeningLanguagePicker) private var installedLanguagePicker
+
+    private var listening: ListeningLanguageStore {
+        installedValue(installedListening, forKey: "\\.listeningLanguageStore") { .standalone() }
+    }
+
+    private var languagePicker: ListeningLanguagePickerViewModel {
+        installedValue(installedLanguagePicker, forKey: "\\.listeningLanguagePicker") {
+            ListeningLanguagePickerViewModel(store: .standalone())
+        }
+    }
 
     var body: some View {
         VStack(spacing: 20) {

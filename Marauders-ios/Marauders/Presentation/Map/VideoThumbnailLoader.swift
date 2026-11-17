@@ -8,8 +8,6 @@ import UIKit
 
 /// Generates and caches small video frame thumbnails for map pins (HTTPS streams only).
 actor VideoThumbnailLoader {
-    static let shared = VideoThumbnailLoader()
-
     private var cache: [URL: UIImage] = [:]
     private let maxCacheCount = 40
 

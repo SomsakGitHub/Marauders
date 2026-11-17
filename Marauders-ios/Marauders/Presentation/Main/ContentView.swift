@@ -179,4 +179,7 @@ struct ContentView: View {
     )
     .environment(\.dubbingViewModelFactory, DubbingViewModelFactory(make: { container.makeDubbingViewModel() }))
     .environment(\.listeningLanguageAvailability, container.listeningLanguageAvailability)
+    .environment(\.listeningLanguageStore, container.listeningLanguageStore)
+    .environment(\.listeningLanguagePicker, container.listeningLanguagePicker)
+    .environment(\.videoThumbnailLoader, container.videoThumbnailLoader)
 }

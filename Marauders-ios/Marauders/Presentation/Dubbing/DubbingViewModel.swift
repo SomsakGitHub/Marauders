@@ -27,13 +27,15 @@ final class DubbingViewModel {
     /// The words of the AI voice, in the viewer's language, shown as subtitles while it plays.
     private(set) var subtitle: String?
     private let cache: any DubbedAudioCaching
-    private let reports: DubbedAudioReportMemory
+    /// The three stores below are shared with the rest of the app, which the composition root hands to every view
+    /// model it makes; they are not private so a test can check that it did.
+    let reports: DubbedAudioReportMemory
     private let detector: any ClipLanguageDetecting
     private let loader: any ClipFileLoading
-    private let memo: DetectedLanguageMemo
+    let memo: DetectedLanguageMemo
     private let models: any LanguageDetectionModelManaging
     private let acoustic: any AcousticLanguageIdentifying
-    private let consent: LanguageDetectionConsent
+    let consent: LanguageDetectionConsent
     private let transcriber: any AcousticTranscribing
     private let systemSpeech: any SystemSpeechTranscribing
     private let voices: any NarrationVoiceChoosing
@@ -45,27 +47,28 @@ final class DubbingViewModel {
     /// Counts requests, so work that belongs to a request the viewer has left can tell and stop.
     private(set) var generation = 0
 
-    /// `cache` and `services` have no defaults: the real ones are Data types, so the composition root builds them and
-    /// the clip player hands the view model over (it reads a factory from `EnvironmentValues.dubbingViewModelFactory`).
+    /// Nothing has a default: the real `cache` and `services` are Data types, and `reports`, `memo` and `consent` are
+    /// shared with the rest of the app, so the composition root builds them all and the clip player hands the view
+    /// model over (it reads a factory from `EnvironmentValues.dubbingViewModelFactory`).
     init(
         cache: any DubbedAudioCaching,
         services: DubbingServices,
-        reports: DubbedAudioReportMemory? = nil,
-        memo: DetectedLanguageMemo? = nil,
-        consent: LanguageDetectionConsent? = nil
+        reports: DubbedAudioReportMemory,
+        memo: DetectedLanguageMemo,
+        consent: LanguageDetectionConsent
     ) {
         self.cache = cache
-        self.reports = reports ?? DubbedAudioReportMemory.shared
+        self.reports = reports
         self.detector = services.detector
         self.loader = services.loader
-        self.memo = memo ?? DetectedLanguageMemo.shared
+        self.memo = memo
         self.models = services.models
         self.acoustic = services.acoustic
         self.transcriber = services.transcriber
         self.systemSpeech = services.systemSpeech
         self.voices = services.voices
         self.transcriptLanguage = services.transcriptLanguage
-        self.consent = consent ?? LanguageDetectionConsent.shared
+        self.consent = consent
         self.requestSpeechPermission = services.requestSpeechPermission
     }
 
@@ -143,6 +146,12 @@ final class DubbingViewModel {
         }
         message = nil
         return .translate(source: source)
+    }
+
+    /// The viewer said "Not now" to the language detection model download: no clip asks again until the app starts
+    /// again.
+    func declineDetectionModel() {
+        consent.decline()
     }
 
     /// The viewer said "Not now" to a speech model download: keep the original audio and say why.

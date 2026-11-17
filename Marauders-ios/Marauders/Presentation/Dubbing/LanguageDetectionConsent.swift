@@ -16,8 +16,6 @@ import Observation
 @MainActor
 @Observable
 final class LanguageDetectionConsent {
-    static let shared = LanguageDetectionConsent()
-
     private(set) var declined = false
 
     func decline() { declined = true }

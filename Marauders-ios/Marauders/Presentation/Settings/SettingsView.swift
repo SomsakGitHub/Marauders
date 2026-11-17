@@ -11,10 +11,16 @@ struct SettingsView: View {
     /// The viewer's location sharing; here so it can be turned off even when location access is off and the map closed.
     var friendLocations: FriendLocationsViewModel? = nil
     var isSignedIn = false
-    @State private var listeningPicker = ListeningLanguagePickerViewModel()
     @State private var isConfirmingSharing = false
     @State private var sharingError: String?
     @Environment(\.openURL) private var openURL
+    @Environment(\.listeningLanguagePicker) private var installedListeningPicker
+
+    private var listeningPicker: ListeningLanguagePickerViewModel {
+        installedValue(installedListeningPicker, forKey: "\\.listeningLanguagePicker") {
+            ListeningLanguagePickerViewModel(store: .standalone())
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -120,6 +126,8 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(languageModels: LanguageModelsViewModel(manager: NoopLanguageModelManager()))
+    let listening = ListeningLanguageStore.standalone()
+    SettingsView(languageModels: LanguageModelsViewModel(manager: NoopLanguageModelManager(), listening: listening))
+        .environment(\.listeningLanguagePicker, ListeningLanguagePickerViewModel(store: listening))
         .environment(\.listeningLanguageAvailability, NoopListeningLanguageAvailability())
 }

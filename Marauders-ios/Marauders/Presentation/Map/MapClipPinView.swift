@@ -10,8 +10,13 @@ struct MapClipPinView: View {
     let clip: FeedVideo
 
     @State private var thumbnail: UIImage?
+    @Environment(\.videoThumbnailLoader) private var installedThumbnailLoader
 
     private let diameter: CGFloat = 54
+
+    private var thumbnails: VideoThumbnailLoader {
+        installedValue(installedThumbnailLoader, forKey: "\\.videoThumbnailLoader") { VideoThumbnailLoader() }
+    }
 
     var body: some View {
         ZStack {
@@ -25,7 +30,7 @@ struct MapClipPinView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Clip on map")
         .task(id: clip.streamURL) {
-            thumbnail = await VideoThumbnailLoader.shared.thumbnail(for: clip.streamURL)
+            thumbnail = await thumbnails.thumbnail(for: clip.streamURL)
         }
     }
 

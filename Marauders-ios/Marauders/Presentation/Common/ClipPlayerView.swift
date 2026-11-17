@@ -40,7 +40,9 @@ struct ClipPlayerView: View {
         if let dubbingViewModelFactory { return dubbingViewModelFactory.make() }
         assertionFailure(
             "No factory installed for AI audio: add .environment(\\.dubbingViewModelFactory, …) above the clip player")
-        return DubbingViewModel(cache: NoDubbedAudioCache(), services: .unavailable)
+        return DubbingViewModel(
+            cache: NoDubbedAudioCache(), services: .unavailable, reports: DubbedAudioReportMemory(),
+            memo: DetectedLanguageMemo(), consent: LanguageDetectionConsent())
     }
 }
 
@@ -66,7 +68,6 @@ private struct ClipPlayerContent: View {
     /// The language whose speech model (the Whisper model) the viewer is being asked about, and their answer.
     @State private var offeredSpeechModel: DubbingSourceLanguage?
     @State private var speechModelAgreed = false
-    @State private var languagePicker = ListeningLanguagePickerViewModel()
     @State private var wantsDubbing = false
     @State private var audioRequestID = 0
     @State private var choosingAudio = false
@@ -75,7 +76,18 @@ private struct ClipPlayerContent: View {
     @State private var reportNotice: String?
     @State private var resumeAfterInterruption = false
     @State private var player: AVPlayer?
-    private let listening = ListeningLanguageStore.shared
+    @Environment(\.listeningLanguageStore) private var installedListening
+    @Environment(\.listeningLanguagePicker) private var installedLanguagePicker
+
+    private var listening: ListeningLanguageStore {
+        installedValue(installedListening, forKey: "\\.listeningLanguageStore") { .standalone() }
+    }
+
+    private var languagePicker: ListeningLanguagePickerViewModel {
+        installedValue(installedLanguagePicker, forKey: "\\.listeningLanguagePicker") {
+            ListeningLanguagePickerViewModel(store: .standalone())
+        }
+    }
 
     init(
         clip: FeedVideo, userCoordinate: CLLocationCoordinate2D?, onClose: @escaping () -> Void,
@@ -152,7 +164,7 @@ private struct ClipPlayerContent: View {
                 audioRequestID += 1
             }
             Button("Not now", role: .cancel) {
-                LanguageDetectionConsent.shared.decline()
+                dubbing.declineDetectionModel()
                 audioRequestID += 1
             }
         } message: {
