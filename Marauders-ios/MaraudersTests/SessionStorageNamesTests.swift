@@ -20,6 +20,20 @@ struct SessionStorageNamesTests {
         return found
     }
 
+    /// The accessibility class of the item `service` holds for `account`, or nil when there is no such item.
+    private static func accessibility(service: String, account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        return (item as? [String: Any])?[kSecAttrAccessible as String] as? String
+    }
+
     @Test func theKeychainItemsKeepTheirServiceAndAccounts() {
         #expect(
             Self.names(of: KeychainAPIAccessTokenStore()) == ["service": Self.service, "account": "apiAccessToken"])
@@ -28,23 +42,24 @@ struct SessionStorageNamesTests {
         #expect(Self.names(of: KeychainAuthSessionStore()) == ["service": Self.service, "account": "appleUserID"])
     }
 
-    @Test func aSavedTokenStaysOnThisDeviceAndIsReadableAfterTheFirstUnlock() throws {
+    @Test func everySavedItemStaysOnThisDeviceAndIsReadableAfterTheFirstUnlock() throws {
         let service = "test.names." + UUID().uuidString
-        let store = KeychainAPIAccessTokenStore(service: service)
-        defer { try? store.clearAccessToken() }
-        try store.saveAccessToken(String(repeating: "a", count: 32))
+        let accessToken = KeychainAPIAccessTokenStore(service: service)
+        let refreshToken = KeychainAPIRefreshTokenStore(service: service)
+        let session = KeychainAuthSessionStore(service: service)
+        defer {
+            try? accessToken.clearAccessToken()
+            try? refreshToken.clearRefreshToken()
+            try? session.clear()
+        }
+        try accessToken.saveAccessToken(String(repeating: "a", count: 32))
+        try refreshToken.saveRefreshToken(String(repeating: "r", count: 43))
+        try session.saveUserID("001234.abcdef.5678")
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: "apiAccessToken",
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var item: CFTypeRef?
-        #expect(SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess)
-        let accessible = (item as? [String: Any])?[kSecAttrAccessible as String] as? String
-        #expect(accessible == kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
+        let expected = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+        #expect(Self.accessibility(service: service, account: "apiAccessToken") == expected)
+        #expect(Self.accessibility(service: service, account: "apiRefreshToken") == expected)
+        #expect(Self.accessibility(service: service, account: "appleUserID") == expected)
     }
 
     @Test func theInstallMarkerKeepsItsPlace() throws {

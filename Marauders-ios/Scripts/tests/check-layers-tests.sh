@@ -722,6 +722,31 @@ run --modules "$CASE_DIR/no-such-file.txt"
 expect_warnings 0
 expect_status 0
 
+begin "a line of the modules file that is not '<Layer>: <folder>' is an error"
+base_tree
+auth_modules
+echo "Domain Packages/Auth/Sources/Auth" >"$MODULES"
+run
+expect_status 2
+expect_text "error: malformed line"
+
+begin "a comment after the folder of a module line is not part of the folder"
+base_tree
+auth_modules
+printf '%s\n' 'Domain: Packages/Auth/Sources/Auth  # the Domain half' \
+    'Data: Packages/Auth/Sources/AuthData	# the Data half, after a tab' >"$MODULES"
+put Presentation/Auth/SignInViewModel.swift <<'EOF'
+import Foundation
+
+final class SignInViewModel {
+    let store = KeychainStore()
+}
+EOF
+run
+expect_status 0
+expect_text "Presentation/Auth/SignInViewModel.swift:4: warning: [layer] Presentation names Data type 'KeychainStore'; Presentation must not depend on Data"
+expect_warnings 1
+
 # --- result --------------------------------------------------------------------------------------------------------
 
 if [ "$failures" -eq 0 ]; then

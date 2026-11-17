@@ -44,7 +44,7 @@ The layer checker reads `Scripts/layer-modules.txt`, which lists the package's t
 |--------|---------|
 | A module of the sign-in screen (`Presentation/Auth`, 7 files) | It needs 20 types of the app. A package cannot import the app target |
 | A module of everything from the screen to the Keychain (26 files) | It still needs the location manager and the sign-out use cases of upload and location sharing, because `AuthViewModel` is the app's session manager and five Presentation folders read it |
-| One target instead of two | Only the checker would stop the Domain half from using the Data half, and a file that imports the module could name a Keychain store. With two targets the compiler holds both rules |
+| One target instead of two | Only the checker would stop the Domain half from using the Data half, and any file that imports the module could name a Keychain store. With two targets the compiler holds the first rule, and the second comes down to one import line, `import MaraudersAuthData`, which the checker reports |
 | Moving `TimeBoundedCall` into the package, or copying it | Moved, an unrelated use case would import an auth module for a timer. Copied, there would be two versions of subtle concurrency code |
 | Import rules alone in the checker | Three rules the checker applied to the moved files would have stopped applying: Foundation only in Domain, no SwiftUI in Data, and no use case named by a view |
 | A logger handed to every object | It changes every place a client or the refresher is built. One sink keeps them as they are, and matches how `AppLog` works |
@@ -54,13 +54,14 @@ The layer checker reads `Scripts/layer-modules.txt`, which lists the package's t
 
 **Positive**
 
-- The rest of the app reaches the session code only through its 23 public types. Presentation cannot import the Keychain and network half.
+- The rest of the app reaches the session code only through what is public: 23 of the 27 moved types, and the four seam types (`AuthTransport`, `AuthTransportResponse`, `AuthTransportFailure`, `AuthLog`).
+- Inside the package the compiler keeps the Domain half from using the Data half. In the app, a Presentation file would have to write `import MaraudersAuthData` to name a Keychain store, and the layer checker reports that line. The compiler itself does not stop it: every app file is in one target, which links both halves.
 - The package builds alone on the Mac in seconds (`swift build --package-path Marauders-ios/Packages/MaraudersAuth`), which proves it names nothing of the app.
 - A second package starts from what this one set up: the project wiring, the settings block of `Package.swift`, a line in `layer-modules.txt`, and tests hosted by the app.
 
 **Negative**
 
-- `public` has to be written on those 23 types and on the members the app uses.
+- `public` has to be written on those types and on the members the app uses.
 - `AuthTokens` carries three `nonisolated` words. Inside one module the compiler lets another actor read a `let` of a struct and writes a non-isolated initializer; a public type used from another module has to say so.
 - `AuthLog.sink` is one piece of module-wide state. A line logged before the app sets it is dropped, which is why `MaraudersApp.init()` sets it first.
 - The rule "Domain imports Foundation only" now reads "Foundation and `MaraudersAuth`".
