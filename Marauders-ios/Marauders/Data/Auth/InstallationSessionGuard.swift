@@ -7,10 +7,8 @@ enum InstallationSessionGuard {
     static func bootstrap() {
         guard !AppRuntimeConfiguration.isUITesting else { return }
         do {
-            let root = try FileManager.default.url(
-                for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             try resetIfNeeded(
-                marker: root.appendingPathComponent("Installation/session-initialized"),
+                marker: try markerURL(),
                 sessionStore: KeychainAuthSessionStore(), tokenStore: KeychainAPIAccessTokenStore(),
                 refreshTokenStore: KeychainAPIRefreshTokenStore())
             isReady = true
@@ -19,6 +17,13 @@ enum InstallationSessionGuard {
             isReady = false
             AppLog.error("auth", "installation session reset failed; session restoration disabled")
         }
+    }
+
+    /// Where the marker of a finished install check is kept.
+    static func markerURL() throws -> URL {
+        try FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        ).appendingPathComponent("Installation/session-initialized")
     }
 
     static func resetIfNeeded(

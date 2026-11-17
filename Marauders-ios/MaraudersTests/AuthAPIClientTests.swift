@@ -30,6 +30,11 @@ struct AuthAPIClientTests {
         }
     }
 
+    /// The address a route has under the Worker's configured origin.
+    private static func workerURL(_ route: String) -> String? {
+        (try? APIConfiguration.apiBaseURL()).flatMap { URL(string: route, relativeTo: $0)?.absoluteString }
+    }
+
     private static func sentBody(_ request: URLRequest?) -> String {
         String(decoding: request?.readBody() ?? Data(), as: UTF8.self)
     }
@@ -46,6 +51,7 @@ struct AuthAPIClientTests {
 
         #expect(captured?.httpMethod == "POST")
         #expect(captured?.url?.path().hasSuffix("/v1/auth/apple") == true)
+        #expect(captured?.url?.absoluteString == Self.workerURL("v1/auth/apple"))
         let sent = try JSONSerialization.jsonObject(with: try #require(captured?.readBody())) as? [String: Any]
         #expect(sent?["identityToken"] as? String == Self.identityToken)
         #expect(sent?["country"] as? String == "TH")
@@ -104,6 +110,7 @@ struct AuthAPIClientTests {
 
         #expect(captured?.httpMethod == "POST")
         #expect(captured?.url?.path().hasSuffix("/v1/auth/refresh") == true)
+        #expect(captured?.url?.absoluteString == Self.workerURL("v1/auth/refresh"))
         #expect(captured?.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(captured?.timeoutInterval == 30)
         #expect(Self.sentBody(captured) == #"{"refreshToken":"\#(Self.refreshToken)"}"#)
@@ -177,6 +184,7 @@ struct AuthAPIClientTests {
 
         #expect(captured?.httpMethod == "POST")
         #expect(captured?.url?.path().hasSuffix("/v1/auth/signout") == true)
+        #expect(captured?.url?.absoluteString == Self.workerURL("v1/auth/signout"))
         #expect(captured?.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(captured?.timeoutInterval == 10)
         #expect(Self.sentBody(captured) == #"{"refreshToken":"\#(Self.refreshToken)"}"#)
@@ -204,6 +212,7 @@ struct AuthAPIClientTests {
                 .tokens(secret: "shared-secret", label: "alice", countryCode: "nl")
 
             #expect(captured?.url?.path().hasSuffix("/v1/auth/dev") == true)
+            #expect(captured?.url?.absoluteString == Self.workerURL("v1/auth/dev"))
             let sent = try JSONSerialization.jsonObject(with: try #require(captured?.readBody())) as? [String: Any]
             #expect(sent?["secret"] as? String == "shared-secret")
             #expect(sent?["label"] as? String == "alice")
