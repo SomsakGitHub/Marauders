@@ -14,6 +14,10 @@ final class AuthViewModel {
     private(set) var isSignedIn = false
     private(set) var isCheckingCredential = true
     private(set) var isSigningOut = false
+    /// The last `restoreSession()` could not read the stored session, so it decided nothing: the session was neither
+    /// brought back nor ended. That is the Keychain between a restart of the iPhone and its first unlock, when iOS can
+    /// already have launched the app in the background. `ContentView` asks again when the app comes to the foreground.
+    private(set) var storedSessionIsUnavailable = false
     var errorMessage: String?
 
     /// Switches the viewer's location sharing off on the Worker when they sign out. The composition root sets it once
@@ -99,16 +103,21 @@ final class AuthViewModel {
 
         defer { isCheckingCredential = false }
 
-        // A token past its `exp`, or one whose `exp` cannot be read, is a session that has ended: the Worker would
-        // answer 401 to it. It is treated like a missing token, unless a refresh token is stored. Then the first
-        // request that meets the 401 trades it for a new access token and the session lives on. Nothing is refreshed
-        // here: opening the app asks the Worker nothing.
-        guard let userID = sessionStore.loadUserID(),
-            AuthUserID.isValid(userID),
-            let accessToken = tokenStore.loadAccessToken(),
-            APIAccessTokenFormat.isValid(accessToken),
-            !APIAccessTokenExpiry.isExpired(accessToken) || hasUsableRefreshToken
-        else {
+        let userID: String
+        switch storedSession() {
+        case .usable(let storedUserID):
+            storedSessionIsUnavailable = false
+            userID = storedUserID
+        case .unavailable:
+            // Nothing is cleared and nothing is decided: a viewer who is signed in stays so, and the next call asks
+            // again.
+            if !storedSessionIsUnavailable {
+                AppLog.warning("auth", "stored session cannot be read right now, left as it is")
+            }
+            storedSessionIsUnavailable = true
+            return
+        case .ended:
+            storedSessionIsUnavailable = false
             clearStoredSession()
             isSignedIn = false
             #if DEBUG
@@ -336,10 +345,44 @@ final class AuthViewModel {
         try? refreshTokenStore.clearRefreshToken()
     }
 
-    /// A refresh token of the shape the Worker issues is stored. Whether the Worker still accepts it is for the refresh
-    /// itself to find out.
-    private var hasUsableRefreshToken: Bool {
-        refreshTokenStore.loadRefreshToken().map(APIRefreshTokenFormat.isValid) ?? false
+    /// What `restoreSession()` finds stored.
+    private enum StoredSession {
+        /// A session that can be brought back, and the account it belongs to.
+        case usable(userID: String)
+        /// Nothing that can be brought back: a part is missing or malformed, or the access token has run out with no
+        /// refresh token to renew it.
+        case ended
+        /// A part of it could not be read right now, so nothing is known about it.
+        case unavailable
+    }
+
+    /// Reads the stored session.
+    ///
+    /// A token past its `exp`, or one whose `exp` cannot be read, is a session that has ended: the Worker would answer
+    /// 401 to it. It is treated like a missing token, unless a refresh token of the shape the Worker issues is stored
+    /// (whether the Worker still accepts it is for the refresh itself to find out). Then the first request that meets
+    /// the 401 trades it for a new access token and the session lives on. Nothing is refreshed here: opening the app
+    /// asks the Worker nothing.
+    ///
+    /// A part that cannot be read is not a part that is missing: from a restart of the iPhone until its first unlock
+    /// the Keychain answers no read although the session is in it. Only the parts the answer depends on are read.
+    private func storedSession() -> StoredSession {
+        let storedUserID = sessionStore.readUserID()
+        let storedAccessToken = tokenStore.readAccessToken()
+        if storedUserID == .unavailable || storedAccessToken == .unavailable { return .unavailable }
+        guard case .value(let userID) = storedUserID, AuthUserID.isValid(userID),
+            case .value(let accessToken) = storedAccessToken, APIAccessTokenFormat.isValid(accessToken)
+        else { return .ended }
+        guard APIAccessTokenExpiry.isExpired(accessToken) else { return .usable(userID: userID) }
+
+        switch refreshTokenStore.readRefreshToken() {
+        case .value(let refreshToken):
+            return APIRefreshTokenFormat.isValid(refreshToken) ? .usable(userID: userID) : .ended
+        case .missing:
+            return .ended
+        case .unavailable:
+            return .unavailable
+        }
     }
 
     private static func userFacingMessage(for error: Error) -> String {

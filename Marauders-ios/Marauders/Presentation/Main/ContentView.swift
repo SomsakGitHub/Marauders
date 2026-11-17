@@ -105,10 +105,13 @@ struct ContentView: View {
         // The feed is the first tab, so the saved session is restored here instead of waiting for
         // the viewer to open Map, Upload or Profile.
         .task {
-            await authViewModel.restoreSession()
-            // A saved session that did not come back (expired or revoked) ended without a sign-out, so the iPhone stops
-            // sending that account's location while the app is closed.
-            if !authViewModel.isSignedIn { friendLocationsViewModel.reset(signedOut: true) }
+            await savedSessionRestore.run()
+        }
+        // A launch in the background before the iPhone's first unlock cannot read the saved session, so the
+        // foreground asks again.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await savedSessionRestore.runAgainIfTheSessionWasNotRead() }
         }
         // Whether the viewer shares their location decides whether the app sends it while in use. It is asked again each
         // time the app comes to the foreground: the viewer may have changed it on another device, or the last ask failed.
@@ -150,6 +153,10 @@ struct ContentView: View {
                 onClose: { router.publicProfileRoute = nil }
             )
         }
+    }
+
+    private var savedSessionRestore: SavedSessionRestore {
+        SavedSessionRestore(authViewModel: authViewModel, friendLocationsViewModel: friendLocationsViewModel)
     }
 }
 

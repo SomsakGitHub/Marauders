@@ -9,8 +9,18 @@ import Foundation
 /// expose in UI). It is kept apart from the access token so each can be saved and cleared on its own.
 public protocol APIRefreshTokenStore: Sendable {
     func loadRefreshToken() -> String?
+    /// The stored refresh token, with a store that cannot be read right now told apart from one that holds nothing.
+    /// `loadRefreshToken()` answers nil to both.
+    func readRefreshToken() -> StoredCredential
     func saveRefreshToken(_ token: String) throws
     func clearRefreshToken() throws
+}
+
+extension APIRefreshTokenStore {
+    /// For a store that can always be read: no token means none is stored.
+    public func readRefreshToken() -> StoredCredential {
+        loadRefreshToken().map(StoredCredential.value) ?? .missing
+    }
 }
 
 /// The shape of a refresh token. The Worker hands out 32 random bytes as 43 base64url characters; the range around

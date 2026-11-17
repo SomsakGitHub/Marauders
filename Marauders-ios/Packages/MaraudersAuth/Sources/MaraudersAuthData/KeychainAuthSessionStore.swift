@@ -14,6 +14,8 @@ enum KeychainAuthSessionStoreError: Error {
 public struct KeychainAuthSessionStore: AuthSessionStore {
     private let service: String
     private let account: String
+    /// What reads the item. Tests replace it.
+    var reader = KeychainItemReader()
 
     public init(service: String = "com.somsak.Marauders.auth", account: String = "appleUserID") {
         self.service = service
@@ -21,18 +23,13 @@ public struct KeychainAuthSessionStore: AuthSessionStore {
     }
 
     public func loadUserID() -> String? {
-        guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
-        var query: [String: Any] = baseQuery()
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess else { return nil }
-        guard let data = item as? Data, let userID = String(data: data, encoding: .utf8) else {
-            return nil
-        }
+        guard case .value(let userID) = readUserID() else { return nil }
         return userID
+    }
+
+    public func readUserID() -> StoredCredential {
+        guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return .missing }
+        return reader.read(service: service, account: account)
     }
 
     public func saveUserID(_ userID: String) throws {

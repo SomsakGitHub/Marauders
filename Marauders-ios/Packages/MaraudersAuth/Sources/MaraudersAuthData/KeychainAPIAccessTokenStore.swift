@@ -10,6 +10,8 @@ import Security
 public struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
     private let service: String
     private let account: String
+    /// What reads the item. Tests replace it.
+    var reader = KeychainItemReader()
 
     public init(service: String = "com.somsak.Marauders.auth", account: String = "apiAccessToken") {
         self.service = service
@@ -17,18 +19,13 @@ public struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
     }
 
     public func loadAccessToken() -> String? {
-        guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
-        var query: [String: Any] = baseQuery()
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess else { return nil }
-        guard let data = item as? Data, let token = String(data: data, encoding: .utf8) else {
-            return nil
-        }
+        guard case .value(let token) = readAccessToken() else { return nil }
         return token
+    }
+
+    public func readAccessToken() -> StoredCredential {
+        guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return .missing }
+        return reader.read(service: service, account: account)
     }
 
     public func saveAccessToken(_ token: String) throws {
