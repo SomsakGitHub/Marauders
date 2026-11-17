@@ -270,7 +270,7 @@ function check_import(rel, path, n, code, layer,    rest, module, message, to) {
             message = layer " imports '" module "'; " layer " must not depend on " to
         }
     } else if (layer == "Domain" && module != "Foundation") {
-        message = "Domain imports '" module "'; Domain may import Foundation only"
+        message = "Domain imports '" module "'; Domain may import Foundation and Domain modules only"
     } else if (layer == "Data" && module == "SwiftUI") {
         message = "Data imports 'SwiftUI'; Data must not import SwiftUI"
     } else if (layer == "Shared" && (module == "SwiftUI" || module == "UIKit")) {

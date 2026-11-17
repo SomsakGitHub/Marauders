@@ -1,6 +1,7 @@
 # Accepted exceptions to the layer rules checked by Scripts/check-layers.sh (the rules: ARCHITECTURE.md, "Dependency rules").
 #
 # One line per exception:   <path under Marauders/>: <type name, or "import Module">  # why it is accepted
+# A file of a package folder listed in layer-modules.txt is named by its path under Marauders-ios/ instead.
 #
 # The checker warns about every finding that is not listed here, and about every line here that no longer matches
 # anything, so this list can only shrink: when you fix one, delete its line. Do not add a line to silence a new

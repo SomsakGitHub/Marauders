@@ -10,7 +10,10 @@ enum AuthRoute: String {
     case apple = "v1/auth/apple"
     case refresh = "v1/auth/refresh"
     case signOut = "v1/auth/signout"
-    case dev = "v1/auth/dev"
+    #if DEBUG
+        /// The test-user sign-in of Debug builds. A Release build has no such route.
+        case dev = "v1/auth/dev"
+    #endif
 
     func url(relativeTo base: URL) throws -> URL {
         guard let url = URL(string: rawValue, relativeTo: base) else { throw AuthRouteError.invalidBaseURL }

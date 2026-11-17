@@ -5,8 +5,9 @@
 
 import Foundation
 
-/// The answer to one request of the session module: the status and the body.
-public struct AuthTransportResponse: Sendable {
+/// The answer to one request of the session module: the status and the body. It is plain data and on no actor, so a
+/// transport can build it wherever it runs.
+public nonisolated struct AuthTransportResponse: Sendable {
     public let data: Data
     public let statusCode: Int
 
@@ -15,7 +16,7 @@ public struct AuthTransportResponse: Sendable {
         self.statusCode = statusCode
     }
 
-    public var isSuccess: Bool {
+    var isSuccess: Bool {
         (200...299).contains(statusCode)
     }
 }

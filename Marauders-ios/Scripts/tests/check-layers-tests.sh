@@ -168,7 +168,7 @@ expect_status 0
 
 # --- imports -----------------------------------------------------------------------------------------------------
 
-begin "Domain may import Foundation only"
+begin "Domain may import Foundation and Domain modules only"
 base_tree
 put Domain/Entities/Clip.swift <<'EOF'
 import Foundation
@@ -180,8 +180,8 @@ struct Clip {
 }
 EOF
 run
-expect_text "Domain/Entities/Clip.swift:2: warning: [layer] Domain imports 'SwiftUI'; Domain may import Foundation only"
-expect_text "Domain/Entities/Clip.swift:3: warning: [layer] Domain imports 'CoreLocation'; Domain may import Foundation only"
+expect_text "Domain/Entities/Clip.swift:2: warning: [layer] Domain imports 'SwiftUI'; Domain may import Foundation and Domain modules only"
+expect_text "Domain/Entities/Clip.swift:3: warning: [layer] Domain imports 'CoreLocation'; Domain may import Foundation and Domain modules only"
 expect_warnings 2
 
 begin "Data may import UIKit but not SwiftUI"
@@ -655,7 +655,7 @@ import SwiftUI
 public struct KeychainStore {}
 EOF
 run
-expect_text "Packages/Auth/Sources/Auth/TokenRules.swift:2: warning: [layer] Domain imports 'Security'; Domain may import Foundation only"
+expect_text "Packages/Auth/Sources/Auth/TokenRules.swift:2: warning: [layer] Domain imports 'Security'; Domain may import Foundation and Domain modules only"
 expect_text "Packages/Auth/Sources/Auth/TokenRules.swift:5: warning: [layer] Domain names Data type 'DefaultClipRepository'; Domain must not depend on Data"
 expect_text "Packages/Auth/Sources/AuthData/KeychainStore.swift:2: warning: [layer] Data imports 'SwiftUI'; Data must not import SwiftUI"
 expect_warnings 3

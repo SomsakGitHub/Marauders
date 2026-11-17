@@ -3,7 +3,7 @@ import MaraudersAuth
 
 /// The sandbox marker disappears on uninstall; Keychain credentials may survive.
 public enum InstallationSessionGuard {
-    public private(set) static var isReady = false
+    private(set) static var isReady = false
 
     /// - Parameter isUITesting: A UI-test launch skips the check, and with it everything stored in the Keychain.
     public static func bootstrap(isUITesting: Bool) {

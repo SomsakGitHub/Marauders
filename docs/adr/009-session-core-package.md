@@ -28,7 +28,7 @@ The moved files used six names of the app. Four seams replace them:
 | Seam | Replaces | How |
 |------|----------|-----|
 | `AuthTransport` and the marker `AuthTransportFailure` | `HTTPClient`, `URLSessionHTTPClient`, `HTTPClientError` | The package declares what it needs to send a request. The app wraps its own `HTTPClient` and marks `HTTPClientError` as a transport failure, so the refresher asks again after the errors it asked again after before |
-| A `baseURL` closure | `APIConfiguration` | The two clients form the four `/v1/auth/*` addresses themselves, under the origin the app supplies |
+| A `baseURL` closure | `APIConfiguration` | The two clients form the four `/v1/auth/*` addresses themselves, under the origin the app supplies. The fourth, `/v1/auth/dev`, exists in Debug builds only, as before |
 | `AuthLog` with one `sink` | `AppLog` | `MaraudersApp` points the sink at `AppLog` first thing at launch. Categories, texts and levels are unchanged |
 | `InstallationSessionGuard.bootstrap(isUITesting:)` | `AppRuntimeConfiguration.isUITesting` | The app passes the flag |
 
@@ -62,7 +62,7 @@ The layer checker reads `Scripts/layer-modules.txt`, which lists the package's t
 **Negative**
 
 - `public` has to be written on those types and on the members the app uses.
-- `AuthTokens` carries three `nonisolated` words. Inside one module the compiler lets another actor read a `let` of a struct and writes a non-isolated initializer; a public type used from another module has to say so.
+- `AuthTokens` carries three `nonisolated` words. Inside one module the compiler lets another actor read a `let` of a struct and writes a non-isolated initializer; a public type used from another module has to say so. `AuthTransportResponse` is declared `nonisolated` for the same reason.
 - `AuthLog.sink` is one piece of module-wide state. A line logged before the app sets it is dropped, which is why `MaraudersApp.init()` sets it first.
 - The rule "Domain imports Foundation only" now reads "Foundation and `MaraudersAuth`".
 
