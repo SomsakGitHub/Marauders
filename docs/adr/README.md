@@ -12,5 +12,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [006](006-feed-get-retry.md) | Retry transient failures on GET feed only |
 | [007](007-token-refresh.md) | Rotating refresh tokens and a refresh under every 401 |
 | [008](008-background-upload.md) | A background upload session, and an idempotency key for the clip |
+| [009](009-session-core-package.md) | The session core as a local Swift package |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)

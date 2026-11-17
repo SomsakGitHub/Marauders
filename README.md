@@ -68,9 +68,10 @@ Marauders/
 │   │   ├── Shared/              # AppLog, AppRuntimeConfiguration (small helpers every layer may use)
 │   │   ├── Presentation/        # Feed, Map, Upload, Profile, Settings, Dubbing, Auth, Debug (Log), ...
 │   │   └── APIConfiguration.plist   # Base URL ของ Worker (HTTPS)
+│   ├── Packages/           # MaraudersAuth: the session core as a local Swift package (ADR-009)
 │   ├── MaraudersTests/     # unit tests (Swift Testing)
 │   ├── MaraudersUITests/   # XCUITest
-│   ├── Scripts/            # check-layers.sh (layer rules, warns in Debug builds), layer-exceptions.txt, tests/
+│   ├── Scripts/            # check-layers.sh (layer rules, warns in Debug builds), layer-exceptions.txt, layer-modules.txt, tests/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/

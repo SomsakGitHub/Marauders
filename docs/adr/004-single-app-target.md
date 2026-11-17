@@ -1,6 +1,6 @@
 # ADR-004: Single Xcode app target (no SPM module split)
 
-**Status:** Accepted  
+**Status:** Accepted. Amended by [ADR-009](009-session-core-package.md): the session core is a local package; everything else is as decided here.  
 **Date:** 2026-10-09  
 **Scope:** `Marauders-ios` packaging and layer enforcement
 
