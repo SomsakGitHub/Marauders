@@ -33,7 +33,7 @@ The Worker issued one stateless **30-day** JWT at sign-in and had no way to rene
 - **The startup feed is keyed by the account (`sub`), not by the whole token,** so a refresh does not empty it. Folders keyed by a whole token before this change stay in `Caches`, unused.
 - **Public reads read as a guest** when the refresh is unavailable as well as on a 401 (`HTTPClient.dataFallingBackToGuest`), so a refresh route that misbehaves never keeps clips from the viewer.
 - **`DubbedAudioCacheClient` and `BackgroundLocationMonitor` get the refresh layer but no reporter** (the earlier decision that their 401s do not end the session stands): without it a 1-day token would make their calls fail daily until another request refreshed. `APITransportComposition` lists the stacks in one place.
-- **Checking a real rotation** needs a session and the deployed Worker, so a Debug build has the launch argument `DEBUG_INVALIDATE_ACCESS_TOKEN`, which swaps the stored access token for one the Worker rejects. It is `#if DEBUG` and absent from Release.
+- **Checking a real rotation** needs a session and the deployed Worker, so a Debug build has the launch argument `DEBUG_INVALIDATE_ACCESS_TOKEN`, which swaps the stored access token for one the Worker rejects. It is `#if DEBUG` and absent from Release. It reaches the foreground clients only: its token has no readable `sub`, so the background uploader refuses it ([ADR-008](008-background-upload.md), *Device checks*).
 - `TokenRefresher` is the sixth actor ([ADR-002](002-ios-concurrency.md)).
 
 ## References
