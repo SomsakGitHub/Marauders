@@ -6,6 +6,7 @@
 import Foundation
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// A `TokenRefreshing` that answers from a list of prepared outcomes, in order, and remembers which rejected access
 /// token each question was about. Asked more often than it was scripted for, it answers `.unavailable`: a test that

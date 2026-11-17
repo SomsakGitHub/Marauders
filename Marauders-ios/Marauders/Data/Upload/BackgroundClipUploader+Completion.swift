@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// Every way a task of the background session can end, and what the record of its upload becomes.
 extension BackgroundClipUploader {

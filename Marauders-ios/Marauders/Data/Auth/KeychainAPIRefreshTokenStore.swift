@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 import Security
 
 /// The refresh token in the Keychain, beside the access token (same service, another account) and kept under the same

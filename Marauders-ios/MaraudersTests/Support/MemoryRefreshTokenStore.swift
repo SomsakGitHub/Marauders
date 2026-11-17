@@ -6,6 +6,7 @@
 import Foundation
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// An in-memory `APIRefreshTokenStore`. Setting `saveError` or `clearError` makes that call throw, and the token is
 /// left as it was, the way a Keychain write that fails leaves it.

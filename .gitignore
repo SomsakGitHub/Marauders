@@ -20,3 +20,5 @@ Marauders-ios/fastlane/test_output/
 *.xcresult
 *.ipa
 *.dSYM.zip
+Marauders-ios/Packages/*/.build/
+Marauders-ios/Packages/*/.swiftpm/

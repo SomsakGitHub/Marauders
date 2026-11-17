@@ -5,6 +5,7 @@
 
 import AuthenticationServices
 import Foundation
+import MaraudersAuth
 import Observation
 
 @MainActor

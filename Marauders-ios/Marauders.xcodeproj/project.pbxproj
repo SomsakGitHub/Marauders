@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		06BC2D373075A7FD0064F635 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D363075A7FD0064F635 /* Lottie */; };
 		06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D3B3075A7FD0064F635 /* WhisperKit */; };
+		A17E5E0000000000000000A1 /* MaraudersAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A17E5E0000000000000000A2 /* MaraudersAuth */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 			files = (
 				06BC2D373075A7FD0064F635 /* Lottie in Frameworks */,
 				06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */,
+				A17E5E0000000000000000A1 /* MaraudersAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -123,6 +125,7 @@
 			packageProductDependencies = (
 				06BC2D363075A7FD0064F635 /* Lottie */,
 				06BC2D3B3075A7FD0064F635 /* WhisperKit */,
+				A17E5E0000000000000000A2 /* MaraudersAuth */,
 			);
 			productName = Marauders;
 			productReference = 06BC2C2A3075A7FB0064F635 /* Marauders.app */;
@@ -209,6 +212,7 @@
 			packageReferences = (
 				06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 				06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				A17E5E0000000000000000A3 /* XCLocalSwiftPackageReference "Packages/MaraudersAuth" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 06BC2C2B3075A7FB0064F635 /* Products */;
@@ -264,7 +268,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# ข้ามตอน Release/archive เพื่อไม่ให้ build ช้าและไม่ให้ Jenkins พัง\nif [ \"$CONFIGURATION\" = \"Release\" ]; then exit 0; fi\nxcrun swift-format lint -r \"$SRCROOT/Marauders\" \"$SRCROOT/MaraudersTests\" \"$SRCROOT/MaraudersUITests\" 2>&1\n";
+			shellScript = "# ข้ามตอน Release/archive เพื่อไม่ให้ build ช้าและไม่ให้ Jenkins พัง\nif [ \"$CONFIGURATION\" = \"Release\" ]; then exit 0; fi\nxcrun swift-format lint -r \"$SRCROOT/Marauders\" \"$SRCROOT/MaraudersTests\" \"$SRCROOT/MaraudersUITests\" \"$SRCROOT/Packages\" 2>&1\n";
 		};
 		2E9462A1B3154CEBB37F5495 /* Run Script layer check */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -659,6 +663,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A17E5E0000000000000000A3 /* XCLocalSwiftPackageReference "Packages/MaraudersAuth" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/MaraudersAuth;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -688,6 +699,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
+		};
+		A17E5E0000000000000000A2 /* MaraudersAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MaraudersAuth;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

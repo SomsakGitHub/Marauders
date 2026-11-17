@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// The decorator that heals a 401: a request that carried a token and was rejected is sent once more with a new one,
 /// and a caller never sees the 401 of a session that is still alive.

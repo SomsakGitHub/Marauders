@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 struct AuthAPIResponse: Decodable, Sendable {
     let accessToken: String

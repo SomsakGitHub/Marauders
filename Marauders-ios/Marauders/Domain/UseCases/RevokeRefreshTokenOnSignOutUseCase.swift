@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// Tells the Worker the viewer's session is over as they sign out, by revoking the refresh token's whole family there.
 /// Without it a copy of the token that outlived the sign out (a backup, a device that was stolen before the app was

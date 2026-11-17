@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// A public read the viewer may do without a session. With a session it goes out first; when that session is rejected,
 /// or cannot be refreshed, the same read goes out once more as a guest, so the viewer still sees the clips.

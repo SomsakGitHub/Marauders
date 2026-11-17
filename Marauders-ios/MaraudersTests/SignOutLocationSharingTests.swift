@@ -9,6 +9,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 // MARK: - the sign out
 

@@ -12,13 +12,13 @@ enum SignInError: LocalizedError, Equatable {
 }
 
 /// Trades an Apple identity token for a Worker session and keeps the session once it is established.
-struct SignInWithAppleUseCase {
+public struct SignInWithAppleUseCase {
     private let authAPI: any AuthAPIClientProtocol
     private let sessionStore: any AuthSessionStore
     private let tokenStore: any APIAccessTokenStore
     private let refreshTokenStore: any APIRefreshTokenStore
 
-    init(
+    public init(
         authAPI: any AuthAPIClientProtocol,
         sessionStore: any AuthSessionStore,
         tokenStore: any APIAccessTokenStore,
@@ -30,7 +30,7 @@ struct SignInWithAppleUseCase {
         self.refreshTokenStore = refreshTokenStore
     }
 
-    func execute(userID: String, identityToken: String, countryCode: String) async throws {
+    public func execute(userID: String, identityToken: String, countryCode: String) async throws {
         guard AuthUserID.isValid(userID) else { throw SignInError.invalidAccount }
         let tokens = try await authAPI.exchangeAppleIdentityToken(identityToken, countryCode: countryCode)
         try saveSession(
@@ -41,13 +41,13 @@ struct SignInWithAppleUseCase {
 
 #if DEBUG
     /// Simulator only: becomes a named test user instead of an Apple account.
-    struct SignInAsDevUserUseCase {
+    public struct SignInAsDevUserUseCase {
         private let devAuth: any DevAuthExchanging
         private let sessionStore: any AuthSessionStore
         private let tokenStore: any APIAccessTokenStore
         private let refreshTokenStore: any APIRefreshTokenStore
 
-        init(
+        public init(
             devAuth: any DevAuthExchanging,
             sessionStore: any AuthSessionStore,
             tokenStore: any APIAccessTokenStore,
@@ -59,7 +59,7 @@ struct SignInWithAppleUseCase {
             self.refreshTokenStore = refreshTokenStore
         }
 
-        func execute(secret: String, label: String, userID: String, countryCode: String) async throws {
+        public func execute(secret: String, label: String, userID: String, countryCode: String) async throws {
             let tokens = try await devAuth.tokens(secret: secret, label: label, countryCode: countryCode)
             try saveSession(
                 userID: userID, tokens: tokens,

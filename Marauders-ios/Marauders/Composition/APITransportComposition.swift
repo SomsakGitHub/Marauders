@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// How the app's HTTP clients are layered, in one place, so every client that sends a session's token meets a 401 the
 /// same way: a refresh first, and the end of the session only when the refresh cannot save it.

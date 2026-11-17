@@ -8,6 +8,7 @@
     import Testing
 
     @testable import Marauders
+    @testable import MaraudersAuth
 
     /// The Debug-only launch argument that lets a real session meet a rejected access token on a phone: it swaps the
     /// stored token for one that cannot pass for a live one, and does nothing at all without the argument.

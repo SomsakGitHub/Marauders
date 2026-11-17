@@ -8,6 +8,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// What a sign out and a sign in do about the viewer's pending upload. A sign out drops it while the session still
 /// holds its token, so nothing of the account stays on the phone. A sign in lets the uploader check it against the

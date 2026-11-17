@@ -1,6 +1,7 @@
 import AVFoundation
 import CryptoKit
 import Foundation
+import MaraudersAuth
 
 /// A small, disposable cache of complete files. Remote URLs remain the source of truth.
 actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {

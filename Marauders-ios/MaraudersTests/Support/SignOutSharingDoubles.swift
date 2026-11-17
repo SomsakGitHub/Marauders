@@ -6,6 +6,7 @@
 import Foundation
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// A saved session as the Keychain keeps it. nonisolated: Swift 6.4 would make a class that conforms to these
 /// MainActor-isolated protocols MainActor-isolated, but a stubbed network reads the token from its own thread while a

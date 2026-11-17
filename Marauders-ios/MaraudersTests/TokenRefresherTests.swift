@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// What a request that met a 401 gets from the refresher: one call to the Worker however many requests met it, the
 /// session's own tokens and nobody else's, and nothing written once the session it was made for is gone.

@@ -8,6 +8,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// Signing out ends the session on the Worker too: the refresh token is revoked, inside the same window as the location
 /// sharing call and without ever holding the sign out back. A session that ended without the viewer asking has no

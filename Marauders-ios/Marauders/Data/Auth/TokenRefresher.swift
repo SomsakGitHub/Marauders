@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 /// Trades the stored refresh token for a new access token when the Worker answers a request with 401.
 ///

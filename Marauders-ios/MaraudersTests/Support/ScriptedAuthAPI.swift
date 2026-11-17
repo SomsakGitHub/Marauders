@@ -6,6 +6,7 @@
 import Foundation
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// The Worker's refresh route as a test scripts it: each call to `refreshTokens(using:)` gets the next prepared result,
 /// after the gate when there is one. It keeps the calls and the refresh tokens they carried. The two other calls are not

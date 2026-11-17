@@ -5,14 +5,14 @@
 
 import Foundation
 
-enum AuthAPIError: LocalizedError, Equatable {
+public enum AuthAPIError: LocalizedError, Equatable {
     case invalidIdentityToken
     case invalidResponse
     /// The Worker refused the refresh token (400 or 401 from `/v1/auth/refresh`): it was spent, revoked or has expired.
     case refreshRejected
     case serverError(Int)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .invalidIdentityToken:
             return "Sign in could not be verified"
@@ -30,7 +30,7 @@ enum AuthAPIError: LocalizedError, Equatable {
         }
     }
 
-    var httpStatusCode: Int? {
+    public var httpStatusCode: Int? {
         switch self {
         case .serverError(let statusCode):
             return statusCode
@@ -40,7 +40,7 @@ enum AuthAPIError: LocalizedError, Equatable {
     }
 }
 
-protocol AuthAPIClientProtocol: Sendable {
+public protocol AuthAPIClientProtocol: Sendable {
     /// Opens a session. The answer carries a refresh token when the Worker supports them (it is asked to at every
     /// sign-in), and none when it does not.
     func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens
@@ -54,6 +54,6 @@ protocol AuthAPIClientProtocol: Sendable {
 /// Signs in a named test user, for the Simulator where Sign in with Apple has no account. Only a Debug build has an
 /// implementation (`DevAuthAPIClient`), but the protocol exists in every configuration because `AuthViewModel`'s
 /// initializer names it, and a Release build has to compile that initializer too.
-protocol DevAuthExchanging: Sendable {
+public protocol DevAuthExchanging: Sendable {
     func tokens(secret: String, label: String, countryCode: String) async throws -> AuthTokens
 }

@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import MaraudersAuth
 
 protocol APIAuthorization: Sendable {
     func bearerAuthorizationHeader() -> String?

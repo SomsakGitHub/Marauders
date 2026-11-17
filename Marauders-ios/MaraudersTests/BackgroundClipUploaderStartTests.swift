@@ -7,6 +7,7 @@ import Foundation
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// How `BackgroundClipUploader` takes a clip on, follows its progress and settles a success. Events are applied with
 /// `apply(_:)` directly: nothing pumps the session's stream yet.

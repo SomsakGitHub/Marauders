@@ -5,6 +5,7 @@
 
 #if DEBUG
     import Foundation
+    import MaraudersAuth
 
     /// A way to meet a rejected access token with a real session on a real phone. Launched with
     /// `DEBUG_INVALIDATE_ACCESS_TOKEN`, the app swaps the stored access token for one that cannot pass for a live

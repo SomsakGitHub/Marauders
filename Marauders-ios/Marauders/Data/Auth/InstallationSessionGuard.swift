@@ -1,4 +1,5 @@
 import Foundation
+import MaraudersAuth
 
 /// The sandbox marker disappears on uninstall; Keychain credentials may survive.
 enum InstallationSessionGuard {

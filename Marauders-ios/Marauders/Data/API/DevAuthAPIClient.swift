@@ -5,6 +5,7 @@
 
 #if DEBUG
     import Foundation
+    import MaraudersAuth
 
     /// Signs in a named test user through `/v1/auth/dev` (`DevLogin` in `Shared/Configuration` holds its settings).
     /// Compiled into debug builds only.

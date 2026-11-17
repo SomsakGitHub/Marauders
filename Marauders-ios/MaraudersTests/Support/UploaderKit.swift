@@ -6,6 +6,7 @@
 import Foundation
 
 @testable import Marauders
+@testable import MaraudersAuth
 
 /// A `BackgroundClipUploader` with everything around it made for a test: a throwaway folder that holds the store's
 /// directory and the clips, a stager whose free-space figure the test sets, a fake session, a saved session as the token
