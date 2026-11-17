@@ -5,6 +5,7 @@
 
 import Foundation
 import MaraudersAuth
+import MaraudersAuthData
 import UIKit
 
 /// Composition root — wires Domain use cases to Data implementations (Clean Architecture).

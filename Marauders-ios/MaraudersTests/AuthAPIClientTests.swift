@@ -8,6 +8,7 @@ import Testing
 
 @testable import Marauders
 @testable import MaraudersAuth
+@testable import MaraudersAuthData
 
 @Suite(.serialized)
 @MainActor

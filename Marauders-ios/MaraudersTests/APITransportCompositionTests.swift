@@ -9,6 +9,7 @@ import Testing
 
 @testable import Marauders
 @testable import MaraudersAuth
+@testable import MaraudersAuthData
 
 /// The transports that tell the session its token was rejected.
 nonisolated enum ReportingStack: Sendable, CustomTestStringConvertible {

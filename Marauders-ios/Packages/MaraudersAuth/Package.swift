@@ -14,10 +14,11 @@ let package = Package(
     name: "MaraudersAuth",
     platforms: [.iOS("27.0"), .macOS("26.0")],
     products: [
-        .library(name: "MaraudersAuth", targets: ["MaraudersAuth"])
+        .library(name: "MaraudersAuth", targets: ["MaraudersAuth", "MaraudersAuthData"])
     ],
     targets: [
-        .target(name: "MaraudersAuth", swiftSettings: appSettings)
+        .target(name: "MaraudersAuth", swiftSettings: appSettings),
+        .target(name: "MaraudersAuthData", dependencies: ["MaraudersAuth"], swiftSettings: appSettings),
     ],
     swiftLanguageModes: [.v6]
 )

@@ -1,5 +1,5 @@
 //
-//  KeychainAuthSessionStore.swift
+//  KeychainAPIRefreshTokenStore.swift
 //  Marauders
 //
 
@@ -7,20 +7,18 @@ import Foundation
 import MaraudersAuth
 import Security
 
-enum KeychainAuthSessionStoreError: Error {
-    case unexpectedStatus(OSStatus)
-}
-
-struct KeychainAuthSessionStore: AuthSessionStore {
+/// The refresh token in the Keychain, beside the access token (same service, another account) and kept under the same
+/// rule: nothing is read back before `InstallationSessionGuard` has cleared what a previous install left behind.
+public struct KeychainAPIRefreshTokenStore: APIRefreshTokenStore {
     private let service: String
     private let account: String
 
-    init(service: String = "com.somsak.Marauders.auth", account: String = "appleUserID") {
+    public init(service: String = "com.somsak.Marauders.auth", account: String = "apiRefreshToken") {
         self.service = service
         self.account = account
     }
 
-    func loadUserID() -> String? {
+    public func loadRefreshToken() -> String? {
         guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
         var query: [String: Any] = baseQuery()
         query[kSecReturnData as String] = true
@@ -29,18 +27,18 @@ struct KeychainAuthSessionStore: AuthSessionStore {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess else { return nil }
-        guard let data = item as? Data, let userID = String(data: data, encoding: .utf8) else {
+        guard let data = item as? Data, let token = String(data: data, encoding: .utf8) else {
             return nil
         }
-        return userID
+        return token
     }
 
-    func saveUserID(_ userID: String) throws {
-        guard Self.isValidUserID(userID) else {
+    public func saveRefreshToken(_ token: String) throws {
+        guard APIRefreshTokenFormat.isValid(token) else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(errSecParam)
         }
 
-        let encoded = Data(userID.utf8)
+        let encoded = Data(token.utf8)
         let query = baseQuery()
         let attributes: [String: Any] = [
             kSecValueData as String: encoded,
@@ -63,7 +61,7 @@ struct KeychainAuthSessionStore: AuthSessionStore {
         throw KeychainAuthSessionStoreError.unexpectedStatus(updateStatus)
     }
 
-    func clear() throws {
+    public func clearRefreshToken() throws {
         let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(status)
@@ -77,6 +75,4 @@ struct KeychainAuthSessionStore: AuthSessionStore {
             kSecAttrAccount as String: account,
         ]
     }
-
-    static func isValidUserID(_ userID: String) -> Bool { AuthUserID.isValid(userID) }
 }

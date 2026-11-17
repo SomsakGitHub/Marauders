@@ -3,6 +3,7 @@ import Security
 import Testing
 
 @testable import Marauders
+@testable import MaraudersAuthData
 
 /// What must survive any change to the session code: a build that looks for the session under other names signs every
 /// viewer out when it is installed over the build before it.

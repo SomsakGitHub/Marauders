@@ -2,11 +2,12 @@ import Foundation
 import MaraudersAuth
 
 /// The sandbox marker disappears on uninstall; Keychain credentials may survive.
-enum InstallationSessionGuard {
-    private(set) static var isReady = false
+public enum InstallationSessionGuard {
+    public private(set) static var isReady = false
 
-    static func bootstrap() {
-        guard !AppRuntimeConfiguration.isUITesting else { return }
+    /// - Parameter isUITesting: A UI-test launch skips the check, and with it everything stored in the Keychain.
+    public static func bootstrap(isUITesting: Bool) {
+        guard !isUITesting else { return }
         do {
             try resetIfNeeded(
                 marker: try markerURL(),
@@ -16,7 +17,7 @@ enum InstallationSessionGuard {
         } catch {
             // Never restore old credentials when the reset or marker write fails.
             isReady = false
-            AppLog.error("auth", "installation session reset failed; session restoration disabled")
+            AuthLog.error("auth", "installation session reset failed; session restoration disabled")
         }
     }
 

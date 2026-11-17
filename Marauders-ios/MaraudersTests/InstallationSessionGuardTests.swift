@@ -3,6 +3,7 @@ import Testing
 
 @testable import Marauders
 @testable import MaraudersAuth
+@testable import MaraudersAuthData
 
 @MainActor
 struct InstallationSessionGuardTests {

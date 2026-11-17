@@ -3,6 +3,7 @@
 //  Marauders
 //
 
+import MaraudersAuthData
 import SwiftUI
 
 @main
@@ -11,7 +12,9 @@ struct MaraudersApp: App {
 
     init() {
         _ = AppLog.launchUptime
-        InstallationSessionGuard.bootstrap()
+        // First: the session module logs through this, and the install check below may log.
+        AuthLog.forwardToAppLog()
+        InstallationSessionGuard.bootstrap(isUITesting: AppRuntimeConfiguration.isUITesting)
         #if DEBUG
             // After the reset above, which is what makes the stored token readable, and before anything uses it.
             DebugSessionFault.applyIfRequested()

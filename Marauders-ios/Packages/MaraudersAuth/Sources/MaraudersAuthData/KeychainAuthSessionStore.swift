@@ -1,5 +1,5 @@
 //
-//  KeychainAPIAccessTokenStore.swift
+//  KeychainAuthSessionStore.swift
 //  Marauders
 //
 
@@ -7,16 +7,20 @@ import Foundation
 import MaraudersAuth
 import Security
 
-struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
+enum KeychainAuthSessionStoreError: Error {
+    case unexpectedStatus(OSStatus)
+}
+
+public struct KeychainAuthSessionStore: AuthSessionStore {
     private let service: String
     private let account: String
 
-    init(service: String = "com.somsak.Marauders.auth", account: String = "apiAccessToken") {
+    public init(service: String = "com.somsak.Marauders.auth", account: String = "appleUserID") {
         self.service = service
         self.account = account
     }
 
-    func loadAccessToken() -> String? {
+    public func loadUserID() -> String? {
         guard service != "com.somsak.Marauders.auth" || InstallationSessionGuard.isReady else { return nil }
         var query: [String: Any] = baseQuery()
         query[kSecReturnData as String] = true
@@ -25,18 +29,18 @@ struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess else { return nil }
-        guard let data = item as? Data, let token = String(data: data, encoding: .utf8) else {
+        guard let data = item as? Data, let userID = String(data: data, encoding: .utf8) else {
             return nil
         }
-        return token
+        return userID
     }
 
-    func saveAccessToken(_ token: String) throws {
-        guard APIAccessTokenFormat.isValid(token) else {
+    public func saveUserID(_ userID: String) throws {
+        guard Self.isValidUserID(userID) else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(errSecParam)
         }
 
-        let encoded = Data(token.utf8)
+        let encoded = Data(userID.utf8)
         let query = baseQuery()
         let attributes: [String: Any] = [
             kSecValueData as String: encoded,
@@ -59,7 +63,7 @@ struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
         throw KeychainAuthSessionStoreError.unexpectedStatus(updateStatus)
     }
 
-    func clearAccessToken() throws {
+    public func clear() throws {
         let status = SecItemDelete(baseQuery() as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw KeychainAuthSessionStoreError.unexpectedStatus(status)
@@ -73,4 +77,6 @@ struct KeychainAPIAccessTokenStore: APIAccessTokenStore {
             kSecAttrAccount as String: account,
         ]
     }
+
+    static func isValidUserID(_ userID: String) -> Bool { AuthUserID.isValid(userID) }
 }
