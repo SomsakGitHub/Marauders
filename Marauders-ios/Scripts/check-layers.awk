@@ -1,7 +1,8 @@
 # Layer checker: the awk program behind check-layers.sh (read that file first).
 #
-# Variables: root (folder with the layers), list (file holding one .swift path per line), exceptions (accepted
-# exceptions, may be /dev/null), strict (1 = exit 1 when anything is reported).
+# Variables: root (folder with the layers), base (the folder that holds root), list (file holding one .swift path per
+# line), folders (file holding one "<Layer><tab><absolute folder>" line per module folder, may be empty), exceptions
+# (accepted exceptions, may be /dev/null), strict (1 = exit 1 when anything is reported).
 #
 # Written for the awk that ships with macOS (BWK awk 20200816): no gensub, no \b, no length(array).
 
@@ -14,6 +15,7 @@ BEGIN {
     may["Domain"] = "Domain"
     may["Shared"] = "Shared"
 
+    load_module_folders()
     load_exceptions()
 
     files = 0
@@ -50,13 +52,52 @@ function may_name(from, to,    allowed) {
     return index("," allowed ",", "," to ",") > 0
 }
 
-# The layer a path belongs to: its first folder under root, when that folder is one of the layers.
-function layer_of(path,    rel, slash, first) {
+# --- module folders --------------------------------------------------------------------------------------------------
+# Folders outside root that belong to a layer (the source folders of local packages). The folder's name is the name
+# of its module.
+
+function load_module_folders(    line, tab, dir, name) {
+    moduleFolders = 0
+    if (folders == "") return
+    while ((getline line < folders) > 0) {
+        tab = index(line, "\t")
+        if (tab == 0) continue
+        dir = substr(line, tab + 1)
+        moduleFolders++
+        folderDir[moduleFolders] = dir
+        folderLayer[moduleFolders] = substr(line, 1, tab - 1)
+        name = dir
+        sub(/^.*\//, "", name)
+        moduleLayer[name] = folderLayer[moduleFolders]
+    }
+    close(folders)
+}
+
+# Which module folder a path is under: its number, or 0.
+function module_folder_of(path,    i) {
+    for (i = 1; i <= moduleFolders; i++) {
+        if (index(path, folderDir[i] "/") == 1) return i
+    }
+    return 0
+}
+
+# The layer a path belongs to: its module folder's layer, else its first folder under root, when that folder is one
+# of the layers.
+function layer_of(path,    rel, slash, first, m) {
+    m = module_folder_of(path)
+    if (m > 0) return folderLayer[m]
     rel = substr(path, length(root) + 2)
     slash = index(rel, "/")
     if (slash == 0) return ""
     first = substr(rel, 1, slash - 1)
     return (first in may) ? first : ""
+}
+
+# How a file is named in the exceptions list: its path under root, or, for a file of a module folder, its path under
+# the folder that holds root.
+function rel_of(path) {
+    if (module_folder_of(path) > 0) return substr(path, length(base) + 2)
+    return substr(path, length(root) + 2)
 }
 
 # --- exceptions ------------------------------------------------------------------------------------------------------
@@ -183,13 +224,13 @@ function read_file(f, path, layer,    line, code, text, n, indent, depth, previe
 # --- checking --------------------------------------------------------------------------------------------------------
 
 # Pass 2 for one file: its imports, then every type it names that another layer declares.
-function check_file(f,    path, layer, rel, base, isView, n, code, tmp, k, tokens, t, name, to) {
+function check_file(f,    path, layer, rel, fileName, isView, n, code, tmp, k, tokens, t, name, to) {
     path = file[f]
     layer = fileLayer[f]
-    rel = substr(path, length(root) + 2)
-    base = rel
-    sub(/^.*\//, "", base)
-    isView = (layer == "Presentation" && base ~ /View\.swift$/)
+    rel = rel_of(path)
+    fileName = rel
+    sub(/^.*\//, "", fileName)
+    isView = (layer == "Presentation" && fileName ~ /View\.swift$/)
 
     for (n = 1; n <= count[f]; n++) {
         code = lines[f, n]
@@ -214,14 +255,21 @@ function check_file(f,    path, layer, rel, base, isView, n, code, tmp, k, token
     }
 }
 
-function check_import(rel, path, n, code, layer,    rest, module, message) {
+# An import of a module folder's module is judged like naming a type of that folder's layer; any other import by the
+# layer's own rule.
+function check_import(rel, path, n, code, layer,    rest, module, message, to) {
     rest = code
     sub(/^[ \t]*(@[A-Za-z]+[ \t]+)*import[ \t]+/, "", rest)
     if (rest ~ /^(struct|class|enum|protocol|typealias|func|var|let)[ \t]+/) sub(/^[A-Za-z]+[ \t]+/, "", rest)
     sub(/[^A-Za-z0-9_].*$/, "", rest)
     module = rest
     message = ""
-    if (layer == "Domain" && module != "Foundation") {
+    if (module in moduleLayer) {
+        to = moduleLayer[module]
+        if (!may_name(layer, to)) {
+            message = layer " imports '" module "'; " layer " must not depend on " to
+        }
+    } else if (layer == "Domain" && module != "Foundation") {
         message = "Domain imports '" module "'; Domain may import Foundation only"
     } else if (layer == "Data" && module == "SwiftUI") {
         message = "Data imports 'SwiftUI'; Data must not import SwiftUI"
