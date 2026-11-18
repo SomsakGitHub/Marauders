@@ -74,6 +74,30 @@ final class MaraudersThaiUITests: XCTestCase {
         XCTAssertTrue(row.label.hasThaiCharacter, row.label)
     }
 
+    /// The caption and the rail share one row. Thai text is taller than English at the same size, so the largest size
+    /// is where a caption would run under the rail; the button that opens it is a localized text too.
+    @MainActor
+    func testTheCaptionKeepsClearOfTheRailInThaiAtTheLargestTextSize() throws {
+        let app = launchInThai(extraArguments: [
+            "UITEST_LONG_CAPTION", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
+        ])
+        let caption = app.staticTexts["feed.caption"]
+        let toggle = app.buttons["feed.captionToggle"]
+        XCTAssertTrue(caption.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+
+        let rail = ["feed.like", "feed.comments", "feed.avatar"].map { app.buttons[$0] }.filter { $0.exists }
+        XCTAssertFalse(rail.isEmpty, app.debugDescription)
+        let railLeft = rail.map { $0.frame.minX }.min() ?? .greatestFiniteMagnitude
+        XCTAssertLessThan(caption.frame.maxX, railLeft, "the caption runs under the rail")
+
+        let closedLabel = toggle.label
+        XCTAssertTrue(closedLabel.hasThaiCharacter, closedLabel)
+        toggle.tap()
+        XCTAssertTrue(waitUntilLabel(of: toggle, isNot: closedLabel), app.debugDescription)
+        XCTAssertTrue(toggle.label.hasThaiCharacter, toggle.label)
+    }
+
     // MARK: - Helpers
 
     @MainActor
@@ -83,6 +107,13 @@ final class MaraudersThaiUITests: XCTestCase {
         app.launchEnvironment["UITEST"] = "1"
         app.launch()
         return app
+    }
+
+    /// A button's label changes after a tap, not at once.
+    @MainActor
+    private func waitUntilLabel(of element: XCUIElement, isNot label: String, timeout: TimeInterval = 10) -> Bool {
+        let changed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label != %@", label), object: element)
+        return XCTWaiter().wait(for: [changed], timeout: timeout) == .completed
     }
 
     /// Settings is the fifth tab. A Debug build adds the Log tab, so its tab bar shows four tabs and More, and

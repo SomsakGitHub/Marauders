@@ -171,7 +171,8 @@ struct CommentRow: View {
     private var time: some View {
         Text(relativeTime)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            // The label colour at 60%: 5.7:1 on the light sheet (the system's `.secondary` reaches only 3.4:1 on white).
+            .foregroundStyle(Color.primary.opacity(0.6))
             .lineLimit(1)
             .fixedSize()
     }

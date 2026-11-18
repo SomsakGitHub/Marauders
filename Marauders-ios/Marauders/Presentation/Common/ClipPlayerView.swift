@@ -117,10 +117,18 @@ private struct ClipPlayerContent: View {
                     .tint(.white)
             }
 
-            VStack {
+            VStack(spacing: 0) {
                 topBar
-                Spacer()
-                bottomBar
+                // The bar sits at the bottom of the screen. When its lines need more room than the top bar leaves (the
+                // largest text sizes, most of all on the map's player with its extra button), it scrolls under the top
+                // bar instead of running off the screen.
+                ViewThatFits(in: .vertical) {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        bottomBar
+                    }
+                    ScrollView { bottomBar }
+                }
             }
         }
         .confirmationDialog("Choose audio for this clip", isPresented: $choosingAudio, titleVisibility: .visible) {
@@ -303,6 +311,9 @@ private struct ClipPlayerContent: View {
                         .foregroundStyle(.white.opacity(0.8))
                 }
             }
+            // Takes every line it needs, like the buttons below: with the bar below no longer giving way, the stack
+            // handed this one half of what was left and cut the handle ("@marau…") where it used to wrap.
+            .fixedSize(horizontal: false, vertical: true)
             Spacer()
             if let onDelete {
                 Button(action: onDelete) {
@@ -343,6 +354,9 @@ private struct ClipPlayerContent: View {
                     choosingAudio = true
                 } label: {
                     Label(audioButtonTitle, systemImage: "waveform")
+                        // The three buttons of the bar take every line their title needs at accessibility sizes: the
+                        // stack used to squeeze them and cut the longest title at the third line.
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -387,6 +401,7 @@ private struct ClipPlayerContent: View {
             {
                 Link(destination: mapsURL) {
                     Label("Open in Google Maps", systemImage: "map")
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -397,6 +412,7 @@ private struct ClipPlayerContent: View {
             if let onOpenInFeed {
                 Button(action: onOpenInFeed) {
                     Label("Play in Feed", systemImage: "list.bullet.rectangle")
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

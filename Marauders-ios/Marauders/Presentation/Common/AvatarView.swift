@@ -60,18 +60,39 @@ struct AvatarView: View {
         return String(first).uppercased()
     }
 
-    private static let palettes: [[Color]] = [
-        [.orange, .pink],
-        [.blue, .purple],
-        [.teal, .indigo],
-        [.pink, .red],
-        [.green, .blue],
-        [.yellow, .orange],
-    ]
+    /// The gradient pairs behind the white initial. Fixed colours, the same in light and dark: the system colours they
+    /// replace were too light for white text (the yellow pair reached 1.5:1) and shift between the two appearances. Each
+    /// is 60% of that system colour's light value, so every stop carries white at 4.5:1 or better (the worst, orange,
+    /// reaches 5.55:1) and the pairs keep their hues.
+    static let palettes: [[Color]] = {
+        func rgb(_ red: Double, _ green: Double, _ blue: Double) -> Color {
+            Color(red: red / 255, green: green / 255, blue: blue / 255)
+        }
+        let orange = rgb(153, 89, 0)
+        let pink = rgb(153, 27, 51)
+        let blue = rgb(0, 73, 153)
+        let purple = rgb(105, 49, 133)
+        let teal = rgb(29, 106, 119)
+        let indigo = rgb(53, 52, 128)
+        let red = rgb(153, 35, 29)
+        let green = rgb(31, 119, 53)
+        return [
+            [orange, pink],
+            [blue, purple],
+            [teal, indigo],
+            [pink, red],
+            [green, blue],
+            [purple, pink],
+        ]
+    }()
+
+    /// Which pair a handle gets: always the same one for the same handle, so nobody's avatar changes colour.
+    static func paletteIndex(for handle: String?) -> Int {
+        let seed = handle?.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0xffffff } ?? 0
+        return seed % palettes.count
+    }
 
     private static func gradient(for handle: String?) -> LinearGradient {
-        let seed = handle?.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0xffffff } ?? 0
-        let colors = palettes[seed % palettes.count]
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: palettes[paletteIndex(for: handle)], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }

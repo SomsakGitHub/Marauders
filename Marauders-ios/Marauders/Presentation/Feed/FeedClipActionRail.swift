@@ -40,6 +40,11 @@ struct FeedClipActionRail: View {
     /// Room around the dot that still counts as a tap on it.
     private static let followHitPadding: CGFloat = 8
 
+    /// The rail is icons with a short label, so, like the tab bar, it stops growing at the largest size that is not an
+    /// accessibility size; a long press shows a button at full size in the Large Content Viewer. The cap is on each
+    /// button's label, not on the whole rail: the language sheet hangs off the audio button and would inherit it.
+    private static let largestRailSize = DynamicTypeSize.xxxLarge
+
     @State private var choosingAudio = false
     @State private var showingLanguagePicker = false
     @Environment(\.listeningLanguageStore) private var installedListening
@@ -68,11 +73,21 @@ struct FeedClipActionRail: View {
                             .symbolEffect(.bounce, value: likePops)
                             .animation(.snappy, value: like.liked)
                         Text(like.count.formatted(.number.notation(.compactName))).font(.caption)
-                    }.foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                    }
+                    .foregroundStyle(.white)
+                    .dynamicTypeSize(...Self.largestRailSize)
                 }
                 .accessibilityIdentifier("feed.like")
                 .accessibilityLabel(like.liked ? Text("Unlike") : Text("Like"))
                 .accessibilityValue(like.count.formatted())
+                .accessibilityShowsLargeContentViewer {
+                    Label {
+                        like.liked ? Text("Unlike") : Text("Like")
+                    } icon: {
+                        Image(systemName: "heart.fill")
+                    }
+                }
             }
 
             if let onOpenComments {
@@ -81,14 +96,21 @@ struct FeedClipActionRail: View {
                         Image(systemName: "bubble.right").font(.title2)
                         if let commentCount {
                             Text(commentCount.formatted(.number.notation(.compactName))).font(.caption)
+                                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         } else {
                             Text("Comments").font(.caption)
+                                .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
                         }
-                    }.foregroundStyle(.white)
+                    }
+                    .foregroundStyle(.white)
+                    .dynamicTypeSize(...Self.largestRailSize)
                 }
                 .accessibilityIdentifier("feed.comments")
                 .accessibilityLabel(Text("Comments"))
                 .accessibilityValue(commentCount?.formatted() ?? "")
+                .accessibilityShowsLargeContentViewer {
+                    Label("Comments", systemImage: "bubble.right")
+                }
             }
 
             if let onChooseAIAudio, listening.offersDubbing(for: clip) {
@@ -99,9 +121,15 @@ struct FeedClipActionRail: View {
                     VStack(spacing: 4) {
                         Image(systemName: "waveform").font(.title2)
                         Text("Choose audio").font(.caption)
-                    }.foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                    }
+                    .foregroundStyle(.white)
+                    .dynamicTypeSize(...Self.largestRailSize)
                 }
                 .accessibilityIdentifier("feed.chooseAudio")
+                .accessibilityShowsLargeContentViewer {
+                    Label("Choose audio", systemImage: "waveform")
+                }
                 .onChange(of: choosingAudio) { _, open in
                     // The language sheet keeps the feed paused, so it reports the close itself.
                     if !open, !showingLanguagePicker { onAudioSelectionChanged(false) }
@@ -149,6 +177,9 @@ struct FeedClipActionRail: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("feed.avatar")
                 .accessibilityLabel("Open \(handle) profile")
+                .accessibilityShowsLargeContentViewer {
+                    Label("Open \(handle) profile", systemImage: "person.crop.circle")
+                }
                 // Half over the avatar's lower edge, as on TikTok.
                 .overlay(alignment: .bottom) {
                     followBadge(for: handle)
@@ -158,7 +189,6 @@ struct FeedClipActionRail: View {
         }
         .padding(.trailing, 16)
         .padding(.bottom, 28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .onChange(of: FollowBadgeKey(handle: clip.authorName, following: followsAuthor)) { old, new in
             // Only a follow of the author already on screen: a swipe to someone the viewer follows shows no tick.
             guard let handle = new.handle, old.handle == handle, old.following == false, new.following == true else {

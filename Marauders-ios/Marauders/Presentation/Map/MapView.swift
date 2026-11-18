@@ -234,7 +234,9 @@ struct MapView: View {
                 }
                 (isSharing ? Text("Sharing location") : Text("Share location"))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    // `Color.primary`, not the hierarchical `.primary`: inside a Button that one follows the tint and
+                    // drew the label blue, as little contrast on the glass capsule as the audit measured.
+                    .foregroundStyle(Color.primary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)

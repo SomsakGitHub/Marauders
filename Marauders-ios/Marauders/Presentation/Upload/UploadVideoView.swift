@@ -14,6 +14,12 @@ struct UploadVideoView: View {
     @State private var pickerItem: PhotosPickerItem?
     @State private var isShowingClipLocationPicker = false
 
+    /// What the Status section shows. A failed upload stays on screen with its buttons even when something else cleared
+    /// the status line, because the viewer has no other way to act on it.
+    private var statusLine: String? {
+        viewModel.statusMessage ?? viewModel.failedUpload?.message
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -110,9 +116,7 @@ struct UploadVideoView: View {
                     .disabled(!viewModel.canUpload)
                 }
 
-                // A failed upload stays on screen with its buttons even when something else cleared the status line,
-                // because the viewer has no other way to act on it.
-                if let statusMessage = viewModel.statusMessage ?? viewModel.failedUpload?.message {
+                if let statusMessage = statusLine {
                     Section("Status") {
                         CopyableStatusBanner(message: statusMessage, isSuccess: viewModel.isSuccess)
                         if let failedUpload = viewModel.failedUpload {
@@ -132,6 +136,12 @@ struct UploadVideoView: View {
             }
             .accessibilityIdentifier("upload.root")
             .navigationTitle("Upload")
+            .onChange(of: statusLine) { _, line in
+                // The status line shows up in a section VoiceOver is not on, so nothing would say that an upload finished
+                // or failed (a failed comment is announced the same way). A new attempt clears the line, so a repeated
+                // failure is announced again.
+                if let line { AccessibilityNotification.Announcement(line).post() }
+            }
             .onChange(of: pickerItem) { _, newItem in
                 Task { await loadPickerItem(newItem) }
             }

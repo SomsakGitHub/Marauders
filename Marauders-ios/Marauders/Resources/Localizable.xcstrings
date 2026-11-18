@@ -1396,6 +1396,16 @@
         }
       }
     },
+    "less" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ย่อ"
+          }
+        }
+      }
+    },
     "Letters, numbers, dots and underscores." : {
       "localizations" : {
         "th" : {
@@ -1545,6 +1555,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "โมเดลทำงานบนเครื่องนี้ ไม่มีการอัปโหลดเสียงหรือข้อความ การดาวน์โหลดต้องใช้อินเทอร์เน็ตและพื้นที่ว่าง"
+          }
+        }
+      }
+    },
+    "more" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดูเพิ่ม"
           }
         }
       }

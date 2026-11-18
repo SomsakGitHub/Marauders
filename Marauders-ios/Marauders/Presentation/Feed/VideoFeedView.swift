@@ -145,6 +145,8 @@ struct VideoFeedView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            // A solid sheet: the glass one let the clip show through the comments' text.
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .onChange(of: signInDismissalID) { _, _ in
             guard isWaitingForSignIn else { return }
@@ -278,48 +280,59 @@ struct VideoFeedView: View {
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 
-                if let video = currentVideo {
-                    FeedClipCaptionOverlay(clip: video)
+                if currentVideo != nil {
+                    FeedCaptionScrim()
                         .frame(width: geometry.size.width, height: geometry.size.height)
-
-                    FeedClipActionRail(
-                        clip: video,
-                        onChooseAIAudio: { target in
-                            guard isSignedIn else { isWaitingForSignIn = true; onSignIn(); return }
-                            playerEngine.pause()
-                            audioRoute = AudioRoute(clip: video, requestDubbingTarget: target)
-                        }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
-                        onRequireSignIn: {
-                            isWaitingForSignIn = true; onSignIn()
-                        },
-                        onAudioSelectionChanged: { open in
-                            if open {
-                                resumeAfterAudioChoice = playerEngine.phase.shouldResumeAfterInterruption
-                                isChoosingAudio = true
-                                playerEngine.pause()
-                            } else {
-                                isChoosingAudio = false
-                                resumeAfterAudioChoiceIfNeeded()
-                            }
-                        },
-                        onOpenComments: makeCommentsViewModel.map { make in
-                            { openComments(for: video, using: make) }
-                        },
-                        commentCount: commentCounts.count(for: video),
-                        like: likesViewModel?.state(for: video),
-                        onToggleLike: likesViewModel.map { likes in
-                            { toggleLike(video, using: likes) }
-                        },
-                        likePops: likePops,
-                        followsAuthor: followsAuthor(of: video),
-                        onFollowAuthor: followsViewModel.map { follows in
-                            { followAuthor(of: video, using: follows) }
-                        }
-                    )
-                    .frame(width: geometry.size.width, height: geometry.size.height)
                 }
 
+                // Under the row, not over it: at large text sizes the card's plate reaches the rail and the caption,
+                // which must stay above it to be seen and to take their touches.
                 playbackOverlay
+
+                if let video = currentVideo {
+                    // One row, so the caption can never run under the rail.
+                    HStack(alignment: .bottom, spacing: 12) {
+                        FeedClipCaptionOverlay(clip: video, maxOpenHeight: geometry.size.height * 0.4)
+                            // A new clip starts with its caption closed.
+                            .id(video.id)
+
+                        FeedClipActionRail(
+                            clip: video,
+                            onChooseAIAudio: { target in
+                                guard isSignedIn else { isWaitingForSignIn = true; onSignIn(); return }
+                                playerEngine.pause()
+                                audioRoute = AudioRoute(clip: video, requestDubbingTarget: target)
+                            }, onAuthorTap: onOpenProfile, canChooseAudio: isSignedIn,
+                            onRequireSignIn: {
+                                isWaitingForSignIn = true; onSignIn()
+                            },
+                            onAudioSelectionChanged: { open in
+                                if open {
+                                    resumeAfterAudioChoice = playerEngine.phase.shouldResumeAfterInterruption
+                                    isChoosingAudio = true
+                                    playerEngine.pause()
+                                } else {
+                                    isChoosingAudio = false
+                                    resumeAfterAudioChoiceIfNeeded()
+                                }
+                            },
+                            onOpenComments: makeCommentsViewModel.map { make in
+                                { openComments(for: video, using: make) }
+                            },
+                            commentCount: commentCounts.count(for: video),
+                            like: likesViewModel?.state(for: video),
+                            onToggleLike: likesViewModel.map { likes in
+                                { toggleLike(video, using: likes) }
+                            },
+                            likePops: likePops,
+                            followsAuthor: followsAuthor(of: video),
+                            onFollowAuthor: followsViewModel.map { follows in
+                                { followAuthor(of: video, using: follows) }
+                            }
+                        )
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .bottom)
+                }
 
                 // Laid out like the pager, over the whole screen, so a heart lands where the finger was.
                 FeedHeartBurstLayer(bursts: heartBursts)
