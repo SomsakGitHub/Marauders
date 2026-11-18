@@ -60,6 +60,7 @@ struct SignInWithAppleGateView: View {
                     if locationGate.isResolving { ProgressView() }
                     if let message = locationGate.message {
                         Text(message).font(.subheadline).multilineTextAlignment(.center)
+                            .accessibilityIdentifier("signin.locationMessage")
                     }
                     if !locationGate.canSignIn && !locationGate.isResolving {
                         Button(locationGate.needsSettings ? "Open Settings" : "Allow Always location / Try again") {
@@ -88,22 +89,28 @@ struct SignInWithAppleGateView: View {
                 .padding(.top, 8)
 
                 #if DEBUG
+                    // Developer-only texts are `verbatim`, not catalog keys: a Release build does not have these
+                    // buttons, and a catalog sync from it would drop their keys (see LocalizationCatalogTests).
                     if DevLogin.isAvailable {
-                        Button("Sign in as test user (\(DevLogin.label))") {
+                        Button {
                             if let code = locationGate.countryCode {
                                 authViewModel.selectedCountryCode = countryOverride ?? code
                                 Task { await authViewModel.signInAsDevUser() }
                             }
+                        } label: {
+                            Text(verbatim: "Sign in as test user (\(DevLogin.label))")
                         }
                         .disabled(!locationGate.canSignIn)
                         .accessibilityIdentifier("signin.devUser")
                     }
                     if AppRuntimeConfiguration.isUITesting {
-                        Button("Complete test sign in") {
+                        Button {
                             if let code = locationGate.countryCode {
                                 authViewModel.selectedCountryCode = countryOverride ?? code
                                 authViewModel.completeUITestSignIn()
                             }
+                        } label: {
+                            Text(verbatim: "Complete test sign in")
                         }
                         .disabled(!locationGate.canSignIn)
                         .accessibilityIdentifier("auth.completeUITestSignIn")

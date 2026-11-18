@@ -1213,6 +1213,24 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["map.friendsEmpty"].exists)
     }
 
+    @MainActor
+    func testSettingsShowsTheAppLanguageRowAndOpensIOSSettings() throws {
+        let app = launchApp()
+        openSettings(app)
+
+        let row = app.buttons["settings.appLanguage"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5), app.debugDescription)
+        // The row names the language the app's texts are in; these tests launch the app in English.
+        let shown = "\(row.label) \(row.value as? String ?? "")"
+        XCTAssertTrue(shown.contains("App language"), shown)
+        XCTAssertTrue(shown.contains("English"), shown)
+
+        // The app cannot change its own language: the row hands over to the app's page in iOS Settings.
+        row.tap()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+    }
+
     /// Settings is a tab of its own, or under More when the tab bar has no room for it (Debug builds add Log).
     @MainActor
     private func openSettings(_ app: XCUIApplication) {

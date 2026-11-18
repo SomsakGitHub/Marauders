@@ -26,6 +26,27 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
+                    // The app cannot change its own language: iOS does, on the app's page in iOS Settings.
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
+                    } label: {
+                        LabeledContent {
+                            Text(InterfaceLanguage.currentName())
+                        } label: {
+                            Label("App language", systemImage: "globe")
+                        }
+                    }
+                    .accessibilityIdentifier("settings.appLanguage")
+                } footer: {
+                    // The path is spelled out: the link can land on the first page of iOS Settings (the simulator does).
+                    Text(
+                        "Marauders uses your iPhone's language. To use another one for Marauders only, choose it in iOS Settings › Apps › Marauders › Language. The app restarts when you do."
+                    )
+                }
+
+                Section {
                     NavigationLink {
                         ListeningLanguagePickerView(viewModel: listeningPicker)
                     } label: {

@@ -1,0 +1,120 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Marauders"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders never uses the camera. This notice exists only because a library it includes contains code that can ask for camera or microphone access, which the app does not call."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders ไม่ใช้กล้องเลย ข้อความนี้มีอยู่เพียงเพราะไลบรารีที่แอปใช้มีโค้ดที่ขอสิทธิ์เข้าถึงกล้องหรือไมโครโฟนได้ ซึ่งแอปไม่ได้เรียกใช้"
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders requires Always location permission to identify your country before sign-in. Where you are is shown to others only if you turn on location sharing, and only to people you follow who follow you back. While it is on, Marauders sends your location when you move, also while the app is closed."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders ต้องได้รับสิทธิ์ตำแหน่งแบบ “เสมอ” เพื่อระบุประเทศของคุณก่อนเข้าสู่ระบบ ตำแหน่งของคุณจะแสดงให้คนอื่นเห็นก็ต่อเมื่อคุณเปิดการแชร์ตำแหน่ง และเฉพาะกับคนที่คุณติดตามและติดตามคุณกลับเท่านั้น ขณะที่เปิดอยู่ Marauders จะส่งตำแหน่งของคุณเมื่อคุณเคลื่อนที่ แม้ตอนปิดแอปอยู่"
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders uses your location to identify your country before sign-in and show your position on the map. If you turn on location sharing, people you follow who follow you back see where you are. Sign-in requires Always location permission."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders ใช้ตำแหน่งของคุณเพื่อระบุประเทศของคุณก่อนเข้าสู่ระบบ และแสดงตำแหน่งของคุณบนแผนที่ หากคุณเปิดการแชร์ตำแหน่ง คนที่คุณติดตามและติดตามคุณกลับจะเห็นว่าคุณอยู่ที่ไหน การเข้าสู่ระบบต้องใช้สิทธิ์ตำแหน่งแบบ “เสมอ”"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders never uses the microphone. This notice exists only because the on-device speech model it includes contains a microphone permission request that the app does not call."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders ไม่ใช้ไมโครโฟนเลย ข้อความนี้มีอยู่เพียงเพราะโมเดลเสียงพูดบนเครื่องที่แอปใช้มีคำขอสิทธิ์ไมโครโฟน ซึ่งแอปไม่ได้เรียกใช้"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a video from your library to upload to the Marauders feed"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกวิดีโอจากคลังรูปภาพเพื่ออัปโหลดไปยังฟีด Marauders"
+          }
+        }
+      }
+    },
+    "NSSpeechRecognitionUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recognize a clip's speech on your iPhone to detect its language and dub it into the language you listen in."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รู้จำเสียงพูดของคลิปบน iPhone ของคุณ เพื่อตรวจภาษาและพากย์เป็นภาษาที่คุณฟัง"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

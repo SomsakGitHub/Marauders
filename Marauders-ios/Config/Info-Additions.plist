@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	Keys that are merged into the generated Info.plist (build setting INFOPLIST_FILE of the app target).
+	Only keys Xcode has no INFOPLIST_KEY_ build setting for belong here; everything else stays a build setting.
+-->
+<plist version="1.0">
+<dict>
+	<!-- Always show the Language row on the app's page in iOS Settings, also on an iPhone with one language. -->
+	<key>UIPrefersShowingLanguageSettings</key>
+	<true/>
+</dict>
+</plist>

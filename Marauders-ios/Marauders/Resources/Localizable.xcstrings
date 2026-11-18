@@ -1,0 +1,3055 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "@handle" : {
+      "shouldTranslate" : false
+    },
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      },
+      "shouldTranslate" : false
+    },
+    "%@ km away" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ห่าง %@ กม."
+          }
+        }
+      }
+    },
+    "%@ m away" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ห่าง %@ ม."
+          }
+        }
+      }
+    },
+    "%@, %@ — tap the map to move the pin" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@ — tap the map to move the pin"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@ — แตะแผนที่เพื่อย้ายหมุด"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "shouldTranslate" : false
+    },
+    "%lld clips grouped here" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld คลิปรวมอยู่ตรงนี้"
+          }
+        }
+      }
+    },
+    "%lld km" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld กม."
+          }
+        }
+      }
+    },
+    "A comment must be 1 to %@ characters" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความคิดเห็นต้องยาว 1 ถึง %@ ตัวอักษร"
+          }
+        }
+      }
+    },
+    "Add a comment…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มความคิดเห็น…"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · Change audio" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง AI ภาษา%@ · เปลี่ยนเสียง"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · couldn't save on the server, but you can keep listening" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง AI ภาษา%@ · ยังเก็บบนเซิร์ฟเวอร์ไม่ได้ แต่ฟังต่อได้"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · saved for reuse" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง AI ภาษา%@ · เก็บไว้ใช้ซ้ำแล้ว"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · saving for others to reuse" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง AI ภาษา%@ · กำลังบันทึกเพื่อให้คนอื่นใช้ซ้ำ"
+          }
+        }
+      }
+    },
+    "AI audio in %@ · using saved audio" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง AI ภาษา%@ · ใช้เสียงที่เก็บไว้"
+          }
+        }
+      }
+    },
+    "AI dubbing from %@ isn't supported yet." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่รองรับการพากย์ด้วย AI จากภาษา%@"
+          }
+        }
+      }
+    },
+    "AI dubbing is created on your iPhone and saved so other viewers can reuse it." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงพากย์ AI สร้างบน iPhone ของคุณและเก็บไว้ให้ผู้ชมคนอื่นใช้ซ้ำได้"
+          }
+        }
+      }
+    },
+    "AI dubbing is created on your iPhone and saved so other viewers can reuse it. It may be inaccurate or out of sync with the original." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงพากย์ AI สร้างบน iPhone ของคุณและเก็บไว้ให้ผู้ชมคนอื่นใช้ซ้ำได้ อาจไม่ถูกต้องหรือไม่ตรงจังหวะกับต้นฉบับ"
+          }
+        }
+      }
+    },
+    "AI voice reads the translation on this iPhone · timing may differ from the original" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง AI อ่านคำแปลบน iPhone · จังหวะอาจต่างจากต้นฉบับ"
+          }
+        }
+      }
+    },
+    "All countries" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทุกประเทศ"
+          }
+        }
+      }
+    },
+    "Allow Always location / Try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุญาตตำแหน่ง “เสมอ” / ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Allow location access Always" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุญาตให้เข้าถึงตำแหน่ง “เสมอ”"
+          }
+        }
+      }
+    },
+    "Allow location access to open the map and see clip pins near you." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุญาตให้เข้าถึงตำแหน่งเพื่อเปิดแผนที่และดูหมุดคลิปใกล้คุณ"
+          }
+        }
+      }
+    },
+    "Allow location access, then select Always before signing in." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุญาตให้เข้าถึงตำแหน่ง แล้วเลือก “เสมอ” ก่อนเข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "Allow speech recognition in Settings so the clip's speech can be transcribed." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กรุณาอนุญาตการรู้จำเสียงในการตั้งค่า เพื่อถอดคำพูดจากคลิป"
+          }
+        }
+      }
+    },
+    "An upload is already in progress" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "มีการอัปโหลดอยู่แล้ว"
+          }
+        }
+      }
+    },
+    "App language" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ภาษาของแอป"
+          }
+        }
+      }
+    },
+    "Apple downloads translation languages through a system prompt. Remove them in iOS Settings → Apps → Translate." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple จะดาวน์โหลดภาษาแปลผ่านหน้าต่างของระบบ ลบได้ที่ การตั้งค่า iOS → แอป → แปล"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัตโนมัติ"
+          }
+        }
+      }
+    },
+    "Automatic · %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัตโนมัติ · %@"
+          }
+        }
+      }
+    },
+    "Be the first to share what you think." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เป็นคนแรกที่แสดงความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิก"
+          }
+        }
+      }
+    },
+    "Caption" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำบรรยาย"
+          }
+        }
+      }
+    },
+    "Change listening language…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนภาษาที่ฟัง…"
+          }
+        }
+      }
+    },
+    "Change profile photo" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนรูปโปรไฟล์"
+          }
+        }
+      }
+    },
+    "Change Video" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนวิดีโอ"
+          }
+        }
+      }
+    },
+    "Characters left: %lld" : {
+      "comment" : "VoiceOver label for the counter under the comment box; the number is how many characters can still be typed.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัวอักษรที่เหลือ: %lld"
+          }
+        }
+      }
+    },
+    "Characters over the limit: %lld" : {
+      "comment" : "VoiceOver label for the counter under the comment box once the comment is too long; the number is how many characters must be removed.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัวอักษรที่เกิน: %lld"
+          }
+        }
+      }
+    },
+    "Check back later for new clips." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กลับมาดูคลิปใหม่ได้ภายหลัง"
+          }
+        }
+      }
+    },
+    "Checking for saved AI audio…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังตรวจเสียงที่เก็บไว้…"
+          }
+        }
+      }
+    },
+    "Choose a listening language to see the translation models you need." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกภาษาที่ฟังเพื่อดูโมเดลแปลที่ต้องใช้"
+          }
+        }
+      }
+    },
+    "Choose another video" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกวิดีโออื่น"
+          }
+        }
+      }
+    },
+    "Choose audio" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกเสียง"
+          }
+        }
+      }
+    },
+    "Choose audio for this clip" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกเสียงสำหรับคลิปนี้"
+          }
+        }
+      }
+    },
+    "Choose from Library" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกจากคลังรูปภาพ"
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ล้าง"
+          }
+        }
+      }
+    },
+    "Clear search" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ล้างการค้นหา"
+          }
+        }
+      }
+    },
+    "Clip" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิป"
+          }
+        }
+      }
+    },
+    "Clip location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตำแหน่งคลิป"
+          }
+        }
+      }
+    },
+    "Clip Location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตำแหน่งคลิป"
+          }
+        }
+      }
+    },
+    "Clip not found" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบคลิป"
+          }
+        }
+      }
+    },
+    "Clip on map" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปบนแผนที่"
+          }
+        }
+      }
+    },
+    "Clips" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิป"
+          }
+        }
+      }
+    },
+    "Clips in other languages can be dubbed into this language with AI on your iPhone." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปภาษาอื่นพากย์เป็นภาษานี้ด้วย AI บน iPhone ของคุณได้"
+          }
+        }
+      }
+    },
+    "Clips spoken in another language are dubbed into this language on your iPhone." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปที่พูดภาษาอื่นจะถูกพากย์เป็นภาษานี้บน iPhone ของคุณ"
+          }
+        }
+      }
+    },
+    "Clips you upload will show up here." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปที่คุณอัปโหลดจะแสดงที่นี่"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิด"
+          }
+        }
+      }
+    },
+    "Close sign in" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดหน้าเข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "Close video" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดวิดีโอ"
+          }
+        }
+      }
+    },
+    "Comment or clip not found" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบความคิดเห็นหรือคลิป"
+          }
+        }
+      }
+    },
+    "Comments" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Comments can be up to %lld characters." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความคิดเห็นยาวได้ไม่เกิน %lld ตัวอักษร"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดำเนินการต่อ"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกแล้ว"
+          }
+        }
+      }
+    },
+    "Copy All" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกทั้งหมด"
+          }
+        }
+      }
+    },
+    "Copy Message" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกข้อความ"
+          }
+        }
+      }
+    },
+    "Could not get a recent location. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หาตำแหน่งล่าสุดไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Could not get your location. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หาตำแหน่งของคุณไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Could not identify your country. Check your connection and try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระบุประเทศของคุณไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Could not identify your country. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระบุประเทศของคุณไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Could not load your profile." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดโปรไฟล์ของคุณไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't change location sharing" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนการแชร์ตำแหน่งไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn’t convert video to MP4" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลงวิดีโอเป็น MP4 ไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't delete clip" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบคลิปไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't delete the comment. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบความคิดเห็นไม่สำเร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn't download the %@ speech model. Check your connection and try again. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลถอดเสียงภาษา%@ไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't download the language detection model. Check your connection and try again. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลตรวจภาษาไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't load comments. Check your connection and try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดความคิดเห็นไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn't load more" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดเพิ่มไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't load this list" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดรายการนี้ไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't load this profile" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดโปรไฟล์นี้ไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn’t load video" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหลดวิดีโอไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't play the AI audio. Using the original audio." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดเสียง AI ไม่สำเร็จ กำลังใช้เสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't post your comment. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โพสต์ความคิดเห็นไม่สำเร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn’t read location — try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านตำแหน่งไม่ได้ — ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn’t read that image — try another" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านรูปนั้นไม่ได้ — ลองรูปอื่น"
+          }
+        }
+      }
+    },
+    "Couldn’t read video — try a shorter clip" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านวิดีโอไม่ได้ — ลองคลิปที่สั้นกว่านี้"
+          }
+        }
+      }
+    },
+    "Couldn't send your report. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งรายงานไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn't tell which language is spoken in this clip. Download the language detection model in Settings › Language models to recognize more languages. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจไม่ได้ว่าคลิปนี้พูดภาษาอะไร ดาวน์โหลดโมเดลตรวจภาษาที่ การตั้งค่า › โมเดลภาษา เพื่อให้รู้จักภาษาได้มากขึ้น ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't tell which language is spoken in this clip. Listen to the original audio." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจไม่ได้ว่าคลิปนี้พูดภาษาอะไร ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't transcribe speech from this clip. Try a clip with clear speech, or listen to the original audio." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดคำพูดจากคลิปนี้ไม่ได้ ลองคลิปที่มีเสียงพูดชัดเจน หรือฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Couldn't translate the audio on this iPhone. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลเสียงบน iPhone ไม่สำเร็จ กรุณาฟังเสียงต้นฉบับก่อน"
+          }
+        }
+      }
+    },
+    "Couldn't translate this comment." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลความคิดเห็นนี้ไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't update handle" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนชื่อผู้ใช้ไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't update photo" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนรูปโปรไฟล์ไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Couldn't use the language detection model on this iPhone. Try downloading it again in Settings › Language models. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้โมเดลตรวจภาษาบน iPhone เครื่องนี้ไม่ได้ ลองดาวน์โหลดใหม่ที่ การตั้งค่า › โมเดลภาษา ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Country" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ประเทศ"
+          }
+        }
+      }
+    },
+    "Creating the AI voice on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังสร้างเสียงอ่านด้วย AI บน iPhone…"
+          }
+        }
+      }
+    },
+    "Current Location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตำแหน่งปัจจุบัน"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบ"
+          }
+        }
+      }
+    },
+    "Delete clip" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบคลิป"
+          }
+        }
+      }
+    },
+    "Delete this clip?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบคลิปนี้ไหม?"
+          }
+        }
+      }
+    },
+    "Delete this comment?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบความคิดเห็นนี้ไหม?"
+          }
+        }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายละเอียด"
+          }
+        }
+      }
+    },
+    "Detecting the language spoken in this clip…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังตรวจภาษาที่พูดในคลิปนี้…"
+          }
+        }
+      }
+    },
+    "Download" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลด"
+          }
+        }
+      }
+    },
+    "Download (about %lld MB)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลด (ประมาณ %lld MB)"
+          }
+        }
+      }
+    },
+    "Download on-device models for AI dubbing and language detection." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลบนเครื่องสำหรับพากย์ด้วย AI และตรวจภาษา"
+          }
+        }
+      }
+    },
+    "Download the %@ speech model?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลถอดเสียงภาษา%@ไหม?"
+          }
+        }
+      }
+    },
+    "Download the language detection model?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลตรวจภาษาไหม?"
+          }
+        }
+      }
+    },
+    "Downloading the %@ speech model… %lld%%" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลดโมเดลถอดเสียงภาษา%@… %lld%%"
+          }
+        }
+      }
+    },
+    "Downloading the %@ speech model… this only happens once" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลดโมเดลถอดเสียงภาษา%@… ทำครั้งเดียวเท่านั้น"
+          }
+        }
+      }
+    },
+    "Downloading the language detection model…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลดโมเดลตรวจภาษา…"
+          }
+        }
+      }
+    },
+    "Downloading the language detection model… %lld%%" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลดโมเดลตรวจภาษา… %lld%%"
+          }
+        }
+      }
+    },
+    "Downloading…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลด…"
+          }
+        }
+      }
+    },
+    "Downloading… %lld%%" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลด… %lld%%"
+          }
+        }
+      }
+    },
+    "Dubbing from %@ needs a one-time download of its speech model. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การพากย์จากภาษา%@ต้องดาวน์โหลดโมเดลถอดเสียงของภาษานั้นหนึ่งครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Edit handle" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไขชื่อผู้ใช้"
+          }
+        }
+      }
+    },
+    "Enter 2–120 characters to search" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พิมพ์ 2–120 ตัวอักษรเพื่อค้นหา"
+          }
+        }
+      }
+    },
+    "Feed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ฟีด"
+          }
+        }
+      }
+    },
+    "Finding your country…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังหาประเทศของคุณ…"
+          }
+        }
+      }
+    },
+    "Finding your location…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังหาตำแหน่งของคุณ…"
+          }
+        }
+      }
+    },
+    "Finishing…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใกล้เสร็จแล้ว…"
+          }
+        }
+      }
+    },
+    "First-time translation download · you can download ahead in Settings › Language models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องดาวน์โหลดโมเดลแปลครั้งแรก · โหลดล่วงหน้าได้ที่ การตั้งค่า › โมเดลภาษา"
+          }
+        }
+      }
+    },
+    "Follow" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดตาม"
+          }
+        }
+      }
+    },
+    "Follow %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดตาม %@"
+          }
+        }
+      }
+    },
+    "Followers" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ติดตาม"
+          }
+        }
+      }
+    },
+    "Following" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังติดตาม"
+          }
+        }
+      }
+    },
+    "Getting location…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังหาตำแหน่ง…"
+          }
+        }
+      }
+    },
+    "Handles may use letters, numbers, dots and underscores" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ชื่อผู้ใช้ใช้ได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข จุด และขีดล่าง"
+          }
+        }
+      }
+    },
+    "Installed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดตั้งแล้ว"
+          }
+        }
+      }
+    },
+    "Invalid account" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บัญชีไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "Invalid API response format" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รูปแบบการตอบกลับจาก API ไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "Invalid number of clips requested" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จำนวนคลิปที่ขอไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "Invalid server response" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตอบกลับจากเซิร์ฟเวอร์ไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "Invalid sign-in response" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตอบกลับการเข้าสู่ระบบไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "Language detection" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจภาษา"
+          }
+        }
+      }
+    },
+    "Language detection model" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลตรวจภาษา"
+          }
+        }
+      }
+    },
+    "Language models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลภาษา"
+          }
+        }
+      }
+    },
+    "Languages" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ภาษา"
+          }
+        }
+      }
+    },
+    "Letters, numbers, dots and underscores." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข จุด และขีดล่าง"
+          }
+        }
+      }
+    },
+    "Like" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถูกใจ"
+          }
+        }
+      }
+    },
+    "List" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายการ"
+          }
+        }
+      }
+    },
+    "Listen in %@ (AI)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ฟังเป็นภาษา%@ (พากย์ด้วย AI)"
+          }
+        }
+      }
+    },
+    "Listening language" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ภาษาที่ฟัง"
+          }
+        }
+      }
+    },
+    "Location access isn't set to Always, so they see where you last used the app, not where you are while it's closed." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สิทธิ์เข้าถึงตำแหน่งไม่ได้ตั้งเป็น “เสมอ” พวกเขาจึงเห็นแค่ตำแหน่งล่าสุดที่คุณใช้แอป ไม่ใช่ตำแหน่งตอนที่ปิดแอปอยู่"
+          }
+        }
+      }
+    },
+    "Location Access Off" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเข้าถึงตำแหน่งปิดอยู่"
+          }
+        }
+      }
+    },
+    "Location report failed (status %lld)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งตำแหน่งไม่สำเร็จ (สถานะ %lld)"
+          }
+        }
+      }
+    },
+    "Location required" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องใช้ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "Location sharing" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การแชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "Log" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ล็อก"
+          }
+        }
+      }
+    },
+    "Map" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แผนที่"
+          }
+        }
+      }
+    },
+    "Map filters" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัวกรองแผนที่"
+          }
+        }
+      }
+    },
+    "Marauders" : {
+      "shouldTranslate" : false
+    },
+    "Marauders uses your iPhone's language. To use another one for Marauders only, choose it in iOS Settings › Apps › Marauders › Language. The app restarts when you do." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marauders ใช้ภาษาเดียวกับ iPhone ของคุณ หากต้องการใช้ภาษาอื่นเฉพาะกับ Marauders ให้เลือกที่ การตั้งค่า iOS › แอป › Marauders › ภาษา แอปจะเริ่มใหม่เมื่อเปลี่ยนภาษา"
+          }
+        }
+      }
+    },
+    "Models run on this device. Audio and transcripts are not uploaded. Downloads need a network connection and free storage." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลทำงานบนเครื่องนี้ ไม่มีการอัปโหลดเสียงหรือข้อความ การดาวน์โหลดต้องใช้อินเทอร์เน็ตและพื้นที่ว่าง"
+          }
+        }
+      }
+    },
+    "Names the language of a clip and transcribes Dutch · about %lld MB" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บอกว่าคลิปพูดภาษาอะไร และถอดคำพูดภาษาดัตช์ · ประมาณ %lld MB"
+          }
+        }
+      }
+    },
+    "Names the language of a clip, such as Dutch or Russian, and transcribes Dutch clips for dubbing. It runs on this iPhone and your audio is not uploaded. The model is downloaded from Hugging Face when you choose to install it." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บอกว่าคลิปพูดภาษาอะไร เช่น ดัตช์หรือรัสเซีย และถอดคำพูดภาษาดัตช์ของคลิปเพื่อพากย์ ทำงานบน iPhone เครื่องนี้ และเสียงของคุณจะไม่ถูกอัปโหลด โมเดลจะดาวน์โหลดจาก Hugging Face เมื่อคุณเลือกติดตั้ง"
+          }
+        }
+      }
+    },
+    "No %@ voice is installed on this iPhone. Add one in Settings › Accessibility › Spoken Content › Voices." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีเสียงภาษา%@บน iPhone เครื่องนี้ เพิ่มได้ที่ การตั้งค่า › การช่วยการเข้าถึง › เนื้อหาที่พูด › เสียง"
+          }
+        }
+      }
+    },
+    "No clips in this area" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีคลิปในบริเวณนี้"
+          }
+        }
+      }
+    },
+    "No clips to show yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีคลิปให้ดู"
+          }
+        }
+      }
+    },
+    "No clips within %lld km" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีคลิปในระยะ %lld กม."
+          }
+        }
+      }
+    },
+    "No clips yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีคลิป"
+          }
+        }
+      }
+    },
+    "No comments yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีความคิดเห็น"
+          }
+        }
+      }
+    },
+    "No followers yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีผู้ติดตาม"
+          }
+        }
+      }
+    },
+    "No logs yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีล็อก"
+          }
+        }
+      }
+    },
+    "No mutual followers are sharing their location yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีคนที่ติดตามกันเปิดแชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "No places found — try a name, city or address" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบสถานที่ — ลองค้นด้วยชื่อ เมือง หรือที่อยู่"
+          }
+        }
+      }
+    },
+    "None of your device languages is supported yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่รองรับภาษาใดของเครื่องคุณ"
+          }
+        }
+      }
+    },
+    "Not available on this iPhone" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone เครื่องนี้ยังไม่รองรับ"
+          }
+        }
+      }
+    },
+    "Not enough free space on this iPhone to upload the clip" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone เครื่องนี้มีพื้นที่ว่างไม่พอสำหรับอัปโหลดคลิป"
+          }
+        }
+      }
+    },
+    "Not following anyone yet" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้ติดตามใคร"
+          }
+        }
+      }
+    },
+    "Not now" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไว้ก่อน"
+          }
+        }
+      }
+    },
+    "Not Now" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไว้ก่อน"
+          }
+        }
+      }
+    },
+    "Not set" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้ตั้งค่า"
+          }
+        }
+      }
+    },
+    "Not supported on this device" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เครื่องนี้ไม่รองรับ"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตกลง"
+          }
+        }
+      }
+    },
+    "On-device translation supports clips up to 12 MB." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การแปลบนเครื่องรองรับไฟล์คลิปไม่เกิน 12 MB"
+          }
+        }
+      }
+    },
+    "Only MP4 / MOV is supported" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รองรับเฉพาะ MP4 / MOV"
+          }
+        }
+      }
+    },
+    "Open %@ profile" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดโปรไฟล์ของ %@"
+          }
+        }
+      }
+    },
+    "Open in Google Maps" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใน Google Maps"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Opens the list" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดรายการ"
+          }
+        }
+      }
+    },
+    "Original audio" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Original audio · Choose audio" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงต้นฉบับ · เลือกเสียง"
+          }
+        }
+      }
+    },
+    "Paste into chat or Notes" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำไปวางในแชตหรือแอปโน้ตได้"
+          }
+        }
+      }
+    },
+    "People you follow who follow you back and share their location too will see where you are, also while Marauders is closed, and you'll see where they are. You can turn it off any time." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คนที่คุณติดตามและติดตามคุณกลับ ซึ่งเปิดแชร์ตำแหน่งอยู่ด้วย จะเห็นว่าคุณอยู่ที่ไหน แม้ตอนปิด Marauders อยู่ และคุณจะเห็นตำแหน่งของพวกเขา ปิดได้ทุกเมื่อ"
+          }
+        }
+      }
+    },
+    "People you follow who follow you back see where you are while you both share, also while Marauders is closed. Turning it off takes you off their maps at once." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คนที่คุณติดตามและติดตามคุณกลับจะเห็นว่าคุณอยู่ที่ไหน ขณะที่ทั้งสองฝ่ายเปิดแชร์อยู่ แม้ตอนปิด Marauders อยู่ ปิดแล้วคุณจะหายไปจากแผนที่ของพวกเขาทันที"
+          }
+        }
+      }
+    },
+    "Play Again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เล่นอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Play in Feed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เล่นในฟีด"
+          }
+        }
+      }
+    },
+    "Playback failed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เล่นวิดีโอไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Post comment" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โพสต์ความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Preparing %@ and %@ on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมภาษา%@และ%@บน iPhone…"
+          }
+        }
+      }
+    },
+    "Preparing file…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมไฟล์…"
+          }
+        }
+      }
+    },
+    "Preparing on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมบน iPhone เครื่องนี้…"
+          }
+        }
+      }
+    },
+    "Preparing the clip's audio on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมเสียงจากคลิปบน iPhone…"
+          }
+        }
+      }
+    },
+    "Preparing the language detection model on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมโมเดลตรวจภาษาบน iPhone เครื่องนี้…"
+          }
+        }
+      }
+    },
+    "Preparing video…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมวิดีโอ…"
+          }
+        }
+      }
+    },
+    "Profile" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โปรไฟล์"
+          }
+        }
+      }
+    },
+    "Profile not found" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบโปรไฟล์"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบ"
+          }
+        }
+      }
+    },
+    "Report this audio" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายงานเสียงนี้"
+          }
+        }
+      }
+    },
+    "Required before you can upload" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องระบุก่อนจึงจะอัปโหลดได้"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึก"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหา"
+          }
+        }
+      }
+    },
+    "Search clips" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาคลิป"
+          }
+        }
+      }
+    },
+    "Search country" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาประเทศ"
+          }
+        }
+      }
+    },
+    "Search failed — try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาไม่สำเร็จ — ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Search or Drop Pin" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาหรือปักหมุด"
+          }
+        }
+      }
+    },
+    "Search places or addresses" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาสถานที่หรือที่อยู่"
+          }
+        }
+      }
+    },
+    "Server responded with status %lld" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ตอบกลับด้วยสถานะ %lld"
+          }
+        }
+      }
+    },
+    "Set location access to Always in Settings before signing in." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งการเข้าถึงตำแหน่งเป็น “เสมอ” ในการตั้งค่าก่อนเข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "Set the clip location before uploading" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระบุตำแหน่งคลิปก่อนอัปโหลด"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตั้งค่า"
+          }
+        }
+      }
+    },
+    "Share location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "Share location with mutual followers" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์ตำแหน่งกับคนที่ติดตามกัน"
+          }
+        }
+      }
+    },
+    "Share your location?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์ตำแหน่งของคุณไหม?"
+          }
+        }
+      }
+    },
+    "Sharing" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังแชร์"
+          }
+        }
+      }
+    },
+    "Sharing location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังแชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "Show originals" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดูต้นฉบับทั้งหมด"
+          }
+        }
+      }
+    },
+    "Show posts from" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงคลิปจาก"
+          }
+        }
+      }
+    },
+    "Sign in" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "Sign in could not be verified" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยืนยันการเข้าสู่ระบบไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Sign in failed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Sign in failed. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Sign in required" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องเข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "Sign in required to upload" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องเข้าสู่ระบบเพื่ออัปโหลด"
+          }
+        }
+      }
+    },
+    "Sign in to comment" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบเพื่อแสดงความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Sign in to continue. You will return here afterwards." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบเพื่อดำเนินการต่อ จากนั้นคุณจะกลับมาที่หน้านี้"
+          }
+        }
+      }
+    },
+    "Sign in to see this list" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบเพื่อดูรายการนี้"
+          }
+        }
+      }
+    },
+    "Sign in was not completed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเข้าสู่ระบบไม่เสร็จสมบูรณ์"
+          }
+        }
+      }
+    },
+    "Sign in with Apple to continue." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าสู่ระบบด้วย Apple เพื่อดำเนินการต่อ"
+          }
+        }
+      }
+    },
+    "Sign Out" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจากระบบ"
+          }
+        }
+      }
+    },
+    "Speech recognition" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การรู้จำเสียงพูด"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สถานะ"
+          }
+        }
+      }
+    },
+    "Stop sharing location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หยุดแชร์ตำแหน่ง"
+          }
+        }
+      }
+    },
+    "Thanks. This audio will be removed once another viewer reports it too." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขอบคุณ เสียงนี้จะถูกลบเมื่อผู้ชมอีกคนรายงานด้วย"
+          }
+        }
+      }
+    },
+    "That handle is already taken" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ชื่อผู้ใช้นี้มีคนใช้แล้ว"
+          }
+        }
+      }
+    },
+    "The audio was removed." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบเสียงแล้ว"
+          }
+        }
+      }
+    },
+    "The clip is no longer on this iPhone. Choose the video again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปไม่อยู่ใน iPhone เครื่องนี้แล้ว เลือกวิดีโออีกครั้ง"
+          }
+        }
+      }
+    },
+    "The clip may have been uploaded, but the answer was lost. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปอาจอัปโหลดไปแล้ว แต่ไม่ได้รับคำตอบกลับมา ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The download didn't finish. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดไม่เสร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The downloaded model couldn't be used on this iPhone. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้โมเดลที่ดาวน์โหลดบน iPhone เครื่องนี้ไม่ได้ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The service is temporarily unavailable. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บริการใช้งานไม่ได้ชั่วคราว โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The service is unavailable right now. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บริการใช้งานไม่ได้ในขณะนี้ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The system limit for downloaded speech languages was reached. Remove another language first." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดภาษาสำหรับถอดเสียงครบจำนวนที่ระบบกำหนดแล้ว ลบภาษาอื่นก่อน"
+          }
+        }
+      }
+    },
+    "The upload was interrupted. Try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การอัปโหลดถูกขัดจังหวะ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "There isn't enough free storage for the language detection model. Free up some space and try again. Listen to the original audio for now." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พื้นที่ว่างไม่พอสำหรับโมเดลตรวจภาษา เคลียร์พื้นที่แล้วลองอีกครั้ง ตอนนี้ลองฟังเสียงต้นฉบับ"
+          }
+        }
+      }
+    },
+    "This cannot be undone." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การกระทำนี้ย้อนกลับไม่ได้"
+          }
+        }
+      }
+    },
+    "This clip is already in %@." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปนี้เป็นภาษา%@อยู่แล้ว"
+          }
+        }
+      }
+    },
+    "This clip is no longer available." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปนี้ไม่มีให้ดูแล้ว"
+          }
+        }
+      }
+    },
+    "This iPhone has reached its limit of downloaded speech languages. Remove one in Settings › Language models, then try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone เครื่องนี้ดาวน์โหลดภาษาสำหรับถอดเสียงครบจำนวนที่ระบบกำหนดแล้ว ลบหนึ่งภาษาที่ การตั้งค่า › โมเดลภาษา แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "This iPhone isn't ready to translate on-device. Install the languages in Settings › Language models, then try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone เครื่องนี้ยังไม่พร้อมแปลบนอุปกรณ์ กรุณาติดตั้งภาษาที่ การตั้งค่า › โมเดลภาษา แล้วลองใหม่"
+          }
+        }
+      }
+    },
+    "This language isn't supported on this device." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ภาษานี้ไม่รองรับบนอุปกรณ์เครื่องนี้"
+          }
+        }
+      }
+    },
+    "This profile is no longer available" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โปรไฟล์นี้ไม่มีให้ดูแล้ว"
+          }
+        }
+      }
+    },
+    "To dub this clip, your iPhone needs a %@ speech model of about %lld MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. It is the same model that tells which language a clip speaks." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ในการพากย์คลิปนี้ iPhone ของคุณต้องมีโมเดลถอดคำพูดภาษา%@ขนาดประมาณ %lld MB จาก Hugging Face (ใช้ Wi-Fi ถ้าทำได้) ทำงานบน iPhone ของคุณ และเสียงของคุณจะไม่ถูกอัปโหลด เป็นโมเดลเดียวกับที่ใช้บอกว่าคลิปพูดภาษาอะไร"
+          }
+        }
+      }
+    },
+    "To tell which language this clip speaks, your iPhone needs a model of about %lld MB from Hugging Face (use Wi-Fi if you can). It runs on your iPhone and your audio is not uploaded. Without it, your iPhone can mainly recognize English and Spanish." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพื่อบอกว่าคลิปนี้พูดภาษาอะไร iPhone ของคุณต้องมีโมเดลขนาดประมาณ %lld MB จาก Hugging Face (ใช้ Wi-Fi จะดีกว่า) โมเดลทำงานบน iPhone ของคุณและไม่มีการอัปโหลดเสียง หากไม่มีโมเดล iPhone จะรู้จักได้หลักๆ แค่ภาษาอังกฤษและภาษาสเปน"
+          }
+        }
+      }
+    },
+    "Too many changes, try again shortly" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนถี่เกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Too many comments, try again shortly" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงความคิดเห็นถี่เกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Too many follows, try again shortly" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดตามถี่เกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Too many likes, try again shortly" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดถูกใจถี่เกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Too many requests, try again in a moment" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "มีคำขอมากเกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Too many requests, try again shortly" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "มีคำขอมากเกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Too many uploads, try again in a minute" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัปโหลดถี่เกินไป ลองอีกครั้งในอีกหนึ่งนาที"
+          }
+        }
+      }
+    },
+    "Transcribes Spanish clips for dubbing" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียงคลิปภาษาสเปนเพื่อพากย์"
+          }
+        }
+      }
+    },
+    "Transcribing %@ speech on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังถอดคำพูดภาษา%@บน iPhone…"
+          }
+        }
+      }
+    },
+    "Transcribing %@ speech on this iPhone… %lld/%lld" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังถอดคำพูดภาษา%@บน iPhone… %lld/%lld"
+          }
+        }
+      }
+    },
+    "Translate all" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลทั้งหมด"
+          }
+        }
+      }
+    },
+    "Translated on this iPhone from %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลบน iPhone เครื่องนี้จากภาษา%@"
+          }
+        }
+      }
+    },
+    "Translating %@ into %@ isn't supported on this iPhone yet." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone เครื่องนี้ยังไม่รองรับการแปลจากภาษา%@เป็นภาษา%@"
+          }
+        }
+      }
+    },
+    "Translating into %@ on this iPhone…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังแปลเป็นภาษา%@บน iPhone…"
+          }
+        }
+      }
+    },
+    "Translation" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การแปล"
+          }
+        }
+      }
+    },
+    "Try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Turn on location for Marauders in Settings to center the map on you." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดสิทธิ์เข้าถึงตำแหน่งให้ Marauders ในการตั้งค่า เพื่อเลื่อนแผนที่มาที่ตำแหน่งของคุณ"
+          }
+        }
+      }
+    },
+    "Turn on location for Marauders in Settings to tag your clip." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดสิทธิ์เข้าถึงตำแหน่งให้ Marauders ในการตั้งค่า เพื่อระบุตำแหน่งของคลิป"
+          }
+        }
+      }
+    },
+    "Turn on location for Marauders in Settings to use the Map tab." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดสิทธิ์เข้าถึงตำแหน่งให้ Marauders ในการตั้งค่า เพื่อใช้แท็บแผนที่"
+          }
+        }
+      }
+    },
+    "Unavailable" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ไม่ได้"
+          }
+        }
+      }
+    },
+    "Unknown user" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ใช้ไม่ทราบชื่อ"
+          }
+        }
+      }
+    },
+    "Unlike" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกถูกใจ"
+          }
+        }
+      }
+    },
+    "Upload" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัปโหลด"
+          }
+        }
+      }
+    },
+    "Upload complete — opening feed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัปโหลดเสร็จแล้ว — กำลังเปิดฟีด"
+          }
+        }
+      }
+    },
+    "Upload failed (status %lld)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัปโหลดไม่สำเร็จ (สถานะ %lld)"
+          }
+        }
+      }
+    },
+    "Upload or open the feed — events appear here" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองอัปโหลดหรือเปิดฟีด — เหตุการณ์จะแสดงที่นี่"
+          }
+        }
+      }
+    },
+    "Upload to Feed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัปโหลดไปยังฟีด"
+          }
+        }
+      }
+    },
+    "Uploading is not available" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การอัปโหลดใช้งานไม่ได้"
+          }
+        }
+      }
+    },
+    "Uploading…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังอัปโหลด…"
+          }
+        }
+      }
+    },
+    "Uploading… %lld%%" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังอัปโหลด… %lld%%"
+          }
+        }
+      }
+    },
+    "URL is not secure" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL ไม่ปลอดภัย"
+          }
+        }
+      }
+    },
+    "Use Current Location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ตำแหน่งปัจจุบัน"
+          }
+        }
+      }
+    },
+    "Use Pin" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้หมุดนี้"
+          }
+        }
+      }
+    },
+    "Use your location?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ตำแหน่งของคุณไหม?"
+          }
+        }
+      }
+    },
+    "Used by AI dubbing" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้กับการพากย์ด้วย AI"
+          }
+        }
+      }
+    },
+    "Uses your device languages · %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ภาษาของเครื่อง · %@"
+          }
+        }
+      }
+    },
+    "Video" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "วิดีโอ"
+          }
+        }
+      }
+    },
+    "Video conversion failed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลงวิดีโอไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Video must be 100 MB or smaller" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "วิดีโอต้องมีขนาดไม่เกิน 100 MB"
+          }
+        }
+      }
+    },
+    "View Log" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดูล็อก"
+          }
+        }
+      }
+    },
+    "We use your location to tag where this clip was recorded." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เราใช้ตำแหน่งของคุณเพื่อระบุว่าคลิปนี้ถ่ายที่ไหน"
+          }
+        }
+      }
+    },
+    "Welcome to Marauders" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยินดีต้อนรับสู่ Marauders"
+          }
+        }
+      }
+    },
+    "You can't follow yourself" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณติดตามตัวเองไม่ได้"
+          }
+        }
+      }
+    },
+    "You're commenting too fast. Wait a moment and try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณแสดงความคิดเห็นถี่เกินไป รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "You're sharing your last location with mutual followers." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณกำลังแชร์ตำแหน่งล่าสุดกับคนที่ติดตามกัน"
+          }
+        }
+      }
+    },
+    "Your session ended. Sign in to try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเข้าสู่ระบบสิ้นสุดแล้ว เข้าสู่ระบบเพื่อลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Your session expired. Sign in again to comment." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเข้าสู่ระบบหมดอายุแล้ว เข้าสู่ระบบอีกครั้งเพื่อแสดงความคิดเห็น"
+          }
+        }
+      }
+    },
+    "Your session has ended. Please sign in again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเข้าสู่ระบบสิ้นสุดแล้ว โปรดเข้าสู่ระบบอีกครั้ง"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
