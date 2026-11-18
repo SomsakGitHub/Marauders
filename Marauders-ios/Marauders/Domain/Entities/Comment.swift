@@ -87,17 +87,17 @@ enum CommentError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .signInRequired:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         case .notFound:
-            return "Comment or clip not found"
+            return String(localized: "Comment or clip not found")
         case .invalidBody:
-            return "A comment must be 1 to \(CommentRules.maxCharacters) characters"
+            return String(localized: "A comment must be 1 to \(String(CommentRules.maxCharacters)) characters")
         case .rateLimited:
-            return "Too many comments, try again shortly"
+            return String(localized: "Too many comments, try again shortly")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         case .serverError(let code):
-            return "Server responded with status \(code)"
+            return String(localized: "Server responded with status \(code)")
         }
     }
 }

@@ -21,7 +21,7 @@ enum NearMeRadius: Int, CaseIterable, Identifiable, Hashable {
         CLLocationDistance(kilometers) * 1_000
     }
 
-    var label: String { "\(kilometers) km" }
+    var label: String { String(localized: "\(kilometers) km") }
 
-    var emptyClipsMessage: String { "No clips within \(kilometers) km" }
+    var emptyClipsMessage: String { String(localized: "No clips within \(kilometers) km") }
 }

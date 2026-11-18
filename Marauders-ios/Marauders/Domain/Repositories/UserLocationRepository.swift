@@ -21,11 +21,11 @@ enum UserLocationAPIError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .notAuthenticated:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         case .serverError(let code):
-            return "Location report failed (status \(code))"
+            return String(localized: "Location report failed (status \(code))")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         }
     }
 }

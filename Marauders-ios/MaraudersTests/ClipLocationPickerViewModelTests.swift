@@ -58,12 +58,43 @@ struct ClipLocationPickerViewModelTests {
         #expect(viewModel.confirmedClipLocation() != nil)
     }
 
+    @Test func theCoordinateLineShowsThePinToFiveDecimals() {
+        let viewModel = ClipLocationPickerViewModel(initial: nil)
+
+        viewModel.movePin(to: CLLocationCoordinate2D(latitude: 13.7563, longitude: 100.50181))
+        #expect(viewModel.coordinateLabel == "13.75630, 100.50181 — tap the map to move the pin")
+
+        viewModel.movePin(to: CLLocationCoordinate2D(latitude: -33.86882, longitude: 151.2093))
+        #expect(viewModel.coordinateLabel == "-33.86882, 151.20930 — tap the map to move the pin")
+    }
+
     @Test func searchRejectsShortQuery() async {
         let viewModel = ClipLocationPickerViewModel(initial: nil)
         viewModel.searchQuery = "a"
 
         await viewModel.search()
 
-        #expect(viewModel.searchError != nil)
+        #expect(viewModel.searchError == "Enter 2–120 characters to search")
+    }
+
+    @Test func aSearchThatFindsNothingSaysSo() async {
+        let model = ClipLocationPickerViewModel(initial: nil, searchProvider: { _, _ in [] })
+        model.searchQuery = "Nowhere at all"
+
+        await model.search()
+
+        #expect(model.searchResults.isEmpty)
+        #expect(model.searchError == "No places found — try a name, city or address")
+    }
+
+    @Test func aSearchThatFailsSaysSo() async {
+        struct Offline: Error {}
+        let model = ClipLocationPickerViewModel(initial: nil, searchProvider: { _, _ in throw Offline() })
+        model.searchQuery = "CentralWorld"
+
+        await model.search()
+
+        #expect(model.searchResults.isEmpty)
+        #expect(model.searchError == "Search failed — try again")
     }
 }

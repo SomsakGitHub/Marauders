@@ -51,7 +51,7 @@ final class FeedPlayerEngine {
 
     func settle(on url: URL, prefetchNeighbors: [URL]) {
         guard url.scheme?.lowercased() == "https" else {
-            failPlayback(message: "URL is not secure")
+            failPlayback(message: String(localized: "URL is not secure"))
             return
         }
         pausedByUser = false
@@ -192,7 +192,7 @@ final class FeedPlayerEngine {
                 guard !Task.isCancelled, slot.requestID == requestID else { return }
                 guard let item else {
                     slot.recordLoadFailure()
-                    if isVisible(slot) { failPlayback(message: "Couldn’t load video") }
+                    if isVisible(slot) { failPlayback(message: String(localized: "Couldn’t load video")) }
                     return
                 }
                 slot.assign(item: item, url: url, engine: self)
@@ -215,7 +215,7 @@ final class FeedPlayerEngine {
             guard currentURL == url, slot.player.currentItem === item else { return }
             load(into: visibleSlotIndex, url: url)
         } else {
-            failPlayback(message: item.error?.localizedDescription ?? "Playback failed")
+            failPlayback(message: item.error?.localizedDescription ?? String(localized: "Playback failed"))
         }
     }
 

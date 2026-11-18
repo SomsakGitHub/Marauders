@@ -90,6 +90,45 @@ struct AuthViewModelTests {
         #expect(viewModel.errorMessage == "Sign in failed. Please try again.")
     }
 
+    /// The session package keeps its own English texts; the app shows its own text for each of its errors.
+    @Test func completeSignInShowsTheAppsTextForEachFailure() async {
+        struct Opaque: Error {}
+        let rows: [(error: any Error, message: String)] = [
+            (AuthAPIError.invalidIdentityToken, "Sign in could not be verified"),
+            (AuthAPIError.invalidResponse, "Invalid sign-in response"),
+            (AuthAPIError.refreshRejected, "Your session has ended. Please sign in again."),
+            // Another error that describes itself keeps its own text; one that does not gets the general one.
+            (HTTPClientError.invalidResponse, "Invalid server response"),
+            (Opaque(), "Sign in failed. Please try again."),
+        ]
+        for row in rows {
+            let viewModel = AuthViewModel(
+                sessionStore: InMemoryAuthSessionStore(),
+                tokenStore: InMemoryAPIAccessTokenStore(),
+                refreshTokenStore: MemoryRefreshTokenStore(),
+                authAPI: FailingAuthAPIClient(error: row.error)
+            )
+
+            await viewModel.completeSignIn(userID: "user-1", identityToken: String(repeating: "a", count: 32))
+
+            #expect(viewModel.errorMessage == row.message, "\(row.error)")
+        }
+    }
+
+    @Test func anAppleSignInThatFailsSaysItWasNotCompleted() {
+        struct AppleRefused: Error {}
+        let viewModel = AuthViewModel(
+            sessionStore: InMemoryAuthSessionStore(),
+            tokenStore: InMemoryAPIAccessTokenStore(),
+            refreshTokenStore: MemoryRefreshTokenStore(),
+            authAPI: FailingAuthAPIClient(error: AuthAPIError.invalidResponse)
+        )
+
+        viewModel.handleAuthorization(.failure(AppleRefused()))
+
+        #expect(viewModel.errorMessage == "Sign in was not completed")
+    }
+
     @Test func serverErrorExposesStatusCodeForLogging() {
         #expect(AuthAPIError.serverError(503).httpStatusCode == 503)
         #expect(AuthAPIError.invalidIdentityToken.httpStatusCode == nil)
@@ -217,7 +256,7 @@ private struct StubAuthAPIClient: AuthAPIClientProtocol {
 }
 
 private struct FailingAuthAPIClient: AuthAPIClientProtocol {
-    let error: AuthAPIError
+    let error: any Error
 
     func exchangeAppleIdentityToken(_ identityToken: String, countryCode: String) async throws -> AuthTokens {
         throw error

@@ -1,0 +1,41 @@
+# Literals that Scripts/find-plain-strings.py reports and that need no String(localized:).
+#
+# One entry per line:   path|text  # reason        (path|* skips a whole file)
+# The path is relative to Marauders-ios/, the text is the literal as it is written between its quotes.
+#
+# Before adding a line, ask whether a viewer can read the text. If they can, give it String(localized:) instead.
+
+# Fixtures of the UI tests (a launch with UITEST): never part of a real session.
+Marauders/Data/Repositories/UITestCommentRepository.swift|*  # fixtures of the UI tests
+Marauders/Data/Repositories/UITestFeedRepository.swift|*  # fixtures of the UI tests
+Marauders/Data/Repositories/UITestUserProfileRepository.swift|*  # fixtures of the UI tests
+
+# For the developer: the log's own lines and configuration mistakes.
+Marauders/Shared/Logging/AppLogStore.swift|*  # the lines and the subsystem name of the log
+Marauders/Data/API/APIConfiguration.swift|API URL not found — check APIConfiguration.plist in the project  # a configuration mistake
+Marauders/Data/API/APIConfiguration.swift|API URL must be https:// with no path  # a configuration mistake
+Packages/MaraudersAuth/Sources/MaraudersAuthData/AuthRoute.swift|API URL must be https:// with no path  # a configuration mistake
+
+# Not text: bytes of the upload body, names of background tasks.
+Marauders/Data/API/MultipartBodyWriter.swift|Content-Disposition: form-data; name=\"\(escaped(name))\"; filename=\"\(escaped(filename))\"\r\n  # a header line of the multipart body
+Marauders/Presentation/Map/BackgroundLocationMonitor.swift|Share location  # the name of a background task, never shown
+Marauders/Presentation/Upload/UploadVideoViewModel.swift|Upload video  # the name of a background task, never shown
+
+# Arguments of a LocalizedStringKey parameter of the app's own views: SwiftUI localizes them like Text("...").
+Marauders/Presentation/Settings/LanguageModelsView.swift|Download  # downloadButton(_:title:) takes a LocalizedStringKey
+Marauders/Presentation/Settings/LanguageModelsView.swift|Try Again  # downloadButton(_:title:) takes a LocalizedStringKey
+Marauders/Presentation/Profile/ProfileView.swift|Following  # ProfileCountLink.label is a LocalizedStringKey
+Marauders/Presentation/Profile/ProfileView.swift|Followers  # ProfileCountLink.label is a LocalizedStringKey
+Marauders/Presentation/Profile/ProfileView.swift|Clips  # ProfileStat.label is a LocalizedStringKey
+Marauders/Presentation/Profile/PublicProfileScreen.swift|Following  # ProfileCountLink.label is a LocalizedStringKey
+Marauders/Presentation/Profile/PublicProfileScreen.swift|Followers  # ProfileCountLink.label is a LocalizedStringKey
+Marauders/Presentation/Profile/PublicProfileScreen.swift|Clips  # ProfileStat.label is a LocalizedStringKey
+
+# The session package keeps its English texts and has no catalog of its own. The app shows its own localized text for
+# each of them in AuthViewModel.userFacingMessage(for:). A new text of the package needs a line there first, then here.
+Packages/MaraudersAuth/Sources/MaraudersAuth/AuthAPIClientProtocol.swift|Sign in could not be verified  # the app maps it in AuthViewModel
+Packages/MaraudersAuth/Sources/MaraudersAuth/AuthAPIClientProtocol.swift|Invalid sign-in response  # the app maps it in AuthViewModel
+Packages/MaraudersAuth/Sources/MaraudersAuth/AuthAPIClientProtocol.swift|Your session has ended. Please sign in again.  # the app maps it in AuthViewModel
+Packages/MaraudersAuth/Sources/MaraudersAuth/AuthAPIClientProtocol.swift|The service is temporarily unavailable. Please try again.  # the app maps it in AuthViewModel
+Packages/MaraudersAuth/Sources/MaraudersAuth/AuthAPIClientProtocol.swift|Sign in failed. Please try again.  # the app maps it in AuthViewModel
+Packages/MaraudersAuth/Sources/MaraudersAuth/SignInWithAppleUseCase.swift|Invalid account  # the app maps it in AuthViewModel

@@ -51,7 +51,7 @@ extension BackgroundClipUploader {
 
     /// The Worker's `error` text from its answer, else `Upload failed (status N)`.
     private static func workerMessage(_ body: Data?, statusCode: Int) -> String {
-        body.flatMap(VideoUploadForm.serverMessage(from:)) ?? "Upload failed (status \(statusCode))"
+        body.flatMap(VideoUploadForm.serverMessage(from:)) ?? String(localized: "Upload failed (status \(statusCode))")
     }
 
     /// A 2xx whose answer never arrived whole: asks the Worker for the clip it stored under the record's key.

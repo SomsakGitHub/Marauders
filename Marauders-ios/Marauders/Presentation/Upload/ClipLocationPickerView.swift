@@ -81,7 +81,7 @@ struct ClipLocationPickerView: View {
                     Text(name).font(.subheadline.weight(.medium)).padding(.top, 8)
                 }
 
-                Text(coordinateLabel)
+                Text(pickerModel.coordinateLabel)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 12)
@@ -156,14 +156,6 @@ struct ClipLocationPickerView: View {
         .padding(12)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
         .padding()
-    }
-
-    private var coordinateLabel: String {
-        String(
-            format: "%.5f, %.5f — tap the map to move the pin",
-            pickerModel.selectedCoordinate.latitude,
-            pickerModel.selectedCoordinate.longitude
-        )
     }
 }
 

@@ -23,7 +23,7 @@ enum HTTPClientError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         case .transport(let message):
             return message
         }

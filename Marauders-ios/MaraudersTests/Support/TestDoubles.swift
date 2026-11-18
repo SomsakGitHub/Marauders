@@ -361,6 +361,10 @@ final class FakeLocationManager: @MainActor BackgroundLocationManaging {
         delegate?.locationManager?(CLLocationManager(), didUpdateLocations: locations)
     }
 
+    func simulateFailure(_ error: Error) {
+        delegate?.locationManager?(CLLocationManager(), didFailWithError: error)
+    }
+
     func startMonitoringSignificantLocationChanges() {
         significantChangeStarts += 1
     }

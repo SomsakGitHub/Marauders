@@ -89,6 +89,6 @@ final class PublicProfileViewModel {
     }
 
     private static func userFacingMessage(for error: Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? "Couldn't load this profile"
+        (error as? LocalizedError)?.errorDescription ?? String(localized: "Couldn't load this profile")
     }
 }

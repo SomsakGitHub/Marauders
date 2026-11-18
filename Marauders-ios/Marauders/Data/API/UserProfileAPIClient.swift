@@ -16,17 +16,17 @@ enum UserProfileAPIError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .notAuthenticated:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         case .notFound:
-            return "Profile not found"
+            return String(localized: "Profile not found")
         case .handleTaken:
-            return "That handle is already taken"
+            return String(localized: "That handle is already taken")
         case .invalidHandle:
-            return "Handles may use letters, numbers, dots and underscores"
+            return String(localized: "Handles may use letters, numbers, dots and underscores")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         case .serverError(let code):
-            return "Server responded with status \(code)"
+            return String(localized: "Server responded with status \(code)")
         }
     }
 }

@@ -52,6 +52,13 @@ final class ClipLocationPickerViewModel {
         searchError = nil
     }
 
+    /// The line under the map: where the pin is, and how to move it.
+    var coordinateLabel: String {
+        let latitude = String(format: "%.5f", selectedCoordinate.latitude)
+        let longitude = String(format: "%.5f", selectedCoordinate.longitude)
+        return String(localized: "\(latitude), \(longitude) — tap the map to move the pin")
+    }
+
     func cancelSearch() {
         generation += 1
         activeSearch?.cancel()
@@ -72,7 +79,7 @@ final class ClipLocationPickerViewModel {
     func search() async {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard query.count >= 2, query.count <= 120 else {
-            searchError = "Enter 2–120 characters to search"
+            searchError = String(localized: "Enter 2–120 characters to search")
             return
         }
         guard query != lastRequestedQuery || (!isSearching && searchResults.isEmpty) else { return }
@@ -108,13 +115,14 @@ final class ClipLocationPickerViewModel {
                 query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
             else { return }
             searchResults = Array(results.prefix(8))
-            searchError = searchResults.isEmpty ? "No places found — try a name, city or address" : nil
+            searchError =
+                searchResults.isEmpty ? String(localized: "No places found — try a name, city or address") : nil
         } catch {
             guard !Task.isCancelled, generation == requestGeneration,
                 query == searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
             else { return }
             searchResults = []
-            searchError = "Search failed — try again"
+            searchError = String(localized: "Search failed — try again")
         }
     }
 

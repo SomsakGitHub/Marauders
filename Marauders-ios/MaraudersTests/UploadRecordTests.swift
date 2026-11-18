@@ -120,6 +120,19 @@ struct UploadRecordTests {
         }
     }
 
+    /// A fixed failure is stored as its case alone. Its sentence is made when it is shown, in the language the app has
+    /// then, so a record written under one language never shows another one's text. (The three failures that carry a
+    /// text keep the text they were made with.)
+    @Test func fixedFailuresStoreNoSentence() throws {
+        let fixed: [UploadFailure] = [
+            .sessionEnded, .unavailable, .rateLimited, .interrupted, .responseLost, .bodyMissing,
+        ]
+        let stored = try #require(String(data: JSONEncoder().encode(fixed), encoding: .utf8))
+        for failure in fixed {
+            #expect(!stored.contains(failure.message), "failure \(failure)")
+        }
+    }
+
     @Test func onlyARejectedUploadAndAMissingBodyCannotBeRetried() {
         for row in Self.failures {
             switch row.failure {

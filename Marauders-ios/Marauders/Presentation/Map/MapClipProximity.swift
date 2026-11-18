@@ -20,10 +20,11 @@ enum MapClipProximity {
     }
 
     static func formattedDistance(_ meters: CLLocationDistance) -> String {
+        // Only the words are localized. The digits come from `String(format:)` in every language, as they always did.
         if meters < 1_000 {
-            return String(format: "%.0f m away", meters)
+            return String(localized: "\(String(format: "%.0f", meters)) m away")
         }
-        return String(format: "%.1f km away", meters / 1_000)
+        return String(localized: "\(String(format: "%.1f", meters / 1_000)) km away")
     }
 
     static func clips(

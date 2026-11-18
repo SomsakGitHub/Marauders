@@ -77,6 +77,15 @@ struct ProfileViewModelTests {
         #expect(viewModel.profile == nil)
     }
 
+    @Test func aLoadFailureThatDoesNotDescribeItselfGetsTheGeneralText() async {
+        struct Opaque: Error {}
+        let (viewModel, _) = makeSUT(result: .failure(Opaque()))
+
+        await viewModel.loadIfNeeded()
+
+        #expect(viewModel.state == .failed("Could not load your profile."))
+    }
+
     @Test func loadIfNeededOnlyFetchesOnce() async {
         let (viewModel, repository) = makeSUT(result: .success(UserProfile()))
 

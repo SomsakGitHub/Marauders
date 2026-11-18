@@ -25,17 +25,17 @@ enum UserFollowError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .signInRequired:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         case .notFound:
-            return "Profile not found"
+            return String(localized: "Profile not found")
         case .cannotFollowSelf:
-            return "You can't follow yourself"
+            return String(localized: "You can't follow yourself")
         case .rateLimited:
-            return "Too many follows, try again shortly"
+            return String(localized: "Too many follows, try again shortly")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         case .serverError(let code):
-            return "Server responded with status \(code)"
+            return String(localized: "Server responded with status \(code)")
         }
     }
 }

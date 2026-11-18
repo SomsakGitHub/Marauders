@@ -42,7 +42,6 @@ struct FastClipAudioInspectorTests {
         let result = await FastClipAudioInspector().inspect(fileURL: file)
         #expect(result.signal == .detected)
         #expect(result.languageHint == nil)
-        #expect(result.message.contains("ยังไม่ยืนยัน"))
         #expect(result.sampledSeconds > 0 && result.sampledSeconds <= 3.1)
     }
     @Test func samplingLaterInClipFindsAudioAfterSilentIntro() async throws {
@@ -56,7 +55,6 @@ struct FastClipAudioInspectorTests {
         defer { try? FileManager.default.removeItem(at: file) }
         let result = await FastClipAudioInspector().inspect(fileURL: file)
         #expect(result.signal == .quietSamples)
-        #expect(result.message.contains("ช่วงที่สุ่มตรวจ"))
     }
     @Test func longClipDoesNotExceedTranslationLimitByDuration() async throws {
         let file = try wave(duration: 121)

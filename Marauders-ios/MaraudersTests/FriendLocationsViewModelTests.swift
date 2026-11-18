@@ -186,6 +186,19 @@ struct FriendLocationsViewModelTests {
         #expect(sut.manager.locationRequestCount == 0)
     }
 
+    @Test func aFailedChangeThatDoesNotDescribeItselfGetsTheGeneralText() async {
+        struct Opaque: Error {}
+        let sut = makeSUT(
+            StubLocationSharingRepository(friends: .success(FriendLocations(sharing: false, friends: []))))
+        await sut.viewModel.refresh()
+
+        sut.repository.change = .failure(Opaque())
+        let failure = await sut.viewModel.setSharing(true)
+
+        #expect(failure == "Couldn't change location sharing")
+        #expect(sut.viewModel.sharing == false)
+    }
+
     /// The map refreshes every minute: an answer that left the Worker before the viewer turned sharing off must not turn
     /// it back on, or the app would go on sending the location of someone who just stopped.
     @Test func aRefreshAnsweredAfterATurnOffDoesNotUndoIt() async {

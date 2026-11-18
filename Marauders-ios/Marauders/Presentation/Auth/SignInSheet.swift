@@ -13,10 +13,10 @@ struct SignInSheet: View {
     var body: some View {
         SignInWithAppleGateView(
             authViewModel: authViewModel,
-            navigationTitle: "Sign in",
+            navigationTitle: String(localized: "Sign in"),
             systemImage: "person.crop.circle.fill",
-            title: "Welcome to Marauders",
-            subtitle: "Sign in with Apple to continue.",
+            title: String(localized: "Welcome to Marauders"),
+            subtitle: String(localized: "Sign in with Apple to continue."),
             accessibilityIdentifier: "auth.signIn"
         )
         .overlay(alignment: .topTrailing) {

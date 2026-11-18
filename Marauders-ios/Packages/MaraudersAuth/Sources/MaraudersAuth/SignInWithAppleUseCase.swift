@@ -5,10 +5,12 @@
 
 import Foundation
 
-enum SignInError: LocalizedError, Equatable {
+/// Why a sign-in was not started. Public so the app can show its own, localized text for it: this package keeps its
+/// texts in English and has no string catalog.
+public enum SignInError: LocalizedError, Equatable {
     case invalidAccount
 
-    var errorDescription: String? { "Invalid account" }
+    public var errorDescription: String? { "Invalid account" }
 }
 
 /// Trades an Apple identity token for a Worker session and keeps the session once it is established.

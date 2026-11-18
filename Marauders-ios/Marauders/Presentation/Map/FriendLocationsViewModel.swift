@@ -109,7 +109,7 @@ final class FriendLocationsViewModel {
             sharingRevision += 1
             isChangingSharing = false
             AppLog.warning("friends", "sharing change failed: \(error.localizedDescription)")
-            return (error as? LocalizedError)?.errorDescription ?? "Couldn't change location sharing"
+            return (error as? LocalizedError)?.errorDescription ?? String(localized: "Couldn't change location sharing")
         }
     }
 

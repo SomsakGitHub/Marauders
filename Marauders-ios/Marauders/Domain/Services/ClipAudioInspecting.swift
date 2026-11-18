@@ -11,15 +11,6 @@ nonisolated struct ClipAudioAssessment: Sendable, Equatable, Codable, Hashable {
     var spokenLanguage: SpokenLanguageAssessment? = nil
     var sampledSeconds: Double = 0
     var exceedsTranslationLimit = false
-
-    var message: String {
-        switch signal {
-        case .detected: "พบเสียงในคลิป แต่ยังไม่ยืนยันว่าเป็นคำพูดหรือแปลได้"
-        case .noTrack: "ไม่พบแทร็กเสียง คลิปยังอัปโหลดได้ แต่ไม่มีเสียงสำหรับแปลคำพูด"
-        case .quietSamples: "ช่วงที่สุ่มตรวจมีเสียงเบาหรือเงียบ ยังไม่ยืนยันคำพูดในคลิปทั้งหมด"
-        case .unknown: "ยังตรวจเสียงเบื้องต้นไม่ได้ ตรวจอีกครั้งได้ตอนเลือกแปลเสียง"
-        }
-    }
 }
 protocol ClipAudioInspecting: Sendable {
     func inspect(fileURL: URL) async -> ClipAudioAssessment

@@ -39,9 +39,9 @@ nonisolated enum ClipUploadError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: "Uploading is not available"
-        case .alreadyUploading: "An upload is already in progress"
-        case .notEnoughSpace: "Not enough free space on this iPhone to upload the clip"
+        case .unavailable: String(localized: "Uploading is not available")
+        case .alreadyUploading: String(localized: "An upload is already in progress")
+        case .notEnoughSpace: String(localized: "Not enough free space on this iPhone to upload the clip")
         }
     }
 }

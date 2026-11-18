@@ -11,7 +11,7 @@ enum UpdateAvatarError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unreadableImage:
-            return "Couldn’t read that image — try another"
+            return String(localized: "Couldn’t read that image — try another")
         }
     }
 }

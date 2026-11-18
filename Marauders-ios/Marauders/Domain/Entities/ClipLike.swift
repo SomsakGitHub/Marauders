@@ -21,15 +21,15 @@ enum ClipLikeError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .signInRequired:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         case .notFound:
-            return "Clip not found"
+            return String(localized: "Clip not found")
         case .rateLimited:
-            return "Too many likes, try again shortly"
+            return String(localized: "Too many likes, try again shortly")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         case .serverError(let code):
-            return "Server responded with status \(code)"
+            return String(localized: "Server responded with status \(code)")
         }
     }
 }

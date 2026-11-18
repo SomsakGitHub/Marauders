@@ -153,13 +153,13 @@ final class FollowListViewModel {
     private static func loadMessage(for error: Error) -> String {
         switch error as? FollowListError {
         case .notFound:
-            return "This profile is no longer available"
+            return String(localized: "This profile is no longer available")
         case .rateLimited:
-            return "Too many requests, try again in a moment"
+            return String(localized: "Too many requests, try again in a moment")
         case .signInRequired:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         default:
-            return "Couldn't load this list"
+            return String(localized: "Couldn't load this list")
         }
     }
 }

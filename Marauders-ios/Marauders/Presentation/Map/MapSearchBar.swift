@@ -8,7 +8,7 @@ import SwiftUI
 /// The floating search pill shown at the top of the map.
 struct MapSearchBar: View {
     @Binding var text: String
-    var prompt: String = "Search clips"
+    var prompt: String = String(localized: "Search clips")
     @FocusState private var isFocused: Bool
 
     var body: some View {

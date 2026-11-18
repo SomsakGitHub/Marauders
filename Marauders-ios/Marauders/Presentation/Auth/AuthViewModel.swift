@@ -161,13 +161,13 @@ final class AuthViewModel {
         switch result {
         case .success(let authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                errorMessage = "Sign in failed"
+                errorMessage = String(localized: "Sign in failed")
                 return
             }
             guard let identityTokenData = credential.identityToken,
                 let identityToken = String(data: identityTokenData, encoding: .utf8)
             else {
-                errorMessage = "Sign in failed"
+                errorMessage = String(localized: "Sign in failed")
                 return
             }
             Task {
@@ -180,7 +180,7 @@ final class AuthViewModel {
             {
                 return
             }
-            errorMessage = "Sign in was not completed"
+            errorMessage = String(localized: "Sign in was not completed")
             AppLog.error("auth", "Apple sign in failed")
         }
     }
@@ -385,11 +385,29 @@ final class AuthViewModel {
         }
     }
 
+    /// The text for a sign-in that failed, in the app's language. The session package keeps its texts in English and
+    /// has no string catalog, so each of its errors gets the app's own text here; any other error that describes
+    /// itself keeps its description.
     private static func userFacingMessage(for error: Error) -> String {
-        if let localized = error as? LocalizedError, let description = localized.errorDescription {
-            return description
+        switch error {
+        case AuthAPIError.invalidIdentityToken:
+            return String(localized: "Sign in could not be verified")
+        case AuthAPIError.invalidResponse:
+            return String(localized: "Invalid sign-in response")
+        case AuthAPIError.refreshRejected:
+            return String(localized: "Your session has ended. Please sign in again.")
+        case AuthAPIError.serverError(500...599):
+            return String(localized: "The service is temporarily unavailable. Please try again.")
+        case is AuthAPIError:
+            return String(localized: "Sign in failed. Please try again.")
+        case SignInError.invalidAccount:
+            return String(localized: "Invalid account")
+        default:
+            if let localized = error as? LocalizedError, let description = localized.errorDescription {
+                return description
+            }
+            return String(localized: "Sign in failed. Please try again.")
         }
-        return "Sign in failed. Please try again."
     }
 
     nonisolated static func appleCredentialState(for userID: String) async

@@ -49,15 +49,15 @@ enum FollowListError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .signInRequired:
-            return "Sign in required"
+            return String(localized: "Sign in required")
         case .notFound:
-            return "Profile not found"
+            return String(localized: "Profile not found")
         case .rateLimited:
-            return "Too many requests, try again shortly"
+            return String(localized: "Too many requests, try again shortly")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         case .serverError(let code):
-            return "Server responded with status \(code)"
+            return String(localized: "Server responded with status \(code)")
         }
     }
 }

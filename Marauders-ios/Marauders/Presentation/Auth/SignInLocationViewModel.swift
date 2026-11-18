@@ -41,7 +41,7 @@ final class SignInLocationViewModel {
             let denied = ProcessInfo.processInfo.arguments.contains("UITEST_LOCATION_DENIED")
             authorizationStatus = denied ? .denied : .authorizedAlways
             countryCode = denied ? nil : "TH"
-            message = denied ? "Set location access to Always in Settings before signing in." : nil
+            message = denied ? String(localized: "Set location access to Always in Settings before signing in.") : nil
         }
     }
 
@@ -49,7 +49,9 @@ final class SignInLocationViewModel {
         guard !useUITestState else { return }
         bridge.onAuthorizationChange = { [weak self] in self?.refresh() }
         bridge.onLocations = { [weak self] locations in self?.receive(locations) }
-        bridge.onFailure = { [weak self] _ in self?.fail("Could not get your location. Please try again.") }
+        bridge.onFailure = { [weak self] _ in
+            self?.fail(String(localized: "Could not get your location. Please try again."))
+        }
         manager.delegate = bridge
         refresh()
     }
@@ -59,10 +61,10 @@ final class SignInLocationViewModel {
         switch authorizationStatus {
         case .notDetermined:
             countryCode = nil
-            message = "Allow location access, then select Always before signing in."
+            message = String(localized: "Allow location access, then select Always before signing in.")
             manager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse:
-            fail("Set location access to Always in Settings before signing in.")
+            fail(String(localized: "Set location access to Always in Settings before signing in."))
             if !hasRequestedAlways {
                 hasRequestedAlways = true
                 manager.requestAlwaysAuthorization()
@@ -70,16 +72,16 @@ final class SignInLocationViewModel {
         case .authorizedAlways:
             guard countryCode == nil, !isResolving else { return }
             isResolving = true
-            message = "Finding your country…"
+            message = String(localized: "Finding your country…")
             manager.desiredAccuracy = kCLLocationAccuracyKilometer
             manager.requestLocation()
             timeout?.cancel()
             timeout = Task { [weak self] in
                 do { try await Task.sleep(for: .seconds(15)) } catch { return }
-                self?.fail("Could not identify your country. Check your connection and try again.")
+                self?.fail(String(localized: "Could not identify your country. Check your connection and try again."))
             }
         default:
-            fail("Set location access to Always in Settings before signing in.")
+            fail(String(localized: "Set location access to Always in Settings before signing in."))
         }
     }
     func stop() {
@@ -102,7 +104,7 @@ final class SignInLocationViewModel {
             let location = locations.last, location.horizontalAccuracy >= 0,
             abs(location.timestamp.timeIntervalSinceNow) < 120
         else {
-            fail("Could not get a recent location. Please try again.")
+            fail(String(localized: "Could not get a recent location. Please try again."))
             return
         }
         generation += 1
@@ -115,12 +117,12 @@ final class SignInLocationViewModel {
                 guard !Task.isCancelled, generation == request else { return }
                 guard let code, code.count == 2, Locale.Region.isoRegions.contains(where: { $0.identifier == code })
                 else {
-                    fail("Could not identify your country. Please try again.")
+                    fail(String(localized: "Could not identify your country. Please try again."))
                     return
                 }
                 authorizationStatus = manager.authorizationStatus
                 guard authorizationStatus == .authorizedAlways else {
-                    fail("Set location access to Always in Settings before signing in.")
+                    fail(String(localized: "Set location access to Always in Settings before signing in."))
                     return
                 }
                 timeout?.cancel()
@@ -129,7 +131,7 @@ final class SignInLocationViewModel {
                 message = nil
             } catch {
                 guard !Task.isCancelled, generation == request else { return }
-                fail("Could not identify your country. Check your connection and try again.")
+                fail(String(localized: "Could not identify your country. Check your connection and try again."))
             }
         }
     }

@@ -10,7 +10,7 @@ import MaraudersAuth
 /// caller gets this instead of the 401 it would have read as "signed out": the session is kept and the request can be
 /// tried again later.
 nonisolated struct SessionRefreshUnavailableError: LocalizedError, Equatable {
-    var errorDescription: String? { "The service is temporarily unavailable. Please try again." }
+    var errorDescription: String? { String(localized: "The service is temporarily unavailable. Please try again.") }
 }
 
 /// Wraps an `HTTPClient` and heals a 401: a request that carried an access token and was rejected is sent once more

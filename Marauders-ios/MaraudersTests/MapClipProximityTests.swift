@@ -59,6 +59,19 @@ struct MapClipProximityTests {
         #expect(MapClipProximity.formattedDistance(2_500) == "2.5 km away")
     }
 
+    /// The digits come from `String(format:)`, in every language: a value half-way between two results rounds as it
+    /// always did, and a long distance gets no thousands separator.
+    @Test func formattedDistanceKeepsItsDigits() {
+        #expect(MapClipProximity.formattedDistance(0) == "0 m away")
+        #expect(MapClipProximity.formattedDistance(449.5) == "450 m away")
+        #expect(MapClipProximity.formattedDistance(450.5) == "450 m away")
+        #expect(MapClipProximity.formattedDistance(999.4) == "999 m away")
+        #expect(MapClipProximity.formattedDistance(1_000) == "1.0 km away")
+        #expect(MapClipProximity.formattedDistance(1_250) == "1.2 km away")
+        #expect(MapClipProximity.formattedDistance(12_345) == "12.3 km away")
+        #expect(MapClipProximity.formattedDistance(1_234_567) == "1234.6 km away")
+    }
+
     @Test func distanceMetersFromUserToClip() {
         let user = CLLocationCoordinate2D(latitude: 13.7563, longitude: 100.5018)
         let clip = FeedVideo(

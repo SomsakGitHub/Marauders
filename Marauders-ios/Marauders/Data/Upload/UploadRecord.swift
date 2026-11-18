@@ -81,13 +81,13 @@ nonisolated enum UploadFailure: Codable, Equatable, Sendable {
     /// What the viewer reads.
     var message: String {
         switch self {
-        case .sessionEnded: "Your session ended. Sign in to try again."
-        case .unavailable: "The service is unavailable right now. Try again."
+        case .sessionEnded: String(localized: "Your session ended. Sign in to try again.")
+        case .unavailable: String(localized: "The service is unavailable right now. Try again.")
         case .connection(let text), .rejected(let text), .serverError(let text): text
-        case .rateLimited: "Too many uploads, try again in a minute"
-        case .interrupted: "The upload was interrupted. Try again."
-        case .responseLost: "The clip may have been uploaded, but the answer was lost. Try again."
-        case .bodyMissing: "The clip is no longer on this iPhone. Choose the video again."
+        case .rateLimited: String(localized: "Too many uploads, try again in a minute")
+        case .interrupted: String(localized: "The upload was interrupted. Try again.")
+        case .responseLost: String(localized: "The clip may have been uploaded, but the answer was lost. Try again.")
+        case .bodyMissing: String(localized: "The clip is no longer on this iPhone. Choose the video again.")
         }
     }
 

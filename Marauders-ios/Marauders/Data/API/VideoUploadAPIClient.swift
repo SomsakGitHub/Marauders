@@ -19,15 +19,15 @@ nonisolated enum VideoUploadAPIError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .fileTooLarge:
-            return "Video must be 100 MB or smaller"
+            return String(localized: "Video must be 100 MB or smaller")
         case .unsupportedFormat:
-            return "Only MP4 / MOV is supported"
+            return String(localized: "Only MP4 / MOV is supported")
         case .notAuthenticated:
-            return "Sign in required to upload"
+            return String(localized: "Sign in required to upload")
         case .serverError(let code):
-            return "Upload failed (status \(code))"
+            return String(localized: "Upload failed (status \(code))")
         case .invalidResponse:
-            return "Invalid server response"
+            return String(localized: "Invalid server response")
         }
     }
 }

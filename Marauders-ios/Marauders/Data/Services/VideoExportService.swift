@@ -12,9 +12,9 @@ enum VideoExportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notExportable:
-            return "Couldn’t convert video to MP4"
+            return String(localized: "Couldn’t convert video to MP4")
         case .exportFailed:
-            return "Video conversion failed"
+            return String(localized: "Video conversion failed")
         }
     }
 }

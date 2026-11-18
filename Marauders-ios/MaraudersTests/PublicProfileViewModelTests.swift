@@ -51,6 +51,15 @@ struct PublicProfileViewModelTests {
         #expect(viewModel.profile == nil)
     }
 
+    @Test func aLoadFailureThatDoesNotDescribeItselfGetsTheGeneralText() async {
+        struct Opaque: Error {}
+        let (viewModel, _) = makeSUT(result: .failure(Opaque()))
+
+        await viewModel.loadIfNeeded()
+
+        #expect(viewModel.state == .failed("Couldn't load this profile"))
+    }
+
     @Test func loadIfNeededOnlyLoadsOnce() async {
         let (viewModel, repository) = makeSUT(result: .success(PublicUserProfile(handle: "@friend")))
 

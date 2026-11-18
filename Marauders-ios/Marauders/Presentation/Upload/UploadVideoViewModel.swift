@@ -111,8 +111,8 @@ final class UploadVideoViewModel {
     /// says 100%, because that would claim the clip is stored before the Worker has said so.
     var uploadProgressLabel: String? {
         guard let uploadProgress else { return nil }
-        if uploadProgress >= 1 { return "Finishing…" }
-        return "Uploading… \(Int((uploadProgress * 100).rounded(.down)))%"
+        if uploadProgress >= 1 { return String(localized: "Finishing…") }
+        return String(localized: "Uploading… \(Int((uploadProgress * 100).rounded(.down)))%")
     }
 
     /// The upload the uploader gave up on, while the viewer has not dealt with it.
@@ -237,7 +237,7 @@ final class UploadVideoViewModel {
             return
         }
         guard let clipLocation else {
-            statusMessage = "Set the clip location before uploading"
+            statusMessage = String(localized: "Set the clip location before uploading")
             AppLog.warning("upload", "upload tapped but no clip location")
             return
         }
@@ -352,7 +352,7 @@ final class UploadVideoViewModel {
         }
         reportedFinishedID = video.id
         isSuccess = true
-        statusMessage = "Upload complete — opening feed"
+        statusMessage = String(localized: "Upload complete — opening feed")
         AppLog.info("upload", "upload OK videoId=\(video.id.uuidString)")
         await uploads.discard.execute()
         await onUploaded?(video)
@@ -370,7 +370,7 @@ final class UploadVideoViewModel {
         }
         locationDelegateBridge.onFailure = { [weak self] error in
             self?.isResolvingClipLocation = false
-            self?.statusMessage = "Couldn’t read location — try again"
+            self?.statusMessage = String(localized: "Couldn’t read location — try again")
             AppLog.warning("upload", "clip location failed: \(error.localizedDescription)")
         }
 
@@ -405,7 +405,7 @@ final class UploadVideoViewModel {
         guard let coordinate = locations.last?.coordinate,
             let location = ClipLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         else {
-            statusMessage = "Couldn’t read location — try again"
+            statusMessage = String(localized: "Couldn’t read location — try again")
             return
         }
         clipLocation = location

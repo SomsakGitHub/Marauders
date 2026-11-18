@@ -207,7 +207,7 @@ struct UploadVideoView: View {
         AppLog.info("upload", "picker item selected — loading transferable")
         do {
             guard let video = try await item.loadTransferable(type: PickedVideoFile.self) else {
-                viewModel.statusMessage = "Couldn’t read video — try a shorter clip"
+                viewModel.statusMessage = String(localized: "Couldn’t read video — try a shorter clip")
                 AppLog.error("upload", "loadTransferable returned nil")
                 return
             }

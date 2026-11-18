@@ -137,7 +137,7 @@ final class ProfileViewModel {
         if let localized = error as? LocalizedError, let description = localized.errorDescription {
             return description
         }
-        return "Could not load your profile."
+        return String(localized: "Could not load your profile.")
     }
 
     /// Saves a new @handle; returns true on success.
