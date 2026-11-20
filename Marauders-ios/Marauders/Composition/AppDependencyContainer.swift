@@ -20,6 +20,8 @@ final class AppDependencyContainer {
     let profileViewModel: ProfileViewModel
     let reportUserLocation: ReportUserLocationUseCase
     let clipLikesViewModel: ClipLikesViewModel
+    /// Deletes the viewer's own account: Settings opens it and `ContentView` presents it.
+    let accountDeletionViewModel: AccountDeletionViewModel
     let followsViewModel: UserFollowsViewModel
     let friendLocationsViewModel: FriendLocationsViewModel
     /// The saved AI audio that viewers share, which every clip player's dubbing view model reads and writes. It is not
@@ -64,6 +66,7 @@ final class AppDependencyContainer {
         userFollowRepository: UserFollowRepository? = nil,
         locationSharingRepository: LocationSharingRepository? = nil,
         followListRepository: FollowListRepository? = nil,
+        accountDeletionRepository: AccountDeletionRepository? = nil,
         sessionStores: (
             session: AuthSessionStore, accessToken: APIAccessTokenStore, refreshToken: APIRefreshTokenStore
         )? = nil,
@@ -277,6 +280,26 @@ final class AppDependencyContainer {
         }
         clipLikesViewModel = ClipLikesViewModel(setLike: SetClipLikeUseCase(repository: resolveClipLikeRepository))
 
+        let resolveAccountDeletionRepository: AccountDeletionRepository
+        if let accountDeletionRepository {
+            resolveAccountDeletionRepository = accountDeletionRepository
+        } else if AppRuntimeConfiguration.isUITesting, !usesRejectedUITestSession {
+            // `UITEST_ACCOUNT_DELETION_FAILS` makes the deletion answer that it could not finish.
+            resolveAccountDeletionRepository = UITestAccountDeletionRepository(
+                fails: ProcessInfo.processInfo.arguments.contains("UITEST_ACCOUNT_DELETION_FAILS"))
+        } else {
+            resolveAccountDeletionRepository = DefaultAccountDeletionRepository(
+                apiClient: AccountDeletionAPIClient(client: transport, authorization: apiAuthorization)
+            )
+        }
+        accountDeletionViewModel = AccountDeletionViewModel(
+            deleteAccount: DeleteAccountUseCase(
+                repository: resolveAccountDeletionRepository,
+                // The feed's own condition: a UI test, or a test that handed its own feed, has no saved feed to clear.
+                feedCache: AppRuntimeConfiguration.isUITesting || feedRepository != nil
+                    ? nil : FeedStartupCache.shared
+            ))
+
         coordinator = AppCoordinator(
             router: router,
             feedViewModel: feedViewModel,
@@ -294,6 +317,10 @@ final class AppDependencyContainer {
         }
         followsViewModel.onViewerFollowingCountChange = { [weak profileViewModel] count in
             profileViewModel?.applyFollowingCount(count)
+        }
+        // The Worker has deleted the account: the viewer's session ends on the phone too, with no further call to it.
+        accountDeletionViewModel.onAccountDeleted = { [weak authViewModel] in
+            await authViewModel?.finishAccountDeletion()
         }
     }
 

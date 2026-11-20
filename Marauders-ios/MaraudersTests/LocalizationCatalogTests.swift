@@ -80,8 +80,8 @@ struct LocalizationCatalogTests {
         #expect(problem == nil, Testing.Comment(rawValue: "\(file): \(problem ?? "")"))
     }
 
-    /// Only a Staging build has these texts: the two sign-in buttons and the in-app log (its tab, the link to it and its
-    /// screen). A sync from a Production build would drop their keys, and the next Staging sync would add them back
+    /// Only a Staging build has these texts: the two sign-in buttons, the two buttons of the deletion sheet that stand in
+    /// for Apple's and the in-app log (its tab, the link to it and its screen). A sync from a Production build would drop their keys, and the next Staging sync would add them back
     /// empty (no "don't translate"), so `everyLiveKeyHasThaiWithMatchingPlaceholders` would report them. They are
     /// written `Text(verbatim:)` instead and listed in `plain-strings-allowlist.txt`. If a text that every build shows
     /// needs one of these words one day, take the word off this list and give it its key.
@@ -100,6 +100,8 @@ struct LocalizationCatalogTests {
             "Clear",
             "Copy All",
             "Paste into chat or Notes",
+            "Confirm deletion (UI test)",
+            "Delete test user",
         ] {
             #expect(!catalog.hasKey(key), "\(key) is Debug-only code: write it Text(verbatim:), not as a catalog key")
         }

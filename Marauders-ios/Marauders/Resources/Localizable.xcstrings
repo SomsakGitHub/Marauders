@@ -84,6 +84,26 @@
         }
       }
     },
+    "Account" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บัญชี"
+          }
+        }
+      }
+    },
+    "Account deletion isn't available right now. Please try again later." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอนนี้ยังลบบัญชีไม่ได้ โปรดลองอีกครั้งภายหลัง"
+          }
+        }
+      }
+    },
     "Add a comment…" : {
       "localizations" : {
         "th" : {
@@ -260,6 +280,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ภาษาของแอป"
+          }
+        }
+      }
+    },
+    "Apple couldn't confirm it's you. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple ยืนยันว่าเป็นคุณไม่ได้ โปรดลองอีกครั้ง"
           }
         }
       }
@@ -976,6 +1006,16 @@
         }
       }
     },
+    "Delete Account" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบบัญชี"
+          }
+        }
+      }
+    },
     "Delete clip" : {
       "localizations" : {
         "th" : {
@@ -1006,6 +1046,16 @@
         }
       }
     },
+    "Deleting your account…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังลบบัญชีของคุณ…"
+          }
+        }
+      }
+    },
     "Details" : {
       "localizations" : {
         "th" : {
@@ -1022,6 +1072,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "กำลังตรวจภาษาที่พูดในคลิปนี้…"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสร็จสิ้น"
           }
         }
       }
@@ -1162,6 +1222,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "พิมพ์ 2–120 ตัวอักษรเพื่อค้นหา"
+          }
+        }
+      }
+    },
+    "Everything in it was removed from Marauders." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทุกอย่างในบัญชีถูกลบออกจาก Marauders แล้ว"
           }
         }
       }
@@ -1839,6 +1909,16 @@
         }
       }
     },
+    "Permanently deletes your account and everything in it." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบบัญชีของคุณและทุกอย่างในบัญชีอย่างถาวร"
+          }
+        }
+      }
+    },
     "Play Again" : {
       "localizations" : {
         "th" : {
@@ -2340,6 +2420,16 @@
         }
       }
     },
+    "That isn't the Apple ID you signed in with." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นี่ไม่ใช่ Apple ID ที่คุณใช้เข้าสู่ระบบ"
+          }
+        }
+      }
+    },
     "The audio was removed." : {
       "localizations" : {
         "th" : {
@@ -2500,12 +2590,32 @@
         }
       }
     },
+    "This permanently deletes your Marauders account and everything in it:" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การดำเนินการนี้จะลบบัญชี Marauders ของคุณและทุกอย่างในบัญชีอย่างถาวร ได้แก่:"
+          }
+        }
+      }
+    },
     "This profile is no longer available" : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "โปรไฟล์นี้ไม่มีให้ดูแล้ว"
+          }
+        }
+      }
+    },
+    "To confirm, continue with Apple. Your account is deleted as soon as Apple confirms it's you." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพื่อยืนยัน ให้ดำเนินการต่อด้วย Apple บัญชีของคุณจะถูกลบทันทีที่ Apple ยืนยันว่าเป็นคุณ"
           }
         }
       }
@@ -2526,6 +2636,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เพื่อบอกว่าคลิปนี้พูดภาษาอะไร iPhone ของคุณต้องมีโมเดลขนาดประมาณ %lld MB จาก Hugging Face (ใช้ Wi-Fi จะดีกว่า) โมเดลทำงานบน iPhone ของคุณและไม่มีการอัปโหลดเสียง หากไม่มีโมเดล iPhone จะรู้จักได้หลักๆ แค่ภาษาอังกฤษและภาษาสเปน"
+          }
+        }
+      }
+    },
+    "Too many attempts. Please try again later." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองหลายครั้งเกินไป โปรดลองอีกครั้งภายหลัง"
           }
         }
       }
@@ -2920,6 +3040,16 @@
         }
       }
     },
+    "We couldn't finish deleting your account. Please try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบบัญชีของคุณไม่สำเร็จ โปรดลองอีกครั้ง"
+          }
+        }
+      }
+    },
     "We use your location to tag where this clip was recorded." : {
       "localizations" : {
         "th" : {
@@ -2950,6 +3080,16 @@
         }
       }
     },
+    "You have more than %lld clips. Delete some from your Profile first, then try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณมีคลิปมากกว่า %lld คลิป โปรดลบบางคลิปจากโปรไฟล์ก่อน แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
     "You're commenting too fast. Wait a moment and try again." : {
       "localizations" : {
         "th" : {
@@ -2966,6 +3106,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คุณกำลังแชร์ตำแหน่งล่าสุดกับคนที่ติดตามกัน"
+          }
+        }
+      }
+    },
+    "Your account was deleted" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบบัญชีของคุณแล้ว"
+          }
+        }
+      }
+    },
+    "your clips" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิปของคุณ"
+          }
+        }
+      }
+    },
+    "your comments, likes and follows" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความคิดเห็น การกดถูกใจ และการติดตามของคุณ"
+          }
+        }
+      }
+    },
+    "your profile and photo" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โปรไฟล์และรูปของคุณ"
           }
         }
       }
@@ -2996,6 +3176,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "การเข้าสู่ระบบสิ้นสุดแล้ว โปรดเข้าสู่ระบบอีกครั้ง"
+          }
+        }
+      }
+    },
+    "your shared location" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตำแหน่งที่คุณแชร์"
           }
         }
       }

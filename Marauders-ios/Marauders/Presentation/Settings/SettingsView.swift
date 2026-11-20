@@ -11,6 +11,9 @@ struct SettingsView: View {
     /// The viewer's location sharing; here so it can be turned off even when location access is off and the map closed.
     var friendLocations: FriendLocationsViewModel? = nil
     var isSignedIn = false
+    /// Opens the sheet that deletes the viewer's account. `ContentView` presents it, not this screen: the row below goes
+    /// with the session, and the sheet's confirmation has to outlive it.
+    var onDeleteAccount: () -> Void = {}
     @State private var isConfirmingSharing = false
     @State private var sharingError: String?
     @Environment(\.openURL) private var openURL
@@ -100,6 +103,19 @@ struct SettingsView: View {
                                 "People you follow who follow you back see where you are while you both share, also while Marauders is closed. Turning it off takes you off their maps at once."
                             )
                         }
+                    }
+                }
+
+                if isSignedIn {
+                    Section {
+                        Button("Delete Account", role: .destructive) {
+                            onDeleteAccount()
+                        }
+                        .accessibilityIdentifier("settings.deleteAccount")
+                    } header: {
+                        Text("Account")
+                    } footer: {
+                        Text("Permanently deletes your account and everything in it.")
                     }
                 }
             }

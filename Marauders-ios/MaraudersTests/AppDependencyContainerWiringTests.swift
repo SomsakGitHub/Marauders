@@ -146,4 +146,84 @@ struct AppDependencyContainerWiringTests {
 
         #expect(await kit.uploader.rejectionReporter == nil)
     }
+
+    // MARK: - Deleting the account
+
+    /// A container over a session of the test's own (a test user of the Simulator's debug sign in, who needs no Apple
+    /// answer to be signed in), the test's own uploader and a repository that answers as the test says.
+    private func makeSignedInContainer(
+        deleting repository: AccountDeletionRepository, kit: UploaderKit
+    ) async -> (container: AppDependencyContainer, storage: SignOutSessionStorage) {
+        let storage = SignOutSessionStorage(userID: "dev:wiring", accessToken: UploaderKit.validToken())
+        let container = AppDependencyContainer(
+            accountDeletionRepository: repository,
+            sessionStores: (session: storage, accessToken: storage, refreshToken: MemoryRefreshTokenStore()),
+            clipUploader: kit.uploader)
+        await container.authViewModel.restoreSession()
+        return (container, storage)
+    }
+
+    @Test func finishingADeletionSignsTheContainersViewerOut() async {
+        let kit = UploaderKit()
+        defer { kit.cleanUp() }
+        let repository = StubAccountDeletionRepository()
+        let (container, storage) = await makeSignedInContainer(deleting: repository, kit: kit)
+        #expect(container.authViewModel.isSignedIn, "the viewer is signed in before the deletion")
+
+        await container.accountDeletionViewModel.delete(authorizationCode: "code-1")
+
+        #expect(repository.codes == ["code-1"])
+        #expect(container.accountDeletionViewModel.phase == .deleted)
+        // Presentation cannot name the container's stores: a view model left without its callback would show the
+        // confirmation of a deleted account to a viewer who is still signed in to it.
+        #expect(storage.accessToken == nil)
+        #expect(storage.userID == nil)
+        #expect(!container.authViewModel.isSignedIn)
+    }
+
+    @Test func aFailedDeletionKeepsTheSession() async {
+        let kit = UploaderKit()
+        defer { kit.cleanUp() }
+        let repository = StubAccountDeletionRepository()
+        let reason = AccountDeletionError.couldNotFinish
+        repository.failure = reason
+        let (container, storage) = await makeSignedInContainer(deleting: repository, kit: kit)
+
+        await container.accountDeletionViewModel.delete(authorizationCode: "code-1")
+
+        #expect(container.accountDeletionViewModel.phase == .failed(reason.errorDescription ?? ""))
+        #expect(storage.accessToken != nil)
+        #expect(storage.userID == "dev:wiring")
+        #expect(container.authViewModel.isSignedIn)
+    }
+
+    @Test func theDeletionClearsThePersonalFeedCache() async throws {
+        let kit = UploaderKit()
+        defer { kit.cleanUp() }
+        // The cache the container's feed starts from lives in the Caches folder of this app, so a deletion that did not
+        // reach it would leave on the phone what the deleted account saw. A marker stands for one of its clips.
+        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appending(path: "PersonalFeedStartup-v2", directoryHint: .isDirectory)
+        let marker = folder.appending(path: "marker-\(UUID().uuidString).mp4")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data([1, 2, 3]).write(to: marker)
+        defer { try? FileManager.default.removeItem(at: marker) }
+        let (container, _) = await makeSignedInContainer(deleting: StubAccountDeletionRepository(), kit: kit)
+        #expect(FileManager.default.fileExists(atPath: marker.path), "the marker is there before the deletion")
+
+        await container.accountDeletionViewModel.delete(authorizationCode: "code-1")
+
+        #expect(!FileManager.default.fileExists(atPath: marker.path))
+    }
+}
+
+/// A deletion that succeeds, or fails the way the test says; it remembers the codes it was asked with.
+private final class StubAccountDeletionRepository: AccountDeletionRepository, @unchecked Sendable {
+    private(set) var codes: [String?] = []
+    var failure: Error?
+
+    func deleteAccount(authorizationCode: String?) async throws {
+        codes.append(authorizationCode)
+        if let failure { throw failure }
+    }
 }
