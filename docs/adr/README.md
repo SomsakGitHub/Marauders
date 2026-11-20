@@ -13,5 +13,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [007](007-token-refresh.md) | Rotating refresh tokens and a refresh under every 401 |
 | [008](008-background-upload.md) | A background upload session, and an idempotency key for the clip |
 | [009](009-session-core-package.md) | The session core as a local Swift package |
+| [010](010-environments.md) | Environments: scripts that name their target, one backend for now, staging ready |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)

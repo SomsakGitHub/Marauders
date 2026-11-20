@@ -16,9 +16,9 @@
 | **ไลก์** | ปุ่มหัวใจบน rail ของฟีดกดถูกใจ / เลิกถูกใจคลิป พร้อมจำนวนไลก์ หรือแตะคลิปสองครั้งเพื่อไลก์พร้อมหัวใจเด้งแบบ TikTok ผู้เยี่ยมชมเห็นจำนวนแต่ต้องล็อกอินก่อนกด |
 | **Settings** | ดู **ภาษาของแอป** (อังกฤษหรือไทย ตามภาษาของ iPhone; แตะเพื่อไปเปลี่ยนเฉพาะของแอปในการตั้งค่า iOS), เลือก **ภาษาที่ฟัง** (listening language) และดาวน์โหลด/จัดการโมเดลภาษา (Whisper base สำหรับตรวจภาษาในคลิป) |
 | **AI dubbing** | ผู้ชมเลือกฟังเสียงต้นฉบับหรือเสียงพากย์ AI ในภาษาของตัวเอง; แปลและสร้างเสียงบน iPhone ของผู้ชม แล้วแชร์ไฟล์ผ่านแคชบน R2 — รายละเอียดใน [deployment/AI_DUBBING.md](deployment/AI_DUBBING.md) |
-| **Auth** | Sign in with Apple → แลก identity token เป็น session (access token อายุ 1 วัน + refresh token อายุ 90 วัน ต่ออายุทุกครั้งที่ใช้ — เมื่อได้ 401 แอปแลก token ใหม่เองโดยผู้ใช้ไม่ต้อง sign in ใหม่ ดู [ADR-007](docs/adr/007-token-refresh.md)); เลือกประเทศตอน login (Debug build บน Simulator ใช้ `/v1/auth/dev` แทนได้) |
+| **Auth** | Sign in with Apple → แลก identity token เป็น session (access token อายุ 1 วัน + refresh token อายุ 90 วัน ต่ออายุทุกครั้งที่ใช้ — เมื่อได้ 401 แอปแลก token ใหม่เองโดยผู้ใช้ไม่ต้อง sign in ใหม่ ดู [ADR-007](docs/adr/007-token-refresh.md)); เลือกประเทศตอน login (build Staging บน Simulator ใช้ `/v1/auth/dev` แทนได้) |
 | **API** | REST บน Workers, validate input ฝั่งเซิร์ฟเวอร์ |
-| **Debug** | แท็บ Log ในแอป (เฉพาะ **Debug** build, `#if DEBUG`) + `os.Logger` |
+| **Debug** | แท็บ Log ในแอปและปุ่ม View Log ในแบนเนอร์ของการอัปโหลด (เฉพาะ build **Staging**, `#if DEBUG`; build Production ไม่มี) + `os.Logger` |
 
 เอกสารสถาปัตยกรรม: [ARCHITECTURE.md](ARCHITECTURE.md) · บันทึกการตัดสินใจ (ADR): [docs/adr/](docs/adr/) · AI dubbing: [deployment/AI_DUBBING.md](deployment/AI_DUBBING.md) · CI/CD: [docs/ci-cd.md](docs/ci-cd.md)
 
@@ -65,20 +65,22 @@ Marauders/
 │   │   ├── App/, Composition/   # entry point, dependency container
 │   │   ├── Domain/              # Entities, UseCases, Repositories/Services (protocol)
 │   │   ├── Data/                # API clients, Auth, Repositories, Services (cache, Whisper, ...)
-│   │   ├── Shared/              # AppLog, AppRuntimeConfiguration (small helpers every layer may use)
-│   │   ├── Presentation/        # Feed, Map, Upload, Profile, Settings, Dubbing, Auth, Debug (Log), ...
-│   │   └── APIConfiguration.plist   # Base URL ของ Worker (HTTPS)
+│   │   ├── Shared/              # AppLog, AppRuntimeConfiguration, APIBaseURL (which Worker this build talks to), DevLogin (small helpers every layer may use)
+│   │   └── Presentation/        # Feed, Map, Upload, Profile, Settings, Dubbing, Auth, Debug (Log), ...
+│   ├── Config/             # Info-Additions.plist: Info.plist keys the build fills in (MARAUDERS_API_BASE_URL: production in Production and, for now, in Staging too)
 │   ├── Packages/           # MaraudersAuth: the session core as a local Swift package (ADR-009)
 │   ├── MaraudersTests/     # unit tests (Swift Testing)
 │   ├── MaraudersUITests/   # XCUITest
-│   ├── Scripts/            # check-layers.sh (layer rules, warns in Debug builds), layer-exceptions.txt, layer-modules.txt, tests/
+│   ├── Scripts/            # check-layers.sh (layer rules, warns in Staging builds), layer-exceptions.txt, layer-modules.txt, check-release-config.sh (Production guard), tests/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
 │   ├── sql/                # schema, seed, migrations 001–023
-│   ├── scripts/            # migrate, test-*, HLS/purge utilities
-│   ├── test/               # authDev, comments, commentsRoutes, likes, follows, followLists, friendLocations tests + fakes (users, neon)
-│   └── wrangler.toml
+│   ├── scripts/            # deploy, dev, migrate, db:purge, HLS, test-*; lib/ (targets, migrations, deploy, r2, purge) — ทุกตัวระบุ --env
+│   ├── test/               # authDev, comments, commentsRoutes, likes, follows, followLists, friendLocations, health tests + fakes (users, neon); scripts/ (tests of the scripts and the environment guards)
+│   ├── environments.json   # ตารางของ staging และ production (Worker, URL, bucket, ไฟล์ vars, phrase ยืนยัน)
+│   └── wrangler.toml       # production = ระดับบน, staging = [env.staging]
+├── .github/workflows/      # backend.yml: เทสต์ backend ออฟไลน์ (ไม่มี secret ไม่ deploy)
 ├── deployment/             # คู่มือ deploy, AI_DUBBING.md, video-pipeline.md
 ├── docs/                   # adr/, ci-cd.md
 ├── ARCHITECTURE.md
@@ -93,38 +95,38 @@ Marauders/
 
 ## Quick start
 
+กำหนดไว้ 2 environment: **staging** (ทดลอง, build Staging, dev login) และ **production** (แอปจริง) — แต่ละอันมี database, Worker และ R2 bucket ของตัวเอง แต่**ตอนนี้มีแค่ production** (เจ้าของตัดสินใจ 2026-11-20 ให้ใช้ backend ตัวเดียว: build Staging ชี้ production และ staging ยังไม่ได้สร้าง ดู [ADR-010](docs/adr/010-environments.md)) ตารางเทียบและกติกาอยู่ที่ [deployment/README.md](deployment/README.md#environments) ขั้นตอนด้านล่างเขียนด้วย staging เพราะเป็นวิธีสร้าง environment ใหม่ (production ใช้ขั้นเดียวกันโดยเปลี่ยน `staging` เป็น `production`) ทุกคำสั่งของ backend ที่แตะข้อมูลต้องมี `--env` และไม่มีค่า default
+
 ### 1. Database (Neon)
+
+สร้าง database ใหม่ที่ว่างใน Neon สำหรับ staging (อย่าใช้ branch ของ production — จะได้ข้อมูลผู้ใช้จริงติดมา) แล้วตั้ง connection string (ไม่ commit):
 
 ```bash
 cd backend
 npm install
-npm run db:migrate    # รัน migration ใน backend/sql/ (001–023 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น)
+cp .dev.vars.example .dev.vars.staging   # ใส่ DATABASE_URL (ของ staging), JWT_SIGNING_SECRET, APPLE_CLIENT_ID, DEV_LOGIN_SECRET สำหรับ npm run dev / db:migrate / deploy
+npm run db:migrate -- --env staging      # รัน migration ใน backend/sql/ (001–023 ยกเว้น 004 ที่ล้างข้อมูล รันเองเมื่อจำเป็น) และบันทึกใน schema_migrations
 ```
 
 หรือรัน SQL ใน Neon SQL Editor ตามไฟล์ใน `backend/sql/` ทีละไฟล์
-
-ตั้ง connection string (ไม่ commit):
-
-```bash
-cp .env.example .dev.vars   # ใส่ DATABASE_URL, JWT_SIGNING_SECRET, APPLE_CLIENT_ID สำหรับ wrangler dev / migrate
-```
 
 ### 2. API (Cloudflare)
 
 ```bash
 cd backend
 npx wrangler login
-npx wrangler r2 bucket create marauders-videos
-npx wrangler secret put DATABASE_URL
-npx wrangler secret put JWT_SIGNING_SECRET   # openssl rand -base64 48
-npx wrangler secret put APPLE_CLIENT_ID      # bundle id ของแอป
-npm run deploy
+npx wrangler r2 bucket create marauders-videos-staging
+npm run deploy:staging                                      # เทสต์ → แผน migration → migration → deploy → ตรวจ /health
+npx wrangler secret bulk .dev.vars.staging --env staging    # secret ของ Worker staging (JWT_SIGNING_SECRET สร้างด้วย openssl rand -base64 48)
 ```
+
+production: `npm run deploy:production` (ต้องพิมพ์ `production` ยืนยัน) — **ห้ามรัน `npx wrangler deploy` เปล่า ๆ** เพราะจะ deploy ไป production
 
 ทดสอบ:
 
 ```bash
-curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
+curl "https://<your-staging-worker>.workers.dev/health"           # {"status":"ok","environment":"staging","version":"…"}
+curl "https://<your-staging-worker>.workers.dev/v1/feed?limit=5"
 ```
 
 รายละเอียดเพิ่ม: [deployment/README.md](deployment/README.md)
@@ -132,19 +134,37 @@ curl "https://<your-worker>.workers.dev/v1/feed?limit=5"
 ### 3. iOS
 
 1. เปิด `Marauders-ios/Marauders.xcodeproj`
-2. แก้ `Marauders/APIConfiguration.plist` → `MARAUDERS_API_BASE_URL` เป็น URL Worker ของคุณ (ไม่มี `/` ท้าย)
-3. Run บน Simulator หรือเครื่องจริง (ต้องมีเน็ต)
+2. URL ของ Worker มาจาก build setting `MARAUDERS_API_BASE_URL` (target Marauders → Build Settings → User-Defined): **Release-Production = production, Debug-Staging = production ด้วยตอนนี้ (เป็น staging หลังสร้างแล้ว)** (ไม่มี `/` ท้าย) — ถ้า fork repo นี้ให้ใส่ URL Worker ของคุณทั้งสองค่า และใน `backend/environments.json` ด้วย
+3. เลือก scheme **Marauders Staging** แล้ว Run บน Simulator หรือเครื่องจริง (ต้องมีเน็ต) — build Staging คุยกับ production (staging ยังไม่ได้สร้าง); แท็บ **Log** (เฉพาะ Staging) บอกว่าคุยกับ host ไหน
 
-Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ให้ Worker (`npx wrangler secret put DEV_LOGIN_SECRET`, ≥ 32 ตัวอักษร) แล้วเปิด Debug build บน Simulator พร้อม environment `MARAUDERS_DEV_LOGIN_SECRET` (และ `MARAUDERS_DEV_LOGIN_LABEL` เลือกผู้ใช้ทดสอบ ค่าเริ่มต้น `simulator`) เช่น `SIMCTL_CHILD_MARAUDERS_DEV_LOGIN_SECRET=… xcrun simctl launch …` เพื่อล็อกอินผ่าน `POST /v1/auth/dev` — secret ไม่ถูกเก็บในโปรเจกต์; ถ้า Worker ไม่ตั้ง secret route นี้ตอบ `404`
+build Production ที่ URL ไม่ตรงกับ production ใน `backend/environments.json` จะ build ไม่ผ่าน (Production guard) — build ส่ง TestFlight จึงชี้ผิดที่ไม่ได้ และ guard ตัวเดียวกันตรวจ executable ด้วยว่าไม่มี log ในแอปหรือ dev login ติดไป Staging ชี้ที่อื่นชั่วคราวได้ด้วย environment `MARAUDERS_API_BASE_URL` (Production ไม่อ่าน)
+
+Simulator ไม่มี Apple ID: ตั้ง `DEV_LOGIN_SECRET` (≥ 32 ตัวอักษร) ให้ Worker ที่ build Staging คุยด้วย ซึ่งตอนนี้คือ **production** (ใส่ใน `backend/.dev.vars.production` และตั้งเป็น Worker secret ด้วย `wrangler secret put DEV_LOGIN_SECRET`; เมื่อมี staging แล้วให้ใช้ staging แทน) แล้ว Run build Staging บน Simulator — แอปอ่าน secret จาก `backend/.dev.vars.production` ของ checkout นี้เอง หรือจาก environment `MARAUDERS_DEV_LOGIN_SECRET` (และ `MARAUDERS_DEV_LOGIN_LABEL` เลือกผู้ใช้ทดสอบ ค่าเริ่มต้น `simulator`) เช่น `SIMCTL_CHILD_MARAUDERS_DEV_LOGIN_SECRET=… xcrun simctl launch …` เพื่อล็อกอินผ่าน `POST /v1/auth/dev` — secret ไม่ถูกเก็บในโปรเจกต์ และแอปเสนอปุ่มนี้เฉพาะเมื่อคุยกับ host ที่ build กำหนด (ไม่ใช่ override); ระหว่างมี backend ตัวเดียว production จึงมี `DEV_LOGIN_SECRET` (เมื่อสร้าง staging แล้วให้ลบของ production — route จะตอบ `404`)
+
+#### Staging และ Production
+
+แอปมี 2 build ให้เลือกจาก scheme ใน toolbar ของ Xcode ตอนนี้ทั้งสองชี้ไปที่ **backend production** ตัวเดียวกัน และใช้ bundle id เดียวกัน (`com.somsak.Marauders` — Worker ตรวจ Sign in with Apple กับ `APPLE_CLIENT_ID` ค่าเดียว จึงติดตั้งทับกันบนเครื่องเดียว) ดู [ADR-010](docs/adr/010-environments.md)
+
+| | **Staging** | **Production** |
+|---|---|---|
+| Scheme | `Marauders Staging` | `Marauders Production` |
+| Configuration | `Debug-Staging` | `Release-Production` |
+| ใช้เมื่อ | Run จาก Xcode, unit test และ UI test | ตัวที่ส่ง TestFlight / App Store (Archive จาก scheme ไหนก็ได้ build Production) |
+| Log ในแอป | มี: แท็บ **Log** และปุ่ม **View Log** ในแบนเนอร์ของการอัปโหลด | ไม่มี |
+| dev login บน Simulator, override URL ด้วย environment, argument จำลอง session | มี (`#if DEBUG`) | ไม่มี |
+| Worker | production (staging ยังไม่ได้สร้าง) | production |
+| Production guard | ข้าม | รัน: URL ต้องเป็นของ production, ไม่มี `APIConfiguration.plist` ใน bundle และ executable ต้องไม่มี `DebugLogView` กับ `DevAuthAPIClient` |
+
+ชื่อ configuration ฝั่ง debug ต้องมีคำว่า `Debug` อยู่ในชื่อ — Xcode ให้ flag `DEBUG` แก่ Swift package ในเครื่อง (`MaraudersAuth`) เฉพาะ configuration ที่ชื่อมีคำว่า Debug (ทดลองแล้ว: ชื่อ `Staging` เฉย ๆ ทำให้ build ไม่ผ่าน)
 
 ## API (สรุป)
 
 | Method | Path | คำอธิบาย |
 |--------|------|----------|
-| `GET` | `/health` | health check |
+| `GET` | `/health` | health check: `{ "status": "ok", "environment": "staging" \| "production", "version": "<commit ที่ deploy>" }` (ไม่แตะ database ไม่มี secret) |
 | `GET` | `/v1/map/clips?limit=20&country=<ISO2>` | หมุดแผนที่ ใช้ข้อมูลชุดเดียวกับฟีด (รวมคลิปของตัวเอง) |
 | `POST` | `/v1/auth/apple` | `{ identityToken, country?, supportsRefreshTokens? }` → `{ accessToken, refreshToken? }` (Sign in with Apple) — ถ้าส่ง `supportsRefreshTokens: true` จะได้ `refreshToken` กับ access token อายุ 1 วัน ถ้าไม่ส่งจะได้ access token อายุ 30 วันเหมือนเดิม (แอปรุ่นที่ติดตั้งไว้แล้วไม่ถูกบังคับให้ sign in ทุกวัน) |
-| `POST` | `/v1/auth/dev` | `{ secret, label, country?, supportsRefreshTokens? }` → `{ accessToken, refreshToken? }` — เฉพาะเมื่อ Worker ตั้ง `DEV_LOGIN_SECRET`, ไม่งั้น `404` (ใช้กับ Debug build บน Simulator) |
+| `POST` | `/v1/auth/dev` | `{ secret, label, country?, supportsRefreshTokens? }` → `{ accessToken, refreshToken? }` — เฉพาะเมื่อ Worker ตั้ง `DEV_LOGIN_SECRET`, ไม่งั้น `404` (ใช้กับ build Staging บน Simulator) |
 | `POST` | `/v1/auth/refresh` | `{ refreshToken }` → `{ accessToken, refreshToken }` — แลก refresh token (ใช้ได้ครั้งเดียว อายุ 90 วันนับจากที่ออก) เป็นคู่ใหม่ ไม่ต้องมี Bearer; token ที่ไม่รับ (ไม่รู้จัก, ถูกยกเลิก, หมดอายุ, ถูกใช้ซ้ำ) ตอบ `401` ข้อความเดียวกันหมด, body ผิดรูป `400`, ฐานข้อมูลพัง `500` (ไม่เคยเป็น `401`) |
 | `POST` | `/v1/auth/signout` | `{ refreshToken }` → `204` — ยกเลิก refresh token ทั้งตระกูล (ตอบ `204` แม้เป็น token ที่ไม่รู้จัก), body ผิดรูป `400`, ไม่ต้องมี Bearer |
 | `GET` | `/v1/feed?limit=20&cursor=<uuid>&country=<ISO2>` | ฟีด; ทุกคนเห็นคลิปชุดเดียวกัน รวมคลิปของตัวเอง (Bearer ไม่เปลี่ยนผลลัพธ์ แต่ถ้าส่งมาและไม่ถูกต้องจะคืน 401); คำตอบมี `viewerID` เมื่อส่ง Bearer |
@@ -181,11 +201,11 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **แชร์ตำแหน่งกับคนที่ติดตามกัน:** ในแท็บ Map มีปุ่ม **แชร์ตำแหน่ง** ค่าเริ่มต้นปิด กดแล้วแอปจะถามยืนยันก่อน (บอกว่าใครจะเห็นอะไร) เมื่อเปิดแล้วปุ่มเปลี่ยนเป็น **กำลังแชร์ตำแหน่ง** ขอบสีเขียว และกดครั้งเดียวก็ปิดได้ทันทีโดยไม่ต้องยืนยัน การแชร์เป็นแบบแลกกัน: ผู้ใช้จะเห็นตำแหน่งของคนที่ตัวเองติดตามและติดตามกลับเฉพาะเมื่อ**ทั้งสองฝ่าย**เปิดแชร์ และตัวเองต้องมีตำแหน่งในระบบแล้วด้วย (ไม่มีใครแอบดูคนอื่นโดยที่ตัวเองไม่ถูกเห็นได้) คนที่ปิดแชร์จะไม่เห็นใครเลย และเลิกติดตามฝ่ายใดฝ่ายหนึ่งก็หยุดเห็นกันทันที ตอนเปิดแชร์ Worker จะลบตำแหน่งเดิมที่แท็บ Map เคยเก็บไว้ก่อนผู้ใช้ยินยอม คนอื่นจึงเห็นเฉพาะตำแหน่งหลังจากเปิดแชร์ (แอปส่งตำแหน่งใหม่ทันที ระหว่างรอแผนที่ขึ้นว่า "กำลังหาตำแหน่งของคุณ…") หน้า Settings ก็มีสวิตช์เดียวกัน จึงปิดได้แม้ปิดสิทธิ์ตำแหน่งไปแล้ว (แท็บ Map จะถูกปิดไว้) และหน้าขอสิทธิ์ตำแหน่งของแท็บ Map มีปุ่ม "หยุดแชร์ตำแหน่ง" ให้ด้วย แอปถามสถานะการแชร์ใหม่ทุกครั้งที่กลับเข้าแอป ระหว่างที่ยังไม่รู้สถานะ ปุ่มจะขึ้นวงหมุนแทนเปิด / ปิด บนแผนที่ คนที่ติดตามกันแสดงเป็นรูปโปรไฟล์ในวงสีเขียว พร้อม handle และเวลาที่อัปเดตล่าสุด (เช่น "5 นาทีที่แล้ว") โดยแสดงตำแหน่งล่าสุดเสมอไม่ว่าจะเก่าแค่ไหน แตะแล้วเปิดโปรไฟล์ แผนที่ถามตำแหน่งเพื่อนใหม่ทุก 60 วินาทีระหว่างที่เปิดอยู่ ถ้าถามไม่สำเร็จติดกันเกิน 5 นาที หมุดเพื่อนจะถูกเอาออกจนกว่าจะถามสำเร็จ ผู้ที่เปิดแชร์จะส่งพิกัดเมื่อเปิดแอปหรือกลับเข้าแอป และไม่บ่อยกว่าทุก 5 นาทีระหว่างที่แอปเปิดอยู่ (ความแม่นยำประมาณ 100 เมตร) และตอนปิดแอปก็ยังส่งต่อ (แบบเดียวกับ Protego) ด้วยบริการตำแหน่งแบบประหยัดแบตของ iOS: เมื่อเครื่องย้ายไปราว 500 เมตร และเมื่อไปถึงที่ที่อยู่นาน iOS จะปลุกแอปหรือเปิดแอปขึ้นมาเบื้องหลังให้ส่งพิกัด ต้องให้สิทธิ์ตำแหน่ง "เสมอ" (ตอนล็อกอินขออยู่แล้ว ถ้าผู้ใช้ลดสิทธิ์ทีหลัง หน้า Settings จะบอกและมีปุ่มไปตั้งค่า) ไม่ใช้ background mode `location` จึงไม่มีลูกศรสีน้ำเงินค้างบนแถบสถานะ แอปไม่ขอสิทธิ์ตำแหน่งเพิ่ม ตำแหน่งที่ขอไว้ก่อนผู้ใช้ปิดแชร์หรือออกจากระบบจะถูกทิ้งไม่ส่ง และการออกจากระบบจะหยุดส่งตอนปิดแอปด้วย ข้อควรรู้: การออกจากระบบหรือลบแอปไม่ได้ปิดการแชร์ และเพราะไม่จำกัดอายุตำแหน่ง ตำแหน่งสุดท้ายจะยังแสดงให้คนที่ติดตามกันเห็นจนกว่าจะปิดแชร์ ข้อความขอสิทธิ์ตำแหน่งของ iOS บอกแล้วว่าตำแหน่งจะแสดงให้คนอื่นเห็นเฉพาะเมื่อเปิดแชร์ และเฉพาะคนที่ติดตามกัน และเมื่อเปิดแชร์ แอปจะส่งตำแหน่งตอนเคลื่อนที่แม้ปิดแอปอยู่
 
-**ลำดับการ deploy การแชร์ตำแหน่ง:** รัน `cd backend && npm run db:migrate` (migration 020 เพิ่มคอลัมน์ `app_users.shares_location` ค่าเริ่มต้น `false`) ก่อน แล้วค่อย `npm run deploy` เพราะ `GET /v1/users/me` อ่านคอลัมน์นี้ — **ถ้า deploy Worker ก่อน แท็บ Profile จะโหลดไม่ได้ (500)** แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง แอปรุ่นใหม่กับ Worker เก่าจะไม่มีปุ่มให้กด (ปุ่มรอคำตอบจาก Worker ก่อน)
+**ลำดับการ deploy การแชร์ตำแหน่ง:** รัน `cd backend && npm run db:migrate -- --env <env>` (migration 020 เพิ่มคอลัมน์ `app_users.shares_location` ค่าเริ่มต้น `false`) ก่อน แล้วค่อย `npm run deploy:<env>` (ซึ่ง migrate ก่อน deploy ให้เองตามลำดับนี้) เพราะ `GET /v1/users/me` อ่านคอลัมน์นี้ — **ถ้า deploy Worker ก่อน แท็บ Profile จะโหลดไม่ได้ (500)** แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง แอปรุ่นใหม่กับ Worker เก่าจะไม่มีปุ่มให้กด (ปุ่มรอคำตอบจาก Worker ก่อน)
 
-**ขอความยินยอมใหม่ (migration 021):** คนที่เปิดแชร์ไว้ก่อนตกลงแค่ว่าเพื่อนจะเห็นที่ที่ใช้แอปล่าสุด ไม่ใช่ตำแหน่งตอนปิดแอป `npm run db:migrate` จึงปิด `shares_location` ของทุกคนหนึ่งครั้ง ให้แต่ละคนเปิดเองใหม่กับข้อความยืนยันใหม่ เพราะสคริปต์ migrate รันทุกไฟล์ซ้ำทุกครั้ง การปิดนี้จึงผูกกับแถวในตาราง `data_migrations` และเกิดแค่ครั้งแรก ควรรัน migration และ deploy Worker (ที่ตอบ `sharesLocation` และไม่เก็บตำแหน่งตอนปิดแอปของคนที่ไม่ได้แชร์) ก่อนแอปรุ่นนี้ถึงมือผู้ใช้ ลำดับระหว่างสองอย่างนี้ไม่สำคัญ (Worker ใหม่ใช้แค่คอลัมน์จาก migration 020) ถ้าแอปรุ่นนี้เจอ Worker เก่า ตำแหน่งตอนปิดแอปจะถูกเก็บเสมอ และแอปจะรู้ว่าถูกปิดแชร์จากเครื่องอื่นก็ต่อเมื่อเปิดแอป
+**ขอความยินยอมใหม่ (migration 021):** คนที่เปิดแชร์ไว้ก่อนตกลงแค่ว่าเพื่อนจะเห็นที่ที่ใช้แอปล่าสุด ไม่ใช่ตำแหน่งตอนปิดแอป `npm run db:migrate` จึงปิด `shares_location` ของทุกคนหนึ่งครั้ง ให้แต่ละคนเปิดเองใหม่กับข้อความยืนยันใหม่ เพราะไฟล์ migration ต้องรันซ้ำได้ (database ที่เพิ่งเริ่มตารางติดตาม `schema_migrations`, เช่น production ครั้งแรก, รันทุกไฟล์อีกรอบ) การปิดนี้จึงผูกกับแถวในตาราง `data_migrations` และเกิดแค่ครั้งแรก ควรรัน migration และ deploy Worker (ที่ตอบ `sharesLocation` และไม่เก็บตำแหน่งตอนปิดแอปของคนที่ไม่ได้แชร์) ก่อนแอปรุ่นนี้ถึงมือผู้ใช้ ลำดับระหว่างสองอย่างนี้ไม่สำคัญ (Worker ใหม่ใช้แค่คอลัมน์จาก migration 020) ถ้าแอปรุ่นนี้เจอ Worker เก่า ตำแหน่งตอนปิดแอปจะถูกเก็บเสมอ และแอปจะรู้ว่าถูกปิดแชร์จากเครื่องอื่นก็ต่อเมื่อเปิดแอป
 
-**แท็บของแอป:** Feed · Map · Profile · Upload · Settings (และ Log เฉพาะ Debug build)
+**แท็บของแอป:** Feed · Map · Profile · Upload · Settings (และ Log เฉพาะ build Staging)
 
 **ภาษาของแอป:** ข้อความของแอปมีสองภาษาคืออังกฤษและไทย iOS เป็นผู้เลือกตามรายการภาษาของ iPhone (ภาษาอื่นได้อังกฤษ) แอปไม่มีสวิตช์เปลี่ยนภาษาในตัว แถว **App language** ในแท็บ Settings บอกภาษาที่ใช้อยู่และเปิดการตั้งค่า iOS ซึ่งเปลี่ยนภาษาเฉพาะของ Marauders ได้ที่ การตั้งค่า › แอป › Marauders › ภาษา คำแปลอยู่ใน `Marauders/Resources/Localizable.xcstrings` — วิธีเพิ่มข้อความและเทสต์ที่คุมอยู่ดูหัวข้อ *Localization* ใน [ARCHITECTURE.md](ARCHITECTURE.md)
 
@@ -201,7 +221,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **ความคิดเห็น:** ปุ่ม Comments บน rail ขวาของฟีดเปิดชีตความคิดเห็นของคลิปที่กำลังดู (ฟีดหยุดเล่นระหว่างเปิดชีตและเล่นต่อเมื่อปิด ยกเว้นผู้ใช้หยุดคลิปไว้เอง) ผู้เยี่ยมชมอ่านได้ แต่ต้องล็อกอินก่อนเขียน — ปุ่ม *Sign in to comment* จะปิดชีตแล้วเปิดหน้า sign-in เดียวกับที่ใช้ทั้งแอป (คลิปหยุดค้างอยู่หลังหน้า sign-in จนผู้ใช้กดย้อนกลับ ถ้า sign-in สำเร็จฟีดจะโหลดใหม่และเริ่มที่คลิปแรก ไม่ใช่คลิปที่กำลังจะคอมเมนต์) ผู้ที่ล็อกอินเขียนได้ไม่เกิน 500 ตัวอักษร (ระหว่างที่มีข้อความร่างค้างอยู่ ปัดชีตลงไม่ปิด ต้องกดปุ่ม ✕) และลบของตัวเองได้ด้วยการปัดแถวไปทางซ้าย (เจ้าของคลิปลบความคิดเห็นใดๆ ใต้คลิปของตัวเองได้) โหลดทีละ 30 รายการ ใหม่สุดก่อน ใต้ปุ่มแสดงจำนวนความคิดเห็นของคลิป (`commentCount` จากฟีด) และนับเพิ่ม / ลดทันทีเมื่อผู้ใช้โพสต์หรือลบ ความคิดเห็นที่คนอื่นเขียนจะขึ้นเมื่อโหลดฟีดใหม่ ถ้า Worker ยังไม่ส่งจำนวนมา ปุ่มจะเขียนว่า Comments แทน ยังไม่ได้ทำ: แปลความคิดเห็นบน iPhone ของผู้อ่าน, รายงาน/บล็อก
 
-**ลำดับการ deploy ความคิดเห็น:** รัน `cd backend && npm run db:migrate` (migration 017 สร้างตาราง `comments`) ก่อน แล้วค่อย `npm run deploy` Worker เพราะ route ใหม่ query ตารางนี้ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่ชีตจะอ่านความคิดเห็นไม่ได้จนกว่าจะ deploy (ชีตขึ้น *This clip is no longer available.* ทุกคลิป เพราะ Worker เก่าตอบ 404 `not found`) — Jenkins ส่งแอปขึ้น TestFlight จาก `main` โดยไม่รอ Worker ส่วน Worker deploy ด้วยมือ (ดู [docs/ci-cd.md](docs/ci-cd.md)) จึงควร migrate และ deploy Worker ก่อนที่ build จาก `main` ที่มีฟีเจอร์นี้จะถึงผู้ทดสอบ
+**ลำดับการ deploy ความคิดเห็น:** รัน `cd backend && npm run db:migrate -- --env <env>` (migration 017 สร้างตาราง `comments`) ก่อน แล้วค่อย `npm run deploy:<env>` Worker เพราะ route ใหม่ query ตารางนี้ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่ชีตจะอ่านความคิดเห็นไม่ได้จนกว่าจะ deploy (ชีตขึ้น *This clip is no longer available.* ทุกคลิป เพราะ Worker เก่าตอบ 404 `not found`) — Jenkins ส่งแอปขึ้น TestFlight จาก `main` โดยไม่รอ Worker ส่วน Worker deploy ด้วยมือ (ดู [docs/ci-cd.md](docs/ci-cd.md)) จึงควร migrate และ deploy Worker ก่อนที่ build จาก `main` ที่มีฟีเจอร์นี้จะถึงผู้ทดสอบ
 
 **ไลก์:** ปุ่มหัวใจบน rail ขวาของฟีด (เหนือปุ่ม Comments) กดแล้วหัวใจเปลี่ยนและจำนวนเปลี่ยนทันที จากนั้นใช้จำนวนที่ Worker ตอบกลับแทนค่าที่เดา ถ้าส่งไม่สำเร็จจะย้อนกลับเป็นค่าล่าสุดที่ Worker บอก กดรัวระหว่างรอ request จะส่งทีละ request และ request สุดท้ายเป็นตัวตัดสิน ผู้เยี่ยมชมเห็นจำนวนไลก์แต่การกดจะพาไปหน้า sign-in เดียวกับทั้งแอป (คลิปหยุดค้างหลังหน้า sign-in และเล่นต่อเมื่อผู้ใช้กดย้อนกลับ; sign-in สำเร็จแล้วฟีดโหลดใหม่ ต้องกดหัวใจอีกครั้ง) ฟีดส่ง `likeCount` กับ `likedByViewer` มากับทุกคลิป — `likedByViewer` เป็น `false` เสมอสำหรับ guest และถูกตัดสินจากคำขอที่ส่ง Bearer เท่านั้น (query ของฟีดเองยังเหมือนกันทุกคน) ไลก์ที่ผู้ใช้กดวางแยกจากรายการคลิป (ไม่แก้ `videos`) และยอมให้ข้อมูลที่ฟีดโหลดใหม่ทีหลังชนะ
 
@@ -209,9 +229,9 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 **ติดตาม (follow):** มุมล่างของรูปคนโพสต์บน rail ของฟีดมีปุ่ม "+" สีแดงแบบ TikTok กดแล้วติดตามคนนั้นทันที ปุ่ม "+" กลายเป็นเครื่องหมายถูกครู่หนึ่งแล้วหายไป (และหายจากทุกคลิปของคนนั้น) ปุ่ม "+" ใช้ติดตามอย่างเดียว ถ้าจะเลิกติดตามต้องไปที่โปรไฟล์ คลิปของตัวเองไม่มีปุ่ม "+" ส่วนโปรไฟล์สาธารณะแสดงจำนวน *กำลังติดตาม* / *ผู้ติดตาม* / *คลิป* และปุ่ม **ติดตาม** สีแดง (กดแล้วเปลี่ยนเป็น **กำลังติดตาม** สีเทา กดอีกครั้งเพื่อเลิกติดตาม) ซึ่งไม่แสดงในโปรไฟล์ของตัวเอง แท็บ Profile แสดงจำนวนกำลังติดตามกับผู้ติดตามของตัวเอง และอัปเดตจำนวนกำลังติดตามทันทีหลังติดตามหรือเลิกติดตามโดยไม่ต้องโหลดใหม่ ผู้เยี่ยมชมที่กด "+" บนฟีดจะไปหน้า sign-in เหมือนกดไลก์ ส่วนการกดติดตามในโปรไฟล์จะเปิดหน้า sign-in ซ้อนบนโปรไฟล์ เมื่อ sign-in เสร็จจึงยังอยู่ที่โปรไฟล์เดิมและกดติดตามต่อได้ (ไม่มีการติดตามแทนผู้ใช้) กดแล้วเห็นผลทันที จากนั้นใช้จำนวนที่ Worker ตอบกลับ ถ้าส่งไม่สำเร็จจะย้อนกลับ request การติดตามออกไปทีละอันแม้จะต่างบัญชีกัน (ไม่งั้นจำนวน "กำลังติดตาม" ที่ Worker ตอบอาจขาดไปหนึ่ง) สิ่งที่ผู้ใช้ทำชนะข้อมูลที่ฟีดโหลดไว้ก่อน และโปรไฟล์ที่เริ่มโหลดหลังจาก Worker ตอบครั้งล่าสุดถือเป็นข้อมูลใหม่กว่า ซึ่งปุ่ม "+" ในฟีดก็ใช้ด้วย ฟีดส่ง `postedByViewer` กับ `authorFollowedByViewer` มากับทุกคลิป (`authorFollowedByViewer` เป็น `null` สำหรับคลิปที่ไม่มีบัญชีเจ้าของ ซึ่งติดตามไม่ได้ จึงไม่มีปุ่ม "+"; ทั้งคู่เป็น `false` สำหรับ guest และมาจาก query ที่สองซึ่งรันเฉพาะคำขอที่ส่ง Bearer query ของฟีดเองยังเหมือนกันทุกคน) **รายชื่อผู้ติดตาม / กำลังติดตาม:** แตะตัวเลข *กำลังติดตาม* หรือ *ผู้ติดตาม* บนแท็บ Profile หรือบนโปรไฟล์สาธารณะ จะเปิดหน้ารายชื่อซ้อนต่อจากหน้านั้น (สลับระหว่างสองรายชื่อได้ที่แถบด้านบน) เรียงใหม่สุดก่อน โหลดทีละ 30 รายการและโหลดหน้าถัดไปเมื่อเลื่อนใกล้ท้ายรายชื่อ แต่ละแถวแตะเพื่อเปิดโปรไฟล์ของบัญชีนั้น (กดย้อนกลับแล้วอยู่ที่รายชื่อเดิม) และมีปุ่ม **ติดตาม** / **กำลังติดตาม** ที่ใช้สถานะเดียวกับปุ่ม "+" ในฟีดและโปรไฟล์ทุกหน้า โดยแถวของตัวเองไม่มีปุ่ม และบัญชีที่เพิ่งเลิกติดตามยังค้างในรายชื่อจนกว่าจะโหลดใหม่ เหมือน TikTok รายชื่อมีไว้สำหรับผู้ที่ล็อกอิน: ผู้เยี่ยมชมเห็นแต่ตัวเลข ถ้าแตะจะเปิดหน้า sign-in ซ้อนบนโปรไฟล์ และเมื่อ sign-in เสร็จรายชื่อจะไม่เปิดขึ้นเอง ยังไม่ได้ทำ: ฟีดเฉพาะคนที่ติดตาม (Following)
 
-**ลำดับการ deploy การติดตาม:** รัน `cd backend && npm run db:migrate` (migration 019 สร้างตาราง `user_follows`) ก่อน แล้วค่อย `npm run deploy` เพราะ query ของโปรไฟล์ทั้งสองแบบนับผู้ติดตามจากตารางนี้ และฟีดของผู้ที่ล็อกอินก็ถามตารางนี้ — **ถ้า deploy Worker ก่อน โปรไฟล์จะตอบ 500 ทุกคำขอ และฟีดของผู้ที่ล็อกอินก็ตอบ 500** (ฟีดของ guest ยังใช้ได้) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป และไม่ได้ส่ง Bearer ไปกับโปรไฟล์สาธารณะ) ส่วนแอปรุ่นใหม่กับ Worker เก่าจะไม่แสดงปุ่ม "+" ปุ่มติดตาม และจำนวนผู้ติดตาม เพราะ Worker เก่าไม่ส่ง field เหล่านี้มา
+**ลำดับการ deploy การติดตาม:** รัน `cd backend && npm run db:migrate -- --env <env>` (migration 019 สร้างตาราง `user_follows`) ก่อน แล้วค่อย `npm run deploy:<env>` เพราะ query ของโปรไฟล์ทั้งสองแบบนับผู้ติดตามจากตารางนี้ และฟีดของผู้ที่ล็อกอินก็ถามตารางนี้ — **ถ้า deploy Worker ก่อน โปรไฟล์จะตอบ 500 ทุกคำขอ และฟีดของผู้ที่ล็อกอินก็ตอบ 500** (ฟีดของ guest ยังใช้ได้) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป และไม่ได้ส่ง Bearer ไปกับโปรไฟล์สาธารณะ) ส่วนแอปรุ่นใหม่กับ Worker เก่าจะไม่แสดงปุ่ม "+" ปุ่มติดตาม และจำนวนผู้ติดตาม เพราะ Worker เก่าไม่ส่ง field เหล่านี้มา
 
-**ลำดับการ deploy ไลก์:** รัน `cd backend && npm run db:migrate` (migration 018 สร้างตาราง `video_likes`) ก่อน แล้วค่อย `npm run deploy` เพราะ query ของฟีดนับไลก์จากตารางนี้ — **ถ้า deploy Worker ก่อน ฟีดจะตอบ 500 ทุกคำขอ** (ต่างจากความคิดเห็นที่พังแค่ชีต) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป) ส่วนแอปรุ่นใหม่กับ Worker เก่าแสดงหัวใจ 0 และกดแล้วย้อนกลับ (Worker เก่าตอบ `405` กับ PUT และ `400 invalid video id` กับ DELETE โดยไม่ลบอะไร)
+**ลำดับการ deploy ไลก์:** รัน `cd backend && npm run db:migrate -- --env <env>` (migration 018 สร้างตาราง `video_likes`) ก่อน แล้วค่อย `npm run deploy:<env>` เพราะ query ของฟีดนับไลก์จากตารางนี้ — **ถ้า deploy Worker ก่อน ฟีดจะตอบ 500 ทุกคำขอ** (ต่างจากความคิดเห็นที่พังแค่ชีต) แอปรุ่นเก่ากับ Worker ใหม่ไม่พัง (ไม่รู้จัก field ใหม่ก็ข้ามไป) ส่วนแอปรุ่นใหม่กับ Worker เก่าแสดงหัวใจ 0 และกดแล้วย้อนกลับ (Worker เก่าตอบ `405` กับ PUT และ `400 invalid video id` กับ DELETE โดยไม่ลบอะไร)
 
 ตัวอย่าง response ฟีด:
 
@@ -239,21 +259,22 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 ## Security notes (portfolio scope)
 
-- `DATABASE_URL` เก็บใน **Wrangler secret** / `backend/.dev.vars` (gitignore) — ไม่ใส่ใน repo  
+- `DATABASE_URL` เก็บใน **Wrangler secret** (แยกต่อ Worker) / `backend/.dev.vars.staging` และ `.dev.vars.production` (gitignore, แยกตาม environment) — ไม่ใส่ใน repo
 - API validate query/body ฝั่ง Worker; อัปโหลดจำกัดชนิดไฟล์และขนาด  
 - แอปโหลดวิดีโอผ่าน **HTTPS** เท่านั้น  
 - **Auth:** Sign in with Apple → verify identity token ฝั่ง Worker → ออก JWT อายุ 1 วัน + refresh token อายุ 90 วัน (เก็บใน Keychain ทั้งคู่); อัปโหลดต้องมี Bearer token; เมื่อได้ `401` แอปแลก refresh token เป็นคู่ใหม่แล้วส่ง request เดิมซ้ำหนึ่งครั้ง ผู้ใช้ถูก sign out ก็ต่อเมื่อไม่มี refresh token ให้ลอง, Worker ไม่รับ refresh token หรือ request ที่ส่งซ้ำด้วย token ใหม่ยังถูกปฏิเสธ (การแลกที่ทำไม่ได้เพราะออฟไลน์ / `429` / `5xx` ไม่ทำให้ sign out)  
-- **Dev login:** `/v1/auth/dev` ปิดอยู่จนกว่าจะตั้ง `DEV_LOGIN_SECRET` (ปล่อยว่างใน production) และฝั่งแอป compile เฉพาะ Debug
+- **Dev login:** `/v1/auth/dev` ปิดอยู่จนกว่าจะตั้ง `DEV_LOGIN_SECRET` (ตอนนี้ตั้งที่ **production** เพราะ build Staging คุยกับ production; เมื่อสร้าง staging แล้วให้ตั้งเฉพาะ staging และลบของ production — route จะตอบ `404`) และฝั่งแอป compile เฉพาะ build Staging (`#if DEBUG`) และเสนอปุ่มเฉพาะเมื่อคุยกับ host ที่ build กำหนด
 - **Rate limiting:** sign-in (Apple/dev) จำกัด 30 ครั้ง/นาทีต่อ IP และอัปโหลด (วิดีโอ/รูปโปรไฟล์) 10 ครั้ง/นาทีต่อ user, อัปโหลดเสียงพากย์ AI, รายงานเสียงพากย์ และโพสต์คอมเมนต์อย่างละ 10 ครั้ง/นาทีต่อ user, ติดตาม / เลิกติดตาม 30 ครั้ง/นาทีต่อ user, เปิด / ปิดแชร์ตำแหน่ง 20 ครั้ง/นาทีต่อ user (นับในตาราง `rate_limit_counters` บน Neon แบบ atomic — คืน `429` + `Retry-After`); `/v1/*` (ยกเว้น `/v1/media/*`) มีชั้นแรกเป็น Cloudflare Rate Limiting binding ต่อ IP (route auth 30/นาที, อื่น ๆ 120/นาที) ช่วยกันต่อ PoP ด้วย
 
 ## Troubleshooting
 
 | อาการ | แนวทาง |
 |--------|--------|
-| อัปโหลด 500 `storage write failed` | สร้าง R2 bucket `marauders-videos` แล้ว deploy Worker ใหม่ |
-| ไม่พบ API URL ในแอป | ตรวจ `APIConfiguration.plist` |
+| อัปโหลด 500 `storage write failed` | สร้าง R2 bucket ของ environment นั้น (`marauders-videos-staging` หรือ `marauders-videos`) แล้ว deploy Worker ใหม่ |
+| ไม่พบ API URL ในแอป | ตรวจ build setting `MARAUDERS_API_BASE_URL` และ key เดียวกันใน Info.plist ของแอปที่ build (แท็บ Log ใน Staging บอก host ที่ใช้อยู่) |
+| build Staging ได้ฟีดว่างหรือ `404` / ล็อกอินไม่ได้ | ดู subtitle ของแท็บ Log ว่า Staging คุยกับ host ไหน — ตอนนี้ควรเป็น production ถ้าเป็น staging แปลว่าชี้ไป staging ที่ยังไม่ได้สร้าง (ตอบ `404`) หรือมี override แล้ว `curl <url>/health` |
 | วิดีโอ seed จาก Google เล่นไม่ได้ | รัน `003_remove_google_seeds.sql` (bucket ตัวอย่าง 403) |
-| `player failed` / `Cannot Open` | ลองคลิปสั้น MP4; ดูแท็บ **Log** ในแอป |
+| `player failed` / `Cannot Open` | ลองคลิปสั้น MP4; ดูแท็บ **Log** ในแอป (build Staging) |
 
 ## Tests
 
@@ -268,7 +289,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 | Backend upload idempotency key | `npm run test:upload-idempotency` | ใน `backend/` ใช้ `node:test` + fake ของ Neon driver และ fake ของ R2 (15 เทสต์) ตรวจ header `Idempotency-Key` ของ `POST /v1/videos`: ค่าที่ไม่ใช่ UUID ได้ 400 ก่อนอ่านหรือเก็บอะไร, key ที่เก็บไว้แล้วได้ 200 พร้อมคลิปเดิมโดยไม่อ่าน body และไม่แตะ R2, key ใหม่ได้ 201, สองคำขอที่ใช้ key เดียวกันเหลือคลิปเดียว (ฝ่ายแพ้ลบไฟล์ของตัวเอง), key เป็นของบัญชีที่ส่งมา, lookup ที่ล้มได้ 500 โดยไม่เขียนอะไร, คำขอที่ไม่มี header ใช้เส้นทางเดิม และ replay นับรวมใน rate limit ของ upload (ชุดนี้ไม่รัน SQL: migration 023 กับสอง statement นี้รันบน PGlite 0.5.8 / PostgreSQL 18.3 แล้ว 12 จาก 12 เคส ในสคริปต์ชั่วคราวที่ไม่เก็บใน repo) |
 | Backend comments | `npm run test:comments` | ใน `backend/` ใช้ `node:test` ตรวจการ normalize ข้อความและภาษาของความคิดเห็น กับ route จริง (`worker.fetch`) ที่ใช้ fake ของ Neon driver: การยืนยันตัวตน, validation, ขนาด request สูงสุด 16 KiB (ทั้งความยาวที่ประกาศและ body ที่ทยอยส่งมา), status code, ข้อความ SQL ของแต่ละ statement (ล็อกไว้ทั้งก้อน แก้ SQL แล้วต้องแก้เทสต์ตาม) กับค่าที่ bind และสิ่งที่ log เมื่อฐานข้อมูลผิดพลาด (SQLSTATE กับข้อความของฐานข้อมูล ไม่มีข้อความคอมเมนต์) รวมทั้ง `commentCount` ในทุก query ที่ list คลิป (ไม่ได้รัน SQL บน Postgres จริง) |
 | Backend อื่น ๆ | `node backend/scripts/test-upload.mjs`, `test-audio-assessment.mjs` | ไม่มี npm script รันด้วย `node` ตรง ๆ |
-| iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme Marauders -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
+| iOS unit tests (Swift Testing, `MaraudersTests`) | `cd Marauders-ios && bundle exec fastlane test` หรือ `xcodebuild test -scheme "Marauders Staging" -only-testing:MaraudersTests -destination ...` | fastlane ใช้ `SIMULATOR_DESTINATION` (ค่าเริ่มต้น iPhone 17) |
 | iOS UI tests (`MaraudersUITests`) | รันจาก Xcode / `xcodebuild test` | ใช้ launch argument `UITEST` กับ feed จำลอง (`UITEST_GUEST` เริ่มแบบยังไม่ล็อกอิน, `UITEST_REJECTED_SESSION` จำลอง session ที่ Worker ตอบ 401 — ดู [ARCHITECTURE.md](ARCHITECTURE.md)) |
 
 ## CI/CD
@@ -287,7 +308,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 - [x] แชร์ตำแหน่งกับคนที่ติดตามกัน (เปิดเอง, ต้องแชร์ทั้งสองฝ่าย, แสดงบนแผนที่)  
 - [x] รายชื่อผู้ติดตาม / กำลังติดตาม (แตะตัวเลขในโปรไฟล์, ปุ่มติดตามในแต่ละแถว)  
 - [ ] ฟีด Following  
-- [x] ซ่อนแท็บ Log ใน Release build  
+- [x] ซ่อนแท็บ Log และปุ่ม View Log ใน build Production  
 - [x] Jenkins → TestFlight  
 - [ ] เปิด unit test stage ใน CI อีกครั้ง + `npm run typecheck`  
 
@@ -295,7 +316,7 @@ Simulator ไม่มี Apple ID: ตั้ง secret `DEV_LOGIN_SECRET` ใ�
 
 `GET /v1/feed` และ `GET /v1/map/clips` ตอบรายการชุดเดียวกัน ไม่กรองคลิปของผู้ดูออกอีกแล้ว คลิปที่เพิ่งอัปโหลดอยู่บนสุดของฟีด และแอปเลื่อนไปที่คลิปนั้นให้หลังอัปโหลด การลบคลิปจากโปรไฟล์จะเอาคลิปนั้นออกจากฟีด แผนที่ และแคชด้วย ถ้าส่ง Bearer ที่ไม่ถูกต้องยังคืน 401 และคำตอบยังมี `viewerID` เพราะแอปรุ่นตั้งแต่ commit `8d3657d` จนถึงก่อนการแก้นี้ปฏิเสธฟีดของผู้ที่ล็อกอินที่ไม่มีค่านี้
 
-**ลำดับการ deploy:** deploy Worker อย่างเดียวก็ทำให้แอปที่ติดตั้งอยู่แล้วเห็นคลิปตัวเอง (`cd backend && npm run test:feed && npm run typecheck && npm run deploy`) ไม่ต้อง migrate ฐานข้อมูลและไม่ต้องตั้ง secret ใหม่ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่คลิปตัวเองจะยังไม่ขึ้นจนกว่าจะ deploy
+**ลำดับการ deploy:** deploy Worker อย่างเดียวก็ทำให้แอปที่ติดตั้งอยู่แล้วเห็นคลิปตัวเอง (`cd backend && npm run deploy:<env>` ซึ่งรัน `npm test` ทั้งชุดให้เองก่อน) ไม่ต้อง migrate ฐานข้อมูลและไม่ต้องตั้ง secret ใหม่ แอปรุ่นใหม่กับ Worker เก่าไม่พัง แต่คลิปตัวเองจะยังไม่ขึ้นจนกว่าจะ deploy
 
 **แคชเริ่มต้นของแอป** (`FeedStartupCache` สูงสุด 2 คลิป อายุ 6 ชั่วโมง) ถูกสร้างตอนที่ฟีดยังไม่มีคลิปตัวเอง ในการเปิดแอปแบบมีแคช คลิปที่แคชไว้จะขึ้นก่อน (แสดงข้อมูลสดจากเซิร์ฟเวอร์) แล้วคลิปอื่นต่อท้าย ดังนั้นคลิปล่าสุดของตัวเองอาจไม่อยู่บนสุดจนกว่าแคชจะหมดอายุ
 

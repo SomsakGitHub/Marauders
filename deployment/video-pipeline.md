@@ -24,17 +24,18 @@ Headers: `Accept-Ranges: bytes`, `Cache-Control: public, immutable`, `ETag` + `3
 
 ## HLS (ทางเลือก — ใกล้ TikTok มากกว่า MP4 เดี่ยว)
 
-Worker **ไม่** รัน ffmpeg — ใช้สคริปต์บนเครื่อง dev / CI:
+Worker **ไม่** รัน ffmpeg — ใช้สคริปต์บนเครื่อง dev:
 
 ```bash
 cd backend
-export MARAUDERS_API_ORIGIN="https://<your-worker>.workers.dev"
 
 # <feed_videos.id> จาก GET /v1/feed (ฟิลด์ id) — ไม่ใช่ชื่อไฟล์ใน R2
-npm run video:hls -- <feed_videos.id>
+npm run video:hls -- --env staging <feed_videos.id>
 ```
 
-ถ้าไม่ส่งไฟล์ local สคริปต์จะ **ดาวน์โหลด MP4 ปัจจุบัน** จาก `stream_url` แล้วแปลง
+ต้องระบุ `--env staging|production` เสมอ (ไม่มีค่า default; ตอนนี้ยังไม่มี staging จึงใช้ได้แต่ `--env production`): สคริปต์อ่านฐานข้อมูลจาก `backend/.dev.vars.<env>` และอ่าน bucket กับ URL ของ Worker จาก `backend/environments.json` (ไม่ต้องตั้ง `MARAUDERS_API_ORIGIN` แล้ว) การอัปโหลดขึ้น R2 ใช้ `wrangler r2 object put --remote` กับ bucket ของ environment นั้น และ production ถามให้พิมพ์ `production` ก่อน
+
+ถ้าไม่ส่งไฟล์ local สคริปต์จะ **ดาวน์โหลด MP4 ปัจจุบัน** จาก `stream_url` (ของ Worker environment นั้น) แล้วแปลง
 
 สคริปต์จะ:
 
@@ -55,9 +56,11 @@ npm run video:hls -- <feed_videos.id>
 
 ```bash
 cd backend
-npm run typecheck
-npm run deploy
+npm run deploy:staging       # (หลังสร้าง staging แล้ว) npm test ทั้งชุด (รวม typecheck) → แผน migration → migration → deploy → ตรวจ /health
+npm run deploy:production    # ถามให้พิมพ์ production
 ```
+
+ดูลำดับและ rollback ใน [README.md](./README.md#ลำดับ-deploy)
 
 ## ข้อจำกัด Cloudflare Workers
 

@@ -1,0 +1,46 @@
+name: Backend
+
+# Runs the offline backend tests for every change that can affect them. It holds no credential of any kind and
+# deploys nothing: this repository is public, and a deploy is a guarded script the owner runs from their own Mac
+# (backend/scripts/deploy.mjs). The iOS files below are listed because the agreement test reads them.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+      - "Marauders-ios/Marauders.xcodeproj/project.pbxproj"
+      - "Marauders-ios/Config/Info-Additions.plist"
+      - "Marauders-ios/Marauders/APIConfiguration.plist"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+      - "Marauders-ios/Marauders.xcodeproj/project.pbxproj"
+      - "Marauders-ios/Config/Info-Additions.plist"
+      - "Marauders-ios/Marauders/APIConfiguration.plist"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test

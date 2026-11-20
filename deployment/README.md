@@ -1,93 +1,194 @@
 # Marauders — Deploy (Neon + Cloudflare)
 
-ภาพรวมโปรเจกต์และสถาปัตยกรรม: [README.md](../README.md) · [ARCHITECTURE.md](../ARCHITECTURE.md)
+ภาพรวมโปรเจกต์และสถาปัตยกรรม: [README.md](../README.md) · [ARCHITECTURE.md](../ARCHITECTURE.md) · เหตุผลของการแยก environment: [ADR-010](../docs/adr/010-environments.md)
 
-สแต็ก: **Neon (Postgres)** เก็บ metadata · **Cloudflare Workers** เป็น API (`marauders-api`) · **R2** เก็บไฟล์ (bucket `marauders-videos`, binding `VIDEOS`)
+สแต็ก: **Neon (Postgres)** เก็บ metadata · **Cloudflare Workers** เป็น API · **R2** เก็บไฟล์ (binding `VIDEOS`) — กำหนดไว้ 2 environment คือ **staging** และ **production** (ตารางด้านล่าง) แต่**ตอนนี้ใช้ production ตัวเดียว** (เจ้าของตัดสินใจ 2026-11-20): staging ยังไม่ได้สร้าง resource ใด ๆ ใน Neon, R2 หรือ Cloudflare และแอปทั้งสอง build (**Staging** ที่รันจาก Xcode กับ **Production** ที่ขึ้น TestFlight) ก็ชี้ production — ดู [ADR-010](../docs/adr/010-environments.md)
 
 - การปรับวิดีโอฝั่งเซิร์ฟเวอร์ (faststart, HLS): [video-pipeline.md](./video-pipeline.md)
 - ระบบพากย์เสียง AI: [AI_DUBBING.md](./AI_DUBBING.md)
 
-Worker deploy ด้วยมือ (`npm run deploy`) — CI ไม่ได้ deploy Worker; `Jenkinsfile` ทำเฉพาะ build แอปแล้วส่ง TestFlight (ดู [iOS / CI](#4-ios--ci))
+Worker deploy ด้วยมือจากเครื่องของเจ้าของโปรเจกต์ (`npm run deploy:production`; `npm run deploy:staging` ใช้ได้หลังสร้าง staging แล้ว) — CI ไม่ได้ deploy และไม่มี key ของ Cloudflare หรือ Neon (GitHub Actions รันแค่เทสต์ออฟไลน์ ดู [docs/ci-cd.md](../docs/ci-cd.md)); `Jenkinsfile` ทำเฉพาะ build แอปแล้วส่ง TestFlight (ดู [iOS / CI](#4-ios--ci))
+
+## Environments
+
+| | staging | production |
+|---|---|---|
+| สถานะ | **ยังไม่ได้สร้าง** (กำหนดไว้ในโค้ดและเอกสารแล้ว) | **ใช้งานอยู่** — ตัวเดียวที่มีตอนนี้ |
+| ใช้ทำอะไร | (เมื่อสร้างแล้ว) build Staging ของแอป, `npm run dev`, ซ้อม migration, ทดลองอัปโหลด, dev login | แอปจริง (TestFlight / App Store) **และตอนนี้รวมถึง build Staging ของแอป (รันจาก Xcode / Simulator), ทดลองอัปโหลด, dev login** |
+| `--env` ของ script | `--env staging` | `--env production` |
+| wrangler | `--env staging` | ไม่ใส่ `--env` (config ระดับบนของ `wrangler.toml`) |
+| Worker | `marauders-api-staging` | `marauders-api` |
+| URL | `https://marauders-api-staging.js6ctz7gtj.workers.dev` | `https://marauders-api.js6ctz7gtj.workers.dev` |
+| R2 bucket | `marauders-videos-staging` | `marauders-videos` |
+| Neon | database ของ staging เอง (ว่าง สร้างด้วย migration) | database เดิม |
+| ไฟล์ vars ในเครื่อง | `backend/.dev.vars.staging` | `backend/.dev.vars.production` |
+| dev login (`/v1/auth/dev`) | เปิด (มี `DEV_LOGIN_SECRET` ของตัวเอง) | **เปิดอยู่** ระหว่างมี backend ตัวเดียว (Simulator ใช้) — ปิดเมื่อมี staging แล้ว |
+| observability (Workers Logs) | เปิด | ปิด |
+| rate-limit namespace | `1002` | `1001` |
+
+ตารางที่ script อ่านจริงคือ `backend/environments.json` (ชื่อ Worker, URL, bucket, ไฟล์ vars, phrase ยืนยัน) — ตัว Production guard ของแอปอ่านไฟล์เดียวกัน เปลี่ยนค่าที่ไฟล์นี้ที่เดียว
+
+### กติกา
+
+- ทุกคำสั่งที่แตะข้อมูลต้องมี `--env staging|production` และ **ไม่มีค่า default** — ยกเว้น `npm run dev` (รัน staging เสมอ ไม่มี production จึงยังเริ่มไม่ได้จนกว่าจะสร้าง staging) ระหว่างนี้คำสั่งที่ใส่ `--env staging` จะหยุดที่ไฟล์ `.dev.vars.staging` ที่ยังไม่มี (ส่วน `test-upload --env staging` จะยิงไปหา Worker ที่ยังไม่มีอยู่จริง)
+- แต่ละคำสั่งอ่านเฉพาะไฟล์ vars ของ environment ที่สั่ง ไม่อ่าน `backend/.dev.vars` เดิม (ไม่มีชื่อ environment) แล้ว: ถ้าไฟล์นั้นยังมีค่าของ production อยู่ ให้ย้ายเป็น `.dev.vars.production` (เก็บบรรทัด `DEV_LOGIN_SECRET` ไว้ด้วย เพราะ build Staging ของแอปบน Simulator ใช้ — ดูแถว dev login ในตาราง)
+- ไฟล์ vars สองไฟล์ห้ามชี้ database เดียวกัน (server เดียวกันและชื่อ database เดียวกัน; pooled กับ direct ของ server เดียวกันนับว่าเป็นอันเดียวกัน, role/password/option ไม่นับ): ทุกคำสั่งและ `npm run dev` จะหยุดพร้อมบอกชื่อสองไฟล์ (ไม่พิมพ์ค่า) ถ้าเผลอ copy ไฟล์ production ไปเป็น staging
+- ทุกคำสั่งพิมพ์ banner ก่อน: environment, Worker, URL, database (host และชื่อ ไม่มี credential), bucket — ดูให้ตรงก่อนปล่อยให้ทำต่อ
+- เขียนลง production ต้อง**พิมพ์ phrase ยืนยัน** (`production`; ลบข้อมูล `purge staging` / `purge production`) ที่เทอร์มินัล หรือส่ง `--confirm "<phrase>"` เมื่อไม่มีเทอร์มินัล — ไม่มี flag ที่ข้ามการยืนยัน
+- **ห้ามรัน `npx wrangler deploy` เปล่า ๆ (ไม่ใส่ `--env`)** — wrangler จะ deploy ไป production แล้วแค่เตือน ไม่มี script หรือ `package.json` ไหนรันคำสั่งนี้ ให้ deploy ผ่าน `npm run deploy:<env>` เท่านั้น
+- ข้อมูลแต่ละ environment แยกกันทั้งหมด (ผู้ใช้, คลิป, token): token ของ Worker หนึ่งใช้กับอีกตัวไม่ได้ และ `stream_url` / `avatar_url` ที่ Worker เก็บเป็น URL เต็มของ host ที่เขียนแถวนั้น
+
+### เมื่อจะสร้าง staging (ยังไม่ได้ทำ)
+
+ทำก่อนเปิดให้คนทั่วไปใช้, เชิญ tester ภายนอก หรือเมื่อมีนักพัฒนาคนที่สอง — ขั้นไหนที่แตะ cloud ต้องถามเจ้าของก่อนทุกครั้ง:
+
+1. สร้าง database ใหม่ที่ว่างใน Neon และเก็บ connection string (pooled) ใน `backend/.dev.vars.staging` (หัวข้อ 1), สร้าง R2 bucket `marauders-videos-staging` และตั้ง secret ด้วย `wrangler secret bulk` (หัวข้อ 2) — `JWT_SIGNING_SECRET` และ `DEV_LOGIN_SECRET` ของ staging สุ่มใหม่ ไม่ใช้ซ้ำกับ production
+2. `npm run db:migrate -- --env staging` สองรอบ (รอบสองต้องไม่มีอะไรเปลี่ยน) แล้ว `npm run deploy:staging` — เทียบ URL ที่ wrangler พิมพ์กับ `backend/environments.json` ถ้าต่างให้แก้ทุกที่ที่ `grep -rn marauders-api-staging` เจอ
+3. ชี้ build Staging ของแอปไป staging ใน**สามที่พร้อมกัน**: build setting `MARAUDERS_API_BASE_URL` ของ configuration `Debug-Staging`, ชื่อไฟล์ `.dev.vars.staging` ใน `Shared/Configuration/DevLogin.swift` และค่า `DEBUG_ENVIRONMENT` ใน `backend/test/scripts/iosEnvironments.test.mjs` (เทสต์ล้มจนกว่าสามที่จะตรงกัน) พร้อมแก้ชื่อและค่าที่คาดไว้ใน `APIBaseURLTests` (`theDebugBuildReceivesProductionThroughInfoPlist`)
+4. ย้าย `DEV_LOGIN_SECRET` ไปไว้ที่ staging แล้วลบของ production: `npx wrangler secret delete DEV_LOGIN_SECRET` และตรวจว่า `/v1/auth/dev` ของ production ตอบ `404`
 
 ## ลำดับ deploy
 
-**รัน migration ก่อน แล้วค่อย deploy Worker** ที่ต้องใช้ schema ใหม่ — ไม่งั้น Worker ใหม่จะ query คอลัมน์/ตารางที่ยังไม่มี
+คำสั่งเดียวทำให้ครบทุกขั้นตามลำดับ และหยุดที่ขั้นแรกที่ล้ม:
+
+```bash
+cd backend
+npm run deploy:staging               # หลังสร้าง staging แล้วเท่านั้น
+npm run deploy:production            # ถามให้พิมพ์ production; ไม่มีเทอร์มินัล: -- --confirm production
+```
+
+1. banner (environment, Worker, URL, database, bucket) และเลขเวอร์ชัน (commit 7 ตัว; ต่อท้าย `-dirty` ถ้า `backend/` มีการแก้ที่ยังไม่ commit)
+2. production เท่านั้น: ปฏิเสธถ้า `backend/` มีการแก้ที่ยังไม่ commit (เพื่อให้เลขเวอร์ชันใน `/health` ตรงกับ commit ที่มีจริง)
+3. `npm test` ทั้งชุด
+4. แผน migration (dry run): แสดงไฟล์ที่ยังไม่ได้รัน และหยุดถ้าไฟล์ที่เคยรันไปแล้วถูกแก้ — เห็นก่อนพิมพ์ phrase
+5. phrase ยืนยัน (production)
+6. จดเวอร์ชันของ Worker ที่ใช้งานอยู่ตอนนี้ (ไว้ทำคำสั่ง rollback)
+7. migration ที่ยังไม่ได้รัน (ดู [Migration](#migration)) — **migration ก่อน deploy Worker เสมอ** ไม่งั้น Worker ใหม่จะ query คอลัมน์/ตารางที่ยังไม่มี
+8. `wrangler deploy --env <env> --var GIT_SHA:<เวอร์ชัน>`
+9. เรียก `<url>/health` ซ้ำจนกว่าจะตอบ environment และเวอร์ชันที่เพิ่ง deploy (Worker รุ่นเก่าอาจยังตอบอีกไม่กี่วินาที)
+10. พิมพ์คำสั่ง rollback
+
+ถ้า deploy ไปแล้วแต่ `/health` ไม่ตรง script จะแจ้งว่าล้มพร้อมคำสั่ง rollback — **ไม่มี rollback อัตโนมัติ** เพราะการเปลี่ยน database ย้อนไม่ได้ เจ้าของโปรเจกต์เป็นคนตัดสิน
+
+`npm run deploy` เปล่า ๆ จะแจ้งว่าต้องระบุ `--env` (ไม่มี environment ตั้งต้น)
+
+### Rollback
+
+```bash
+npx wrangler rollback <version-id> --name marauders-api-staging   # หลังสร้าง staging แล้ว
+npx wrangler rollback <version-id> --name marauders-api
+npx wrangler deployments list --name marauders-api        # ดูประวัติ + version-id
+```
+
+`<version-id>` คือบรรทัดที่ `deploy:<env>` พิมพ์ท้ายสุด (`to undo this … deploy: …`) — rollback คืนแค่โค้ดของ Worker **ไม่ย้อน migration** ตารางหรือคอลัมน์ที่เพิ่มไปแล้วปล่อยทิ้งไว้ได้ถ้า Worker รุ่นเก่าไม่แตะมัน
+
+### `/health`
+
+```bash
+curl "https://marauders-api-staging.js6ctz7gtj.workers.dev/health"   # (หลังสร้าง staging แล้ว) {"status":"ok","environment":"staging","version":"1d02680"}
+curl "https://marauders-api.js6ctz7gtj.workers.dev/health"           # {"status":"ok","environment":"production","version":"1d02680"}
+```
+
+`environment` มาจาก `[vars] ENVIRONMENT` ใน `wrangler.toml` ส่วน `version` คือเลขที่ `deploy:<env>` ใส่ให้ (`GIT_SHA`) — Worker ที่ deploy ด้วยวิธีอื่นจะขึ้น `"version":"dev"` ใช้เทียบว่า Worker ที่รันอยู่คือ commit ไหน
 
 ## 1. Neon
 
-1. เปิด [Neon Console](https://console.neon.tech/app/org-dawn-glade-96157792/projects) → เลือกโปรเจกต์ (หรือสร้างใหม่)
-2. **Connect** → copy **connection string** (แนะนำ **pooled** สำหรับ Workers)
-3. ใส่ใน `backend/.dev.vars` เป็น `DATABASE_URL=…` (ไฟล์นี้ gitignore; `scripts/migrate.mjs` อ่านจากที่นี่) และตั้งเป็น Wrangler secret ในขั้น 2
+> **ตอนนี้ใช้ production ตัวเดียว** — ขั้นของ staging ในหัวข้อ 1 และ 2 (database, bucket, secret, deploy) คือวิธีสร้าง staging เมื่อถึงเวลา ยังไม่ได้ทำ ดู [เมื่อจะสร้าง staging](#เมื่อจะสร้าง-staging-ยังไม่ได้ทำ)
+
+1. เปิด [Neon Console](https://console.neon.tech/app/org-dawn-glade-96157792/projects)
+2. **production:** ใช้ database เดิม · **staging:** สร้าง **database ใหม่ที่ว่าง** (project ใหม่ หรือ database ใหม่ใน project เดิม) — **อย่าใช้ branch ของ production** เพราะจะได้ข้อมูลผู้ใช้จริง (รวมตำแหน่ง) ติดมา
+3. **Connect** → copy **connection string** (แนะนำ **pooled** สำหรับ Workers)
+4. ใส่ `DATABASE_URL=…` ในไฟล์ vars ของ environment นั้น: `backend/.dev.vars.staging` หรือ `backend/.dev.vars.production` (สร้างจาก `.dev.vars.example` — ไฟล์พวกนี้ gitignore; `scripts/migrate.mjs` และ `deploy` อ่านจากที่นี่) และตั้งเป็น Wrangler secret ของ Worker นั้นในขั้น 2
 
 ### Migration
 
 ```bash
 cd backend
-npm run db:migrate
+npm run db:migrate -- --env staging --dry-run       # (หลังสร้าง staging แล้ว) ดูว่าจะรันไฟล์ไหนบ้าง ไม่แตะอะไร
+npm run db:migrate -- --env staging                 # (หลังสร้าง staging แล้ว)
+npm run db:migrate -- --env production --dry-run
+npm run db:migrate -- --env production              # ถามให้พิมพ์ production
 ```
 
-`db:migrate` (`scripts/migrate.mjs`) รัน `backend/sql/` ตามลำดับ: `001` → `003`, แล้ว `005` → `023` (รวม `002_seed.sql` ซึ่งตอนนี้เป็นแค่คอมเมนต์ ไม่มีข้อมูลเดโม)
+(ต้องมี `--` คั่นก่อน flag ของ script ไม่งั้น npm จะเอา `--env` ไปเป็นค่าของตัวเอง)
 
-- **ไม่รัน `004_purge_feed_videos.sql`** — ลบทุกแถวใน `feed_videos` ต้องรันเองด้วยมือเมื่อจำเป็น (แนะนำ `npm run db:purge` ซึ่งลบทั้ง DB และ R2)
-- `db:migrate` อ่าน `DATABASE_URL` จาก `backend/.dev.vars` เท่านั้น (ไม่อ่าน `wrangler secret`) — ก่อน deploy ต้องให้ค่านี้ชี้ production ไม่ใช่ dev branch ของ Neon
-- ไม่มีตารางติดตามว่ารันไฟล์ไหนแล้ว: รันทุกไฟล์ใหม่หมดทุกครั้ง และหยุดทันทีเมื่อ statement ใด error จึงเขียนทุกไฟล์ให้รันซ้ำได้ (`IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` ก่อน `ADD CONSTRAINT` ฯลฯ)
-- ไฟล์ใหม่ต้องเพิ่มชื่อใน array ใน `scripts/migrate.mjs` ด้วย ไม่งั้นไม่ถูกรัน
+`db:migrate` (`scripts/migrate.mjs`) หาไฟล์ `backend/sql/NNN_*.sql` เองแล้วรันตามเลข ไม่ต้องเพิ่มชื่อไฟล์ที่ไหน (รวม `002_seed.sql` ซึ่งตอนนี้เป็นแค่คอมเมนต์ ไม่มีข้อมูลเดโม)
+
+- **มีตารางติดตาม** `schema_migrations(name, sha256, applied_at)` ในแต่ละ database: ไฟล์จะถูกบันทึกก็ต่อเมื่อทุก statement ของมันรันสำเร็จ รอบถัดไปรันเฉพาะไฟล์ที่ยังไม่ถูกบันทึก ถ้า statement ใด error จะหยุดทันทีและไฟล์นั้นยังไม่ถูกบันทึก
+- **ไม่รัน `004_purge_feed_videos.sql`** — ลบทุกแถวใน `feed_videos` ต้องรันเองด้วยมือเมื่อจำเป็น (แนะนำ `npm run db:purge -- --env <env>` ซึ่งลบทั้ง DB และ R2)
+- ถ้าไฟล์ที่รันไปแล้วถูกแก้ทีหลัง (sha256 ไม่ตรง) script จะหยุดและบอกชื่อไฟล์ — ถ้าตั้งใจแก้และไฟล์รันซ้ำได้ ให้รันใหม่พร้อม `--accept-changed <ชื่อไฟล์>` (ใส่ได้หลายไฟล์)
+- ไฟล์ที่เลขต่ำกว่าไฟล์ที่รันไปแล้ว (สอง branch เพิ่ม migration พร้อมกัน) ยังรัน แต่ script เตือนว่า out of order
+- **ไฟล์ใหม่ต้องรันซ้ำได้** (`IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` ก่อน `ADD CONSTRAINT` ฯลฯ): production ไม่เคยมีตารางติดตาม การรันครั้งแรกจึงรันทุกไฟล์อีกรอบ (เหมือนที่เคยเป็นทุกครั้ง) แล้วบันทึกไว้
 - script แยก statement ด้วย `;` — อย่าใส่ `;` ในคอมเมนต์ของไฟล์ SQL
-- หรือจะวางไฟล์ใน Neon **SQL Editor** ทีละไฟล์ตามลำดับก็ได้
+- หรือจะวางไฟล์ใน Neon **SQL Editor** ทีละไฟล์ตามลำดับก็ได้ (แต่จะไม่ถูกบันทึกในตารางติดตาม)
 
 ## 2. Cloudflare
 
 1. เปิด [Cloudflare Dashboard](https://dash.cloudflare.com/b131b12456fbb5e37718f5cdba8f36ec/home)
 2. ติดตั้ง CLI: `npm install` ใน `backend/`
 3. Login: `npx wrangler login`
-4. สร้าง R2 bucket (ครั้งเดียว — `wrangler.toml` ผูก binding `VIDEOS` กับชื่อนี้อยู่แล้ว):
+4. สร้าง R2 bucket (ครั้งเดียวต่อ environment — `wrangler.toml` ผูก binding `VIDEOS` กับชื่อเหล่านี้อยู่แล้ว):
 
    ```bash
    cd backend
-   npx wrangler r2 bucket create marauders-videos
+   npx wrangler r2 bucket create marauders-videos-staging    # ยังไม่ได้สร้าง (ดู "เมื่อจะสร้าง staging")
+   npx wrangler r2 bucket create marauders-videos            # production มีอยู่แล้ว
    ```
 
    Worker เขียน/อ่านไฟล์ผ่าน binding โดยตรง (`POST /v1/videos`, `GET /v1/media/…`) ไม่ต้องเปิด public access และไม่ต้องแก้ `stream_url` เอง ใช้ key prefix: `videos/` (คลิป), `avatars/` (รูปโปรไฟล์), `translations/` (เสียงพากย์ AI)
 
-5. ตั้ง secret (ไม่ commit ลง git):
+5. ตั้ง secret ของแต่ละ Worker (ไม่ commit ลง git):
 
    ```bash
+   # staging (ยังไม่ได้ทำ): ส่งทั้งไฟล์ vars ของ staging ในคำสั่งเดียว
+   npx wrangler secret bulk .dev.vars.staging --env staging
+
+   # production: secret ที่มีอยู่แล้วคงไว้ แก้ทีละตัว (ไม่ใส่ --env = production)
    npx wrangler secret put DATABASE_URL
    npx wrangler secret put JWT_SIGNING_SECRET   # openssl rand -base64 48
    npx wrangler secret put APPLE_CLIENT_ID      # com.somsak.Marauders
-   npx wrangler secret put DEV_LOGIN_SECRET     # ไม่บังคับ — ≥ 32 ตัวอักษร เปิด /v1/auth/dev สำหรับ Simulator; production ไม่ต้องตั้ง
    ```
 
-6. รัน migration ตามหัวข้อ [Migration](#migration) (ก่อน deploy)
+   `DEV_LOGIN_SECRET` (≥ 32 ตัวอักษร เปิด `/v1/auth/dev` สำหรับ Simulator): **ตอนนี้ production มีและต้องมีต่อไป** เพราะ build Staging ของแอปบน Simulator คุยกับ production (ค่าเดียวกันเก็บใน `.dev.vars.production` ให้แอปอ่าน) — ใครถือ secret นี้สร้างผู้ใช้ `dev:<label>`, คลิปและคอมเมนต์ทดสอบบน backend จริงได้ (ล็อกอินเป็นผู้ใช้จริงไม่ได้ เพราะ `apple_sub` ของ dev ขึ้นต้น `dev:`) **เมื่อสร้าง staging แล้ว**ให้ย้ายไปตั้งเฉพาะ staging (อยู่ใน `.dev.vars.staging`) แล้วลบของ production: `npx wrangler secret delete DEV_LOGIN_SECRET` แล้วตรวจว่า `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://marauders-api.js6ctz7gtj.workers.dev/v1/auth/dev` ได้ `404` ใช้ `JWT_SIGNING_SECRET` คนละค่ากันระหว่าง environment (token ของอีกตัวจะถูกปฏิเสธ)
 
-7. Deploy:
+6. รัน migration ตามหัวข้อ [Migration](#migration) (`deploy:<env>` ทำให้อยู่แล้วก่อน deploy)
+
+7. Deploy ตามหัวข้อ [ลำดับ deploy](#ลำดับ-deploy):
 
    ```bash
-   npm run deploy      # wrangler deploy
+   npm run deploy:staging      # หลังสร้าง staging แล้วเท่านั้น
+   npm run deploy:production
    ```
 
-   `wrangler.toml` ยังประกาศ Rate Limiting binding `RATE_LIMITER` (120 req/60 วิ) และ `AUTH_RATE_LIMITER` (30 req/60 วิ) — เป็นด่านแรก (ถ้าไม่มี binding จะปล่อยผ่าน) ส่วนตัวตัดสินจริงของ auth/upload อยู่ใน Neon: auth 30 ครั้ง/60 วิ ต่อ IP และ upload 10 ครั้ง/60 วิ ต่อผู้ใช้ (ค่าตั้งใน `src/index.ts`, ตัวนับใน `src/db/rateLimit.ts`, ตาราง `010_rate_limit_counters.sql`)
+   (staging ที่เพิ่งสร้าง: deploy ครั้งแรกให้ได้ Worker ก่อน แล้วค่อยตั้ง secret ตามขั้น 5 — `/health` ไม่ใช้ secret เลยผ่านได้)
 
-8. Smoke check:
+   `wrangler.toml` ยังประกาศ Rate Limiting binding `RATE_LIMITER` (120 req/60 วิ) และ `AUTH_RATE_LIMITER` (30 req/60 วิ) ทั้งสอง environment (namespace `1001` production, `1002` staging) — เป็นด่านแรก (ถ้าไม่มี binding จะปล่อยผ่าน) ส่วนตัวตัดสินจริงของ auth/upload อยู่ใน Neon: auth 30 ครั้ง/60 วิ ต่อ IP และ upload 10 ครั้ง/60 วิ ต่อผู้ใช้ (ค่าตั้งใน `src/index.ts`, ตัวนับใน `src/db/rateLimit.ts`, ตาราง `010_rate_limit_counters.sql`)
+
+   Wrangler environment **ไม่สืบทอดอะไรจากระดับบน** (binding, vars, observability) — `[env.staging]` ใน `wrangler.toml` จึงเขียนซ้ำทั้งหมด และเทสต์ `test/scripts/parity.test.mjs` จะล้มถ้าสองฝั่งไม่ตรงกัน เวลาเพิ่ม binding ใหม่ให้เพิ่มทั้งสองที่
+
+8. Smoke check (ใส่ `URL` เป็นของ environment ที่เพิ่ง deploy):
 
    ```bash
-   curl "https://marauders-api.js6ctz7gtj.workers.dev/health"              # {"status":"ok"}
-   curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=5"
+   curl "$URL/health"             # {"status":"ok","environment":"staging","version":"…"}
+   curl "$URL/v1/feed?limit=5"
    ```
 
-   ฟีดว่าง (`{"items":[],"viewerID":null}`) เป็นเรื่องปกติถ้ายังไม่มีใครอัปโหลด — seed ถูกปิดไว้
+   ฟีดว่าง (`{"items":[],"viewerID":null}`) เป็นเรื่องปกติถ้ายังไม่มีใครอัปโหลด — seed ถูกปิดไว้ และ staging ว่างเสมอจนกว่าจะอัปโหลดผ่านแอป
 
-   ความคิดเห็นของคลิปที่มีอยู่ (ต้องรัน migration `017` แล้ว): `curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/videos/<id>/comments"` ได้ `{"items":[],"nextCursor":null}` ถ้ายังไม่มีใครคอมเมนต์ ถ้าได้ 500 ให้เปิด `npx wrangler tail` แล้วยิงซ้ำ — Worker log `comments list|create|delete failed <SQLSTATE> <ข้อความของฐานข้อมูล>` (ไม่มีข้อความคอมเมนต์) เช่น `42P01` = ยังไม่ได้รัน `017` log นี้เห็นได้เฉพาะตอน `wrangler tail` เปิดอยู่ (`wrangler.toml` ไม่ได้เปิด `[observability]` จึงไม่เก็บย้อนหลัง)
+   ความคิดเห็นของคลิปที่มีอยู่ (ต้องรัน migration `017` แล้ว): `curl "$URL/v1/videos/<id>/comments"` ได้ `{"items":[],"nextCursor":null}` ถ้ายังไม่มีใครคอมเมนต์ ถ้าได้ 500 ให้เปิด `npx wrangler tail` (staging: `npx wrangler tail --env staging`) แล้วยิงซ้ำ — Worker log `comments list|create|delete failed <SQLSTATE> <ข้อความของฐานข้อมูล>` (ไม่มีข้อความคอมเมนต์) เช่น `42P01` = ยังไม่ได้รัน `017` log นี้เห็นได้ตอน `wrangler tail` เปิดอยู่ (staging เปิด `[env.staging.observability]` จึงเก็บย้อนหลังด้วย; production ไม่เปิด — สามเส้นทางยัง log error object ของ driver ทั้งก้อนซึ่งอาจมีค่าของแถว)
 
-**ก่อน deploy Worker ที่มีไลก์ ต้องรัน migration `018` ก่อนเสมอ:** query ของฟีดนับไลก์จากตาราง `video_likes` ถ้า deploy ก่อนรัน migration ฟีดจะตอบ 500 `failed to load feed` ทุกคำขอ (ต่างจากความคิดเห็นที่พังแค่ชีต) ตรวจหลัง deploy: `curl "https://marauders-api.js6ctz7gtj.workers.dev/v1/feed?limit=1"` ต้องได้ `likeCount` ในทุก item ถ้าได้ 500 ให้เปิด `npx wrangler tail` จะเห็น `42P01` (ไม่มีตาราง `video_likes`)
+**ก่อน deploy Worker ที่มีไลก์ ต้องรัน migration `018` ก่อนเสมอ** (`deploy:<env>` ทำตามลำดับนี้ให้ แต่ถ้าสลับลำดับเอง): query ของฟีดนับไลก์จากตาราง `video_likes` ถ้า deploy ก่อนรัน migration ฟีดจะตอบ 500 `failed to load feed` ทุกคำขอ (ต่างจากความคิดเห็นที่พังแค่ชีต) ตรวจหลัง deploy: `curl "$URL/v1/feed?limit=1"` ต้องได้ `likeCount` ในทุก item ถ้าได้ 500 ให้เปิด `npx wrangler tail` จะเห็น `42P01` (ไม่มีตาราง `video_likes`)
 
-**ก่อน deploy Worker ที่รับ `Idempotency-Key` ต้องรัน migration `023` ก่อนเสมอ:** คำขอ `POST /v1/videos` ที่ส่ง header นี้จะอ่านและเขียนคอลัมน์ `feed_videos.upload_key` ถ้ายังไม่มีคอลัมน์ Worker จะตอบ 500 `upload lookup failed` ส่วนคำขอที่ไม่มี header ไม่แตะคอลัมน์นี้ (แอปรุ่นเก่าที่ไม่ส่ง header จึงไม่เสีย) ตรวจหลังรัน migration แบบอ่านอย่างเดียว: ต้องมีคอลัมน์ `feed_videos.upload_key` และ index `feed_videos_owner_upload_key_uidx` Rollback: `npx wrangler rollback 961faf99-cc24-4b92-9b1c-38a440524baf` (รุ่นที่ใช้งานก่อน deploy นี้) คอลัมน์ที่เพิ่มปล่อยไว้ได้เพราะ Worker รุ่นเก่าไม่แตะมัน ถ้าต้องการเอาออกจริง: `ALTER TABLE feed_videos DROP COLUMN upload_key` (index หายไปพร้อมกัน)
+**ก่อน deploy Worker ที่รับ `Idempotency-Key` ต้องรัน migration `023` ก่อนเสมอ:** คำขอ `POST /v1/videos` ที่ส่ง header นี้จะอ่านและเขียนคอลัมน์ `feed_videos.upload_key` ถ้ายังไม่มีคอลัมน์ Worker จะตอบ 500 `upload lookup failed` ส่วนคำขอที่ไม่มี header ไม่แตะคอลัมน์นี้ (แอปรุ่นเก่าที่ไม่ส่ง header จึงไม่เสีย) ตรวจหลังรัน migration แบบอ่านอย่างเดียว: ต้องมีคอลัมน์ `feed_videos.upload_key` และ index `feed_videos_owner_upload_key_uidx` คอลัมน์ที่เพิ่มปล่อยไว้ได้เพราะ Worker รุ่นเก่าไม่แตะมัน ถ้าต้องการเอาออกจริง: `ALTER TABLE feed_videos DROP COLUMN upload_key` (index หายไปพร้อมกัน)
 
 ### ตรวจก่อน deploy
 
 ```bash
 cd backend
+npm test                 # ทั้งชุด — deploy:<env> รันให้เองก่อนทุกครั้ง
 npm run typecheck        # tsc --noEmit
+npm run test:scripts     # script และ guard ของ environment (targets, migrations, deploy, r2, purge, workflow)
+npm run test:health
 npm run test:feed
 npm run test:dubbed-audio
 npm run test:dev-auth
@@ -97,32 +198,51 @@ npm run test:auth-refresh
 npm run test:upload-idempotency
 ```
 
-นอกจากนี้มี `scripts/test-audio-assessment.mjs` (ไม่มี npm script รันด้วย `node scripts/test-audio-assessment.mjs`, ทำงานในเครื่อง) ส่วน `scripts/test-upload.mjs` **ไม่ใช่เช็คก่อน deploy** — ยิง POST ไฟล์ปลอมไปที่ URL production โดยไม่มี Authorization จึงได้ 401
+ทั้งหมดทำงานออฟไลน์ (database เป็นของปลอมในเครื่อง) นอกจากนี้มี `scripts/test-audio-assessment.mjs` (ไม่มี npm script รันด้วย `node scripts/test-audio-assessment.mjs`, ทำงานในเครื่อง) ส่วน `scripts/test-upload.mjs` **ไม่ใช่เช็คก่อน deploy** — ยิง POST ไฟล์ปลอมไปที่ URL ของ environment ที่เลือกโดยไม่มี Authorization จึงได้ 401 (ต้องใส่ `--env` เสมอ ตอนนี้จึงเป็น `--env production` ซึ่งต้องพิมพ์ phrase `production`)
+
+### คำสั่งอื่นที่แตะข้อมูล
+
+```bash
+cd backend
+npm run db:purge -- --env staging                   # ลบทุกแถว feed_videos + ไฟล์ใน R2 ของ environment นั้น ต้องพิมพ์ "purge staging"
+npm run video:hls -- --env staging <feed_videos.id> # สร้าง HLS แล้วอัปโหลดขึ้น bucket ของ environment นั้น
+```
+
+ตอนนี้ยังไม่มี staging จึงใช้ได้แต่ `--env production`: `db:purge --env production` ลบทุกแถวของฟีดจริงและไฟล์ใน R2 ของ production (ต้องพิมพ์ `purge production`) — ไม่ควรรันถ้าไม่ได้ตั้งใจ
+
+`db:purge` แสดงว่าจะลบเท่าไหร่ แล้วถาม phrase `purge <env>` **ก่อน**ลบ และถ้าลบไฟล์ใน R2 ไม่สำเร็จจะเก็บแถวไว้ให้รันซ้ำได้ — คำสั่ง R2 ใช้ `--remote` แล้ว (ก่อนหน้านี้ wrangler 4.150.0 ทำกับ simulator ในเครื่องแทน purge ครั้งก่อน ๆ จึงลบแต่แถวใน database) การ purge ครั้งแรกหลังแก้จึงลบไฟล์จริง ไม่รันกับ production ถ้าไม่จำเป็น การลบที่ wrangler ปฏิเสธนับเป็นความล้มเหลวทุกกรณี รวมถึงคีย์ที่ไม่มีอยู่จริง เพราะยังไม่เคยเห็นข้อความของ R2 ฝั่ง remote และแถวคือรายการเดียวที่บอกว่ามีไฟล์อะไร (ดู `scripts/lib/r2.mjs`): ถ้า R2 ปฏิเสธการลบคีย์ที่ไม่มี คลิป HLS ที่มี segment น้อยกว่า 200 จะหยุดที่ segment แรกที่ไม่มีและเก็บแถวไว้ จนกว่าจะเห็นข้อความจริงบน staging แล้วแยกมันออกจากความล้มเหลวจริงได้
 
 ## 3. Local API
 
 ```bash
 cd backend
-cp .env.example .dev.vars   # ใส่ DATABASE_URL, JWT_SIGNING_SECRET, APPLE_CLIENT_ID
-npx wrangler dev            # หรือ npm run dev
+cp .dev.vars.example .dev.vars.staging   # ใส่ DATABASE_URL (ของ staging), JWT_SIGNING_SECRET, APPLE_CLIENT_ID, DEV_LOGIN_SECRET
+npm run dev                              # wrangler dev --env staging; พอร์ตอื่น: npm run dev -- --port 8788
 ```
 
-`wrangler dev` และ `db:migrate` อ่านจาก `.dev.vars` (ไม่ใช่ `.env`)
+**ตอนนี้ยังใช้ไม่ได้ เพราะยังไม่มี staging** (ขั้นตอนข้างบนไว้ใช้หลังสร้างแล้ว) `npm run dev` รัน **staging เท่านั้น** (ไม่มี production ในเครื่อง) และไม่เริ่มถ้าไม่มี `.dev.vars.staging` — ถ้าไม่ดักไว้ wrangler จะถอยไปอ่านไฟล์ vars ที่ไม่มีชื่อ environment ซึ่งอาจเป็นของ production ไม่รับ `--env` (ใช้ `npm run dev` ตามที่เขียนไว้เท่านั้น)
 
 ## 4. iOS / CI
 
-แก้ `Marauders-ios/Marauders/APIConfiguration.plist` → key `MARAUDERS_API_BASE_URL` (แนะนำ — อ่านจาก bundle ได้เสมอ)
+**แอปอ่าน URL ของ Worker จาก Info.plist ที่เดียว** (key `MARAUDERS_API_BASE_URL`) ซึ่ง build เติมให้จาก build setting ชื่อเดียวกัน (Xcode → target Marauders → Build Settings → User-Defined → `MARAUDERS_API_BASE_URL`):
 
-หรือใน Xcode → Build Settings → `INFOPLIST_KEY_MARAUDERS_API_BASE_URL`:
+| Build (scheme) | Configuration | ค่า |
+|---|---|---|
+| Staging (`Marauders Staging`) | `Debug-Staging` | `https://marauders-api.js6ctz7gtj.workers.dev` (production — ตอนนี้มี backend ตัวเดียว; จะเป็น staging หลังสร้างแล้ว ดู "เมื่อจะสร้าง staging") |
+| Production (`Marauders Production`) | `Release-Production` | `https://marauders-api.js6ctz7gtj.workers.dev` |
 
-```text
-https://<your-worker>.workers.dev
-```
+ชื่อ configuration ฝั่ง Staging ต้องมีคำว่า `Debug`: Xcode ให้ flag `DEBUG` กับ local package `MaraudersAuth` เฉพาะ configuration ที่ชื่อมีคำนี้ (configuration ชื่อ `Staging` เฉย ๆ ทำให้ `DevAuthAPIClient` compile ไม่ผ่าน) ตารางเต็มของสอง build (scheme, log ในแอป, dev login, guard) อยู่ในหัวข้อ "Staging และ Production" ของ [README.md](../README.md)
 
-(ไม่มี slash ท้าย URL)
+(ไม่มี slash ท้าย URL และไม่มี path) `Config/Info-Additions.plist` ส่งค่าเข้า Info.plist ที่ build เสร็จเป็น `$(MARAUDERS_API_BASE_URL)` — **ไม่มี `APIConfiguration.plist` ในแอปอีกแล้ว** และไม่ต้องใช้ `INFOPLIST_KEY_MARAUDERS_API_BASE_URL` (Xcode ข้ามชื่อ `INFOPLIST_KEY_` ที่มันไม่รู้จัก ค่านั้นจึงไม่เคยถึง Info.plist)
 
-แนะนำชี้แอปไปที่ `*.workers.dev` ที่ deploy แล้ว (HTTPS); ล็อกอินบน Simulator ดู dev login ใน [README.md](../README.md)
+- **ชี้ build Staging ไปที่อื่น** (ตัวอย่าง: Worker ใน `wrangler dev` ผ่าน tunnel `https://…`): ตั้ง environment variable ชื่อเดียวกัน — ใน Xcode: Scheme → Run → Arguments → Environment Variables หรือจาก terminal `SIMCTL_CHILD_MARAUDERS_API_BASE_URL=https://… xcrun simctl launch …` ต้องเป็น `https://` ไม่มี path ค่าที่ผิดทำให้แอปหยุดแจ้ง error (ไม่ถอยกลับไปใช้ค่าจาก build เงียบ ๆ) และ **build Production ไม่อ่าน environment ของ process เลย**
+- **ดูว่า build นี้คุยกับ Worker ตัวไหน:** แท็บ **Log** (build Staging เท่านั้น) มี subtitle `<host> (configured)` หรือ `<host> (override)` และบรรทัด `[config] api base host=…` ใน log
+- **dev login บน Simulator:** แอปอ่าน `DEV_LOGIN_SECRET` จาก `backend/.dev.vars.production` ของ checkout นี้ (ไฟล์ vars ของ environment ที่ build Staging ใช้) (หรือ `SIMCTL_CHILD_MARAUDERS_DEV_LOGIN_SECRET`) และ**เสนอปุ่มเฉพาะตอนที่แอปคุยกับ host ที่ build กำหนด** (`configured`) — ถ้าชี้ด้วย override จะไม่มีปุ่ม เพราะตัวแปรนั้นระบุ host ไหนก็ได้ แล้ว secret ต้องไม่ถูกส่งไปที่ที่ไม่ได้ตั้งใจ ดู dev login ใน [README.md](../README.md)
+- **Production guard:** Run Script phase `Run Script release config check` (เฉพาะ configuration `Release-Production`) รัน `Marauders-ios/Scripts/check-release-config.sh` กับแอปที่ build เสร็จ แล้วทำให้ build ล้มถ้า `MARAUDERS_API_BASE_URL` ไม่ตรงกับ URL ของ production ใน `backend/environments.json`, มี `APIConfiguration.plist` ค้างในแอป หรือ executable มี type ที่ใช้เฉพาะ Debug (`DebugLogView` = แท็บ Log ในแอป, `DevAuthAPIClient` = dev login) — Jenkins build `Marauders Production` ไป TestFlight จึงอัปโหลด build ที่ชี้ผิดที่หรือมี log ในแอปไม่ได้ ถ้าจะเปลี่ยน URL ของ production ต้องแก้ทั้ง `environments.json` และ build setting ของ `Release-Production` (guard เทียบสองที่นี้) build Staging ข้าม phase นี้
+- **หลังชี้ build Staging ไป staging:** เครื่องเดียวที่สลับ build Staging (backend staging) กับ TestFlight (production) ต้องล็อกอินใหม่ทุกครั้งที่สลับ (token ของ Worker หนึ่งอีกตัวไม่รับ และ Keychain ไม่แยกตาม host) และ build Staging จะเห็นฟีดว่างจนกว่าจะอัปโหลดคลิปขึ้น staging — ตอนนี้ build Staging กับ TestFlight คุย production ตัวเดียวกันจึงไม่เจอเรื่องนี้ แต่ข้อมูลทดสอบอยู่ปนกับของจริง
+
+**CI ที่ GitHub** (`.github/workflows/backend.yml`): รัน `npm ci` + `npm test` เมื่อ push เข้า `main`, เมื่อมี pull request และสั่งมือได้ ไม่มี secret ไม่ deploy — รายละเอียดใน [docs/ci-cd.md](../docs/ci-cd.md)
 
 **Jenkins** (`Jenkinsfile`): stage `Checkout` → `Install dependencies` → `Resolve Swift packages` → `Deploy to TestFlight` (`bundle exec fastlane beta`, เฉพาะ branch `main`) stage `Unit tests` และ `Coverage report` ถูก comment ไว้ชั่วคราว ('Temporarily disabled') จึงยังไม่รันทดสอบใน CI
 
-ที่ Jenkins ต้องมี: agent label `macos`, Homebrew Ruby + bundler, และ credentials `jfrog-sdk-swift-token` (Resolve Swift packages และ Deploy), `asc-api-key` (file), `asc-key-id`, `asc-issuer-id` (Deploy — ถ้าไม่มี fastlane จะ error เพราะ `ASC_KEY_ID`/`ASC_ISSUER_ID`/`ASC_KEY_PATH` ไม่ได้ตั้ง) lane `beta` build Release .ipa แล้ว upload ด้วย pilot โดยไม่รอ Apple ประมวลผล job รันได้ทีละ build และ timeout 90 นาที
+ที่ Jenkins ต้องมี: agent label `macos`, Homebrew Ruby + bundler, และ credentials `jfrog-sdk-swift-token` (Resolve Swift packages และ Deploy), `asc-api-key` (file), `asc-key-id`, `asc-issuer-id` (Deploy — ถ้าไม่มี fastlane จะ error เพราะ `ASC_KEY_ID`/`ASC_ISSUER_ID`/`ASC_KEY_PATH` ไม่ได้ตั้ง) lane `beta` build .ipa ด้วย scheme `Marauders Production` (configuration `Release-Production`) แล้ว upload ด้วย pilot โดยไม่รอ Apple ประมวลผล job รันได้ทีละ build และ timeout 90 นาที

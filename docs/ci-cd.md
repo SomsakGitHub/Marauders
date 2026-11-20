@@ -36,7 +36,8 @@ Checkout ─▶ Install dependencies ─▶ Resolve Swift packages ─▶ [เ�
 | `Marauders-ios/Gemfile` | ประกาศ `fastlane` (เวอร์ชันถูก pin โดย `Gemfile.lock` ที่ commit ไว้ เพื่อให้ Jenkins ใช้เวอร์ชันเดียวกัน) |
 | `Marauders-ios/fastlane/Appfile` | `app_identifier` + `team_id` |
 | `Marauders-ios/fastlane/Fastfile` | lane `test` (ไม่ได้ใช้ใน CI ตอนนี้), `build` (archive `.ipa` ไม่อัปโหลด), `beta` (เรียก `build` แล้วอัปโหลดด้วย `pilot`) |
-| `Marauders-ios/Marauders.xcodeproj/xcshareddata/xcschemes/Marauders.xcscheme` | shared scheme (จำเป็นสำหรับ clean checkout) |
+| `Marauders-ios/Marauders.xcodeproj/xcshareddata/xcschemes/Marauders Production.xcscheme` | shared scheme ของ build Production (configuration `Release-Production`, ไม่มี test target) — Jenkins กับ lane `build` ใช้ตัวนี้ส่ง TestFlight (จำเป็นสำหรับ clean checkout) |
+| `Marauders-ios/Marauders.xcodeproj/xcshareddata/xcschemes/Marauders Staging.xcscheme` | shared scheme ของ build Staging (configuration `Debug-Staging`, มี `MaraudersTests` กับ `MaraudersUITests`) — ใช้รันจาก Xcode และ lane `test` |
 
 ---
 
@@ -173,7 +174,7 @@ cloudflared tunnel --url http://localhost:8080   # จะได้ URL ชั่
 ### ขั้นที่ 9 — ขึ้น TestFlight
 
 เมื่อ build บน `main` pipeline จะเข้า stage **Deploy to TestFlight**:
-- `fastlane beta` เรียก lane `build` (gym, Release, export `app-store`) แล้ว `pilot`
+- `fastlane beta` เรียก lane `build` (gym, scheme `Marauders Production`, configuration `Release-Production`, export `app-store`) แล้ว `pilot`
   อัปโหลดด้วย App Store Connect API key (`skip_waiting_for_build_processing: true`,
   `distribute_external: false` — ไม่รอ processing และไม่แจกกลุ่มภายนอก)
 - build number เพิ่มอัตโนมัติจาก `BUILD_NUMBER` ของ Jenkins
@@ -217,7 +218,7 @@ bundle exec fastlane beta
 ## Troubleshooting
 
 - **`No profiles for 'com.somsak.Marauders' were found`** → ตรวจว่า API key มีสิทธิ์ App Manager และ `ASC_*` ถูกส่งเข้า xcodebuild
-- **`Scheme 'Marauders' not found`** → ตรวจว่า commit `Marauders.xcscheme` (shared) แล้ว
+- **`Scheme 'Marauders Production' not found`** (หรือ `'Marauders Staging'`) → ตรวจว่า commit `Marauders Production.xcscheme` และ `Marauders Staging.xcscheme` (shared) แล้ว ชื่อ scheme เดิม `Marauders` ไม่มีอีกแล้ว
 - **`Simulator device failed to launch … Busy/preflight`** → simulator ตอน cold boot ถี่เกินไป (เกิดตอนรัน `fastlane test`; stage Unit tests ที่ปิดอยู่มี `retry(2)`); ถ้าซ้ำให้รัน `xcrun simctl shutdown all`
 - **Resolve Swift packages ล้ม / หา `poc-sdk.waypointsdk` ไม่เจอ** → ตรวจ credential `jfrog-sdk-swift-token` ว่ายังไม่หมดอายุ
 - **`Command not found: bundle` / Ruby เก่าเกิน** → ตั้ง `PATH` ให้ใช้ Homebrew Ruby (ขั้นที่ 0)
@@ -228,23 +229,23 @@ bundle exec fastlane beta
 
 ---
 
-## Backend (Cloudflare Worker) — ไม่ได้อยู่ใน CI
+## Backend (Cloudflare Worker) — CI รันเทสต์ออฟไลน์ ส่วน deploy คือ script ที่คุมไว้
 
-Jenkins ดูแลเฉพาะแอป iOS. Worker (`backend/`) **deploy ด้วยมือ** ด้วย `npm run deploy`
-(`wrangler deploy`) และ migration ก็รันเอง (`npm run db:migrate`) — ไม่มี stage ใน
-`Jenkinsfile` ที่แตะ backend
+Jenkins ดูแลเฉพาะแอป iOS — ไม่มี stage ใน `Jenkinsfile` ที่แตะ backend ส่วน backend (`backend/`) มีสองเรื่องแยกกัน:
 
-- **ลำดับ:** รัน migration ก่อน แล้วค่อย deploy Worker ที่ต้องใช้ schema ใหม่
-- `db:migrate` อ่าน `DATABASE_URL` จาก `backend/.dev.vars` (gitignored, ดู `backend/.env.example`) ไม่ใช่จาก `wrangler secret`; ถ้าไม่มีบรรทัดนี้จะ error ตั้งแต่ครั้งแรก
-- `db:migrate` รัน `backend/sql/` ตั้งแต่ 001 ถึง 022 ยกเว้น `004_purge_feed_videos.sql`
-  (purge — รันเองด้วยมือเท่านั้น); รายการไฟล์เป็น array ที่เขียนตายตัวใน
-  `scripts/migrate.mjs` ไฟล์ใหม่ เช่น `024_*.sql` จะไม่ถูกรันจนกว่าจะเพิ่มชื่อลงใน array นั้น
-- secrets ตั้งด้วย `wrangler secret put`: `DATABASE_URL`, `JWT_SIGNING_SECRET`,
-  `APPLE_CLIENT_ID` และ `DEV_LOGIN_SECRET` (optional)
-- เทสต์ backend: `npm run typecheck` (`tsc --noEmit`), `npm run test:feed`,
-  `npm run test:dubbed-audio`, `npm run test:dev-auth`, `npm run test:comments`, `npm run test:likes`, `npm run test:follows`, `npm run test:auth-refresh`, `npm run test:upload-idempotency` (ทั้งหมดเป็น node script) และมี `node scripts/test-audio-assessment.mjs` กับ
-  `node scripts/test-upload.mjs` ที่ไม่มี npm script (`test-upload.mjs` ยิง endpoint workers.dev จริง ไม่ใช่เทสต์ในเครื่อง)
-- bindings ใน `wrangler.toml`: R2 `VIDEOS` → bucket `marauders-videos` (prefix `videos/`, `avatars/`, `translations/`) และ rate limit `RATE_LIMITER`, `AUTH_RATE_LIMITER`
+**1. CI รันเทสต์เท่านั้น** — GitHub Actions workflow `.github/workflows/backend.yml` (job `test` บน `ubuntu-latest`) รัน `npm ci` แล้ว `npm test` ใน `backend/` เมื่อ push เข้า `main`, เมื่อมี pull request และสั่งมือได้ (`workflow_dispatch`) เฉพาะเมื่อไฟล์ที่เกี่ยวข้องเปลี่ยน (`backend/**`, ตัว workflow เอง, และไฟล์ iOS ที่เทสต์ความตรงกันของ URL อ่าน: `project.pbxproj`, `Config/Info-Additions.plist`, `APIConfiguration.plist`)
+
+- `npm test` = `tsc --noEmit` + เทสต์ของ script และ guard ของ environment (`test:scripts`) + `/health` + เทสต์ของ route ทั้งหมด — ทั้งหมดออฟไลน์ (database เป็นของปลอมในเครื่อง) จึง**ไม่ต้องมี secret ใด ๆ**
+- workflow ตั้ง `permissions: contents: read`, ยกเลิกรอบเก่าที่ซ้อนกัน (`concurrency`), ไม่ใช้ `pull_request_target`, และ pin ทุก action ด้วย commit SHA
+- **ไม่มี deploy และไม่มีการ migrate ใน CI โดยเจตนา:** repo นี้เป็น public และ Cloudflare API token ที่ใช้ deploy ได้เท่าที่ทราบจำกัดให้ Worker เดียวไม่ได้ (ต้องเก็บไว้ใน settings ของ GitHub พร้อม `DATABASE_URL` ของ production) การ deploy จึงเป็น script ที่เจ้าของโปรเจกต์รันจากเครื่องตัวเอง — เหตุผลและทางเลือกอื่นอยู่ใน [ADR-010](./adr/010-environments.md) (ถ้าภายหลังอยากให้ CI deploy staging ได้โดยไม่ต้องออกแบบใหม่: workflow เรียก script เดียวกัน)
+
+**2. Deploy คือ script ที่ระบุ environment เสมอ** — `npm run deploy:production` (ใน `backend/`; `npm run deploy:staging` ใช้ได้หลังสร้าง staging ซึ่งตอนนี้ยังไม่มี) ทำตามลำดับ: เทสต์ทั้งชุด → แผน migration (dry run) → phrase ยืนยัน (production) → migration → `wrangler deploy --env <env>` → ตรวจ `<url>/health` ว่าเป็น environment และเวอร์ชันที่เพิ่ง deploy → พิมพ์คำสั่ง rollback รายละเอียดทุกขั้น เหตุผลของลำดับ และ rollback อยู่ใน [../deployment/README.md](../deployment/README.md)
+
+- migration ติดตามในตาราง `schema_migrations` ของแต่ละ database: `npm run db:migrate -- --env <staging|production> [--dry-run]` รันเฉพาะไฟล์ใหม่ตามเลข (ไม่รัน `004_purge_feed_videos.sql`) และหยุดถ้าไฟล์ที่รันไปแล้วถูกแก้ (`--accept-changed <ไฟล์>`); ไฟล์ SQL ต้องรันซ้ำได้และไม่มี `;` ในคอมเมนต์
+- ทุกคำสั่งที่แตะข้อมูลมี `--env` และไม่มีค่า default; เขียนลง production ต้องพิมพ์ phrase ยืนยัน; **ห้ามรัน `wrangler deploy` เปล่า ๆ** (ชี้ production)
+- secrets ตั้งแยกต่อ Worker ด้วย `wrangler secret` (`DATABASE_URL`, `JWT_SIGNING_SECRET`, `APPLE_CLIENT_ID`; `DEV_LOGIN_SECRET` ตอนนี้อยู่ที่ production เพราะมี backend ตัวเดียว เมื่อสร้าง staging แล้วเฉพาะ staging — production ต้องไม่มี); ไฟล์ vars ในเครื่องคือ `backend/.dev.vars.staging` / `.dev.vars.production` (ดู `backend/.dev.vars.example`)
+- bindings ใน `wrangler.toml`: R2 `VIDEOS` → `marauders-videos` (production) / `marauders-videos-staging` (prefix `videos/`, `avatars/`, `translations/`) และ rate limit `RATE_LIMITER`, `AUTH_RATE_LIMITER` — `[env.staging]` เขียนซ้ำทั้งหมด เพราะ wrangler environment ไม่สืบทอดอะไรจากระดับบน และเทสต์ `parity` จะล้มถ้าสองฝั่งไม่ตรงกัน
+- **ฝั่งแอป:** แอปมีสอง build บน backend production ตัวเดียวกัน (เพราะมี backend ตัวเดียว): **Staging** (scheme `Marauders Staging`, configuration `Debug-Staging`, รันจาก Xcode, มีแท็บ Log ในแอปและ dev login) กับ **Production** (scheme `Marauders Production`, configuration `Release-Production`, ที่ Jenkins ใช้ส่ง TestFlight) build Production มี Run Script phase `Run Script release config check` ที่ทำให้ build ล้มถ้า URL ในแอปไม่ใช่ของ production ใน `backend/environments.json` หรือถ้า executable มี type ที่ใช้เฉพาะ Debug (`DebugLogView` = แท็บ Log ในแอป, `DevAuthAPIClient` = dev login) — build ที่ชี้ผิดที่หรือมี log ในแอปจึงอัปโหลดขึ้น TestFlight ไม่ได้ (build Staging ข้าม phase นี้)
 
 รายละเอียด: [../deployment/README.md](../deployment/README.md),
-[../deployment/AI_DUBBING.md](../deployment/AI_DUBBING.md), [../README.md](../README.md)
+[../deployment/AI_DUBBING.md](../deployment/AI_DUBBING.md), [../README.md](../README.md), [ADR-010](./adr/010-environments.md)
