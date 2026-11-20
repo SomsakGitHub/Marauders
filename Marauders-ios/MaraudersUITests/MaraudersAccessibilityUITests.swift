@@ -384,7 +384,7 @@ final class MaraudersAccessibilityUITests: XCTestCase {
         return app.buttons["auth.closeSignIn"].waitForExistence(timeout: 15)
     }
 
-    /// Settings is a tab of its own, or under More when the tab bar has no room for it (Debug builds add Log).
+    /// Settings is a tab of its own, or under More when the tab bar has no room for it (Staging builds add Log).
     @MainActor
     private func toSettings(_ app: XCUIApplication) -> Bool {
         let direct = app.tabBars.buttons["Settings"]

@@ -113,6 +113,7 @@
 				06BC2C263075A7FB0064F635 /* Sources */,
 				06BC2C273075A7FB0064F635 /* Frameworks */,
 				06BC2C283075A7FB0064F635 /* Resources */,
+				7C3E91A0D5B44F28A1E6C0D9 /* Run Script release config check */,
 			);
 			buildRules = (
 			);
@@ -269,7 +270,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# ข้ามตอน Release/archive เพื่อไม่ให้ build ช้าและไม่ให้ Jenkins พัง\nif [ \"$CONFIGURATION\" = \"Release\" ]; then exit 0; fi\nxcrun swift-format lint -r \"$SRCROOT/Marauders\" \"$SRCROOT/MaraudersTests\" \"$SRCROOT/MaraudersUITests\" \"$SRCROOT/Packages\" 2>&1\n";
+			shellScript = "# ข้ามตอน Production/archive เพื่อไม่ให้ build ช้าและไม่ให้ Jenkins พัง\nif [ \"$CONFIGURATION\" = \"Release-Production\" ]; then exit 0; fi\nxcrun swift-format lint -r \"$SRCROOT/Marauders\" \"$SRCROOT/MaraudersTests\" \"$SRCROOT/MaraudersUITests\" \"$SRCROOT/Packages\" 2>&1\n";
 		};
 		2E9462A1B3154CEBB37F5495 /* Run Script layer check */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -288,7 +289,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Warns when code breaks the layer rules of ARCHITECTURE.md (Scripts/check-layers.sh). Skipped for Release/archive like the lint phase.\nif [ \"$CONFIGURATION\" = \"Release\" ]; then exit 0; fi\nsh \"$SRCROOT/Scripts/check-layers.sh\" 2>&1\n";
+			shellScript = "# Warns when code breaks the layer rules of ARCHITECTURE.md (Scripts/check-layers.sh). Skipped for Production/archive like the lint phase.\nif [ \"$CONFIGURATION\" = \"Release-Production\" ]; then exit 0; fi\nsh \"$SRCROOT/Scripts/check-layers.sh\" 2>&1\n";
+		};
+		7C3E91A0D5B44F28A1E6C0D9 /* Run Script release config check */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)",
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
+			);
+			name = "Run Script release config check";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Production only: the app being built must carry production's URL, no second copy of it and no Debug-only type (Scripts/check-release-config.sh). A Staging build skips this.\nif [ \"$CONFIGURATION\" != \"Release-Production\" ]; then exit 0; fi\nsh \"$SRCROOT/Scripts/check-release-config.sh\" --info-plist \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" --environments \"$SRCROOT/../backend/environments.json\" --bundle \"$TARGET_BUILD_DIR/$WRAPPER_NAME\" --executable \"$TARGET_BUILD_DIR/$EXECUTABLE_PATH\" 2>&1\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -330,7 +352,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		06BC2C4B3075A7FC0064F635 /* Debug */ = {
+		06BC2C4B3075A7FC0064F635 /* Debug-Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -392,9 +414,9 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
-			name = Debug;
+			name = "Debug-Staging";
 		};
-		06BC2C4C3075A7FC0064F635 /* Release */ = {
+		06BC2C4C3075A7FC0064F635 /* Release-Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -449,9 +471,9 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
-			name = Release;
+			name = "Release-Production";
 		};
-		06BC2C4E3075A7FC0064F635 /* Debug */ = {
+		06BC2C4E3075A7FC0064F635 /* Debug-Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -464,7 +486,6 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Info-Additions.plist";
-				INFOPLIST_KEY_MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Marauders never uses the camera. This notice exists only because a library it includes contains code that can ask for camera or microphone access, which the app does not call.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Marauders requires Always location permission to identify your country before sign-in. Where you are is shown to others only if you turn on location sharing, and only to people you follow who follow you back. While it is on, Marauders sends your location when you move, also while the app is closed.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to identify your country before sign-in and show your position on the map. If you turn on location sharing, people you follow who follow you back see where you are. Sign-in requires Always location permission.";
@@ -482,6 +503,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.somsak.Marauders;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -494,9 +516,9 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				UIStatusBarStyle = UIStatusBarStyleLightContent;
 			};
-			name = Debug;
+			name = "Debug-Staging";
 		};
-		06BC2C4F3075A7FC0064F635 /* Release */ = {
+		06BC2C4F3075A7FC0064F635 /* Release-Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -509,7 +531,6 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Info-Additions.plist";
-				INFOPLIST_KEY_MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Marauders never uses the camera. This notice exists only because a library it includes contains code that can ask for camera or microphone access, which the app does not call.";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Marauders requires Always location permission to identify your country before sign-in. Where you are is shown to others only if you turn on location sharing, and only to people you follow who follow you back. While it is on, Marauders sends your location when you move, also while the app is closed.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Marauders uses your location to identify your country before sign-in and show your position on the map. If you turn on location sharing, people you follow who follow you back see where you are. Sign-in requires Always location permission.";
@@ -527,6 +548,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARAUDERS_API_BASE_URL = "https://marauders-api.js6ctz7gtj.workers.dev";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.somsak.Marauders;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -539,9 +561,9 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				UIStatusBarStyle = UIStatusBarStyleLightContent;
 			};
-			name = Release;
+			name = "Release-Production";
 		};
-		06BC2C513075A7FC0064F635 /* Debug */ = {
+		06BC2C513075A7FC0064F635 /* Debug-Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -561,9 +583,9 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Marauders.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Marauders";
 			};
-			name = Debug;
+			name = "Debug-Staging";
 		};
-		06BC2C523075A7FC0064F635 /* Release */ = {
+		06BC2C523075A7FC0064F635 /* Release-Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -583,9 +605,9 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Marauders.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Marauders";
 			};
-			name = Release;
+			name = "Release-Production";
 		};
-		06BC2C543075A7FC0064F635 /* Debug */ = {
+		06BC2C543075A7FC0064F635 /* Debug-Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -603,9 +625,9 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Marauders;
 			};
-			name = Debug;
+			name = "Debug-Staging";
 		};
-		06BC2C553075A7FC0064F635 /* Release */ = {
+		06BC2C553075A7FC0064F635 /* Release-Production */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -623,7 +645,7 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Marauders;
 			};
-			name = Release;
+			name = "Release-Production";
 		};
 /* End XCBuildConfiguration section */
 
@@ -631,38 +653,38 @@
 		06BC2C253075A7FB0064F635 /* Build configuration list for PBXProject "Marauders" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				06BC2C4B3075A7FC0064F635 /* Debug */,
-				06BC2C4C3075A7FC0064F635 /* Release */,
+				06BC2C4B3075A7FC0064F635 /* Debug-Staging */,
+				06BC2C4C3075A7FC0064F635 /* Release-Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = "Release-Production";
 		};
 		06BC2C4D3075A7FC0064F635 /* Build configuration list for PBXNativeTarget "Marauders" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				06BC2C4E3075A7FC0064F635 /* Debug */,
-				06BC2C4F3075A7FC0064F635 /* Release */,
+				06BC2C4E3075A7FC0064F635 /* Debug-Staging */,
+				06BC2C4F3075A7FC0064F635 /* Release-Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = "Release-Production";
 		};
 		06BC2C503075A7FC0064F635 /* Build configuration list for PBXNativeTarget "MaraudersTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				06BC2C513075A7FC0064F635 /* Debug */,
-				06BC2C523075A7FC0064F635 /* Release */,
+				06BC2C513075A7FC0064F635 /* Debug-Staging */,
+				06BC2C523075A7FC0064F635 /* Release-Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = "Release-Production";
 		};
 		06BC2C533075A7FC0064F635 /* Build configuration list for PBXNativeTarget "MaraudersUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				06BC2C543075A7FC0064F635 /* Debug */,
-				06BC2C553075A7FC0064F635 /* Release */,
+				06BC2C543075A7FC0064F635 /* Debug-Staging */,
+				06BC2C553075A7FC0064F635 /* Release-Production */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = "Release-Production";
 		};
 /* End XCConfigurationList section */
 

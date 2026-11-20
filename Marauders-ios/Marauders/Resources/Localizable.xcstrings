@@ -446,16 +446,6 @@
         }
       }
     },
-    "Clear" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ล้าง"
-          }
-        }
-      }
-    },
     "Clear search" : {
       "localizations" : {
         "th" : {
@@ -632,16 +622,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คัดลอกแล้ว"
-          }
-        }
-      }
-    },
-    "Copy All" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "คัดลอกทั้งหมด"
           }
         }
       }
@@ -1506,16 +1486,6 @@
         }
       }
     },
-    "Log" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ล็อก"
-          }
-        }
-      }
-    },
     "Map" : {
       "localizations" : {
         "th" : {
@@ -1655,16 +1625,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ยังไม่มีผู้ติดตาม"
-          }
-        }
-      }
-    },
-    "No logs yet" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ยังไม่มีล็อก"
           }
         }
       }
@@ -1855,16 +1815,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เสียงต้นฉบับ · เลือกเสียง"
-          }
-        }
-      }
-    },
-    "Paste into chat or Notes" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "นำไปวางในแชตหรือแอปโน้ตได้"
           }
         }
       }
@@ -2840,16 +2790,6 @@
         }
       }
     },
-    "Upload or open the feed — events appear here" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ลองอัปโหลดหรือเปิดฟีด — เหตุการณ์จะแสดงที่นี่"
-          }
-        }
-      }
-    },
     "Upload to Feed" : {
       "localizations" : {
         "th" : {
@@ -2976,16 +2916,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "วิดีโอต้องมีขนาดไม่เกิน 100 MB"
-          }
-        }
-      }
-    },
-    "View Log" : {
-      "localizations" : {
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ดูล็อก"
           }
         }
       }

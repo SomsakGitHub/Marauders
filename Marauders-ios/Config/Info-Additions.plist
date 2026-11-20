@@ -3,9 +3,14 @@
 <!--
 	Keys that are merged into the generated Info.plist (build setting INFOPLIST_FILE of the app target).
 	Only keys Xcode has no INFOPLIST_KEY_ build setting for belong here; everything else stays a build setting.
+	A custom key takes its value from a user-defined build setting of the same name, written here as $(NAME):
+	Xcode ignores an INFOPLIST_KEY_ name it does not know, so this is the only way a build setting reaches the plist.
 -->
 <plist version="1.0">
 <dict>
+	<!-- The Worker the app talks to: production in Release and, while there is one backend (ADR 010), in Debug too (build setting MARAUDERS_API_BASE_URL of the app target). -->
+	<key>MARAUDERS_API_BASE_URL</key>
+	<string>$(MARAUDERS_API_BASE_URL)</string>
 	<!-- Always show the Language row on the app's page in iOS Settings, also on an iPhone with one language. -->
 	<key>UIPrefersShowingLanguageSettings</key>
 	<true/>

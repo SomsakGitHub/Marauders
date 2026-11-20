@@ -53,7 +53,7 @@ pipeline {
                 --no-confirm
               xcodebuild -resolvePackageDependencies \\
                 -project Marauders.xcodeproj \\
-                -scheme Marauders
+                -scheme "Marauders Production"
             '''
           }
         }

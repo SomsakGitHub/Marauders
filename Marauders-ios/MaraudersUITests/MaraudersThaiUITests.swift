@@ -116,7 +116,7 @@ final class MaraudersThaiUITests: XCTestCase {
         return XCTWaiter().wait(for: [changed], timeout: timeout) == .completed
     }
 
-    /// Settings is the fifth tab. A Debug build adds the Log tab, so its tab bar shows four tabs and More, and
+    /// Settings is the fifth tab. A Staging build adds the Log tab, so its tab bar shows four tabs and More, and
     /// Settings is the first row under More.
     @MainActor
     private func openSettings(_ app: XCUIApplication) {

@@ -12,32 +12,23 @@ enum APIConfiguration {
     private static let commentLimitMax = 50
     /// The Worker's `FEED_LIMIT_MAX`, which the follower and following lists share.
     private static let followListLimitMax = 50
-    private static let configKey = "MARAUDERS_API_BASE_URL"
 
-    /// HTTPS origin of the Worker (no trailing slash).
-    /// Sources: `APIConfiguration.plist` in bundle → Info.plist → Build Settings `INFOPLIST_KEY_MARAUDERS_API_BASE_URL`.
+    /// HTTPS origin of the Worker (no trailing slash), from `APIBaseURL`: the `MARAUDERS_API_BASE_URL` key of
+    /// Info.plist (production in a Release build and, while there is one backend, in a Debug build too), or in a Debug
+    /// build an environment variable of that name. Logs the host and the source on every use, which every request goes
+    /// through.
     static func apiBaseURL() throws -> URL {
-        guard let raw = resolveBaseURLString(), !raw.isEmpty else {
-            AppLog.error("config", "\(configKey) missing (plist + Info.plist)")
+        do {
+            let base = try APIBaseURL.resolved()
+            AppLog.info("config", "api base host=\(base.summary)")
+            return base.url
+        } catch APIConfigurationError.missingBaseURL {
+            AppLog.error("config", "\(APIBaseURL.configKey) missing (Info.plist)")
             throw APIConfigurationError.missingBaseURL
+        } catch {
+            AppLog.error("config", "\(APIBaseURL.configKey) is not an https URL without a path")
+            throw error
         }
-
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed) else {
-            AppLog.error("config", "invalid URL string")
-            throw APIConfigurationError.invalidBaseURL
-        }
-
-        guard url.scheme?.lowercased() == "https", let host = url.host, !host.isEmpty else {
-            throw APIConfigurationError.invalidBaseURL
-        }
-
-        if url.path != "/" && !url.path.isEmpty {
-            throw APIConfigurationError.invalidBaseURL
-        }
-
-        AppLog.info("config", "api base host=\(host)")
-        return url
     }
 
     static func feedRequestURL(
@@ -218,43 +209,5 @@ enum APIConfiguration {
             throw APIConfigurationError.invalidBaseURL
         }
         return url
-    }
-
-    private static func resolveBaseURLString() -> String? {
-        if let fromPlist = bundledConfigValue() {
-            AppLog.info("config", "loaded base URL from APIConfiguration.plist")
-            return fromPlist
-        }
-        if let fromInfo = Bundle.main.object(forInfoDictionaryKey: configKey) as? String {
-            AppLog.info("config", "loaded base URL from Info.plist")
-            return fromInfo
-        }
-        return nil
-    }
-
-    private static func bundledConfigValue() -> String? {
-        guard
-            let url = Bundle.main.url(forResource: "APIConfiguration", withExtension: "plist"),
-            let data = try? Data(contentsOf: url),
-            let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
-            let value = plist[configKey] as? String
-        else {
-            return nil
-        }
-        return value
-    }
-}
-
-enum APIConfigurationError: LocalizedError {
-    case missingBaseURL
-    case invalidBaseURL
-
-    var errorDescription: String? {
-        switch self {
-        case .missingBaseURL:
-            return "API URL not found — check APIConfiguration.plist in the project"
-        case .invalidBaseURL:
-            return "API URL must be https:// with no path"
-        }
     }
 }

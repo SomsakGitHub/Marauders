@@ -2,8 +2,15 @@ default_platform(:ios)
 
 APP_IDENTIFIER = "com.somsak.Marauders"
 TEAM_ID        = "9U8PYJFN94"
-SCHEME         = "Marauders"
 PROJECT_ROOT   = File.expand_path("..", __dir__)
+
+# The project and the ipa are named Marauders. The app has two builds, one scheme each: Staging is what runs from Xcode
+# (the in-app log and the other Debug aids) and Production is what TestFlight and the App Store ship. Both are built
+# for the production Worker for now (ADR-010).
+PROJECT_NAME          = "Marauders"
+TEST_SCHEME           = "Marauders Staging"
+RELEASE_SCHEME        = "Marauders Production"
+RELEASE_CONFIGURATION = "Release-Production"
 
 # fastlane executes shell commands from the `fastlane/` directory, so anchor
 # every lane to the project root (where Marauders.xcodeproj lives).
@@ -22,7 +29,7 @@ platform :ios do
 
       xcodebuild = [
         "xcodebuild test",
-        "-scheme #{SCHEME}",
+        "-scheme '#{TEST_SCHEME}'",
         "-destination '#{destination}'",
         "-only-testing:MaraudersTests",
         "-enableCodeCoverage YES",
@@ -48,7 +55,7 @@ platform :ios do
     end
   end
 
-  desc "Build a Release .ipa for App Store distribution (no upload)"
+  desc "Build a Production .ipa for App Store distribution (no upload)"
   lane :build do
     in_project do
       xcargs = ["-allowProvisioningUpdates"]
@@ -68,18 +75,18 @@ platform :ios do
       # project-based actions from one level above `in_project` (it does its own
       # `Dir.chdir("..")`), so a relative `project` would point at the wrong folder.
       gym(
-        project: File.join(PROJECT_ROOT, "#{SCHEME}.xcodeproj"),
-        scheme: SCHEME,
-        configuration: "Release",
+        project: File.join(PROJECT_ROOT, "#{PROJECT_NAME}.xcodeproj"),
+        scheme: RELEASE_SCHEME,
+        configuration: RELEASE_CONFIGURATION,
         export_method: "app-store",
         output_directory: File.join(PROJECT_ROOT, "build"),
-        output_name: "#{SCHEME}.ipa",
+        output_name: "#{PROJECT_NAME}.ipa",
         xcargs: xcargs.join(" ")
       )
     end
   end
 
-  desc "Build a Release archive and upload it to TestFlight"
+  desc "Build a Production archive and upload it to TestFlight"
   lane :beta do
     build
 

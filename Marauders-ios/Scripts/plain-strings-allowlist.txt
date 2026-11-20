@@ -12,8 +12,8 @@ Marauders/Data/Repositories/UITestUserProfileRepository.swift|*  # fixtures of t
 
 # For the developer: the log's own lines and configuration mistakes.
 Marauders/Shared/Logging/AppLogStore.swift|*  # the lines and the subsystem name of the log
-Marauders/Data/API/APIConfiguration.swift|API URL not found — check APIConfiguration.plist in the project  # a configuration mistake
-Marauders/Data/API/APIConfiguration.swift|API URL must be https:// with no path  # a configuration mistake
+Marauders/Shared/Configuration/APIBaseURL.swift|API URL not found — check the MARAUDERS_API_BASE_URL build setting  # a configuration mistake
+Marauders/Shared/Configuration/APIBaseURL.swift|API URL must be https:// with no path  # a configuration mistake
 Packages/MaraudersAuth/Sources/MaraudersAuthData/AuthRoute.swift|API URL must be https:// with no path  # a configuration mistake
 
 # Not text: bytes of the upload body, names of background tasks.
@@ -21,10 +21,14 @@ Marauders/Data/API/MultipartBodyWriter.swift|Content-Disposition: form-data; nam
 Marauders/Presentation/Map/BackgroundLocationMonitor.swift|Share location  # the name of a background task, never shown
 Marauders/Presentation/Upload/UploadVideoViewModel.swift|Upload video  # the name of a background task, never shown
 
-# Debug-only buttons (inside #if DEBUG): Text(verbatim:), so that no catalog key exists for them. A Release build does
-# not have them, and a catalog sync from it would drop their keys.
+# Debug-only texts (inside #if DEBUG): Text(verbatim:), so that no catalog key exists for them. A Production build does
+# not have them, and a catalog sync from it would drop their keys (LocalizationCatalogTests lists the keys that must
+# not come back).
 Marauders/Presentation/Auth/SignInWithAppleGateView.swift|Sign in as test user (\(DevLogin.label))  # a button only a Debug build has
 Marauders/Presentation/Auth/SignInWithAppleGateView.swift|Complete test sign in  # a button only a Debug build with UI-test mode has
+Marauders/Presentation/Debug/DebugLogView.swift|*  # the in-app log: the whole file is inside #if DEBUG, so its texts have no key
+Marauders/Presentation/Debug/CopyableStatusBanner.swift|View Log  # the link to the in-app log, inside #if DEBUG
+Marauders/Presentation/Main/ContentView.swift|Log  # the Log tab, inside #if DEBUG
 
 # Names that are the same in every language.
 Marauders/Presentation/Settings/InterfaceLanguage.swift|Base  # the name of the Base localization, not a text

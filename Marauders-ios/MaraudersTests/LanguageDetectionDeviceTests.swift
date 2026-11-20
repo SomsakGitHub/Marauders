@@ -9,7 +9,7 @@ import Testing
 /// Application Support folder and need the clip to still be on the server, so they run only when asked.
 ///
 /// Install, detect and the reload timing (needs Hugging Face):
-///   TEST_RUNNER_RUN_DEVICE_LANGUAGE_TESTS=1 xcodebuild test -scheme Marauders -destination 'platform=iOS,id=<device>' \
+///   TEST_RUNNER_RUN_DEVICE_LANGUAGE_TESTS=1 xcodebuild test -scheme "Marauders Staging" -destination 'platform=iOS,id=<device>' \
 ///     -only-testing:MaraudersTests/LanguageDetectionDeviceTests
 ///
 /// Detection with every Hugging Face request pointed at a dead address (run it on its own, after the above):

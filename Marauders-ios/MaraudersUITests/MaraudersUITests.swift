@@ -1231,7 +1231,7 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
     }
 
-    /// Settings is a tab of its own, or under More when the tab bar has no room for it (Debug builds add Log).
+    /// Settings is a tab of its own, or under More when the tab bar has no room for it (Staging builds add Log).
     @MainActor
     private func openSettings(_ app: XCUIApplication) {
         let settingsTab = app.tabBars.buttons["Settings"]

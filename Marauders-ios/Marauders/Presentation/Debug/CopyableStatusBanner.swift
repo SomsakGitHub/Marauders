@@ -66,12 +66,20 @@ struct CopyableStatusBanner: View {
         .buttonStyle(.bordered)
     }
 
+    /// The way into the in-app log, which only a Staging build has: a Production build shows Copy Message alone.
+    @ViewBuilder
     private var viewLogLink: some View {
-        NavigationLink {
-            DebugLogView()
-        } label: {
-            Label("View Log", systemImage: "list.bullet.rectangle")
-        }
-        .buttonStyle(.bordered)
+        #if DEBUG
+            NavigationLink {
+                DebugLogView()
+            } label: {
+                Label {
+                    Text(verbatim: "View Log")
+                } icon: {
+                    Image(systemName: "list.bullet.rectangle")
+                }
+            }
+            .buttonStyle(.bordered)
+        #endif
     }
 }

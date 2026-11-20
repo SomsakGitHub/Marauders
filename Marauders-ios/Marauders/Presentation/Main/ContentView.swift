@@ -94,7 +94,11 @@ struct ContentView: View {
                     DebugLogView()
                 }
                 .tabItem {
-                    Label("Log", systemImage: "ladybug.fill")
+                    Label {
+                        Text(verbatim: "Log")
+                    } icon: {
+                        Image(systemName: "ladybug.fill")
+                    }
                 }
                 .tag(MainTab.log)
             #endif
