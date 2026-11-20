@@ -116,7 +116,7 @@ npm run db:migrate -- --env staging      # รัน migration ใน backend/sq
 cd backend
 npx wrangler login
 npx wrangler r2 bucket create marauders-videos-staging
-npm run deploy:staging                                      # เทสต์ → แผน migration → migration → deploy → ตรวจ /health
+npm run deploy:staging                                      # เช็ก login → เทสต์ → แผน migration → migration → deploy → ตรวจ /health
 npx wrangler secret bulk .dev.vars.staging --env staging    # secret ของ Worker staging (JWT_SIGNING_SECRET สร้างด้วย openssl rand -base64 48)
 ```
 

@@ -59,14 +59,15 @@ npm run deploy:production            # ถามให้พิมพ์ product
 
 1. banner (environment, Worker, URL, database, bucket) และเลขเวอร์ชัน (commit 7 ตัว; ต่อท้าย `-dirty` ถ้า `backend/` มีการแก้ที่ยังไม่ commit)
 2. production เท่านั้น: ปฏิเสธถ้า `backend/` มีการแก้ที่ยังไม่ commit (เพื่อให้เลขเวอร์ชันใน `/health` ตรงกับ commit ที่มีจริง)
-3. `npm test` ทั้งชุด
-4. แผน migration (dry run): แสดงไฟล์ที่ยังไม่ได้รัน และหยุดถ้าไฟล์ที่เคยรันไปแล้วถูกแก้ — เห็นก่อนพิมพ์ phrase
-5. phrase ยืนยัน (production)
-6. จดเวอร์ชันของ Worker ที่ใช้งานอยู่ตอนนี้ (ไว้ทำคำสั่ง rollback)
-7. migration ที่ยังไม่ได้รัน (ดู [Migration](#migration)) — **migration ก่อน deploy Worker เสมอ** ไม่งั้น Worker ใหม่จะ query คอลัมน์/ตารางที่ยังไม่มี
-8. `wrangler deploy --env <env> --var GIT_SHA:<เวอร์ชัน>`
-9. เรียก `<url>/health` ซ้ำจนกว่าจะตอบ environment และเวอร์ชันที่เพิ่ง deploy (Worker รุ่นเก่าอาจยังตอบอีกไม่กี่วินาที)
-10. พิมพ์คำสั่ง rollback
+3. login ของ Cloudflare: `wrangler whoami --json` ต้องตอบว่า login อยู่ ไม่งั้นหยุดและบอกให้รัน `npx wrangler login` — เช็กก่อน `npm test` เพราะ login ที่หมดอายุไม่งั้นจะโผล่ตอน `wrangler deploy` ซึ่งเป็นหลังเทสต์ หลัง phrase และหลัง migration ไปแล้ว (script ไม่พิมพ์คำตอบของ wrangler เพราะมีอีเมลของบัญชี)
+4. `npm test` ทั้งชุด
+5. แผน migration (dry run): แสดงไฟล์ที่ยังไม่ได้รัน และหยุดถ้าไฟล์ที่เคยรันไปแล้วถูกแก้ — เห็นก่อนพิมพ์ phrase
+6. phrase ยืนยัน (production)
+7. จดเวอร์ชันของ Worker ที่ใช้งานอยู่ตอนนี้ (ไว้ทำคำสั่ง rollback)
+8. migration ที่ยังไม่ได้รัน (ดู [Migration](#migration)) — **migration ก่อน deploy Worker เสมอ** ไม่งั้น Worker ใหม่จะ query คอลัมน์/ตารางที่ยังไม่มี
+9. `wrangler deploy --env <env> --var GIT_SHA:<เวอร์ชัน>`
+10. เรียก `<url>/health` ซ้ำจนกว่าจะตอบ environment และเวอร์ชันที่เพิ่ง deploy (Worker รุ่นเก่าอาจยังตอบอีกไม่กี่วินาที)
+11. พิมพ์คำสั่ง rollback
 
 ถ้า deploy ไปแล้วแต่ `/health` ไม่ตรง script จะแจ้งว่าล้มพร้อมคำสั่ง rollback — **ไม่มี rollback อัตโนมัติ** เพราะการเปลี่ยน database ย้อนไม่ได้ เจ้าของโปรเจกต์เป็นคนตัดสิน
 

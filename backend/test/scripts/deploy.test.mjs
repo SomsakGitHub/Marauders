@@ -16,6 +16,7 @@ import {
   checkHealth,
   currentVersionId,
   isDirty,
+  loginProblem,
   rollbackHint,
   runDeploy,
   versionLabel,
@@ -28,8 +29,24 @@ const ENVIRONMENTS = loadEnvironments();
 const DB_PASSWORD = "pw-for-the-deploy-test";
 const DATABASE_URL = `postgres://alice:${DB_PASSWORD}@ep-x-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require`;
 
+// What `wrangler whoami --json` leaves for a working login: the shape of a real answer (stdout, exit status 0), the values made
+// up. The real answers of a login that does not work were read from wrangler 4.150.0: no login at all prints {"loggedIn":false}
+// and exits 1; a login that expired and could not be refreshed prints nothing on stdout and exits 1. Without --json both of
+// them can end in "You are not authenticated" or an error with exit status 0 or 1, which is why the deploy asks for the JSON.
+const ACCOUNT_EMAIL = "someone@example.test";
+const LOGGED_IN = {
+  status: 0,
+  output: JSON.stringify(
+    { loggedIn: true, authType: "OAuth Token", email: ACCOUNT_EMAIL, accounts: [{ id: "0".repeat(32), name: "Test account", type: "standard" }] },
+    null,
+    2,
+  ),
+};
+const NOT_LOGGED_IN = { status: 1, output: '{"loggedIn":false}\n' };
+const EXPIRED_LOGIN = { status: 1, output: "" };
+
 /** A deploy whose every step is a spy. `calls` lists what ran, in order. */
-function harness({ name = "production", dirty = false, sha = "1d02680", failAt, answers, previous = "prev-version-id" } = {}) {
+function harness({ name = "production", dirty = false, sha = "1d02680", failAt, answers, previous = "prev-version-id", login = LOGGED_IN } = {}) {
   const calls = [];
   const logs = [];
   const deployArgs = [];
@@ -43,6 +60,10 @@ function harness({ name = "production", dirty = false, sha = "1d02680", failAt, 
     databaseUrl: DATABASE_URL,
     git: { shortSha: async () => sha, dirtyBackend: async () => dirty },
     steps: {
+      whoami: async () => {
+        calls.push("login");
+        return login;
+      },
       runTests: async () => {
         calls.push("tests");
         if (failAt === "tests") throw new Error("tests failed");
@@ -107,7 +128,7 @@ test("assertDeployable refuses a dirty production only", () => {
 test("production refuses a dirty backend before anything runs", async () => {
   const { input, calls } = harness({ dirty: true });
   await assert.rejects(runDeploy(input), UsageError);
-  assert.deepEqual(calls, [], "not even the tests ran");
+  assert.deepEqual(calls, [], "not even the login check or the tests ran");
 });
 
 test("staging deploys a dirty tree and labels the version -dirty", async () => {
@@ -120,11 +141,76 @@ test("staging deploys a dirty tree and labels the version -dirty", async () => {
 test("the steps run in order", async () => {
   const production = harness();
   await runDeploy(production.input);
-  assert.deepEqual(production.calls, ["tests", "plan", "confirm(production)", "previous", "migrate", "deploy", "health"]);
+  assert.deepEqual(production.calls, ["login", "tests", "plan", "confirm(production)", "previous", "migrate", "deploy", "health"]);
 
   const staging = harness({ name: "staging" });
   await runDeploy(staging.input);
-  assert.deepEqual(staging.calls, ["tests", "plan", "confirm(null)", "previous", "migrate", "deploy", "health"]);
+  assert.deepEqual(staging.calls, ["login", "tests", "plan", "confirm(null)", "previous", "migrate", "deploy", "health"]);
+});
+
+// The login is checked before the tests: they take minutes, and a login that is dead shows otherwise only at `wrangler deploy`,
+// after the tests, after the phrase and after the migrations were applied to the database (2026-11-20, minor 21).
+test("a login that does not work stops the run before anything else runs, the tests included", async () => {
+  for (const login of [
+    NOT_LOGGED_IN,
+    EXPIRED_LOGIN,
+    { status: 0, output: "You are not authenticated. Please run `wrangler login`." },
+    { status: null, output: "" },
+  ]) {
+    for (const name of ["production", "staging"]) {
+      const { input, calls } = harness({ name, login });
+      await assert.rejects(
+        runDeploy(input),
+        (error) => error instanceof UsageError && error.message.includes("wrangler login"),
+        `${name} with ${JSON.stringify(login)}`,
+      );
+      assert.deepEqual(calls, ["login"], `${name}: not the tests, the plan, the phrase, the migration or the deploy`);
+    }
+  }
+});
+
+test("the login check prints nothing of what wrangler said: not the account email, with a login that works or one that does not", async () => {
+  const working = harness();
+  await runDeploy(working.input);
+  assert.ok(!working.logs.join("\n").includes(ACCOUNT_EMAIL), "a working login");
+  assert.ok(!working.logs.join("\n").includes("OAuth Token"), "a working login");
+
+  const broken = harness({ login: { status: 1, output: LOGGED_IN.output } });
+  await assert.rejects(runDeploy(broken.input), (error) => !error.message.includes(ACCOUNT_EMAIL));
+  assert.ok(!broken.logs.join("\n").includes(ACCOUNT_EMAIL), "a login that does not work");
+});
+
+test("loginProblem says whether wrangler failed, could not be run, or did not report a login", () => {
+  assert.match(loginProblem(NOT_LOGGED_IN), /exited with status 1/);
+  assert.match(loginProblem({ status: null, output: "" }), /could not be run or did not finish/);
+  assert.match(loginProblem({ status: 0, output: '{"loggedIn":false}' }), /did not report a login/);
+});
+
+test("loginProblem accepts a working login and nothing else", () => {
+  assert.equal(loginProblem(LOGGED_IN), null);
+  assert.equal(loginProblem({ status: 0, output: `${LOGGED_IN.output}\n` }), null, "a trailing newline");
+  assert.equal(loginProblem({ status: 0, output: `a line before the JSON\n${LOGGED_IN.output}` }), null, "a line before the JSON");
+  const failing = [
+    ["no login at all, as wrangler answers it", NOT_LOGGED_IN],
+    ["a login that expired and could not be refreshed", EXPIRED_LOGIN],
+    ["no exit status: wrangler could not be started, or was killed", { status: null, output: "" }],
+    ["a failing exit status over a JSON that says logged in", { status: 1, output: LOGGED_IN.output }],
+    ["exit status 0 with loggedIn false", { status: 0, output: '{"loggedIn":false}' }],
+    ["exit status 0 with the words of the plain command", { status: 0, output: "You are not authenticated. Please run `wrangler login`." }],
+    ["exit status 0 with no output", { status: 0, output: "" }],
+    ["exit status 0 with a JSON that has no loggedIn", { status: 0, output: JSON.stringify({ email: ACCOUNT_EMAIL }) }],
+    ["exit status 0 with loggedIn as a string", { status: 0, output: '{"loggedIn":"true"}' }],
+    ["exit status 0 with a JSON cut short", { status: 0, output: LOGGED_IN.output.slice(0, 40) }],
+  ];
+  for (const [what, answer] of failing) {
+    const problem = loginProblem(answer);
+    assert.equal(typeof problem, "string", `${what}: a sentence, not ${problem}`);
+    assert.ok(problem.includes("wrangler login"), `${what}: names the fix: ${problem}`);
+    assert.ok(!problem.includes(ACCOUNT_EMAIL), `${what}: never repeats the account email: ${problem}`);
+    if (answer.output.trim() !== "") {
+      assert.ok(!problem.includes(answer.output.trim()), `${what}: never repeats what wrangler printed`);
+    }
+  }
 });
 
 test("the banner comes first, names the target and hides the database credentials", async () => {
@@ -138,25 +224,25 @@ test("the banner comes first, names the target and hides the database credential
 test("failing tests stop the run", async () => {
   const { input, calls } = harness({ failAt: "tests" });
   await assert.rejects(runDeploy(input), /tests failed/);
-  assert.deepEqual(calls, ["tests"]);
+  assert.deepEqual(calls, ["login", "tests"]);
 });
 
 test("a refused confirmation stops before migrate", async () => {
   const { input, calls } = harness({ failAt: "confirm" });
   await assert.rejects(runDeploy(input), UsageError);
-  assert.deepEqual(calls, ["tests", "plan", "confirm(production)"]);
+  assert.deepEqual(calls, ["login", "tests", "plan", "confirm(production)"]);
 });
 
 test("the migration plan is shown before the phrase is asked, and a plan that fails stops the run before it", async () => {
   const { input, calls } = harness({ failAt: "plan" });
   await assert.rejects(runDeploy(input), UsageError);
-  assert.deepEqual(calls, ["tests", "plan"], "no phrase was asked, nothing was migrated or deployed");
+  assert.deepEqual(calls, ["login", "tests", "plan"], "no phrase was asked, nothing was migrated or deployed");
 });
 
 test("a failing migration stops before deploy", async () => {
   const { input, calls } = harness({ failAt: "migrate" });
   await assert.rejects(runDeploy(input), /migration failed/);
-  assert.deepEqual(calls, ["tests", "plan", "confirm(production)", "previous", "migrate"]);
+  assert.deepEqual(calls, ["login", "tests", "plan", "confirm(production)", "previous", "migrate"]);
 });
 
 test("the previous version is read before anything is changed", async () => {

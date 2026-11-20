@@ -1,8 +1,8 @@
 // The testable parts of `npm run deploy:<env>` and `npm run dev`.
 //
-// A deploy runs in this order and stops at the first failure: banner, clean-tree check (production), tests,
-// the migration plan (a dry run), confirmation phrase, the version that serves now, migrations, wrangler deploy,
-// `/health` check, rollback hint.
+// A deploy runs in this order and stops at the first failure: banner, clean-tree check (production), the Cloudflare
+// login (`wrangler whoami`), tests, the migration plan (a dry run), confirmation phrase, the version that serves now,
+// migrations, wrangler deploy, `/health` check, rollback hint.
 // There is no automatic rollback: a half-finished state is shown to the person, with the command that undoes the
 // Worker (a rollback does not undo migrations).
 //
@@ -35,6 +35,31 @@ export function assertDeployable(name, dirtyBackend) {
       "production is deployed from a clean backend/: commit or stash the changes first (see git status -- backend)",
     );
   }
+}
+
+/**
+ * What is wrong with the Cloudflare login, from what `wrangler whoami --json` left: its exit status (null when it could not
+ * be run or did not finish) and its stdout. Null when the login works. The plain `wrangler whoami` answers "You are not
+ * authenticated" with exit status 0, so the deploy asks for the JSON: it exits 1 without a login, and with one it says
+ * `"loggedIn": true`. Anything that is not exactly that counts as a login that does not work. The sentence never repeats what
+ * wrangler printed: the JSON holds the account email.
+ */
+export function loginProblem({ status, output }) {
+  const fix = "run `npx wrangler login` and deploy again";
+  if (status !== 0) {
+    const how = status === null ? "could not be run or did not finish" : `exited with status ${status}`;
+    return `the Cloudflare login does not work (\`wrangler whoami\` ${how}): ${fix}`;
+  }
+  const start = output.indexOf("{");
+  let loggedIn = false;
+  if (start >= 0) {
+    try {
+      loggedIn = JSON.parse(output.slice(start))?.loggedIn === true;
+    } catch {
+      loggedIn = false;
+    }
+  }
+  return loggedIn ? null : `the Cloudflare login does not work (\`wrangler whoami\` did not report a login): ${fix}`;
 }
 
 /**
@@ -116,6 +141,13 @@ export async function runDeploy({ name, config, databaseUrl, git, steps, confirm
   assertDeployable(name, dirtyBackend);
   const version = versionLabel(await git.shortSha(), dirtyBackend);
   log(`   version  ${version}`);
+
+  // The login is checked before the tests: they take minutes, and a login that is dead would otherwise show only at
+  // `wrangler deploy`, after the migrations were applied, with the rollback hint unable to name the previous version.
+  const problem = loginProblem(await steps.whoami());
+  if (problem) {
+    throw new UsageError(problem);
+  }
 
   await steps.runTests();
   // The migration plan comes before the phrase, so the person sees what will be applied (and an applied file that was

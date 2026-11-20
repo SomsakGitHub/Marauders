@@ -1,4 +1,4 @@
-// Deploys the Worker to one environment: tests, the migration plan, confirmation, migrations, wrangler deploy, `/health` check.
+// Deploys the Worker to one environment: the Cloudflare login check, tests, the migration plan, confirmation, migrations, wrangler deploy, `/health` check.
 //
 //   npm run deploy:staging
 //   npm run deploy:production -- --confirm production        (without a terminal; otherwise the phrase is typed)
@@ -82,6 +82,13 @@ async function main() {
       dirtyBackend: async () => isDirty(gitOutput(["status", "--porcelain", "--", "."])),
     },
     steps: {
+      // `--json` because the plain command prints "You are not authenticated" and still exits 0. Only stdout is kept: the JSON
+      // holds the account email and stderr holds wrangler's own error text, and the deploy prints neither (the answer is judged
+      // by loginProblem). A minute is far more than a working `whoami` needs; a hang (no network) ends as "did not finish".
+      whoami: async () => {
+        const run = spawnSync(WRANGLER, ["whoami", "--json"], { cwd: BACKEND_DIR, encoding: "utf8", timeout: 60_000 });
+        return { status: run.status, output: run.stdout ?? "" };
+      },
       runTests: () => runVisibly("npm", ["test"]),
       previousVersionId: async () => {
         const run = spawnSync(WRANGLER, ["deployments", "list", "--json", "--name", config.worker], {

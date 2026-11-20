@@ -56,7 +56,7 @@ npm run video:hls -- --env staging <feed_videos.id>
 
 ```bash
 cd backend
-npm run deploy:staging       # (หลังสร้าง staging แล้ว) npm test ทั้งชุด (รวม typecheck) → แผน migration → migration → deploy → ตรวจ /health
+npm run deploy:staging       # (หลังสร้าง staging แล้ว) เช็ก login → npm test ทั้งชุด (รวม typecheck) → แผน migration → migration → deploy → ตรวจ /health
 npm run deploy:production    # ถามให้พิมพ์ production
 ```
 
