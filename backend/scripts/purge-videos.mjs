@@ -1,125 +1,53 @@
 #!/usr/bin/env node
 /**
- * Delete all feed_videos rows and matching objects in R2 (marauders-videos).
+ * Deletes every feed_videos row of ONE environment and the objects those rows point at in that environment's bucket.
  *
- * DATABASE_URL from env or backend/.dev.vars
+ *   node scripts/purge-videos.mjs --env <staging|production> [--confirm "<phrase>"]
+ *
+ * The database comes from the environment's vars file (backend/.dev.vars.<env>) and nowhere else. The script shows
+ * where it is going and how much it will delete, then asks for the phrase `purge <env>` (typed, or passed with
+ * --confirm when there is no terminal) BEFORE it deletes anything. If any object delete fails the rows are kept, so
+ * a re-run can try again (scripts/lib/purge.mjs holds the order).
+ *
+ * Objects go through `wrangler r2 object delete --remote`. Until 2026-11-19 the script left `--remote` out and wrangler
+ * acted on its local simulator, so earlier purges removed database rows only: the first purge after that change
+ * deletes real objects. Cost to know: an HLS clip tries up to 201 deletes (the master playlist and seg000 to seg199),
+ * one wrangler process each, so a purge of many HLS clips takes a while. Every failed delete counts as a failure,
+ * a key that is not there included (scripts/lib/r2.mjs says why): if R2 refuses to delete an absent key, a purge of an
+ * HLS clip with fewer than 200 segments stops at its first absent segment and keeps the rows, until that refusal has
+ * been seen on staging and can be told apart from a real failure.
  */
 
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { neon } from "@neondatabase/serverless";
+
+import { neon, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
-import { neonConfig } from "@neondatabase/serverless";
+
+import { purgeVideos } from "./lib/purge.mjs";
+import { deleteR2Object } from "./lib/r2.mjs";
+import { BACKEND_DIR, UsageError, banner, confirm, loadVars, parseCli, runCli } from "./lib/targets.mjs";
 
 neonConfig.webSocketConstructor = ws;
 
 const execFileAsync = promisify(execFile);
-const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-const BUCKET = "marauders-videos";
-
-function loadDatabaseUrl() {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
-  }
-  try {
-    const line = readFileSync(join(backendDir, ".dev.vars"), "utf8")
-      .split("\n")
-      .find((entry) => entry.startsWith("DATABASE_URL="));
-    if (line) {
-      return line.slice("DATABASE_URL=".length).trim();
-    }
-  } catch {
-    // ignore
-  }
-  throw new Error("DATABASE_URL missing (env or backend/.dev.vars)");
-}
-
-function mediaKeyFromStreamUrl(streamUrl) {
-  try {
-    const pathname = new URL(streamUrl).pathname;
-    const prefix = "/v1/media/";
-    if (!pathname.startsWith(prefix)) {
-      return null;
-    }
-    return decodeURIComponent(pathname.slice(prefix.length));
-  } catch {
-    return null;
-  }
-}
-
-function keysToDeleteForRow(streamUrl) {
-  const key = mediaKeyFromStreamUrl(streamUrl);
-  if (!key) {
-    return [];
-  }
-
-  const keys = [key];
-  const hlsMatch = /^videos\/[0-9a-f-]{36}\/master\.m3u8$/iu.exec(key);
-  if (hlsMatch) {
-    const prefix = key.replace(/master\.m3u8$/u, "");
-    for (let i = 0; i < 200; i += 1) {
-      keys.push(`${prefix}seg${String(i).padStart(3, "0")}.ts`);
-    }
-  }
-  return keys;
-}
-
-async function deleteR2Object(key) {
-  const objectPath = `${BUCKET}/${key}`;
-  try {
-    await execFileAsync(
-      "npx",
-      ["wrangler", "r2", "object", "delete", objectPath],
-      { cwd: backendDir },
-    );
-    return "deleted";
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("404") || message.includes("not found")) {
-      return "missing";
-    }
-    return `error: ${message.slice(0, 120)}`;
-  }
-}
+const runNpx = (args) => execFileAsync("npx", args, { cwd: BACKEND_DIR });
 
 async function main() {
-  const databaseUrl = loadDatabaseUrl();
-  const sql = neon(databaseUrl);
-
-  const rows = await sql`SELECT id, stream_url FROM feed_videos ORDER BY created_at ASC`;
-  console.log(`feed_videos rows: ${rows.length}`);
-
-  const keySet = new Set();
-  for (const row of rows) {
-    for (const key of keysToDeleteForRow(row.stream_url)) {
-      keySet.add(key);
-    }
+  const { name, config, values } = parseCli(process.argv.slice(2));
+  const databaseUrl = loadVars(config).DATABASE_URL;
+  if (!databaseUrl) {
+    throw new UsageError(`DATABASE_URL is missing in ${config.varsFile}`);
   }
+  console.log(banner({ name, config, action: "purge", databaseUrl }));
 
-  console.log(`r2 objects to try: ${keySet.size}`);
-  let deleted = 0;
-  let missing = 0;
-  for (const key of keySet) {
-    const result = await deleteR2Object(key);
-    if (result === "deleted") {
-      deleted += 1;
-      console.log(`  deleted ${key}`);
-    } else if (result === "missing") {
-      missing += 1;
-    } else {
-      console.warn(`  ${key}: ${result}`);
-    }
-  }
-
-  const removed = await sql`DELETE FROM feed_videos RETURNING id`;
-  console.log(`database rows removed: ${removed.length}`);
-  console.log(`r2 deleted=${deleted} missing=${missing}`);
+  await purgeVideos({
+    sql: neon(databaseUrl),
+    config,
+    confirm: (phrase) => confirm({ phrase, flag: values.confirm }),
+    deleteObject: (bucket, key) => deleteR2Object({ run: runNpx, bucket, key }),
+    log: console.log,
+  });
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+runCli(main);

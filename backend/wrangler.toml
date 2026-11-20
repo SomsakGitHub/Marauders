@@ -7,6 +7,13 @@ compatibility_flags = ["nodejs_compat"]
 # Auth: wrangler secret put JWT_SIGNING_SECRET  (>= 32 random bytes, e.g. openssl rand -base64 48)
 # Apple: wrangler secret put APPLE_CLIENT_ID  (iOS bundle id, e.g. com.somsak.Marauders)
 
+# Which environment this Worker is. `/health` reports it. The top level of this file is production; staging is
+# [env.staging] at the end of the file and repeats everything it needs (a wrangler environment inherits nothing).
+# Staging is defined here but not provisioned yet (ADR-010, 2026-11-20): it needs its own bucket, database and
+# secrets before `npm run deploy:staging` can work.
+[vars]
+ENVIRONMENT = "production"
+
 [[r2_buckets]]
 binding = "VIDEOS"
 bucket_name = "marauders-videos"
@@ -27,5 +34,33 @@ period = 60
 name = "AUTH_RATE_LIMITER"
 namespace_id = "1001"
 [ratelimits.simple]
+limit = 30
+period = 60
+
+# Staging. A wrangler environment inherits no bindings, vars or observability, so everything the top level has is
+# repeated here (test/scripts/parity.test.mjs fails when it is not). Production is the top level above.
+[env.staging]
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[env.staging.observability]
+enabled = true
+
+[[env.staging.r2_buckets]]
+binding = "VIDEOS"
+bucket_name = "marauders-videos-staging"
+
+[[env.staging.ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1002"
+[env.staging.ratelimits.simple]
+limit = 120
+period = 60
+
+[[env.staging.ratelimits]]
+name = "AUTH_RATE_LIMITER"
+namespace_id = "1002"
+[env.staging.ratelimits.simple]
 limit = 30
 period = 60

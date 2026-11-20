@@ -1,0 +1,22 @@
+{
+  "staging": {
+    "wranglerEnv": "staging",
+    "worker": "marauders-api-staging",
+    "url": "https://marauders-api-staging.js6ctz7gtj.workers.dev",
+    "bucket": "marauders-videos-staging",
+    "varsFile": ".dev.vars.staging",
+    "devLogin": true,
+    "rateLimitNamespace": "1002",
+    "confirm": { "write": null, "purge": "purge staging" }
+  },
+  "production": {
+    "wranglerEnv": "",
+    "worker": "marauders-api",
+    "url": "https://marauders-api.js6ctz7gtj.workers.dev",
+    "bucket": "marauders-videos",
+    "varsFile": ".dev.vars.production",
+    "devLogin": true,
+    "rateLimitNamespace": "1001",
+    "confirm": { "write": "production", "purge": "purge production" }
+  }
+}

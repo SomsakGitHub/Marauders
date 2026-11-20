@@ -6,6 +6,7 @@ import { handleDevAuth } from "./routes/authDev";
 import { handleRefresh, handleSignOut } from "./routes/authRefresh";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
+import { healthBody } from "./health";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
 import { authorRelations, handleFollowChange } from "./routes/follows";
 import { handleFollowList, type FollowListKind } from "./routes/followLists";
@@ -36,6 +37,10 @@ export interface Env {
   RATE_LIMITER?: RateLimit;
   /** Stricter per-IP limit for the sign-in, refresh and sign-out endpoints. */
   AUTH_RATE_LIMITER?: RateLimit;
+  /** `production` or `staging`, from the `vars` of the wrangler environment this Worker was deployed with. */
+  ENVIRONMENT: string;
+  /** The commit this Worker was deployed from (`scripts/deploy.mjs` passes it with `--var`); unset for `wrangler dev`. */
+  GIT_SHA?: string;
 }
 
 const JSON_HEADERS: Record<string, string> = {
@@ -152,7 +157,7 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health" && request.method === "GET") {
-      return withCors(jsonResponse({ status: "ok" }), request);
+      return withCors(jsonResponse(healthBody(env)), request);
     }
 
     if (

@@ -1,60 +1,54 @@
-import { readFileSync } from "node:fs";
-import { Pool } from "@neondatabase/serverless";
+// Applies the SQL files of backend/sql to one environment's database and records them in `schema_migrations`.
+//
+//   node scripts/migrate.mjs --env <staging|production> [--dry-run] [--accept-changed <file>]… [--confirm "<phrase>"]
+//
+// The database comes from that environment's vars file (backend/.dev.vars.<env>), nothing else. The run prints
+// where it is going, shows what is pending, asks for the environment's confirmation phrase (a dry run needs none)
+// and only then applies. See scripts/lib/migrations.mjs for what is tracked.
+
+import path from "node:path";
+
+import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
 
-// Node.js needs WebSocket for Neon's serverless driver
-import { neonConfig } from "@neondatabase/serverless";
+import { listMigrationFiles, runMigrations } from "./lib/migrations.mjs";
+import { BACKEND_DIR, UsageError, banner, confirm, loadVars, parseCli, runCli } from "./lib/targets.mjs";
+
+// Node.js needs a WebSocket implementation for Neon's serverless driver.
 neonConfig.webSocketConstructor = ws;
 
-function loadDatabaseUrl() {
-  const line = readFileSync(new URL("../.dev.vars", import.meta.url), "utf8")
-    .split("\n")
-    .find((entry) => entry.startsWith("DATABASE_URL="));
-  if (!line) {
-    throw new Error("DATABASE_URL missing in backend/.dev.vars");
+async function main() {
+  const { name, config, values } = parseCli(process.argv.slice(2), {
+    "dry-run": { type: "boolean" },
+    "accept-changed": { type: "string", multiple: true },
+  });
+  const databaseUrl = loadVars(config).DATABASE_URL;
+  if (!databaseUrl) {
+    throw new UsageError(`DATABASE_URL is missing in ${config.varsFile}`);
   }
-  return line.slice("DATABASE_URL=".length).trim();
-}
+  const dryRun = values["dry-run"] === true;
+  const acceptChanged = values["accept-changed"] ?? [];
 
-function statementsFromFile(relativePath) {
-  const sqlText = readFileSync(new URL(relativePath, import.meta.url), "utf8");
-  return sqlText
-    .split(";")
-    .map((part) => part.replace(/--.*$/gm, "").trim())
-    .filter((part) => part.length > 0);
-}
-
-const pool = new Pool({ connectionString: loadDatabaseUrl() });
-
-for (const file of [
-  "../sql/001_schema.sql",
-  "../sql/002_seed.sql",
-  "../sql/003_remove_google_seeds.sql",
-  "../sql/005_feed_video_coordinates.sql",
-  "../sql/006_app_users_and_ownership.sql",
-  "../sql/007_app_users_country.sql",
-  "../sql/008_app_users_country_index.sql",
-  "../sql/009_app_users_location.sql",
-  "../sql/010_rate_limit_counters.sql",
-    "../sql/011_app_users_handle.sql",
-    "../sql/012_backfill_feed_author_handle.sql",
-    "../sql/013_drop_music_title.sql",
-    "../sql/014_app_users_avatar.sql",
-    "../sql/015_video_audio_assessment.sql",
-    "../sql/016_dubbed_audio_reports.sql",
-    "../sql/017_comments.sql",
-    "../sql/018_video_likes.sql",
-    "../sql/019_user_follows.sql",
-    "../sql/020_location_sharing.sql",
-    "../sql/021_background_location_consent.sql",
-    "../sql/022_refresh_tokens.sql",
-    "../sql/023_feed_video_upload_key.sql",
-]) {
-  for (const statement of statementsFromFile(file)) {
-    await pool.query(statement);
-    console.log(`ok: ${statement.slice(0, 60).replace(/\s+/g, " ")}...`);
+  console.log(banner({ name, config, action: dryRun ? "migrate (dry run)" : "migrate", databaseUrl }));
+  const files = await listMigrationFiles(path.join(BACKEND_DIR, "sql"));
+  const pool = new Pool({ connectionString: databaseUrl });
+  try {
+    const query = (text, params) => pool.query(text, params);
+    const plan = await runMigrations({ query, files, dryRun: true, acceptChanged, log: console.log });
+    if (dryRun || plan.pending.length === 0) {
+      return;
+    }
+    await confirm({ phrase: config.confirm.write, flag: values.confirm });
+    const progress = (line) => {
+      if (line.startsWith("ok: ") || line.startsWith("recorded ")) {
+        console.log(line);
+      }
+    };
+    const result = await runMigrations({ query, files, dryRun: false, acceptChanged, log: progress });
+    console.log(`migration complete: ${result.applied.length} file(s) applied`);
+  } finally {
+    await pool.end();
   }
 }
 
-await pool.end();
-console.log("migration complete");
+runCli(main);

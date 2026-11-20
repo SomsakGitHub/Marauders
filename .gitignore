@@ -6,7 +6,8 @@
 backend/node_modules/
 backend/.wrangler/
 backend/dist/
-backend/.dev.vars
+backend/.dev.vars*
+!backend/.dev.vars.example
 backend/.test-clip.mp4
 
 # iOS build & fastlane artifacts
