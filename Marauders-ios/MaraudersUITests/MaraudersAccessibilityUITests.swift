@@ -285,6 +285,14 @@ final class MaraudersAccessibilityUITests: XCTestCase {
         try audit(app)
     }
 
+    /// The sheet that deletes the account, as it opens (its first phase: what goes, and the button that confirms).
+    @MainActor
+    func testDeleteAccountSheetPassesTheStableAudits() throws {
+        let app = launch()
+        XCTAssertTrue(toDeleteAccountSheet(app), app.debugDescription)
+        try audit(app)
+    }
+
     /// A guest who likes a clip meets the sign-in sheet.
     @MainActor
     func testTheSignInSheetPassesTheStableAudits() throws {
@@ -398,5 +406,19 @@ final class MaraudersAccessibilityUITests: XCTestCase {
             if row.waitForExistence(timeout: 8) { row.tap() }
         }
         return app.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 15)
+    }
+
+    /// The Delete Account row is the last of Settings, whose list builds its rows as they come into view: swipes up
+    /// until the row can be tapped, then opens the sheet.
+    @MainActor
+    private func toDeleteAccountSheet(_ app: XCUIApplication) -> Bool {
+        guard toSettings(app) else { return false }
+        let row = app.buttons["settings.deleteAccount"]
+        for _ in 0..<5 where !(row.exists && row.isHittable) {
+            app.swipeUp()
+        }
+        guard row.exists, row.isHittable else { return false }
+        row.tap()
+        return app.descendants(matching: .any)["deleteAccount.sheet"].waitForExistence(timeout: 10)
     }
 }
