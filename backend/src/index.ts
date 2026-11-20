@@ -31,6 +31,14 @@ export interface Env {
   VIDEOS: R2Bucket;
   JWT_SIGNING_SECRET: string;
   APPLE_CLIENT_ID: string;
+  /**
+   * The Sign in with Apple key that deleting an account needs to revoke the person's grant (docs/adr/011-account-deletion.md):
+   * the team id, the key id and the text of the downloaded .p8 key. Secrets, never in the repo; without all three (and
+   * `APPLE_CLIENT_ID`) deleting an Apple account answers 503, and a test account made by `/v1/auth/dev` is still deleted.
+   */
+  APPLE_TEAM_ID?: string;
+  APPLE_KEY_ID?: string;
+  APPLE_PRIVATE_KEY?: string;
   /** Turns on `/v1/auth/dev` for the debug app on the Simulator; leave unset in normal operation. */
   DEV_LOGIN_SECRET?: string;
   /** General per-IP limit for reads/writes; see wrangler.toml. */

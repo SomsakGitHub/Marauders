@@ -350,6 +350,25 @@ export function parseRefreshBody(body: unknown): { refreshToken: string } {
   return { refreshToken };
 }
 
+/**
+ * The body of `DELETE /v1/users/me`. The authorization code is optional here (a test account deleted without Apple sends none),
+ * so an absent one is null; a code that is there must be a string of 1 to 1,024 characters. The message never repeats what was
+ * sent.
+ */
+export function parseAccountDeletionBody(body: unknown): { authorizationCode: string | null } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new FeedValidationError("invalid request body");
+  }
+  const code = (body as Record<string, unknown>).authorizationCode;
+  if (code === undefined) {
+    return { authorizationCode: null };
+  }
+  if (typeof code !== "string" || code.length < 1 || code.length > 1024) {
+    throw new FeedValidationError("authorizationCode is invalid");
+  }
+  return { authorizationCode: code };
+}
+
 export function parseLocationBody(body: unknown): {
   latitude: number;
   longitude: number;
