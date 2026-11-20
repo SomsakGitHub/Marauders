@@ -6,6 +6,7 @@ import { handleDevAuth } from "./routes/authDev";
 import { handleRefresh, handleSignOut } from "./routes/authRefresh";
 import { handleAvatarDelete, handleAvatarUpload } from "./routes/avatar";
 import { handleCommentCreate, handleCommentDelete, handleCommentsList } from "./routes/comments";
+import { handleAccountDelete } from "./routes/deleteAccount";
 import { healthBody } from "./health";
 import { handleDubbedAudio, handleDubbedAudioReport } from "./routes/dubbedAudio";
 import { authorRelations, handleFollowChange } from "./routes/follows";
@@ -84,6 +85,15 @@ const AUTH_ROUTES = new Map<string, (request: Request, env: Env) => Promise<Resp
 
 const UPLOAD_RATE_LIMIT = { scope: "upload", limit: 10, windowSeconds: 60 };
 
+/**
+ * Deleting an account: a person whose code Apple refused, or whose connection dropped, tries again a few times, never dozens,
+ * and every request that gets past this limit makes calls to Apple signed with the Worker's own key.
+ */
+const ACCOUNT_DELETE_RATE_LIMIT = { scope: "account-delete", limit: 5, windowSeconds: 3600 };
+
+/** What a caller that passes no Cloudflare context gets (the tests do): nothing is kept running after the response. */
+const NO_CONTEXT = { waitUntil() {}, passThroughOnException() {} } as unknown as ExecutionContext;
+
 function withCors(response: Response, request: Request): Response {
   const headers = new Headers(response.headers);
   const origin = request.headers.get("Origin");
@@ -157,7 +167,7 @@ async function handleFeed(request: Request, env: Env): Promise<Response> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext = NO_CONTEXT): Promise<Response> {
     if (request.method === "OPTIONS") {
       return withCors(new Response(null, { status: 204 }), request);
     }
@@ -264,6 +274,31 @@ export default {
       }
       return withCors(
         await handleUserProfileUpdate(request, env, auth.userId),
+        request,
+      );
+    }
+
+    if (url.pathname === "/v1/users/me" && request.method === "DELETE") {
+      const auth = await authenticateBearerRequest(
+        request,
+        env.JWT_SIGNING_SECRET ?? "",
+      );
+      if (!auth) {
+        return withCors(errorResponse(401, "authentication required"), request);
+      }
+      const decision = await enforceDatabaseRateLimit(
+        env.DATABASE_URL,
+        ACCOUNT_DELETE_RATE_LIMIT,
+        auth.userId,
+      );
+      if (!decision.allowed) {
+        return withCors(
+          rateLimitedResponse(decision.retryAfterSeconds),
+          request,
+        );
+      }
+      return withCors(
+        await handleAccountDelete(request, env, ctx, auth.userId),
         request,
       );
     }

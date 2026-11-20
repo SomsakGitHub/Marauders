@@ -72,11 +72,19 @@ test("every .dev.vars file is ignored but the example", () => {
   assert.equal(ignored("backend/.dev.vars.example"), 1);
 });
 
-test("the example lists exactly the four names with empty values", () => {
+test("the example lists exactly the seven names with empty values", () => {
   const entries = readFileSync(path.join(BACKEND_DIR, ".dev.vars.example"), "utf8")
     .split(/\r?\n/)
     .filter((line) => line.trim() !== "" && !line.startsWith("#"));
-  assert.deepEqual(entries.sort(), ["APPLE_CLIENT_ID=", "DATABASE_URL=", "DEV_LOGIN_SECRET=", "JWT_SIGNING_SECRET="]);
+  assert.deepEqual(entries.sort(), [
+    "APPLE_CLIENT_ID=",
+    "APPLE_KEY_ID=",
+    "APPLE_PRIVATE_KEY=",
+    "APPLE_TEAM_ID=",
+    "DATABASE_URL=",
+    "DEV_LOGIN_SECRET=",
+    "JWT_SIGNING_SECRET=",
+  ]);
 });
 
 test("the old example file is gone", () => {
