@@ -26,8 +26,11 @@ const TEXT_FILE = /\.(md|mjs|js|json|ya?ml|sh|rb|swift|py|txt|toml)$|(^|\/)(Jenk
 const SKIPPED_FOLDERS = new Set(["node_modules", ".build", "build", "vendor", ".git"]);
 const RETIRED = [
   { what: 'the scheme "Marauders"', pattern: /-scheme\s+(?:"Marauders"|'Marauders'|Marauders(?![\w.-]))/ },
+  // The Ruby and Groovy forms: `scheme: "Marauders"`, `TEST_SCHEME = "Marauders"`. A scheme that is not there fails in
+  // Jenkins with "scheme not found", and the command-line form above does not see these.
+  { what: 'the scheme "Marauders" given to a variable or an argument', pattern: /\w*(?:scheme|Scheme|SCHEME)\w*\s*[:=]\s*["']Marauders["']/ },
   { what: 'the configuration "Debug" or "Release"', pattern: /-configuration\s+(?:"(?:Debug|Release)"|'(?:Debug|Release)'|(?:Debug|Release)(?![\w.-]))/ },
-  { what: 'a gym configuration "Debug" or "Release"', pattern: /\bconfiguration:\s*["'](?:Debug|Release)["']/ },
+  { what: 'a configuration "Debug" or "Release" given to gym or kept in a constant', pattern: /\w*(?:configuration|Configuration|CONFIGURATION)\w*\s*[:=]\s*["'](?:Debug|Release)["']/ },
 ];
 
 /** Yields the repo-relative path of every file under `entry` (a file or a folder; a missing entry yields nothing) that TEXT_FILE accepts, skipping SKIPPED_FOLDERS. */
@@ -52,12 +55,18 @@ test("the scan flags the retired names and accepts the new ones", () => {
     "xcodebuild test -scheme Marauders -destination x", "(`xcodebuild test -scheme Marauders`)", '-scheme "Marauders"',
     "-scheme Marauders \\", "-scheme Marauders Staging", "-configuration Release -destination x", '-configuration "Debug"',
     'gym(configuration: "Release")',
+    // The Ruby and Groovy forms: a constant, a keyword argument, a variable in the Jenkinsfile.
+    'TEST_SCHEME = "Marauders"', "RELEASE_SCHEME = 'Marauders'", 'scheme: "Marauders",', '    scheme: "Marauders"', 'SCHEME="Marauders"',
+    'RELEASE_CONFIGURATION = "Release"', "CONFIGURATION = 'Debug'", 'build_configuration: "Release"',
   ]) {
     assert.notEqual(retiredNames(line).length, 0, line);
   }
   for (const line of [
     '-scheme "Marauders Staging"', "-scheme 'Marauders Production'", '"-scheme #{TEST_SCHEME}"', "-configuration Release-Production",
     '-configuration "Debug-Staging"', "configuration: RELEASE_CONFIGURATION", "-only-testing:MaraudersTests", "-project Marauders.xcodeproj",
+    'TEST_SCHEME           = "Marauders Staging"', 'RELEASE_SCHEME        = "Marauders Production"', "scheme: RELEASE_SCHEME,",
+    'scheme: "Marauders Production"', 'scheme = "MaraudersTests"', 'RELEASE_CONFIGURATION = "Release-Production"',
+    'TEST_CONFIGURATION = "Debug-Staging"', "# The project and the ipa are named Marauders. The app has two builds, one scheme each:",
   ]) {
     assert.deepEqual(retiredNames(line), [], line);
   }

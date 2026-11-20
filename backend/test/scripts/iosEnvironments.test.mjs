@@ -194,6 +194,32 @@ test("the Run Script phases that look at the configuration look at Release-Produ
   }
 });
 
+/** The `shellScript` of the Run Script phase with this name, as the project file spells it (its quotes still escaped). */
+function runScriptPhase(name) {
+  const phase = new RegExp(`/\\* Run Script ${name} \\*/ = \\{([\\s\\S]*?)\\n\\t\\t\\};`).exec(readFileSync(PBXPROJ, "utf8"))?.[1] ?? "";
+  return /^\t\t\tshellScript = (".*");$/m.exec(phase)?.[1] ?? "";
+}
+
+// The test above only looks for the name Release-Production. A flipped operator keeps the name and turns the guard
+// off for Production (and on for Staging), with every test green: so the operator and the order are pinned too.
+test("the Run Script phases gate on Production in the right direction, before they do their work", () => {
+  const runsOnlyForProduction = `if [ \\"$CONFIGURATION\\" != \\"${PRODUCTION_CONFIGURATION}\\" ]; then exit 0; fi`;
+  const skipsProduction = `if [ \\"$CONFIGURATION\\" = \\"${PRODUCTION_CONFIGURATION}\\" ]; then exit 0; fi`;
+  const phases = [
+    { name: "release config check", gate: runsOnlyForProduction, otherGate: skipsProduction, work: 'sh \\"$SRCROOT/Scripts/check-release-config.sh\\"' },
+    { name: "lint", gate: skipsProduction, otherGate: runsOnlyForProduction, work: "xcrun swift-format" },
+    { name: "layer check", gate: skipsProduction, otherGate: runsOnlyForProduction, work: 'sh \\"$SRCROOT/Scripts/check-layers.sh\\"' },
+  ];
+  for (const { name, gate, otherGate, work } of phases) {
+    const script = runScriptPhase(name);
+    assert.ok(script.length > 0, `there is no Run Script phase named "${name}"`);
+    assert.ok(script.includes(gate), `${name}: the phase must start with ${gate}`);
+    assert.equal(script.includes(otherGate), false, `${name}: the phase must not hold ${otherGate}`);
+    assert.ok(script.includes(work), `${name}: the phase must still run ${work}`);
+    assert.ok(script.indexOf(gate) < script.indexOf(work), `${name}: the gate must come before the work`);
+  }
+});
+
 /** The text of every `.swift` file of the app and of the local packages (build folders left out). */
 function swiftSources() {
   return ["Marauders", "Packages"].flatMap((folder) =>

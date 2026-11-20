@@ -251,6 +251,38 @@ OUT=$(sh "$GUARD" --info-plist "$INFO_PLIST" --environments "$ENVIRONMENTS" --bu
 STATUS=$?
 expect_failure "--executable"
 
+# A grep that exits 2 (it could not read the file, say) has not found "the name is not there": the guard must fail on
+# it. A fake grep sits first in PATH for this one run, so the case does not depend on who runs the tests (a file with
+# no read permission would still be readable by root).
+begin "fails when grep cannot search the executable"
+mkdir -p "$CASE_DIR/bin"
+printf '#!/bin/sh\nexit 2\n' >"$CASE_DIR/bin/grep"
+chmod +x "$CASE_DIR/bin/grep"
+OUT=$(PATH="$CASE_DIR/bin:$PATH" sh "$GUARD" --info-plist "$INFO_PLIST" --environments "$ENVIRONMENTS" --bundle "$BUNDLE" --executable "$EXECUTABLE" 2>&1)
+STATUS=$?
+expect_failure "could not be searched"
+expect_text "DebugLogView"
+expect_text "DevAuthAPIClient"
+
+# With a debug dylib in the bundle the app's code lives there and the executable is a small stub, so a guard that reads
+# only the executable would pass whatever the code holds.
+begin "fails when the bundle holds a debug dylib"
+: >"$BUNDLE/Marauders.debug.dylib"
+run
+expect_failure "Marauders.debug.dylib"
+
+begin "fails when a folder of the bundle holds a debug dylib"
+mkdir -p "$BUNDLE/Frameworks/Inner.framework"
+: >"$BUNDLE/Frameworks/Inner.framework/Inner.debug.dylib"
+run
+expect_failure "Inner.debug.dylib"
+
+begin "passes with other dylibs in the bundle"
+mkdir -p "$BUNDLE/Frameworks"
+: >"$BUNDLE/Frameworks/Library.dylib"
+run
+expect_status 0
+
 if [ "$failures" -gt 0 ]; then
     printf 'check-release-config: %s of %s expectation checks failed\n' "$failures" "$cases"
     exit 1
