@@ -14,5 +14,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [008](008-background-upload.md) | A background upload session, and an idempotency key for the clip |
 | [009](009-session-core-package.md) | The session core as a local Swift package |
 | [010](010-environments.md) | Environments: scripts that name their target, one backend for now, staging ready |
+| [011](011-account-deletion.md) | Account deletion: Apple first, then the files, then the rows |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)
