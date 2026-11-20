@@ -740,7 +740,7 @@ The staged folder is excluded from backup, and its files keep the default file p
 | `npm run db:migrate -- --env <env> [--dry-run]` | Apply the `sql/NNN_*.sql` files not yet recorded in the environment's `schema_migrations(name, sha256, applied_at)`, in numeric order (`004_purge_feed_videos.sql` is never applied). A file edited after it was applied stops the run until it is named with `--accept-changed <file>`. Files stay re-runnable: production's first tracked run applies all of them again |
 | `npm run db:purge -- --env <env>` | (`DATABASE_URL` from that environment's `backend/.dev.vars.<env>`) Clear `feed_videos` + delete the R2 objects of that environment's bucket (`wrangler r2 object delete --remote`); shows the count and asks for `purge <env>` before it deletes |
 | `npm run video:hls -- --env <env> <id>` | ffmpeg HLS from feed row → that environment's R2 (`--remote`) + update `stream_url`; production asks for `production` |
-| `npm run test:feed` / `test:dubbed-audio` / `test:dev-auth` / `test:comments` / `test:likes` / `test:follows` / `test:auth-refresh` / `test:upload-idempotency` | Backend checks, see **Tests** |
+| `npm run test:feed` / `test:dubbed-audio` / `test:dev-auth` / `test:comments` / `test:likes` / `test:follows` / `test:auth-refresh` / `test:upload-idempotency` / `test:account-deletion` | Backend checks, see **Tests** |
 
 ### Data model
 
