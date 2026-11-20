@@ -26,9 +26,9 @@ export const MAX_CLIPS_PER_DELETION = 15;
  * and the rate limit; the steps here run in this order, and the person's row goes last, so a row that is gone always means
  * Apple was told:
  *
- *   body (400) -> the row (none: 204, nothing else happens) -> clips, at most the cap (409) -> Apple: exchange the code, check
- *   it is this person's Apple account (403), revoke the grant (skipped for a `dev:` test account) -> R2 files -> one SQL
- *   statement that deletes the clips and the person -> 204
+ *   body (400) -> the row (none: 204, and a code that came with the request is revoked, best effort, after the answer) ->
+ *   clips, at most the cap (409) -> Apple: exchange the code, check it is this person's Apple account (403), revoke the grant
+ *   (skipped for a `dev:` test account) -> R2 files -> one SQL statement that deletes the clips and the person -> 204
  *
  * A failure after Apple was told leaves the row in place on purpose: the person tries again with a fresh code (Apple's codes
  * are single-use) and every step is safe to repeat. Nothing in this file logs more than a step name: a code, a token, a key
@@ -69,8 +69,7 @@ export async function handleAccountDelete(
     return failed("read the account", 500, "failed to delete account");
   }
   if (!user) {
-    // Already deleted (a retry after a lost answer, or two requests at once): nothing to do, and no one is asked anything.
-    return noContent();
+    return settleAlreadyDeleted(env, ctx, authorizationCode, fetchImpl);
   }
 
   if (!env.VIDEOS) {
@@ -107,6 +106,43 @@ export async function handleAccountDelete(
   );
   ctx.waitUntil(work);
   return await work;
+}
+
+/**
+ * The account is already gone (a retry after a lost answer, or a device that was still signed in): there is nothing left to
+ * delete, and the answer is 204. A code that comes with the request is another Apple confirmation, though, and the first run
+ * revoked the earlier grant, so that confirmation made a new one that nothing else would ever revoke: it would stay listed
+ * under Sign in with Apple with no account behind it. Asking Apple to revoke it is best effort and happens after the answer,
+ * so the person has their 204 at once and a slow or failing Apple costs them nothing. No `sub` is compared: the grant belongs
+ * to whoever confirmed on the sheet, and revoking it touches no one else's account. A test account (the debug sign-in) sends
+ * no code, and a Worker without the Apple secrets could not do it anyway.
+ */
+function settleAlreadyDeleted(
+  env: Env,
+  ctx: ExecutionContext,
+  authorizationCode: string | null,
+  fetchImpl: typeof fetch,
+): Response {
+  const credentials = authorizationCode === null ? null : appleCredentialsFromEnv(env);
+  if (credentials && authorizationCode !== null) {
+    ctx.waitUntil(revokeLateGrant(credentials, authorizationCode, fetchImpl));
+  }
+  return noContent();
+}
+
+/** Exchanges the code and revokes what it gave. Never rejects: the only trace of a failure is the name of the step. */
+async function revokeLateGrant(
+  credentials: AppleCredentials,
+  authorizationCode: string,
+  fetchImpl: typeof fetch,
+): Promise<void> {
+  try {
+    const tokens = await exchangeAuthorizationCode(credentials, authorizationCode, fetchImpl);
+    await revokeAppleToken(credentials, tokens.refreshToken, fetchImpl);
+  } catch (error) {
+    const kind = error instanceof AppleClientError ? error.kind : "unavailable";
+    logFailure(`revoke the grant of an account that was already deleted (${kind})`);
+  }
 }
 
 async function runDeletion(
@@ -197,8 +233,12 @@ function appleFailure(step: string, error: unknown, aboutTheCode: boolean): Resp
 
 /** Logs the step that failed (a fixed phrase, never a value) and builds the answer. */
 function failed(step: string, status: number, message: string): Response {
-  console.error(`account deletion: could not ${step}`);
+  logFailure(step);
   return jsonError(status, message);
+}
+
+function logFailure(step: string): void {
+  console.error(`account deletion: could not ${step}`);
 }
 
 const HEADERS = {

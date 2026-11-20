@@ -72,6 +72,8 @@ class Scene {
   tokenAnswer: () => Response = () => tokens();
   revokeAnswer: () => Response = () => new Response(null, { status: 200 });
   appleUnreachable = false;
+  /** While set, every call to Apple waits for it before answering (to show who is made to wait). */
+  appleHold: Promise<void> | null = null;
   env: Record<string, unknown>;
   pem: string;
 
@@ -135,6 +137,9 @@ class Scene {
     const step = url.endsWith("/auth/token") ? "token" : url.endsWith("/auth/revoke") ? "revoke" : "other";
     assert.notEqual(step, "other", `unexpected request to ${url}`);
     this.events.push(`apple:${step}`);
+    if (this.appleHold) {
+      await this.appleHold;
+    }
     if (this.appleUnreachable) {
       throw new TypeError("network down");
     }
@@ -277,18 +282,145 @@ describe("handleAccountDelete", () => {
   });
 
   describe("an account that is already gone (RF 2)", () => {
-    it("answers 204 and touches neither Apple nor the bucket nor the delete statement", async () => {
+    // A retry after a lost 204 comes with a fresh code: the person confirmed with Apple again, and because the first run revoked
+    // the earlier grant, that confirmation made a new one. Nothing else would ever revoke it, so the handler asks Apple to,
+    // best effort, after it has answered. It is never asked for the bucket or the delete statement.
+    const settle = async (scene: Scene): Promise<void> => {
+      await Promise.all(scene.waitUntilPromises);
+    };
+
+    it("answers 204 and deletes nothing: no bucket call and no delete statement", async () => {
       const scene = await Scene.withAccount();
       scene.user = null;
 
       const response = await scene.call();
+      await settle(scene);
 
       assert.equal(response.status, 204);
       assert.equal(await response.text(), "");
-      assert.deepEqual(scene.events, []);
       assert.equal(queries.length, 1);
       assert.match(queries[0].text, /FROM app_users/);
+      assert.equal(scene.deleteStatements(), 0);
       assert.deepEqual(scene.bucket.calls, []);
+    });
+
+    it("revokes the grant the new confirmation made, once, with the code that came with the request", async () => {
+      const scene = await Scene.withAccount();
+      scene.user = null;
+
+      const response = await scene.call();
+      await settle(scene);
+
+      assert.equal(response.status, 204);
+      assert.deepEqual(scene.events, ["apple:token", "apple:revoke"]);
+      assert.equal(scene.exchangeCall()?.form.get("code"), CODE);
+      assert.equal(scene.revokeCall()?.form.get("token"), REFRESH_TOKEN);
+      assert.equal(scene.waitUntilPromises.length, 1, "the revoke is given to waitUntil once");
+      await assertNothingLeaked(scene, response, "");
+    });
+
+    it("does not make the person wait for Apple", async () => {
+      const scene = await Scene.withAccount();
+      scene.user = null;
+      let release: () => void = () => {};
+      scene.appleHold = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+
+      // Apple has not answered, and will not until `release` is called: the person has their 204 all the same. The race is
+      // there so that a handler that does wait fails this test quickly instead of hanging it.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const answered = await Promise.race([
+        scene.call(),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 1000);
+        }),
+      ]);
+      clearTimeout(timer);
+      release();
+      assert.ok(answered !== null, "the answer came while Apple had not answered");
+      assert.equal(answered.status, 204);
+
+      await settle(scene);
+      assert.deepEqual(scene.events, ["apple:token", "apple:revoke"], "the revoke still happens after the response");
+    });
+
+    const refusals: Array<[string, (scene: Scene) => void]> = [
+      [
+        "Apple refuses the code",
+        (scene) => {
+          scene.tokenAnswer = () => json(400, { error: "invalid_grant", error_description: `code ${CODE} was used` });
+        },
+      ],
+      [
+        "Apple answers with a server error",
+        (scene) => {
+          scene.tokenAnswer = () => json(500, { error: "server_error" });
+        },
+      ],
+      [
+        "Apple answers without tokens",
+        (scene) => {
+          scene.tokenAnswer = () => json(200, { access_token: ACCESS_TOKEN });
+        },
+      ],
+      [
+        "Apple cannot be reached",
+        (scene) => {
+          scene.appleUnreachable = true;
+        },
+      ],
+      [
+        "Apple refuses the revoke",
+        (scene) => {
+          scene.revokeAnswer = () => json(400, { error: "invalid_request", error_description: REFRESH_TOKEN });
+        },
+      ],
+    ];
+    for (const [name, arrange] of refusals) {
+      it(`still answers 204 when ${name}, and logs only the name of the step`, async () => {
+        const scene = await Scene.withAccount();
+        scene.user = null;
+        arrange(scene);
+
+        const response = await scene.call();
+        await settle(scene); // the work given to waitUntil never rejects
+
+        assert.equal(response.status, 204);
+        assert.ok(scene.events.includes("apple:token"), "Apple was asked");
+        assert.equal(scene.deleteStatements(), 0);
+        assert.deepEqual(scene.bucket.calls, []);
+        assert.ok(
+          logged.some((line) => line.startsWith("account deletion: could not")),
+          `a step name was logged: ${JSON.stringify(logged)}`,
+        );
+        await assertNothingLeaked(scene, response, "");
+      });
+    }
+
+    it("asks Apple nothing when the request carries no code (a test account sends none)", async () => {
+      const scene = await Scene.withAccount();
+      scene.user = null;
+
+      const response = await scene.call({});
+      await settle(scene);
+
+      assert.equal(response.status, 204);
+      assert.deepEqual(scene.events, []);
+      assert.equal(scene.waitUntilPromises.length, 0);
+    });
+
+    it("asks Apple nothing when the Apple secrets are not set", async () => {
+      const scene = await Scene.withAccount();
+      scene.user = null;
+      delete scene.env.APPLE_PRIVATE_KEY;
+
+      const response = await scene.call();
+      await settle(scene);
+
+      assert.equal(response.status, 204);
+      assert.deepEqual(scene.events, []);
+      assert.equal(scene.waitUntilPromises.length, 0);
     });
   });
 
