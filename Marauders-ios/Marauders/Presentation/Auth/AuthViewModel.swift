@@ -248,6 +248,13 @@ final class AuthViewModel {
             isSignedIn = true
             isCheckingCredential = false
         }
+
+        /// The stored session belongs to a test user of the Simulator's debug sign-in. It has no Apple ID behind it, so
+        /// deleting its account has nothing to confirm with Apple.
+        var isSignedInAsTestUser: Bool {
+            guard case .value(let userID) = sessionStore.readUserID() else { return false }
+            return DevLogin.isDevUserID(userID)
+        }
     #endif
 
     /// Ends the session the viewer asked to end. The Worker is told first, while the tokens still work: their location
@@ -270,6 +277,21 @@ final class AuthViewModel {
         isSignedIn = false
         errorMessage = nil
         AppLog.info("auth", "signed out")
+    }
+
+    /// Ends the session of an account the Worker has just deleted. It is a sign out without the Worker half: the account,
+    /// its location sharing and its refresh tokens are gone there, so there is nothing to switch off or to revoke, and the
+    /// access token opens nothing any more. The viewer's pending upload is dropped while the session is still stored, as
+    /// a sign out does, so nothing of the account stays on the phone; a stuck uploader holds this back for no longer than
+    /// `uploadHookTimeout`.
+    func finishAccountDeletion() async {
+        // A Simulator test user whose account was deleted stays out until the app is launched again.
+        signsInAsTestUserOnSimulator = false
+        await discardThePendingUpload()
+        clearStoredSession()
+        isSignedIn = false
+        errorMessage = nil
+        AppLog.info("auth", "signed out after the account was deleted")
     }
 
     private func tellTheWorkerTheSessionIsEnding() async {
