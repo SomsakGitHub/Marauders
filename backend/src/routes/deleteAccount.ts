@@ -18,8 +18,18 @@ import { deleteDubbedAudio } from "./dubbedAudio";
  * Most clips one deletion takes. Every clip costs a few R2 calls, and all of them have to finish while the request is alive
  * (see the waitUntil note below); a person with more asks for help instead of getting a half-done deletion. Raise it only
  * with the Worker's plan limits in front of you.
+ *
+ * Why 18: Workers Free allows 50 subrequests per invocation (Cloudflare's limits page, read 2026-11-21). A deletion makes at
+ * most 9 calls whatever the person has (the rate-limit query, the user row, the clips and the final statement on Neon;
+ * Apple's code exchange, key set and revoke; the avatar; one delete for all plain video keys), plus 2 per clip (the listing
+ * of its dubbed audio and the delete of what it finds) and 2 more per clip converted with `npm run video:hls` (its prefix
+ * listing and delete). So 9 + 2 * clips + 2 * hlsClips must not pass 50, and 18 plain clips cost 45, which leaves 5 calls for
+ * retries. The tests "the cap on clips" in test/accountDeletion.test.ts count these calls and fail when the cap, or what a
+ * deletion calls, goes past that budget. On 2026-11-21 production had no HLS clip and one person with 16 clips, and the
+ * app's upload writes `videos/<id>.<ext>`, so only that script makes HLS clips. Recompute when one appears or the plan
+ * changes (ADR-011, "Triggers to revisit").
  */
-export const MAX_CLIPS_PER_DELETION = 15;
+export const MAX_CLIPS_PER_DELETION = 18;
 
 /**
  * `DELETE /v1/users/me`: deletes the signed-in person's account for good. The router has already checked the Bearer token

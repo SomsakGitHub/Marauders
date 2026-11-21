@@ -456,6 +456,56 @@ describe("handleAccountDelete", () => {
       assert.equal(response.status, 204);
       assert.equal(scene.deleteStatements(), 1);
     });
+
+    // Workers Free allows 50 subrequests per invocation, and every Neon query, Apple fetch and bucket call is one. The cap in
+    // deleteAccount.ts is worked out from this count. Two calls of a real deletion are not made inside handleAccountDelete:
+    // the rate-limit query the router makes, and the fetch of Apple's key set behind the verifier (the verifier of these tests
+    // fetches nothing), so they are added here. When what a deletion calls changes, read the cap's comment again.
+    const FREE_PLAN_SUBREQUESTS = 50;
+    const CALLS_OUTSIDE_THE_HANDLER = 2;
+    const ROOM_FOR_RETRIES = 5;
+    const FIXED_CALLS = 9;
+
+    const subrequestsOf = (scene: Scene): number =>
+      queries.length + scene.appleCalls.length + scene.bucket.calls.length + CALLS_OUTSIDE_THE_HANDLER;
+
+    it("at the cap, makes 9 calls and 2 per clip, which leaves room for retries on Workers Free", async () => {
+      const scene = await Scene.withAccount();
+      scene.clips = manyClips(MAX_CLIPS_PER_DELETION);
+      for (const clip of scene.clips) {
+        scene.putObjects(`translations/${clip.id}/th/abc.m4a`);
+      }
+
+      const response = await scene.call();
+
+      assert.equal(response.status, 204);
+      assert.equal(subrequestsOf(scene), FIXED_CALLS + 2 * MAX_CLIPS_PER_DELETION);
+      assert.ok(
+        subrequestsOf(scene) <= FREE_PLAN_SUBREQUESTS - ROOM_FOR_RETRIES,
+        `${subrequestsOf(scene)} calls for ${MAX_CLIPS_PER_DELETION} clips leave less than ${ROOM_FOR_RETRIES} of ${FREE_PLAN_SUBREQUESTS}`,
+      );
+    });
+
+    it("makes 2 more calls for each clip converted to HLS", async () => {
+      const scene = await Scene.withAccount();
+      const hlsPrefix = (index: number) => `videos/${uuid(4000 + index)}`;
+      const hlsClips = [0, 1].map((index) => ({
+        id: uuid(3000 + index),
+        streamUrl: media(`${hlsPrefix(index)}/index.m3u8`),
+      }));
+      scene.clips = [...manyClips(3), ...hlsClips];
+      for (const clip of scene.clips) {
+        scene.putObjects(`translations/${clip.id}/th/abc.m4a`);
+      }
+      for (const index of [0, 1]) {
+        scene.putObjects(`${hlsPrefix(index)}/index.m3u8`, `${hlsPrefix(index)}/segment0.ts`, `${hlsPrefix(index)}.mov`);
+      }
+
+      const response = await scene.call();
+
+      assert.equal(response.status, 204);
+      assert.equal(subrequestsOf(scene), FIXED_CALLS + 2 * scene.clips.length + 2 * hlsClips.length);
+    });
   });
 
   describe("configuration", () => {
