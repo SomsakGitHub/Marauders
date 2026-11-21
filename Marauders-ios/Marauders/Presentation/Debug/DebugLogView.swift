@@ -23,6 +23,12 @@ import UIKit
             return base.summary
         }
 
+        /// Whether this build carries its client key (`MARAUDERS_CLIENT_KEY`), never the key itself: a screenshot or
+        /// a pasted log then shows that the build step reached the app, without showing the value.
+        private var clientKeyCaption: String {
+            ClientKey.resolved() == nil ? "client key: missing" : "client key: set"
+        }
+
         var body: some View {
             List {
                 if store.entries.isEmpty {
@@ -47,7 +53,7 @@ import UIKit
                 }
             }
             .navigationTitle(Text(verbatim: "Log"))
-            .navigationSubtitle(Text(verbatim: apiHostCaption))
+            .navigationSubtitle(Text(verbatim: "\(apiHostCaption) · \(clientKeyCaption)"))
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {

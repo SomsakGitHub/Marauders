@@ -1,3 +1,5 @@
+require "shellwords"
+
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.somsak.Marauders"
@@ -70,6 +72,13 @@ platform :ios do
       end
       build_number = ENV["BUILD_NUMBER"].to_s
       xcargs << "CURRENT_PROJECT_VERSION=#{build_number}" unless build_number.empty?
+      # The build-time value Jenkins injects (the credential `marauders-client-key`, docs/ci-cd.md): the pass the app
+      # needs in order to run. A build setting given on the command line overrides the project's default (the pass),
+      # which is what a plain Run from Xcode uses. `strip` so a credential pasted with a line break cannot end the
+      # command line; `escape` because gym runs xcargs through a shell (the pass has spaces). Without the variable (a
+      # run on this machine) the app keeps the project's default.
+      client_key = ENV["MARAUDERS_CLIENT_KEY"].to_s.strip
+      xcargs << "MARAUDERS_CLIENT_KEY=#{Shellwords.escape(client_key)}" unless client_key.empty?
 
       # Resolve paths against the project root explicitly: fastlane runs
       # project-based actions from one level above `in_project` (it does its own

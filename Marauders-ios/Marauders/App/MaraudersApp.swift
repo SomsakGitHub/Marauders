@@ -12,6 +12,11 @@ struct MaraudersApp: App {
 
     init() {
         _ = AppLog.launchUptime
+        // The pass (docs/ci-cd.md): a build that does not carry it starts nothing, and `body` shows the block screen.
+        guard ClientKey.appMayRun() else {
+            AppLog.error("app", "client key is not the pass: nothing starts")
+            return
+        }
         // First: the session module logs through this, and the install check below may log.
         AuthLog.forwardToAppLog()
         InstallationSessionGuard.bootstrap(isUITesting: AppRuntimeConfiguration.isUITesting)
@@ -33,7 +38,11 @@ struct MaraudersApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AppRootView()
+            if ClientKey.appMayRun() {
+                AppRootView()
+            } else {
+                ClientKeyBlockedView()
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -49,8 +58,9 @@ struct MaraudersApp: App {
         }
         // The system relaunches the app, in the background, when the upload session has events for it, and runs this.
         // It returns once the app has applied every event the system held (25 s at most), which is the moment the
-        // system may suspend the app again.
+        // system may suspend the app again. A build that is not the pass has started no uploader: it returns at once.
         .backgroundTask(.urlSession(SystemBackgroundUploadSession.identifier)) { _ in
+            guard ClientKey.appMayRun() else { return }
             await AppDependencyContainer.clipUploader.awaitSystemEvents()
         }
     }

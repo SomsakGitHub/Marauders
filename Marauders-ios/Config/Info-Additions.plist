@@ -11,6 +11,9 @@
 	<!-- The Worker the app talks to: production in Release and, while there is one backend (ADR 010), in Debug too (build setting MARAUDERS_API_BASE_URL of the app target). -->
 	<key>MARAUDERS_API_BASE_URL</key>
 	<string>$(MARAUDERS_API_BASE_URL)</string>
+	<!-- The pass: the app runs only when this is "run by pass" (ClientKey; the app target holds it in the build setting MARAUDERS_CLIENT_KEY, Jenkins overrides it, docs/ci-cd.md). -->
+	<key>MARAUDERS_CLIENT_KEY</key>
+	<string>$(MARAUDERS_CLIENT_KEY)</string>
 	<!-- Always show the Language row on the app's page in iOS Settings, also on an iPhone with one language. -->
 	<key>UIPrefersShowingLanguageSettings</key>
 	<true/>

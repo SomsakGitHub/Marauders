@@ -75,6 +75,9 @@ pipeline {
           file(credentialsId: 'asc-api-key', variable: 'ASC_KEY_PATH'),
           string(credentialsId: 'asc-key-id', variable: 'ASC_KEY_ID'),
           string(credentialsId: 'asc-issuer-id', variable: 'ASC_ISSUER_ID'),
+          // The build-time value the app carries (docs/ci-cd.md); it must be exactly the pass, `run by pass`.
+          // fastlane passes it to xcodebuild as a build setting, which overrides the project's default (the pass).
+          string(credentialsId: 'marauders-client-key', variable: 'MARAUDERS_CLIENT_KEY'),
           string(credentialsId: 'jfrog-sdk-swift-token', variable: 'JFROG_SDK_SWIFT_TOKEN')
         ]) {
           dir('Marauders-ios') {

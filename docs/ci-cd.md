@@ -123,6 +123,7 @@ cat ~/.jenkins/secrets/initialAdminPassword
 | `asc-key-id` | Secret text | Key ID |
 | `asc-issuer-id` | Secret text | Issuer ID |
 | `jfrog-sdk-swift-token` | Secret text | access token ของ JFrog Swift package registry (ใช้ใน stage Resolve Swift packages และ Deploy) |
+| `marauders-client-key` | Secret text | ค่า build-time ที่ Jenkins ฝังเข้าแอป ต้องเป็น `run by pass` เป๊ะๆ (แอปเปิดได้เฉพาะ build ที่ถือค่านี้) ใช้ใน stage Deploy ถ้าไม่มี credential นี้ stage Deploy จะหยุดก่อน build — ดู "ค่าที่ Jenkins ฝังให้ build" |
 
 package `poc-sdk.waypointsdk` อยู่ใน registry ส่วนตัวของ JFrog stage Resolve Swift packages
 จึงรัน `swift package-registry login` ด้วย token นี้ก่อน `xcodebuild -resolvePackageDependencies`
@@ -194,6 +195,67 @@ lane `build` ส่ง `-allowProvisioningUpdates` พร้อม API key (ถ�
 lane `build` อ่าน env `BUILD_NUMBER` (Jenkins ตั้งให้) → ส่ง `CURRENT_PROJECT_VERSION` ตอน archive
 ดังนั้น TestFlight build จะเพิ่มขึ้นอัตโนมัติทุกรอบ (ไม่ต้องแก้โปรเจค)
 
+## ค่าที่ Jenkins ฝังให้ build (`MARAUDERS_CLIENT_KEY`)
+
+แอปถือค่า build-time หนึ่งค่าชื่อ `MARAUDERS_CLIENT_KEY` (`ClientKey` ใน `Shared/Configuration/`) และ**เปิดได้เฉพาะเมื่อค่านี้คือ `run by pass`
+เป๊ะๆ** (ตัดช่องว่างหัวท้ายให้ ตัวพิมพ์เล็ก เว้นวรรคเดียว) ค่าอื่น ค่าว่าง หรือไม่มีค่า แอปจะไม่เริ่มทำงานเลย (ไม่ตรวจ session ใน Keychain
+ไม่เริ่มติดตามตำแหน่งเบื้องหลัง ไม่เปิด session อัปโหลด ไม่ยิงเครือข่าย) และขึ้นหน้า "บิลด์นี้ใช้งานไม่ได้" (`ClientKeyBlockedView`) หน้าเดียว
+ไม่มีอะไรส่งค่านี้ไปที่ไหน แอปแค่เทียบกับ `run by pass` ค่าเดินทางแบบเดียวกับ `MARAUDERS_API_BASE_URL`:
+
+- **ในโปรเจค:** build setting `MARAUDERS_CLIENT_KEY` ของ target แอป (ทั้ง `Debug-Staging` และ `Release-Production`) มีค่า `run by pass`
+  จึงกด Run จาก Xcode, รัน unit test และ archive เองได้เลยโดยไม่ต้องตั้งอะไร
+  `Config/Info-Additions.plist` ส่ง setting นี้เข้า Info.plist
+- **ใน Jenkins:** stage Deploy ผูก credential `marauders-client-key` เข้ากับตัวแปร `MARAUDERS_CLIENT_KEY` lane `build`
+  ตัดช่องว่างและตัวขึ้นบรรทัดท้ายค่าออก (`strip` กันค่าที่วางมาพร้อมตัวขึ้นบรรทัดไปตัดคำสั่ง) แล้วส่ง `MARAUDERS_CLIENT_KEY=<ค่า>`
+  ให้ xcodebuild (`Shellwords.escape` เพราะ gym รัน xcargs ผ่าน shell และค่ามีช่องว่าง) build setting ที่ให้ทาง command line ชนะค่าของโปรเจค
+  ถ้าตัวแปรไม่มีหรือว่าง lane ไม่ส่งอะไรและ build ได้ค่าของโปรเจค (ก็คือ `run by pass` เหมือนกัน)
+- **ค่านี้ไม่ใช่ความลับ:** `run by pass` อยู่ใน git (repo เป็น public) และถูกอบเข้า Info.plist ตอน build ใครแกะ .ipa ก็อ่านได้
+  (แอป iOS ไม่มี environment ตอนรัน จึงไม่มีทาง "ฉีดค่า" หลัง build) ประตูนี้แค่แสดงว่าค่ามาถึงแอปแล้ว ไม่ได้ป้องกันอะไร
+
+**สร้าง credential (ก่อน Build Now ครั้งถัดไป):** `Manage Jenkins → Credentials → System → Global credentials → Add Credentials`
+ชนิด **Secret text** ID `marauders-client-key` Secret ต้องเป็น `run by pass` เป๊ะๆ (ถ้าสร้างไว้แล้วด้วยค่าอื่น เช่นค่าสุ่ม ให้แก้เป็น `run by pass`)
+ถ้ายังไม่มี credential นี้ stage Deploy จะหยุดก่อน build ถ้าค่าไม่ใช่ `run by pass` build จะขึ้น TestFlight ได้ แต่เปิดแอปแล้วเจอหน้า "บิลด์นี้ใช้งานไม่ได้"
+
+**ทดสอบว่า Jenkins ฝังค่าจริง:** เพราะโปรเจคมี `run by pass` อยู่แล้ว build ที่ Jenkins ไม่ได้ฝังอะไรก็เปิดได้เหมือนกัน
+จึงต้องให้ Jenkins ฝังค่าที่ต่างจากค่าของโปรเจค แล้วอ่านกลับจาก .ipa (ข้างล่าง) มีสองทาง:
+
+- **ตั้ง credential เป็นข้อความอื่นชั่วคราว (แนะนำ ไม่ต้องแตะ git):** เปลี่ยน Secret ของ `marauders-client-key` เป็นข้อความอื่น เช่น
+  `not-the-pass` แล้ว Build Now และอ่านกลับ ต้องได้ `not-the-pass` ค่าของโปรเจคชนะ environment ของ process (ลอง
+  `xcodebuild -showBuildSettings` แล้ว) ค่านี้จึงมาได้ทางเดียวคือ argument ที่ lane ส่งให้ xcodebuild เสร็จแล้วตั้ง credential กลับเป็น
+  `run by pass` ราคาที่จ่าย: build นี้ขึ้น TestFlight จริงแต่เปิดแอปไม่ได้ (หน้า "บิลด์นี้ใช้งานไม่ได้") อย่าแจกให้ผู้ทดสอบ
+- **เอาค่าของโปรเจคออก (ไม่แนะนำ):** ลบสองบรรทัด `MARAUDERS_CLIENT_KEY = "run by pass";` ใน `project.pbxproj` Jenkins build จาก GitHub `*/main`
+  ไม่ใช่จากโฟลเดอร์ในเครื่อง จึงต้อง commit และ push ตอนที่สองบรรทัดออกอยู่ แล้ว Build Now ด้วย credential ที่ถูกต้อง ต้องได้ build ที่เปิดได้
+  และอ่านกลับเป็น `run by pass` แต่ตราบที่สองบรรทัดออก: `npm test` ล้ม (script test `bothAppConfigurationsHoldThePass`) และ unit test
+  `theBuiltAppCarriesThePass` ล้ม, workflow Backend บน GitHub แดงตั้งแต่ push (มันดู `project.pbxproj`), `npm run deploy:*` หยุดเพราะ deploy
+  รัน `npm test` ก่อน (deploy Worker ฉุกเฉินจะติด), UI test ที่เปิดแอปล้มด้วย และใครกด Run จาก `main` ตอนนั้นจะเจอหน้า "บิลด์นี้ใช้งานไม่ได้"
+  จึงต้องใส่สองบรรทัดกลับแล้ว push ทันทีหลัง Build Now เสร็จ
+
+**อ่านค่ากลับจาก .ipa ที่ archive ไว้** (.ipa อยู่ใน artifacts ของ build ใน Jenkins; build Production ไม่มีแท็บ Log จึงดูในแอปไม่ได้
+ส่วน build Staging บอกแค่ `client key: set` หรือ `client key: missing` ที่ subtitle ของแท็บ Log):
+
+```bash
+unzip -p Marauders.ipa 'Payload/Marauders.app/Info.plist' | plutil -extract MARAUDERS_CLIENT_KEY raw -o - -
+```
+
+ต้องได้ `run by pass` ถ้าได้ค่าอื่น (หรือ error) แปลว่า build นั้นเปิดไม่ได้ (ขึ้นหน้า "บิลด์นี้ใช้งานไม่ได้")
+
+ข้อควรรู้:
+
+- Archive จาก Xcode เอง หรือ credential ที่ว่าง ให้ build ที่ถือค่าของโปรเจค (`run by pass` ซึ่งเปิดได้ หรือถ้าเอาสองบรรทัดออกไว้ทดสอบ
+  ก็เป็น build ที่เปิดไม่ได้) ส่วน credential ที่มีค่าอื่น (ค่าสุ่มที่เคยสร้างไว้ก็นับ) ให้ build ที่ขึ้น TestFlight ได้
+  แต่เปิดแล้วเจอหน้า "บิลด์นี้ใช้งานไม่ได้" ทั้งสองอย่างไม่ทำให้อะไรล้มตอน build (ไม่มี guard ตอน build: ตั้งใจไม่ให้ขวางการ Run จาก Xcode
+  ด่านอยู่ที่แอปตอนเปิด) จึงต้องอ่านค่ากลับตามข้างบนหลัง Build Now ทุกครั้ง
+- ช่องว่างในค่า (`run by pass` มีสองช่อง) ผ่านได้ เพราะ lane ตัดช่องว่างหัวท้ายและ `Shellwords.escape` ให้ ลองกับ archive จริงแล้ว
+  (ค่าที่มีช่องว่างหัวท้ายหรือตัวขึ้นบรรทัดก็ได้ `run by pass` เท่าเดิม)
+- ค่านี้ปรากฏใน log ได้มากกว่าที่ console: Jenkins ปิดบังค่าของ credential ที่ผูกไว้ใน console เท่านั้น ส่วน fastlane (gym)
+  เก็บ log ดิบของ xcodebuild ไว้ที่ `~/Library/Logs/gym/` บนเครื่องที่รัน (build Production = `Marauders-Marauders Production.log`)
+  ซึ่งมีค่านี้เป็นข้อความเปล่าในบรรทัด `Command line invocation`, `User defaults from command line` และในทุก Run Script phase
+  (xcodebuild พิมพ์ build setting ทั้งหมดของ phase นั้น) Jenkins ไม่ปิดบังไฟล์นี้ และการรัน lane ในเครื่องจะพิมพ์คำสั่ง xcodebuild พร้อมค่านี้ลงจอ
+  ไม่เป็นปัญหา เพราะ `run by pass` ไม่ใช่ความลับ (อยู่ใน git อยู่แล้ว)
+- เมื่อค่านี้ต้องเป็นความลับจริง (ไม่ใช่แค่ประตูจำลอง): เอาค่าออกจาก git ไปไว้ในไฟล์ xcconfig ที่ git-ignore
+  และเพิ่ม guard ที่ล้ม build Production ที่ไม่ได้รับค่า — แต่ค่าที่อบเข้าแอปใครแกะ .ipa ก็อ่านได้เสมอ และ xcconfig ไม่เอาค่าออกจาก log ดิบของ gym
+  (Run Script phase ยังพิมพ์ build setting ทั้งหมดอยู่) ความลับจริงจึงต้องไม่อยู่ในแอป และต้องคิดเรื่อง log นี้ด้วย
+
 ## รันในเครื่อง (local)
 
 ```bash
@@ -212,6 +274,8 @@ export ASC_KEY_ID="XXXXXXXXXX"
 export ASC_ISSUER_ID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 export ASC_KEY_PATH="/path/to/AuthKey_XXXXXXXXXX.p8"
 export BUILD_NUMBER=1
+# ไม่บังคับ: ค่าที่ฝังเข้า build แทนค่าของโปรเจค (ไม่ตั้ง = build ได้ค่าของโปรเจค ซึ่งก็คือ run by pass)
+export MARAUDERS_CLIENT_KEY="run by pass"
 bundle exec fastlane beta
 ```
 

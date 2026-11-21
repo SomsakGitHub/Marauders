@@ -118,4 +118,16 @@ struct LocalizationCatalogTests {
 
         #expect(thai?.contains("ภาษา%@") == true, "Thai text: \(thai ?? "none")")
     }
+
+    /// The block screen is the one screen a tester sees when the pass is wrong, so it must not be English on a Thai
+    /// phone.
+    @Test(.enabled(if: sourcesAreReadable))
+    func theBlockScreenTextsHaveThai() throws {
+        let catalog = try StringCatalogAudit(
+            data: Data(contentsOf: Self.resources.appending(path: "Localizable.xcstrings")))
+
+        for key in ["This build cannot run", "This build has no valid client key, so the app does not start."] {
+            #expect(catalog.text(forKey: key, language: "th") != nil, "\(key): no Thai text in Localizable.xcstrings")
+        }
+    }
 }

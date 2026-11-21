@@ -68,7 +68,7 @@ Marauders/
 │   │   ├── Data/                # API clients, Auth, Repositories, Services (cache, Whisper, ...)
 │   │   ├── Shared/              # AppLog, AppRuntimeConfiguration, APIBaseURL (which Worker this build talks to), DevLogin (small helpers every layer may use)
 │   │   └── Presentation/        # Feed, Map, Upload, Profile, Settings, Dubbing, Auth, Debug (Log), ...
-│   ├── Config/             # Info-Additions.plist: Info.plist keys the build fills in (MARAUDERS_API_BASE_URL: production in Production and, for now, in Staging too)
+│   ├── Config/             # Info-Additions.plist: Info.plist keys the build fills in (MARAUDERS_API_BASE_URL: production in Production and, for now, in Staging too; MARAUDERS_CLIENT_KEY: "run by pass" in the project, which Jenkins overrides; the app starts only with it)
 │   ├── Packages/           # MaraudersAuth: the session core as a local Swift package (ADR-009)
 │   ├── MaraudersTests/     # unit tests (Swift Testing)
 │   ├── MaraudersUITests/   # XCUITest
