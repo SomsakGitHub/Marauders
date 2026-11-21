@@ -1,7 +1,7 @@
 # Session core as a local Swift package: design
 
 Date: 2026-11-17
-Status: approved by the owner on 2026-11-17 ("อนุมัติ"). Nothing in this document has been built yet; the implementation plan is `docs/superpowers/plans/2026-11-17-session-core-package.md`.
+Status: approved by the owner on 2026-11-17 ("อนุมัติ"). Built, and merged into main as a9b2bfb on 2026-11-17. This document is the design as it was approved; [ADR-009](../../adr/009-session-core-package.md) is the record of what was built, and Decision 1 below was corrected to match it on 2026-11-21. The implementation plan is `docs/superpowers/plans/2026-11-17-session-core-package.md`.
 Topic: Modularization. This is the first module of the iOS app.
 
 ## Intent
@@ -106,8 +106,11 @@ Two decisions inside C, both the author's:
 
 1. **One target or two.** In one target the compiler would let the Domain half use the Data half, and would let any
    file that imports the module name a Keychain store; only the checker would object. With two targets the compiler
-   holds both rules: `MaraudersAuth` holds the Domain part, `MaraudersAuthData` the Data part and depends on the first,
-   and Presentation imports only the first. Chosen: two targets, one product.
+   holds the first rule: `MaraudersAuth` holds the Domain part and `MaraudersAuthData` the Data part and depends on the
+   first, so the Domain half cannot use the Data half. The second rule stays with the checker: every app file is in one
+   target, which links both halves, so a Presentation file could still write `import MaraudersAuthData`, and the checker
+   reports that line ([ADR-009](../../adr/009-session-core-package.md) records the correction).
+   Chosen: two targets, one product.
 2. **Where the revoke use case lives.** `RevokeRefreshTokenOnSignOutUseCase` needs `TimeBoundedCall`, which
    `StopLocationSharingOnSignOutUseCase` and `AuthViewModel` also use. Moving the helper into an auth module would make
    an unrelated use case import auth for a timer; copying it would leave two versions of subtle concurrency code;

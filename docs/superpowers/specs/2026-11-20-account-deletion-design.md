@@ -1,6 +1,6 @@
 # Account deletion: design
 
-Date: 2026-11-20. Status: **written after the owner chose "ลบทันที" (delete at once, no grace period) and approach A ("A คำขอเดียว": one request that does the steps in order). Read by the builder check on 2026-11-20: its two questions and one wrong premise are settled below and listed in "My calls". Approved by the owner on 2026-11-20 ("อนุมัติ"); nothing is built.**
+Date: 2026-11-20. Status: **written after the owner chose "ลบทันที" (delete at once, no grace period) and approach A ("A คำขอเดียว": one request that does the steps in order). Read by the builder check on 2026-11-20: its two questions and one wrong premise are settled below and listed in "My calls". Approved by the owner on 2026-11-20 ("อนุมัติ"). Built, and merged into main as dc76f89 on 2026-11-21. This text is the design as it was approved; where the build differs, [ADR-011](../../adr/011-account-deletion.md) is the record: the cap on clips was settled at 18 for Workers Free, and step 4 below answers 204 without calling Apple when the row is gone, while the build also revokes, best effort and after the answer, the grant that a code sent with such a retry made.**
 
 Size: a project (one Worker route and a small Apple client, three new Worker secrets, a new flow in the app from the Settings row down to the Keychain, docs and one ADR; no migration, no new dependency).
 
