@@ -5,9 +5,17 @@
 # DATABASE_URL        the Neon connection string (pooled) of THAT environment's own database
 # JWT_SIGNING_SECRET  at least 32 random bytes: openssl rand -base64 48
 # APPLE_CLIENT_ID     the iOS bundle id, com.somsak.Marauders
+# APPLE_TEAM_ID       the 10-character Apple Developer team id (developer.apple.com, Membership details)
+# APPLE_KEY_ID        the 10-character id of the Sign in with Apple key (Keys)
+# APPLE_PRIVATE_KEY   the text of that key's downloaded AuthKey_<key id>.p8, line breaks written as \n; with the two
+#                     names above it lets "Delete Account" revoke the person's Apple grant, and without all three
+#                     deleting an Apple account answers 503 (docs/adr/011-account-deletion.md)
 # DEV_LOGIN_SECRET    turns on /v1/auth/dev for the Debug app on the Simulator: set it only for the environment the
 #                     Debug builds talk to (production while there is one backend, see ADR-010; staging once it exists)
 DATABASE_URL=
 JWT_SIGNING_SECRET=
 APPLE_CLIENT_ID=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+APPLE_PRIVATE_KEY=
 DEV_LOGIN_SECRET=

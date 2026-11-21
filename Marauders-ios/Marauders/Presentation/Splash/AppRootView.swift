@@ -27,7 +27,8 @@ struct AppRootView: View {
                 clipLikesViewModel: container.clipLikesViewModel,
                 followsViewModel: container.followsViewModel,
                 friendLocationsViewModel: container.friendLocationsViewModel,
-                languageModelsViewModel: container.languageModelsViewModel
+                languageModelsViewModel: container.languageModelsViewModel,
+                accountDeletionViewModel: container.accountDeletionViewModel
             )
             .opacity(isShowingSplash ? 0 : 1)
 

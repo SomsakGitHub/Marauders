@@ -8,7 +8,7 @@
     "deploy:staging": "node scripts/deploy.mjs --env staging",
     "deploy:production": "node scripts/deploy.mjs --env production",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run test:scripts && npm run test:health && npm run test:feed && npm run test:dubbed-audio && npm run test:dev-auth && npm run test:comments && npm run test:likes && npm run test:follows && npm run test:auth-refresh && npm run test:upload-idempotency",
+    "test": "npm run typecheck && npm run test:scripts && npm run test:health && npm run test:feed && npm run test:dubbed-audio && npm run test:dev-auth && npm run test:comments && npm run test:likes && npm run test:follows && npm run test:auth-refresh && npm run test:upload-idempotency && npm run test:account-deletion",
     "db:migrate": "node scripts/migrate.mjs",
     "video:hls": "node scripts/hls-transcode-r2.mjs",
     "db:purge": "node scripts/purge-videos.mjs",
@@ -21,7 +21,8 @@
     "test:likes": "node scripts/test-likes.mjs",
     "test:follows": "node scripts/test-follows.mjs",
     "test:auth-refresh": "node scripts/test-auth-refresh.mjs",
-    "test:upload-idempotency": "node scripts/test-upload-idempotency.mjs"
+    "test:upload-idempotency": "node scripts/test-upload-idempotency.mjs",
+    "test:account-deletion": "node scripts/test-account-deletion.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

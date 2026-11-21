@@ -29,6 +29,8 @@ Marauders/Presentation/Auth/SignInWithAppleGateView.swift|Complete test sign in 
 Marauders/Presentation/Debug/DebugLogView.swift|*  # the in-app log: the whole file is inside #if DEBUG, so its texts have no key
 Marauders/Presentation/Debug/CopyableStatusBanner.swift|View Log  # the link to the in-app log, inside #if DEBUG
 Marauders/Presentation/Main/ContentView.swift|Log  # the Log tab, inside #if DEBUG
+Marauders/Presentation/Settings/DeleteAccountSheet.swift|Confirm deletion (UI test)  # a button only a Debug build with UI-test mode has
+Marauders/Presentation/Settings/DeleteAccountSheet.swift|Delete test user  # a button only a Debug build has (a test user of the Simulator)
 
 # Names that are the same in every language.
 Marauders/Presentation/Settings/InterfaceLanguage.swift|Base  # the name of the Base localization, not a text

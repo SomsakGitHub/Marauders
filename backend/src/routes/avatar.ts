@@ -13,7 +13,7 @@ function publicMediaUrl(request: Request, objectKey: string): string {
 }
 
 /** Extracts the R2 object key from a stored avatar URL, when it is one of ours. */
-function objectKeyFromUrl(url: string | null): string | null {
+export function objectKeyFromUrl(url: string | null): string | null {
   if (!url) {
     return null;
   }

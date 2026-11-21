@@ -148,6 +148,11 @@ npm run db:migrate -- --env production              # ถามให้พิ�
    npx wrangler secret put DATABASE_URL
    npx wrangler secret put JWT_SIGNING_SECRET   # openssl rand -base64 48
    npx wrangler secret put APPLE_CLIENT_ID      # com.somsak.Marauders
+
+   # ลบบัญชี (ไม่บังคับ — ไม่ตั้งก็ใช้งานอื่นได้ปกติ แต่ DELETE /v1/users/me จะตอบ 503): วิธีสร้างกุญแจอยู่ในหัวข้อ "ลบบัญชี" ข้างล่าง
+   npx wrangler secret put APPLE_TEAM_ID        # Team ID 10 ตัวอักษร
+   npx wrangler secret put APPLE_KEY_ID         # Key ID 10 ตัวอักษรของกุญแจ Sign in with Apple
+   npx wrangler secret put APPLE_PRIVATE_KEY < /path/to/AuthKey_XXXXXXXXXX.p8   # ส่งไฟล์ .p8 ทาง stdin ค่าไม่ผ่านแชต ไม่ลง log ไม่ลง repo
    ```
 
    `DEV_LOGIN_SECRET` (≥ 32 ตัวอักษร เปิด `/v1/auth/dev` สำหรับ Simulator): **ตอนนี้ production มีและต้องมีต่อไป** เพราะ build Staging ของแอปบน Simulator คุยกับ production (ค่าเดียวกันเก็บใน `.dev.vars.production` ให้แอปอ่าน) — ใครถือ secret นี้สร้างผู้ใช้ `dev:<label>`, คลิปและคอมเมนต์ทดสอบบน backend จริงได้ (ล็อกอินเป็นผู้ใช้จริงไม่ได้ เพราะ `apple_sub` ของ dev ขึ้นต้น `dev:`) **เมื่อสร้าง staging แล้ว**ให้ย้ายไปตั้งเฉพาะ staging (อยู่ใน `.dev.vars.staging`) แล้วลบของ production: `npx wrangler secret delete DEV_LOGIN_SECRET` แล้วตรวจว่า `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://marauders-api.js6ctz7gtj.workers.dev/v1/auth/dev` ได้ `404` ใช้ `JWT_SIGNING_SECRET` คนละค่ากันระหว่าง environment (token ของอีกตัวจะถูกปฏิเสธ)
@@ -182,6 +187,40 @@ npm run db:migrate -- --env production              # ถามให้พิ�
 
 **ก่อน deploy Worker ที่รับ `Idempotency-Key` ต้องรัน migration `023` ก่อนเสมอ:** คำขอ `POST /v1/videos` ที่ส่ง header นี้จะอ่านและเขียนคอลัมน์ `feed_videos.upload_key` ถ้ายังไม่มีคอลัมน์ Worker จะตอบ 500 `upload lookup failed` ส่วนคำขอที่ไม่มี header ไม่แตะคอลัมน์นี้ (แอปรุ่นเก่าที่ไม่ส่ง header จึงไม่เสีย) ตรวจหลังรัน migration แบบอ่านอย่างเดียว: ต้องมีคอลัมน์ `feed_videos.upload_key` และ index `feed_videos_owner_upload_key_uidx` คอลัมน์ที่เพิ่มปล่อยไว้ได้เพราะ Worker รุ่นเก่าไม่แตะมัน ถ้าต้องการเอาออกจริง: `ALTER TABLE feed_videos DROP COLUMN upload_key` (index หายไปพร้อมกัน)
 
+### ลบบัญชี: กุญแจ Sign in with Apple และลำดับขึ้นระบบ
+
+`DELETE /v1/users/me` (Settings → Delete Account) ลบบัญชีและทุกอย่างในบัญชีทันที และตามกฎของ Apple ต้องให้ Apple เพิกถอน token ของ Sign in with Apple ด้วย (ไม่งั้น Marauders ยังค้างอยู่ในรายการ Sign in with Apple ของผู้ใช้) Worker จึงต้องมีกุญแจของ Sign in with Apple เพื่อลงชื่อ client secret ที่ Apple รับ ใช้ secret สามตัว **ไม่บังคับ**: ถ้าไม่ตั้ง Worker ทำงานอื่นได้ปกติ แต่เส้นทางนี้ตอบ `503` สำหรับบัญชี Apple และแอปบอกว่า "ตอนนี้ยังลบบัญชีไม่ได้" (บัญชีทดสอบ `dev:` ไม่ใช้ Apple จึงลบได้เสมอ) เหตุผลและทางเลือกอยู่ใน [ADR-011](../docs/adr/011-account-deletion.md)
+
+| Secret | ค่า | หาได้จาก |
+|---|---|---|
+| `APPLE_TEAM_ID` | Team ID 10 ตัวอักษร | developer.apple.com/account → **Membership details** (หรือมุมขวาบนของหน้า account) |
+| `APPLE_KEY_ID` | Key ID 10 ตัวอักษรของกุญแจ | หน้ารายละเอียดของกุญแจที่สร้างข้างล่าง |
+| `APPLE_PRIVATE_KEY` | เนื้อไฟล์ `.p8` ทั้งไฟล์ (ขึ้นต้น `-----BEGIN PRIVATE KEY-----`) | ไฟล์ที่ดาวน์โหลดตอนสร้างกุญแจ |
+
+`client_id` ใน client secret คือ `APPLE_CLIENT_ID` ที่มีอยู่แล้ว (bundle id `com.somsak.Marauders`) Worker ลงชื่อ client secret ใหม่ทุกคำขอ (ES256, อายุ 5 นาที) ไม่เก็บอะไรไว้
+
+**สร้างกุญแจ** (ทำครั้งเดียว โดยเจ้าของ Apple Developer account):
+
+1. developer.apple.com/account → **Certificates, Identifiers & Profiles** → **Keys** → ปุ่ม **+**
+2. ตั้งชื่อ (เช่น `Marauders Sign in with Apple`) ติ๊ก **Sign in with Apple** แล้วกด **Configure** → เลือก **Primary App ID** เป็น App ID ของแอป (`com.somsak.Marauders`) → Save → Continue → Register — กุญแจต้องผูกกับ App ID ของแอป ไม่งั้น Apple ตอบ `invalid_client`
+3. หน้าถัดไปแสดง **Key ID** (จดไว้ = `APPLE_KEY_ID`) กด **Download** เพื่อได้ `AuthKey_<Key ID>.p8` — **ดาวน์โหลดได้ครั้งเดียว** ถ้าหายต้องเพิกถอนกุญแจแล้วสร้างใหม่ เก็บไฟล์ไว้ที่ปลอดภัยนอก repo ห้าม commit และห้ามส่งผ่านแชต
+4. ถ้ากุญแจรั่ว: เพิกถอนใน **Keys** แล้วสร้างใหม่ ตั้ง secret ทั้งสองตัวที่เกี่ยวข้อง (`APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`) ใหม่
+
+**ตั้ง secret บน production** ด้วย `wrangler secret put` (ตัวอย่างอยู่ในหัวข้อ 2 ขั้น 5) โดยส่งไฟล์ `.p8` ทาง stdin ส่วนใน `.dev.vars.<env>` (ใช้กับ `npm run dev` และ `wrangler secret bulk`) ให้เขียนกุญแจเป็นบรรทัดเดียวโดยใช้ `\n` แทนการขึ้นบรรทัด — Worker รับทั้งสองแบบ
+
+**ลำดับขึ้นระบบ** — ทีละขั้น ต้องรอเจ้าของสั่งทุกขั้น:
+
+| ขั้น | ทำอะไร |
+|---|---|
+| R0 (ไม่บังคับ, อ่านอย่างเดียว) | นับแถว `feed_videos` ใน production ที่ `stream_url` ลงท้าย `.m3u8` — ตัดสินว่า check A ต้องมีคลิป HLS ทดสอบไหม |
+| R1 secret และเพดาน | เจ้าของสร้างกุญแจแล้วตั้งสาม secret บน production (ข้างบน) และบอกว่า Worker อยู่ Cloudflare แผนไหน จากนั้นอ่านเพดาน subrequest ปัจจุบันของแผนนั้นในเอกสารของ Cloudflare แล้วกำหนด `MAX_CLIPS_PER_DELETION` (ตอนนี้ 15 ใน `backend/src/routes/deleteAccount.ts` — ยังไม่ได้คำนวณจากแผนจริง) พร้อมส่วนเผื่อ และ commit พร้อมเหตุผล |
+| R2 merge และ deploy | merge; จด version ที่ใช้งานอยู่ด้วย `npx wrangler deployments list` (เป็นเป้า rollback); `npm run deploy:production -- --confirm production` (script รันเทสต์และเช็ค login ของ Cloudflare เอง) **ไม่มี migration** Rollback: `npx wrangler rollback <version id>` — เส้นทางกลับเป็น `405` และแอปแสดง "ตอนนี้ยังลบบัญชีไม่ได้" |
+| R3 check A (ไม่ใช้ Apple) | บน Simulator ด้วย build `Marauders Staging` ล็อกอินเป็นผู้ใช้ทดสอบ `dev:` อัปโหลดคลิปทดสอบ 1–2 คลิป (กับคลิป HLS 1 คลิปถ้า R0 พบว่ามี) แล้ว Settings → Delete Account → **Delete test user** ต้องได้ "Your account was deleted", คลิปหายจาก `GET /v1/feed`, key ของคลิปใน R2 หาย และแถว `app_users` หาย (ตรวจแบบอ่านอย่างเดียว) นี่คือหลักฐานจริงว่า `DELETE` ที่มี JSON body ผ่าน URLSession, Cloudflare และ Worker ครบ (ถ้า body ถูกตัดจะได้ `400`; ทางสำรองคือเปลี่ยนเป็น `POST /v1/users/me/delete`) |
+| R4 check B (Apple จริง) | บน iPhone กับ Apple ID ที่ยอมเสียไป ลบบัญชีผ่านหน้าจอ Apple แล้วเปิด การตั้งค่า → Apple ID → Sign in with Apple ต้องไม่เห็น Marauders อีก; ล็อกอินใหม่ต้องได้บัญชีใหม่ที่ว่างเปล่า และ Marauders จะกลับมาอยู่ในรายการนั้นอีกครั้ง (นี่คือเหตุที่ Worker เพิกถอนสิทธิ์ที่การยืนยันซ้ำหลัง `204` หายสร้างขึ้นด้วย: การยืนยันกับ Apple หลังเพิกถอนสร้างสิทธิ์ใหม่ ถ้าไม่เห็น Marauders กลับมา สมมติฐานนั้นไม่จริงและเส้นทางนั้นไม่จำเป็น) นี่คือหลักฐานเดียวของการเพิกถอน เพราะ Apple ตอบ `200` ไม่ว่าจะได้รับ token อะไร |
+| R5 TestFlight | หลังผ่าน check A และ B เท่านั้น เจ้าของเริ่ม Jenkins แล้วกด Build Now |
+
+ลำดับมีผล: Worker ที่ยังไม่มีเส้นทางนี้ตอบ `405` และ Worker ที่มีเส้นทางแต่ยังไม่มี secret ตอบ `503` สำหรับบัญชี Apple ทุกบัญชี ทั้งสองกรณีแอปบอกว่า "ตอนนี้ยังลบบัญชีไม่ได้" App Review จะเจอข้อความนี้ถ้า build ไปถึงมือ reviewer ก่อนตั้ง secret จึงต้องทำ R1 ก่อน R2 และทำ R2 ถึง R4 ให้ครบก่อน R5
+
 ### ตรวจก่อน deploy
 
 ```bash
@@ -197,6 +236,7 @@ npm run test:comments
 npm run test:likes
 npm run test:auth-refresh
 npm run test:upload-idempotency
+npm run test:account-deletion
 ```
 
 ทั้งหมดทำงานออฟไลน์ (database เป็นของปลอมในเครื่อง) นอกจากนี้มี `scripts/test-audio-assessment.mjs` (ไม่มี npm script รันด้วย `node scripts/test-audio-assessment.mjs`, ทำงานในเครื่อง) ส่วน `scripts/test-upload.mjs` **ไม่ใช่เช็คก่อน deploy** — ยิง POST ไฟล์ปลอมไปที่ URL ของ environment ที่เลือกโดยไม่มี Authorization จึงได้ 401 (ต้องใส่ `--env` เสมอ ตอนนี้จึงเป็น `--env production` ซึ่งต้องพิมพ์ phrase `production`)
@@ -217,7 +257,7 @@ npm run video:hls -- --env staging <feed_videos.id> # สร้าง HLS แล
 
 ```bash
 cd backend
-cp .dev.vars.example .dev.vars.staging   # ใส่ DATABASE_URL (ของ staging), JWT_SIGNING_SECRET, APPLE_CLIENT_ID, DEV_LOGIN_SECRET
+cp .dev.vars.example .dev.vars.staging   # ใส่ DATABASE_URL (ของ staging), JWT_SIGNING_SECRET, APPLE_CLIENT_ID, DEV_LOGIN_SECRET (APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY ใช้ตอนลบบัญชีเท่านั้น)
 npm run dev                              # wrangler dev --env staging; พอร์ตอื่น: npm run dev -- --port 8788
 ```
 

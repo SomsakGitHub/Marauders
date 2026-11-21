@@ -20,9 +20,11 @@ struct ContentView: View {
     let followsViewModel: UserFollowsViewModel
     let friendLocationsViewModel: FriendLocationsViewModel
     let languageModelsViewModel: LanguageModelsViewModel
+    let accountDeletionViewModel: AccountDeletionViewModel
 
     @State private var showingSignIn = false
     @State private var signInDismissalID = 0
+    @State private var showingDeleteAccount = false
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -82,7 +84,8 @@ struct ContentView: View {
             SettingsView(
                 languageModels: languageModelsViewModel,
                 friendLocations: friendLocationsViewModel,
-                isSignedIn: authViewModel.isSignedIn
+                isSignedIn: authViewModel.isSignedIn,
+                onDeleteAccount: { showingDeleteAccount = true }
             )
             .tabItem {
                 Label("Settings", systemImage: "gearshape.fill")
@@ -157,6 +160,25 @@ struct ContentView: View {
                 onClose: { router.publicProfileRoute = nil }
             )
         }
+        // Presented from here, not from Settings: the session ends when the account is deleted, and Settings' row goes
+        // with it, but the confirmation has to stay until the viewer taps Done.
+        .sheet(isPresented: $showingDeleteAccount, onDismiss: { accountDeletionViewModel.reset() }) {
+            DeleteAccountSheet(
+                viewModel: accountDeletionViewModel,
+                isTestUser: signedInAsTestUser,
+                onClose: { showingDeleteAccount = false }
+            )
+        }
+    }
+
+    /// A test user of the Simulator's debug sign in has no Apple ID to confirm a deletion with, so a Debug build offers
+    /// it a button of its own. A Release build has no test users.
+    private var signedInAsTestUser: Bool {
+        #if DEBUG
+            authViewModel.isSignedInAsTestUser
+        #else
+            false
+        #endif
     }
 
     private var savedSessionRestore: SavedSessionRestore {
@@ -179,7 +201,8 @@ struct ContentView: View {
         clipLikesViewModel: container.clipLikesViewModel,
         followsViewModel: container.followsViewModel,
         friendLocationsViewModel: container.friendLocationsViewModel,
-        languageModelsViewModel: container.languageModelsViewModel
+        languageModelsViewModel: container.languageModelsViewModel,
+        accountDeletionViewModel: container.accountDeletionViewModel
     )
     .environment(\.dubbingViewModelFactory, DubbingViewModelFactory(make: { container.makeDubbingViewModel() }))
     .environment(\.listeningLanguageAvailability, container.listeningLanguageAvailability)

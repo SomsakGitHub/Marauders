@@ -17,6 +17,8 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     private let lifetime: TimeInterval
     private let validate: @Sendable (URL) async -> Bool
     private var isStoring = false
+    /// Set by `removeAll()`: from then on this cache holds nothing and takes nothing.
+    private var isRemoved = false
 
     init(
         directory: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -91,8 +93,15 @@ actor FeedStartupCache: FeedStartupCaching, FeedMediaCaching {
         }
     }
 
+    /// Removes the folder with every clip and the list of them, and keeps this cache empty for good: a `store` that comes
+    /// later returns at once, and one whose download is still running finds no folder to publish its file into.
+    func removeAll() {
+        isRemoved = true
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     func store(_ videos: [FeedVideo]) async {
-        guard !isStoring, !Task.isCancelled else { return }
+        guard !isStoring, !isRemoved, !Task.isCancelled else { return }
         isStoring = true
         pruneFiles()
         defer { isStoring = false; pruneFiles() }
@@ -244,7 +253,7 @@ private final class FeedCacheDownloader: NSObject, URLSessionDownloadDelegate, @
 
 /// Caches the feed the server sent, kept apart for each session.
 @MainActor
-final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
+final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching, FeedStartupCacheClearing {
     private var caches: [String: FeedStartupCache] = [:]
     private let directory: URL
     private let tokenProvider: @MainActor () -> String?
@@ -283,4 +292,16 @@ final class SessionFeedStartupCache: FeedStartupCaching, FeedMediaCaching {
     func invalidate(_ remote: URL) async { await sessionCache().invalidate(remote) }
     func cachedVideos() async -> [FeedVideo] { await sessionCache().cachedVideos() }
     func store(_ videos: [FeedVideo]) async { await sessionCache().store(videos) }
+
+    /// Removes the clips of every account and of the guest, and the folder that held them: deleting the account must not
+    /// leave what it saw on this iPhone. The caches that are open go first (they refuse new files from then on), then
+    /// the whole folder; a `store` after this starts a new cache in a new folder.
+    func removeAll() async {
+        let open = Array(caches.values)
+        caches.removeAll()
+        for cache in open {
+            await cache.removeAll()
+        }
+        try? FileManager.default.removeItem(at: directory)
+    }
 }

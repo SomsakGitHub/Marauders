@@ -1231,6 +1231,114 @@ final class MaraudersUITests: XCTestCase {
         XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
     }
 
+    // MARK: - Delete Account
+
+    /// Settings builds its rows as they come into view, and the Account section is its last: swipes up until the Delete
+    /// Account row can be tapped. Nil when the end of the list was reached without it.
+    @MainActor
+    private func revealDeleteAccountRow(_ app: XCUIApplication) -> XCUIElement? {
+        let row = app.buttons["settings.deleteAccount"]
+        for _ in 0..<5 {
+            if row.exists, row.isHittable { return row }
+            app.swipeUp()
+        }
+        return row.exists && row.isHittable ? row : nil
+    }
+
+    /// Opens the deletion sheet from Settings. The viewer of a default `UITEST` launch is signed in.
+    @MainActor
+    private func openDeleteAccountSheet(_ app: XCUIApplication) throws {
+        openSettings(app)
+        let row = try XCTUnwrap(revealDeleteAccountRow(app), app.debugDescription)
+        row.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["deleteAccount.sheet"].waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    /// The Account section is for a viewer who has an account to delete: a guest's Settings has no such row.
+    @MainActor
+    func testDeleteAccountRowShowsOnlyWhenSignedIn() throws {
+        let app = launchApp()
+        openSettings(app)
+        XCTAssertNotNil(revealDeleteAccountRow(app), "a signed-in viewer sees the row: \(app.debugDescription)")
+        app.terminate()
+
+        let guest = launchApp(extraArguments: ["UITEST_GUEST"])
+        openSettings(guest)
+        XCTAssertTrue(guest.descendants(matching: .any)["settings.root"].waitForExistence(timeout: 15))
+        // To the end of the list, so a row that is only not built yet cannot pass for one that is not there.
+        for _ in 0..<3 { guest.swipeUp() }
+        XCTAssertFalse(guest.buttons["settings.deleteAccount"].exists, guest.debugDescription)
+    }
+
+    @MainActor
+    func testDeleteAccountSheetOpensAndCancelClosesIt() throws {
+        let app = launchApp()
+        try openDeleteAccountSheet(app)
+        attachFeedScreenshot(app, name: "delete-account-sheet")
+
+        let cancel = app.buttons["deleteAccount.cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+        cancel.tap()
+
+        XCTAssertTrue(waitUntilGone(app.descendants(matching: .any)["deleteAccount.sheet"]), app.debugDescription)
+        XCTAssertTrue(app.descendants(matching: .any)["settings.root"].exists, "Settings is still there")
+    }
+
+    /// Apple's sheet cannot be driven by a test, so a Debug build in UI-test mode has a plain button in its place (same
+    /// identifier). The deletion takes a moment, so the progress is on screen, and the viewer ends signed out.
+    @MainActor
+    func testConfirmingTheDeletionSignsTheViewerOutAndShowsTheConfirmation() throws {
+        let app = launchApp()
+        try openDeleteAccountSheet(app)
+        let confirm = app.buttons["deleteAccount.appleButton"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), app.debugDescription)
+        confirm.tap()
+
+        let done = app.buttons["deleteAccount.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Your account was deleted"].exists, app.debugDescription)
+        attachFeedScreenshot(app, name: "delete-account-deleted")
+        done.tap()
+        XCTAssertTrue(waitUntilGone(app.descendants(matching: .any)["deleteAccount.sheet"]), app.debugDescription)
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 10), app.debugDescription)
+        profileTab.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["profile.signInRequired"].waitForExistence(timeout: 15),
+            "the viewer is signed out: \(app.debugDescription)")
+        XCTAssertFalse(app.descendants(matching: .any)["profile.root"].exists)
+    }
+
+    /// `UITEST_ACCOUNT_DELETION_FAILS`: the deletion answers that it could not finish. The sheet says so, offers the
+    /// button again, and the viewer is still signed in.
+    @MainActor
+    func testAFailedDeletionShowsTheMessageAndKeepsTheSession() throws {
+        let app = launchApp(extraArguments: ["UITEST_ACCOUNT_DELETION_FAILS"])
+        try openDeleteAccountSheet(app)
+        let confirm = app.buttons["deleteAccount.appleButton"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), app.debugDescription)
+        confirm.tap()
+
+        let message = app.staticTexts["deleteAccount.error"]
+        XCTAssertTrue(message.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertEqual(message.label, "We couldn't finish deleting your account. Please try again.")
+        XCTAssertTrue(app.buttons["deleteAccount.appleButton"].exists, "the viewer can try again")
+        attachFeedScreenshot(app, name: "delete-account-failed")
+
+        app.buttons["deleteAccount.cancel"].tap()
+        XCTAssertTrue(waitUntilGone(app.descendants(matching: .any)["deleteAccount.sheet"]), app.debugDescription)
+
+        let profileTab = app.tabBars.buttons["Profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 10), app.debugDescription)
+        profileTab.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["profile.root"].waitForExistence(timeout: 15),
+            "the viewer is still signed in: \(app.debugDescription)")
+        XCTAssertFalse(app.descendants(matching: .any)["profile.signInRequired"].exists)
+    }
+
     /// Settings is a tab of its own, or under More when the tab bar has no room for it (Staging builds add Log).
     @MainActor
     private func openSettings(_ app: XCUIApplication) {

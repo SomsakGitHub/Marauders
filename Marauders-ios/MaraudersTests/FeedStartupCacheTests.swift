@@ -233,4 +233,120 @@ struct FeedStartupCacheTests {
         await store.invalidate(next[0].streamURL)
         #expect(await store.cachedVideos() == [next[1]])
     }
+
+    // MARK: Removing everything (deleting the account)
+
+    @Test func removingAllLeavesNoFileAndALaterStoreWorksAgain() async throws {
+        let directory = folder()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let token = StoredToken(TestAccessToken.make(subject: "account-a", expiresIn: 3600))
+        let scoped = sessionCache(directory, token: token)
+        let first = clip(1)
+        await scoped.store([first])
+        #expect(await scoped.cachedVideos() == [first])
+        let guestToken = StoredToken()
+        let otherSession = sessionCache(directory, token: guestToken)
+        await otherSession.store([clip(2)])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path).count == 2)
+
+        await scoped.removeAll()
+
+        #expect(!FileManager.default.fileExists(atPath: directory.path), "the whole folder of the cache is gone")
+        #expect(await scoped.cachedVideos().isEmpty)
+        #expect(await scoped.localURL(for: first.streamURL) == nil)
+        #expect(await otherSession.cachedVideos().isEmpty, "the folder of the guest went with it")
+
+        let second = clip(3)
+        await scoped.store([second])
+        #expect(await scoped.cachedVideos() == [second], "the cache is usable again, with nothing of the old clips")
+        #expect(await scoped.localURL(for: first.streamURL) == nil)
+    }
+
+    /// Account deletion is not the only thing that may find the folder missing: nothing to remove is not an error.
+    @Test func removingAllWhenThereIsNothingIsFine() async {
+        let directory = folder()
+        let scoped = sessionCache(directory, token: StoredToken(TestAccessToken.make(subject: "a", expiresIn: 3600)))
+
+        await scoped.removeAll()
+
+        #expect(!FileManager.default.fileExists(atPath: directory.path))
+        #expect(await scoped.cachedVideos().isEmpty)
+    }
+
+    /// A cache that was removed stays removed: a `store` that still reaches it writes nothing.
+    @Test func aStoreAfterRemovingAllWritesNothing() async {
+        let directory = folder()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = cache(directory)
+        await store.store([clip(1)])
+        #expect(FileManager.default.fileExists(atPath: directory.path))
+
+        await store.removeAll()
+        await store.store([clip(2)])
+
+        #expect(!FileManager.default.fileExists(atPath: directory.path), "no folder, no manifest, no clip")
+        #expect(await store.cachedVideos().isEmpty)
+    }
+
+    /// The download of a clip can still be on its way when the account is deleted. When it arrives there is no folder
+    /// to publish it into, and nothing of the clip may be on disk afterwards.
+    @Test(.timeLimit(.minutes(1)))
+    func aStoreStillDownloadingWhenEverythingIsRemovedLeavesNothingOnDisk() async throws {
+        let directory = folder()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let gate = DownloadGate()
+        let scoped = SessionFeedStartupCache(
+            directory: directory, tokenProvider: { "account-a-session" },
+            makeCache: { scopeDirectory in
+                FeedStartupCache(
+                    directory: scopeDirectory,
+                    download: { request, _ in
+                        await gate.hold()
+                        let temporary = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                        try Data([1, 2, 3]).write(to: temporary)
+                        let response = HTTPURLResponse(
+                            url: request.url!, statusCode: 200, httpVersion: nil,
+                            headerFields: ["Content-Type": "video/mp4"])!
+                        return (temporary, response)
+                    }, maxFileBytes: 1024, lifetime: 3600,
+                    validate: { url in (try? Data(contentsOf: url)) == Data([1, 2, 3]) })
+            })
+
+        let storing = Task { await scoped.store([clip(1)]) }
+        await gate.waitUntilHeld()
+        await scoped.removeAll()
+        await gate.release()
+        await storing.value
+
+        #expect(!FileManager.default.fileExists(atPath: directory.path), "the clip was not published after all")
+        #expect(await scoped.cachedVideos().isEmpty)
+    }
+}
+
+/// Holds a download until the test lets it go: `waitUntilHeld()` returns once a download is waiting, `release()` lets
+/// it (and any later one) finish.
+private actor DownloadGate {
+    private var isHeld = false
+    private var isReleased = false
+    private var heldWaiter: CheckedContinuation<Void, Never>?
+    private var releaseWaiter: CheckedContinuation<Void, Never>?
+
+    func hold() async {
+        isHeld = true
+        heldWaiter?.resume()
+        heldWaiter = nil
+        if isReleased { return }
+        await withCheckedContinuation { releaseWaiter = $0 }
+    }
+
+    func waitUntilHeld() async {
+        if isHeld { return }
+        await withCheckedContinuation { heldWaiter = $0 }
+    }
+
+    func release() {
+        isReleased = true
+        releaseWaiter?.resume()
+        releaseWaiter = nil
+    }
 }

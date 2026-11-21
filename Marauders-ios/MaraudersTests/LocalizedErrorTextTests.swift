@@ -185,10 +185,39 @@ struct LocalizedErrorTextTests {
             "Couldn’t convert video to MP4"
         ),
         ("VideoExportError.exportFailed", VideoExportError.exportFailed.errorDescription, "Video conversion failed"),
+
+        (
+            "AccountDeletionError.signInRequired", AccountDeletionError.signInRequired.errorDescription,
+            "Your session has ended. Please sign in again."
+        ),
+        (
+            "AccountDeletionError.appleNotConfirmed", AccountDeletionError.appleNotConfirmed.errorDescription,
+            "Apple couldn't confirm it's you. Please try again."
+        ),
+        (
+            "AccountDeletionError.wrongAppleAccount", AccountDeletionError.wrongAppleAccount.errorDescription,
+            "That isn't the Apple ID you signed in with."
+        ),
+        (
+            "AccountDeletionError.tooManyClips", AccountDeletionError.tooManyClips(limit: 15).errorDescription,
+            "You have more than 15 clips. Delete some from your Profile first, then try again."
+        ),
+        (
+            "AccountDeletionError.rateLimited", AccountDeletionError.rateLimited.errorDescription,
+            "Too many attempts. Please try again later."
+        ),
+        (
+            "AccountDeletionError.notAvailable", AccountDeletionError.notAvailable.errorDescription,
+            "Account deletion isn't available right now. Please try again later."
+        ),
+        (
+            "AccountDeletionError.couldNotFinish", AccountDeletionError.couldNotFinish.errorDescription,
+            "We couldn't finish deleting your account. Please try again."
+        ),
     ]
 
     @Test func everyErrorKeepsItsEnglishText() {
-        #expect(Self.rows.count == 52)
+        #expect(Self.rows.count == 59)
         for row in Self.rows {
             #expect(row.actual == row.expected, Comment(rawValue: row.label))
         }

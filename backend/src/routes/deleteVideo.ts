@@ -6,7 +6,7 @@ import { FeedValidationError, parseVideoId } from "../validation";
 const MEDIA_PATH = "/v1/media/";
 
 /** Extracts the R2 object key from a stored public stream URL. */
-function objectKeyFromStreamUrl(streamUrl: string): string | null {
+export function objectKeyFromStreamUrl(streamUrl: string): string | null {
   const index = streamUrl.indexOf(MEDIA_PATH);
   if (index < 0) {
     return null;
