@@ -269,6 +269,84 @@ describe("POST /v1/videos with an Idempotency-Key", () => {
     assert.deepEqual(bucket.deletes, bucket.puts, "the object this request wrote is gone");
   });
 
+  /** An insert that throws the way a lost connection does: nothing in the error says whether the database committed. */
+  function insertThatThrows(onInsert?: (query: Query) => void): (query: Query) => never {
+    return (query) => {
+      onInsert?.(query);
+      throw new Error("connection reset");
+    };
+  }
+
+  it("anInsertThatCommittedButThrewKeepsItsObjectAndAnswers201WithItsClip", async () => {
+    // The first lookup finds nothing and the insert throws, yet the row did commit: the lookup after the throw finds this
+    // request's clip, told apart from another request's by its stream URL (the first value of the insert).
+    let streamUrl = "";
+    const lookups: Array<() => unknown[]> = [() => [], () => [{ ...clipRow(), stream_url: streamUrl }]];
+    script({
+      lookup: () => (lookups.shift() ?? (() => []))(),
+      insert: insertThatThrows((query) => {
+        streamUrl = String(query.values[0]);
+      }),
+    });
+    const { env, bucket } = makeEnv();
+    const res = await worker.fetch(await uploadRequest({ key: KEY }), env);
+    assert.equal(res.status, 201);
+    assert.equal(((await res.json()) as ItemBody).item.id, CLIP_ID);
+    assert.equal(bucket.puts.length, 1);
+    assert.deepEqual(bucket.deletes, [], "the file of a stored clip stays");
+    assert.equal(recorded(/v\.upload_key = \?::uuid/).length, 2, "the key was looked up again after the insert threw");
+  });
+
+  it("anInsertThatThrewWithoutCommittingDeletesItsObjectAfterLookingTheKeyUp", async () => {
+    script({ lookup: () => [], insert: insertThatThrows() });
+    const { env, bucket } = makeEnv();
+    const res = await worker.fetch(await uploadRequest({ key: KEY }), env);
+    assert.equal(res.status, 500);
+    assert.deepEqual(await res.json(), { error: "database write failed: connection reset" });
+    assert.equal(bucket.puts.length, 1);
+    assert.deepEqual(bucket.deletes, bucket.puts, "no row points to the file, so it goes");
+    assert.equal(recorded(/v\.upload_key = \?::uuid/).length, 2, "the key was looked up again before the file went");
+  });
+
+  it("anInsertThatThrewWhileAnotherRequestHoldsTheKeyDeletesItsObjectAndAnswersWithThatClip", async () => {
+    const lookups: unknown[][] = [[], [{ ...clipRow(), id: WINNER_ID }]];
+    script({ lookup: () => lookups.shift() ?? [], insert: insertThatThrows() });
+    const { env, bucket } = makeEnv();
+    const res = await worker.fetch(await uploadRequest({ key: KEY }), env);
+    assert.equal(res.status, 200);
+    assert.equal(((await res.json()) as ItemBody).item.id, WINNER_ID);
+    assert.equal(bucket.puts.length, 1);
+    assert.deepEqual(bucket.deletes, bucket.puts, "the file this request wrote is not the stored clip's");
+  });
+
+  it("anInsertThatThrewAndALookupThatFailsKeepTheObject", async () => {
+    const lookups: Array<() => unknown[]> = [
+      () => [],
+      () => {
+        throw new Error("connection refused secret-detail");
+      },
+    ];
+    script({ lookup: () => (lookups.shift() ?? (() => []))(), insert: insertThatThrows() });
+    const { env, bucket } = makeEnv();
+    const res = await worker.fetch(await uploadRequest({ key: KEY }), env);
+    assert.equal(res.status, 500);
+    const text = JSON.stringify(await res.json());
+    assert.match(text, /database write failed: connection reset/);
+    assert.doesNotMatch(text, /secret-detail/, "the lookup's error is logged, never answered");
+    assert.equal(bucket.puts.length, 1);
+    assert.deepEqual(bucket.deletes, [], "nobody knows whether a row points to the file, and a stray file is invisible");
+  });
+
+  it("anUploadWithoutAKeyStillDeletesItsObjectWhenTheInsertThrows", async () => {
+    script({ insert: insertThatThrows() });
+    const { env, bucket } = makeEnv();
+    const res = await worker.fetch(await uploadRequest(), env);
+    assert.equal(res.status, 500);
+    assert.equal(bucket.puts.length, 1);
+    assert.deepEqual(bucket.deletes, bucket.puts);
+    assert.equal(recorded(/upload_key/).length, 0, "an upload with no key looks nothing up");
+  });
+
   it("aKeyBelongsToTheAccountThatSentIt", async () => {
     // Only OWNER holds KEY: the lookup finds the clip for OWNER's id and nothing for anyone else's.
     script({

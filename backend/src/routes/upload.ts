@@ -3,6 +3,7 @@ import {
   findFeedVideoByUploadKey,
   insertFeedVideo,
   UploadKeyConflictError,
+  type FeedItemJson,
 } from "../db/feed";
 import {
   MP4_FASTSTART_MAX_BYTES,
@@ -120,24 +121,41 @@ export async function handleVideoUpload(
       );
     } catch (databaseError) {
       console.error("database insert failed", databaseError);
+      const detail =
+        databaseError instanceof Error ? databaseError.message : "unknown";
+
+      // What does the database hold under this key now? After a conflict, another request's clip. After any other failure it
+      // may be this request's own clip: an insert can commit and only its answer be lost, and then the file must stay.
+      let stored: FeedItemJson | null = null;
+      let lookupFailed = false;
+      if (uploadKey !== null) {
+        try {
+          stored = await findFeedVideoByUploadKey(env.DATABASE_URL, ownerUserId, uploadKey);
+        } catch (lookupError) {
+          console.error("upload key lookup failed", lookupError);
+          lookupFailed = true;
+        }
+      }
+
+      if (stored !== null && stored.streamURL === streamUrl) {
+        // The insert committed. Keep its file and answer as the insert would have.
+        return jsonOk({ item: stored }, 201);
+      }
+      if (lookupFailed && !(databaseError instanceof UploadKeyConflictError)) {
+        // Nobody knows whether the row committed. A file no row points to is invisible; a row whose file is gone is a broken
+        // clip in everyone's feed. So the file stays. (After a conflict the insert is known to have stored nothing.)
+        return jsonError(500, `database write failed: ${detail.slice(0, 160)}`);
+      }
+
       try {
         await env.VIDEOS.delete(objectKey);
       } catch {
         // best-effort rollback
       }
-      if (databaseError instanceof UploadKeyConflictError && uploadKey !== null) {
+      if (stored !== null) {
         // A request with the same key stored its clip first: answer with that clip.
-        try {
-          const winner = await findFeedVideoByUploadKey(env.DATABASE_URL, ownerUserId, uploadKey);
-          if (winner) {
-            return jsonOk({ item: winner }, 200);
-          }
-        } catch (lookupError) {
-          console.error("upload key lookup failed", lookupError);
-        }
+        return jsonOk({ item: stored }, 200);
       }
-      const detail =
-        databaseError instanceof Error ? databaseError.message : "unknown";
       return jsonError(500, `database write failed: ${detail.slice(0, 160)}`);
     }
 
