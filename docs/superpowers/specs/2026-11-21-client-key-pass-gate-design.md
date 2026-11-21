@@ -1,6 +1,6 @@
 # The app runs only with the pass: a gate on `MARAUDERS_CLIENT_KEY`
 
-Date: 2026-11-21. Status: **approved by the owner on 2026-11-21 ("อนุมัติ A"), as proposed in chat.** Size: a small change (one rule, one gate, one screen with two Thai strings, the project value, tests, docs). It amends `2026-11-21-injected-build-value-design.md`, which is built and uncommitted.
+Date: 2026-11-21. Status: **approved by the owner on 2026-11-21 ("อนุมัติ A"), as proposed in chat.** Built and committed as `0123f0b` on 2026-11-21 (pushed the same day). Size: a small change (one rule, one gate, one screen with two Thai strings, the project value, tests, docs). It amends `2026-11-21-injected-build-value-design.md`; both were built and committed together as `0123f0b`.
 
 ## Intent and why
 

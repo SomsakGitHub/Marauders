@@ -1,6 +1,6 @@
 # One build-time value: Jenkins injects it, a mock default lets Xcode run
 
-Date: 2026-11-21. Status: **approved by the owner on 2026-11-21 ("อนุมัติ"), as proposed in chat.** Size: a small change (one build setting, one reader, one fastlane line, one Jenkinsfile line, docs).
+Date: 2026-11-21. Status: **approved by the owner on 2026-11-21 ("อนุมัติ"), as proposed in chat.** Built and committed as `0123f0b` on 2026-11-21 (pushed the same day). Size: a small change (one build setting, one reader, one fastlane line, one Jenkinsfile line, docs).
 
 > **Amended later on 2026-11-21:** the owner then required that the app run only when the value is exactly the pass `run by pass` (`MARAUDERS_CLIENT_KEY ต้องเป็น "run by pass" เท่านั้น แอปถึงจะ run ได้`). That reverses the non-goal "checking it", replaces the mock default and fixes the Jenkins credential's value: see `2026-11-21-client-key-pass-gate-design.md`. The rest of this design stands.
 
@@ -8,7 +8,7 @@ Date: 2026-11-21. Status: **approved by the owner on 2026-11-21 ("อนุม�
 
 The owner, under "CI/CD and Infrastructure": simulate one value in the front end (the iOS app); Jenkins injects it when it runs; during testing the same value goes into the app so it runs from Xcode first (`CI/CD และ Infrastructure ความตั้งใจคือ อยากจำลองค่าขึ้นมา 1 ค่าในหน้าบ้าน ให้ Jenkins inject ค่าให้ตอนรัน แต่ช่วงทดสอบก็สามารถเอาค่านั้นมาใส่หน้าบ้านเพื่อให้แอป run บน xcode ได้ก่อน`).
 
-The reason behind it was not stated. My reading, for the owner to correct: have a working path for a build-time value from Jenkins into the app, and a plain Run from Xcode that never needs Jenkins, before any real value depends on it. This is the front-end half of the client secret the owner cancelled on 2026-11-21 (branch `worktree-client-secret`; see `2026-11-21-client-key-design.md`). It has no Worker half and does not revive that work.
+The reason behind it was not stated. My reading, for the owner to correct: have a working path for a build-time value from Jenkins into the app, and a plain Run from Xcode that never needs Jenkins, before any real value depends on it. This is the front-end half of the client secret the owner cancelled on 2026-11-21 (branch `worktree-client-secret`; see `2026-11-21-client-key-design.md`, which was never committed and is not on GitHub). It has no Worker half and does not revive that work.
 
 An iOS app has no server environment at run time, so "Jenkins injects it" means: Jenkins hands the value to the build, and the build bakes it into the app's Info.plist.
 

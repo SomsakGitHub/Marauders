@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 6.4 / Xcode 27.2 (SwiftUI, Swift Testing, iOS 27.0), a string catalog, `node:test` script tests, Markdown docs.
 
-**Spec:** `docs/superpowers/specs/2026-11-21-client-key-pass-gate-design.md` (approved 2026-11-21, "อนุมัติ A"; read it first). It amends `docs/superpowers/specs/2026-11-21-injected-build-value-design.md`, whose build is uncommitted in the same tree.
+**Spec:** `docs/superpowers/specs/2026-11-21-client-key-pass-gate-design.md` (approved 2026-11-21, "อนุมัติ A"; read it first). It amends `docs/superpowers/specs/2026-11-21-injected-build-value-design.md`, whose build was still uncommitted in the same tree when this plan was written; both builds are now committed together as `0123f0b`.
 
 ## Global Constraints
 
