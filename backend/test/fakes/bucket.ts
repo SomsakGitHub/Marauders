@@ -5,6 +5,12 @@
 
 export const MAX_KEYS_PER_DELETE = 1000;
 
+/** UTF-16 code unit order, the order `>` uses in `list`, so the sort and the cursor ("keys after this one") agree. */
+function byKey(a: string, b: string): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
 export class FakeBucket {
   /** key -> body; the code under test only ever looks at keys. */
   objects = new Map<string, string>();
@@ -28,7 +34,7 @@ export class FakeBucket {
     const after = options.cursor?.startsWith("after:") ? options.cursor.slice("after:".length) : undefined;
     const keys = [...this.objects.keys()]
       .filter((key) => key.startsWith(options.prefix ?? ""))
-      .sort()
+      .sort(byKey)
       .filter((key) => after === undefined || key > after);
     const page = keys.slice(0, this.pageSize);
     const truncated = keys.length > page.length;

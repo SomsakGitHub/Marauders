@@ -12,8 +12,13 @@ import Testing
 @MainActor
 struct MaraudersTests {
     @Test func feedPlayerPhaseEquatable() {
-        #expect(FeedPlayerPhase.playing == FeedPlayerPhase.playing)
-        #expect(FeedPlayerPhase.failed("a") == FeedPlayerPhase.failed("a"))
-        #expect(FeedPlayerPhase.failed("a") != FeedPlayerPhase.failed("b"))
+        // Each side of `==` is a value of its own: a checker reads one expression compared with itself as a mistake.
+        let playing = FeedPlayerPhase.playing
+        let playingAgain = FeedPlayerPhase.playing
+        let failedA = FeedPlayerPhase.failed("a")
+        let failedAAgain = FeedPlayerPhase.failed("a")
+        #expect(playing == playingAgain)
+        #expect(failedA == failedAAgain)
+        #expect(failedA != FeedPlayerPhase.failed("b"))
     }
 }

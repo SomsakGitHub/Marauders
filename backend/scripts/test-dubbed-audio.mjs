@@ -81,7 +81,8 @@ assert.deepEqual(DUBBING_LANGUAGES.filter(l=>parseDubbingLanguage(l)!==l),[]);
 // The app's listening-language list and this allow-list must not drift apart.
 const swift=readFileSync(new URL('../../Marauders-ios/Marauders/Domain/Entities/ListeningLanguage.swift',import.meta.url),'utf8');
 const appCodes=[...swift.match(/static let codes = \[([^\]]*)\]/s)[1].matchAll(/"([a-z]{2,3})"/g)].map(m=>m[1]);
-assert.deepEqual([...appCodes].sort(),[...DUBBING_LANGUAGES].sort(),'iOS ListeningLanguage.codes must match DUBBING_LANGUAGES');
+const byCode=(a,b)=>a.localeCompare(b);
+assert.deepEqual([...appCodes].sort(byCode),[...DUBBING_LANGUAGES].sort(byCode),'iOS ListeningLanguage.codes must match DUBBING_LANGUAGES');
 assert.equal(parseDubbingLanguage('EN'),'en');assert.equal(parseDubbingLanguage(' th '),'th');
 for(const bad of [null,undefined,'','xx','eng','th/es','../th','en-US','yue'])assert.equal(parseDubbingLanguage(bad),null,String(bad));
 assert.equal(audioKey(id.toUpperCase(),hash,'th'),`translations/${id}/${hash}-th-v1.m4a`);

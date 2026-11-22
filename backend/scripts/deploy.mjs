@@ -22,8 +22,11 @@ neonConfig.webSocketConstructor = ws;
 
 const WRANGLER = path.join(BACKEND_DIR, "node_modules", ".bin", "wrangler");
 
+// An absolute path, so no directory of PATH can decide which git runs. This is where macOS keeps git.
+const GIT = "/usr/bin/git";
+
 function gitOutput(args) {
-  const run = spawnSync("git", args, { cwd: BACKEND_DIR, encoding: "utf8" });
+  const run = spawnSync(GIT, args, { cwd: BACKEND_DIR, encoding: "utf8" });
   if (run.status !== 0) {
     throw new Error(`git ${args[0]} failed`);
   }

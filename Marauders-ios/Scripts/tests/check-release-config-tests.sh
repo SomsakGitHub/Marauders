@@ -35,7 +35,7 @@ EOF
 write_plist() {
     {
         printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
-        printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+        printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">'
         printf '%s\n' '<plist version="1.0"><dict>'
         printf '%s\n' '<key>CFBundleIdentifier</key><string>com.somsak.Marauders</string>'
         printf '<key>MARAUDERS_API_BASE_URL</key><string>%s</string>\n' "$1"

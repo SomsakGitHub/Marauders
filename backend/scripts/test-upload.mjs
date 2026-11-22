@@ -25,7 +25,7 @@ async function main() {
   const response = await fetch(`${config.url}/v1/videos`, { method: "POST", body: form });
   const text = await response.text();
   console.log("status", response.status);
-  console.log(text);
+  console.log(text); // NOSONAR: the answer goes to the developer's own terminal, not to a log that other tools read
 }
 
 runCli(main);

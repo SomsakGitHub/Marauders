@@ -63,5 +63,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      # No dependency runs an install script here: the tests need none, and a package that ran code at install time
+      # would run it on a checkout of this repository.
+      - run: npm ci --ignore-scripts
       - run: npm test

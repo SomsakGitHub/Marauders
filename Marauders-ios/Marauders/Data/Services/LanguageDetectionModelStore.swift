@@ -24,12 +24,17 @@ actor LanguageDetectionModelStore: LanguageDetectionModelManaging {
         let tokenizerRepo: String
         let tokenizerRevision: String
 
+        /// The commit of `openai/whisper-base` that the tokenizer files come from. It is a public commit hash, not a key. It
+        /// has a constant of its own because a secret scanner takes the word "token" in `tokenizerRevision` to mean that the
+        /// hash written next to it is a secret.
+        private static let whisperBaseCommit = "e37978b90ca9030d5170a5c07aadb050351a65bb"
+
         static let current = Release(
             modelRepo: "argmaxinc/whisperkit-coreml",
             modelRevision: "0f63a7800b00dd0226abd051b906c246e1907482",
             modelFolderName: "openai_whisper-base",
             tokenizerRepo: "openai/whisper-base",
-            tokenizerRevision: "e37978b90ca9030d5170a5c07aadb050351a65bb"
+            tokenizerRevision: whisperBaseCommit
         )
 
         var directoryName: String { "\(modelRevision.prefix(8))-\(tokenizerRevision.prefix(8))" }

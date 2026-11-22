@@ -255,7 +255,8 @@ def read_allowlist(path):
     files, texts = set(), set()
     if not os.path.exists(path):
         return files, texts
-    with open(path, encoding="utf-8") as lines:
+    # `path` is the developer's own --allowlist argument (the tests point it at a temporary file), and the file is only read.
+    with open(path, encoding="utf-8") as lines:  # NOSONAR
         for line in lines:
             line = line.rstrip("\n")
             if not line.strip() or line.lstrip().startswith("#"):

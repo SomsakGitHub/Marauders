@@ -112,7 +112,7 @@ test("a push and a pull request run it for the files the tests read, and for no 
   }
 });
 
-test("one test job on ubuntu runs npm ci and npm test in backend/ with Node 22", () => {
+test("one test job on ubuntu runs npm ci without install scripts and npm test in backend/ with Node 22", () => {
   const text = workflow();
   assert.match(text, /^jobs:\n {2}test:$/m);
   assert.match(text, /^ {4}runs-on: ubuntu-latest$/m);
@@ -121,6 +121,6 @@ test("one test job on ubuntu runs npm ci and npm test in backend/ with Node 22",
   assert.match(text, /node-version: 22$/m);
   assert.match(text, /cache: npm$/m);
   assert.match(text, /cache-dependency-path: backend\/package-lock\.json$/m);
-  assert.match(text, /^ {6}- run: npm ci$/m);
+  assert.match(text, /^ {6}- run: npm ci --ignore-scripts$/m);
   assert.match(text, /^ {6}- run: npm test$/m);
 });

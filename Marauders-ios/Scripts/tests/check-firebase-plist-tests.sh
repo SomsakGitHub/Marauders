@@ -43,7 +43,7 @@ reset_other_keys() {
 write_plist() {
     {
         printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
-        printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+        printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">'
         printf '%s\n' '<plist version="1.0"><dict>'
         [ -z "$API_KEY_XML" ] || printf '%s\n' "$API_KEY_XML"
         [ -z "$PROJECT_ID_XML" ] || printf '%s\n' "$PROJECT_ID_XML"
