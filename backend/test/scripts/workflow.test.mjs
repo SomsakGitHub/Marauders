@@ -14,14 +14,25 @@ import { BACKEND_DIR } from "../../scripts/lib/targets.mjs";
 
 const WORKFLOW_PATH = path.resolve(BACKEND_DIR, "..", ".github", "workflows", "backend.yml");
 
-// What the agreement test (iosEnvironments.test.mjs) and the Worker read, so a change to any of them must run CI.
-// APIConfiguration.plist is deleted, but a plist that comes back must trigger the run that would catch it.
+// What the agreement test (iosEnvironments.test.mjs), the pins of this folder (clientKeyInjection.test.mjs and
+// firebasePlistInjection.test.mjs: the Jenkinsfile, the Fastfile, .gitignore, the app's sources and the docs) and the
+// Worker read, so a change to any of them must run CI. APIConfiguration.plist is deleted, but a plist that comes back
+// must trigger the run that would catch it.
 const WATCHED_PATHS = [
   "backend/**",
   ".github/workflows/backend.yml",
   "Marauders-ios/Marauders.xcodeproj/project.pbxproj",
   "Marauders-ios/Config/Info-Additions.plist",
   "Marauders-ios/Marauders/APIConfiguration.plist",
+  "Marauders-ios/Marauders/**",
+  "Marauders-ios/fastlane/Fastfile",
+  "Jenkinsfile",
+  ".gitignore",
+  "README.md",
+  "ARCHITECTURE.md",
+  "deployment/README.md",
+  "docs/ci-cd.md",
+  "docs/adr/**",
 ];
 
 function workflow() {

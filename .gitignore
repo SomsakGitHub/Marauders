@@ -23,3 +23,7 @@ Marauders-ios/fastlane/test_output/
 *.dSYM.zip
 Marauders-ios/Packages/*/.build/
 Marauders-ios/Packages/*/.swiftpm/
+
+# The plist that starts Firebase (docs/adr/012-force-update.md). The repository is public, so it is never committed:
+# Jenkins hands it to the TestFlight lane as a file credential (docs/ci-cd.md); a copy on this Mac stays untracked.
+Marauders-ios/Marauders/GoogleService-Info.plist

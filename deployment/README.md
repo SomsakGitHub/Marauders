@@ -81,7 +81,7 @@ npx wrangler rollback <version-id> --name marauders-api
 npx wrangler deployments list --name marauders-api        # ดูประวัติ + version-id
 ```
 
-`<version-id>` คือบรรทัดที่ `deploy:<env>` พิมพ์ท้ายสุด (`to undo this … deploy: …`) — rollback คืนแค่โค้ดของ Worker **ไม่ย้อน migration** ตารางหรือคอลัมน์ที่เพิ่มไปแล้วปล่อยทิ้งไว้ได้ถ้า Worker รุ่นเก่าไม่แตะมัน
+`<version-id>` คือบรรทัดที่ `deploy:<env>` พิมพ์ท้ายสุด (`to undo this … deploy: …`) — rollback คืนทั้ง version ของ Worker คือโค้ดและ bindings ของ version นั้น (Cloudflare บอกว่า version เก็บ bindings แต่ไม่ได้เอ่ยถึง var ตรง ๆ ให้ถือว่า var อย่าง `GIT_SHA` ย้อนตามไปด้วยจนกว่าจะลองจริง) **ไม่ย้อน migration** ตารางหรือคอลัมน์ที่เพิ่มไปแล้วปล่อยทิ้งไว้ได้ถ้า Worker รุ่นเก่าไม่แตะมัน
 
 ### `/health`
 
@@ -91,6 +91,30 @@ curl "https://marauders-api.js6ctz7gtj.workers.dev/health"           # {"status"
 ```
 
 `environment` มาจาก `[vars] ENVIRONMENT` ใน `wrangler.toml` ส่วน `version` คือเลขที่ `deploy:<env>` ใส่ให้ (`GIT_SHA`) — Worker ที่ deploy ด้วยวิธีอื่นจะขึ้น `"version":"dev"` ใช้เทียบว่า Worker ที่รันอยู่คือ commit ไหน
+
+### ยกระดับ build ขั้นต่ำ (force update)
+
+แอปรู้ว่า build เลขต่ำสุดที่ยังใช้ได้คือเท่าไรจาก **Firebase Remote Config** แอปที่เลข build ต่ำกว่านั้นจะขึ้นหน้า "ต้องอัปเดตแอป" แทนตัวแอป (เหตุผลและขอบเขตดู [ADR-012](../docs/adr/012-force-update.md)) ค่ามาจากสอง parameter ใน Firebase console: `minimum_build` (ชนิด Number; `0` หรือว่างคือไม่บังคับ) กับ `update_url` (ชนิด String; ลิงก์ของปุ่มอัปเดต) — **ไม่ต้อง commit และไม่ต้อง deploy Worker** เลข build คือ `BUILD_NUMBER` ของ Jenkins (`CFBundleVersion`) — build ที่ไม่ได้มาจาก Jenkins รวมถึงการกด Run จาก Xcode เป็น build 1 เสมอ และ**ถูกบล็อกเหมือน build อื่น**เมื่อตั้ง `minimum_build` เกิน 1 — ยกเว้น build Debug (Run ของ scheme Staging) ซึ่ง**ไม่มีวันถูกบล็อก** build ที่เลขเท่ากับค่าขั้นต่ำก็ผ่าน ก่อนกด Run scheme Production บนเครื่องเพื่องานอื่น ให้ตั้ง `minimum_build` เป็น `0` ก่อน
+
+ตั้งค่า**เมื่อ build N ติดตั้งได้จริงจาก TestFlight แล้วเท่านั้น** (ต่อไปคือ App Store) และห้ามตั้งเกินเลข build ล่าสุดที่อัปโหลดแล้ว ไม่งั้นผู้ใช้เจอหน้า "ต้องอัปเดต" ทั้งที่ยังไม่มีอะไรให้อัปเดต ส่วน build ที่ยังไม่มีด่านนี้ (ทุกรุ่นก่อน build แรกที่มีฟีเจอร์นี้) หยุดด้วยวิธีนี้ไม่ได้
+
+**ตั้งครั้งแรก (ทำครั้งเดียว):**
+
+1. ใน [Firebase console](https://console.firebase.google.com) สร้างโปรเจกต์โดย**ปิด Google Analytics** แล้วเพิ่มแอป iOS ที่ bundle id `com.somsak.Marauders`
+2. ดาวน์โหลด `GoogleService-Info.plist` — ไฟล์นี้ไม่อยู่ใน git (repo เป็น public) เก็บใน Jenkins เป็น credential ชนิด **Secret file** ID `marauders-firebase-plist` ([docs/ci-cd.md](../docs/ci-cd.md)) เพื่อให้ build ส่ง TestFlight ได้ไฟล์เอง และถ้าจะลองบนเครื่องให้วางไว้ที่ `Marauders-ios/Marauders/GoogleService-Info.plist` (`.gitignore` กันไว้แล้ว) lane `beta` หยุดก่อน build ถ้าไฟล์หาย เป็นของแอปอื่น หรือมีคีย์ที่ SDK เริ่มจากมันไม่ได้ (`GOOGLE_APP_ID`, `API_KEY`, `PROJECT_ID`, `GCM_SENDER_ID`)
+3. ใน Remote Config สร้าง parameter `minimum_build` (Number ค่า `0`) กับ `update_url` (String ค่าว่าง) แล้วกด **Publish changes**
+4. ก่อน build ที่ถึงผู้ทดสอบ ตอบคำถาม App Privacy ใน App Store Connect ให้ตรงกับ SDK (ติ๊กข้อมูลวินิจฉัยที่ SDK เก็บ — คำตอบเป็นของเจ้าของแอป)
+
+**ยกระดับ (ทุกครั้ง):**
+
+1. ใน Remote Config ตั้ง `minimum_build` = N และ `update_url` = ลิงก์ที่เป็น `https` บน `apple.com` หรือ `*.apple.com` (เช่น `https://apps.apple.com/app/id<เลขแอป>` หรือลิงก์ TestFlight) ไม่มี user, password หรือ port — **ไม่มีอะไรตรวจค่าในคอนโซลให้** แอปคือด่านเดียว: ลิงก์ที่ไม่ผ่านกติกา แอปจะไม่บล็อกใครเลย และเลขที่พิมพ์ผิด (เช่น `12o`, `1.5`, `-3`) แอปอ่านเป็น `0` คือไม่บล็อก
+2. กด **Publish changes** — ไม่มี review หรือเทสต์ก่อนถึงเครื่องผู้ใช้ จึงตรวจเลขกับลิงก์ให้ดีก่อนกด
+3. รอ: แอปที่เปิดใหม่หรือกลับมา foreground จะรู้ภายในราว 1 ชั่วโมง (SDK ดึงจาก Google อย่างมากชั่วโมงละครั้ง และแอปถามอย่างมากทุก 10 นาที) ไม่ใช่ทันที แอปที่ยังเปิดค้างอยู่จะรู้ตอนกลับมา foreground ครั้งถัดไป
+   ดูได้ใน log ของแอป (หมวด `update`): บรรทัด `config refreshed: minimumBuild=<n>` ลงท้ายด้วย `(from Google)` เมื่อ Google เพิ่งตอบ
+   หรือ `(from the SDK's saved values, Google last asked N min ago)` เมื่อ SDK ตอบจากค่าที่เก็บไว้ (ยังไม่ครบชั่วโมง เลยยังเป็นเลขเดิม)
+   ถ้าอยากเห็นค่าใหม่บนเครื่องทดสอบทันที ให้ลบแอปแล้วติดตั้งใหม่
+
+**ย้อน:** ตั้ง `minimum_build` เป็น `0` (หรือลบ parameter) แล้ว **Publish changes** — ไม่ต้อง commit, deploy หรือ rollback อะไร หน้า "ต้องอัปเดต" จะหายเองเมื่อแอปถามครั้งถัดไป (เปิดใหม่หรือกลับมา foreground ภายในราว 1 ชั่วโมงเหมือนกัน) โดยไม่ต้องติดตั้งแอปใหม่ ถ้าเผลอตั้งสูงเกินไปให้ย้อนทันที เพราะเครื่องที่จำค่านั้นไว้แล้วและติดต่อ Firebase ไม่ได้จะติดหน้าเดิมต่อจนกว่าจะติดต่อได้
 
 ## 1. Neon
 

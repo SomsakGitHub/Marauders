@@ -9,6 +9,10 @@ import SwiftUI
 @main
 struct MaraudersApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    /// Whether this build is too old to keep working (docs/adr/012-force-update.md). Built before `init()` runs, from
+    /// what the last launch kept: it reads UserDefaults and starts no request, so a build without the pass is still
+    /// not asked to do anything (`refreshIfDue` below follows the pass check).
+    @State private var updateGate = UpdateGateComposition.makeViewModel()
 
     init() {
         _ = AppLog.launchUptime
@@ -39,7 +43,11 @@ struct MaraudersApp: App {
     var body: some Scene {
         WindowGroup {
             if ClientKey.appMayRun() {
-                AppRootView()
+                if case .required(let updateURL) = updateGate.decision {
+                    UpdateRequiredView(updateURL: updateURL)
+                } else {
+                    AppRootView()
+                }
             } else {
                 ClientKeyBlockedView()
             }
@@ -55,6 +63,13 @@ struct MaraudersApp: App {
             @unknown default:
                 break
             }
+        }
+        // One ask for the gate's minimum at launch and one at each foreground, at most once per ten minutes (the view
+        // model keeps the count). The first ask is what starts Firebase; a build without the pass asks nothing, so it
+        // never starts it.
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            guard phase == .active, ClientKey.appMayRun() else { return }
+            Task { await updateGate.refreshIfDue() }
         }
         // The system relaunches the app, in the background, when the upload session has events for it, and runs this.
         // It returns once the app has applied every event the system held (25 s at most), which is the moment the

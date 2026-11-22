@@ -72,7 +72,7 @@ Marauders/
 │   ├── Packages/           # MaraudersAuth: the session core as a local Swift package (ADR-009)
 │   ├── MaraudersTests/     # unit tests (Swift Testing)
 │   ├── MaraudersUITests/   # XCUITest
-│   ├── Scripts/            # check-layers.sh (layer rules, warns in Staging builds), layer-exceptions.txt, layer-modules.txt, check-release-config.sh (Production guard), tests/
+│   ├── Scripts/            # check-layers.sh (layer rules, warns in Staging builds), layer-exceptions.txt, layer-modules.txt, check-release-config.sh (Production guard), check-firebase-plist.sh (checks the plist of a TestFlight build), tests/
 │   └── fastlane/           # lanes: test, build, beta
 ├── backend/                # Cloudflare Worker (TypeScript)
 │   ├── src/                # index.ts (router), routes/, auth/, db/, audio/, media/
@@ -137,6 +137,7 @@ curl "https://<your-staging-worker>.workers.dev/v1/feed?limit=5"
 1. เปิด `Marauders-ios/Marauders.xcodeproj`
 2. URL ของ Worker มาจาก build setting `MARAUDERS_API_BASE_URL` (target Marauders → Build Settings → User-Defined): **Release-Production = production, Debug-Staging = production ด้วยตอนนี้ (เป็น staging หลังสร้างแล้ว)** (ไม่มี `/` ท้าย) — ถ้า fork repo นี้ให้ใส่ URL Worker ของคุณทั้งสองค่า และใน `backend/environments.json` ด้วย
 3. เลือก scheme **Marauders Staging** แล้ว Run บน Simulator หรือเครื่องจริง (ต้องมีเน็ต) — build Staging คุยกับ production (staging ยังไม่ได้สร้าง); แท็บ **Log** (เฉพาะ Staging) บอกว่าคุยกับ host ไหน
+4. ด่าน force update (build ที่เก่าเกินไปจะขึ้นหน้า "ต้องอัปเดต") อ่านเลข build ขั้นต่ำจาก Firebase Remote Config ผ่านไฟล์ `Marauders-ios/Marauders/GoogleService-Info.plist` — Run ธรรมดา**ไม่ต้องมีไฟล์นี้**: ถ้าไม่มี (หรือมีแต่ SDK เริ่มจากมันไม่ได้) แอปรันตามปกติและด่านเปิดอยู่ (Run ของ scheme Staging เป็น build Debug จึงไม่ถูกบล็อกเลย ส่วน Run ของ scheme Production เป็น build 1 และจะถูกบล็อกเหมือน build อื่นเมื่อมีไฟล์นี้และตั้ง `minimum_build` เกิน 1 ไว้) ไฟล์นี้ไม่อยู่ใน git เพราะ repo เป็น public (`.gitignore` กันไว้) ถ้าจะลองกับ Firebase ของตัวเอง ให้ดาวน์โหลดจาก Firebase console แล้ววางไว้ที่นั่น ส่วน build ที่ส่ง TestFlight ได้ไฟล์จาก Jenkins ผ่าน credential `marauders-firebase-plist` และ lane `beta` ตรวจก่อน build (`Scripts/check-firebase-plist.sh`) ดู [ADR-012](docs/adr/012-force-update.md) กับ [docs/ci-cd.md](docs/ci-cd.md)
 
 build Production ที่ URL ไม่ตรงกับ production ใน `backend/environments.json` จะ build ไม่ผ่าน (Production guard) — build ส่ง TestFlight จึงชี้ผิดที่ไม่ได้ และ guard ตัวเดียวกันตรวจ executable ด้วยว่าไม่มี log ในแอปหรือ dev login ติดไป Staging ชี้ที่อื่นชั่วคราวได้ด้วย environment `MARAUDERS_API_BASE_URL` (Production ไม่อ่าน)
 

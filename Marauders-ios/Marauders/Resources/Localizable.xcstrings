@@ -2630,6 +2630,16 @@
         }
       }
     },
+    "This version of Marauders is too old to keep working. Update to continue." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวอร์ชันนี้เก่าเกินกว่าจะใช้งานต่อได้ กรุณาอัปเดตเพื่อใช้งานต่อ"
+          }
+        }
+      }
+    },
     "To confirm, continue with Apple. Your account is deleted as soon as Apple confirms it's you." : {
       "localizations" : {
         "th" : {
@@ -2896,6 +2906,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เลิกถูกใจ"
+          }
+        }
+      }
+    },
+    "Update" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัปเดต"
+          }
+        }
+      }
+    },
+    "Update required" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องอัปเดตแอป"
           }
         }
       }

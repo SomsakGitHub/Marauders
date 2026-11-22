@@ -20,6 +20,27 @@ def in_project(&block)
   Dir.chdir(PROJECT_ROOT, &block)
 end
 
+# The plist that starts Firebase (docs/adr/012-force-update.md) is not in the repository, which is public. Jenkins hands
+# it over as a file credential (docs/ci-cd.md): copy it into the app's folder, where the target bundles it. Without the
+# variable (a run on this Mac) nothing is touched, and a plist that is already in the folder stays. Jenkins writes the
+# credential read-only and a plain copy of it would be read-only too, so the lane that places it twice (`beta`, then
+# `build`) could not write over its own first copy: the copy is made beside the file and renamed over it, which also
+# leaves the folder's plist alone when the source cannot be read, or when the variable names that very file.
+def place_firebase_plist
+  source = ENV["FIREBASE_PLIST_PATH"].to_s.strip
+  return if source.empty?
+
+  target = File.join(PROJECT_ROOT, "Marauders", "GoogleService-Info.plist")
+  beside = "#{target}.new"
+  begin
+    FileUtils.cp(source, beside)
+    FileUtils.chmod(0o644, beside)
+    File.rename(beside, target)
+  ensure
+    FileUtils.rm_f(beside)
+  end
+end
+
 platform :ios do
   desc "Run the unit test suite (MaraudersTests) and emit build/test/junit.xml"
   lane :test do
@@ -59,6 +80,8 @@ platform :ios do
 
   desc "Build a Production .ipa for App Store distribution (no upload)"
   lane :build do
+    place_firebase_plist
+
     in_project do
       xcargs = ["-allowProvisioningUpdates"]
       # Signing against App Store Connect needs API key credentials; they are
@@ -97,6 +120,17 @@ platform :ios do
 
   desc "Build a Production archive and upload it to TestFlight"
   lane :beta do
+    # The plist must be this app's before anything is archived (docs/adr/012-force-update.md): a build without it
+    # starts and runs, but its force-update gate never reads the minimum. Paths are absolute because fastlane runs
+    # shell commands from the `fastlane/` folder; `build` places the same file again, which changes nothing.
+    place_firebase_plist
+    sh(
+      [
+        "sh", File.join(PROJECT_ROOT, "Scripts", "check-firebase-plist.sh"),
+        "--plist", File.join(PROJECT_ROOT, "Marauders", "GoogleService-Info.plist"),
+        "--bundle-id", APP_IDENTIFIER
+      ].map { |part| Shellwords.escape(part) }.join(" ")
+    )
     build
 
     in_project do

@@ -2,7 +2,10 @@ name: Backend
 
 # Runs the offline backend tests for every change that can affect them. It holds no credential of any kind and
 # deploys nothing: this repository is public, and a deploy is a guarded script the owner runs from their own Mac
-# (backend/scripts/deploy.mjs). The iOS files below are listed because the agreement test reads them.
+# (backend/scripts/deploy.mjs). The files below that are not under backend/ are listed because a test reads them: the
+# agreement test reads the iOS settings, and the pins of backend/test/scripts (the Firebase plist, the client key) read
+# the Jenkinsfile, the Fastfile, .gitignore, the app's sources and the docs, which a commit could change with every
+# other check green if this workflow did not start for them.
 on:
   push:
     branches: [main]
@@ -12,6 +15,15 @@ on:
       - "Marauders-ios/Marauders.xcodeproj/project.pbxproj"
       - "Marauders-ios/Config/Info-Additions.plist"
       - "Marauders-ios/Marauders/APIConfiguration.plist"
+      - "Marauders-ios/Marauders/**"
+      - "Marauders-ios/fastlane/Fastfile"
+      - "Jenkinsfile"
+      - ".gitignore"
+      - "README.md"
+      - "ARCHITECTURE.md"
+      - "deployment/README.md"
+      - "docs/ci-cd.md"
+      - "docs/adr/**"
   pull_request:
     paths:
       - "backend/**"
@@ -19,6 +31,15 @@ on:
       - "Marauders-ios/Marauders.xcodeproj/project.pbxproj"
       - "Marauders-ios/Config/Info-Additions.plist"
       - "Marauders-ios/Marauders/APIConfiguration.plist"
+      - "Marauders-ios/Marauders/**"
+      - "Marauders-ios/fastlane/Fastfile"
+      - "Jenkinsfile"
+      - ".gitignore"
+      - "README.md"
+      - "ARCHITECTURE.md"
+      - "deployment/README.md"
+      - "docs/ci-cd.md"
+      - "docs/adr/**"
   workflow_dispatch:
 
 permissions:

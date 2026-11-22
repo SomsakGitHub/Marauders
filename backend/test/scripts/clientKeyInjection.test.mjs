@@ -57,8 +57,13 @@ test("theAppChecksThePassBeforeItStartsAnything", () => {
   }
   assert.match(
     app,
-    /if ClientKey\.appMayRun\(\)\s*\{\s*AppRootView\(\)\s*\}\s*else\s*\{\s*ClientKeyBlockedView\(\)\s*\}/,
-    "the window shows the app only for the pass and the block screen otherwise",
+    /if ClientKey\.appMayRun\(\)\s*\{\s*if case \.required\(let updateURL\) = updateGate\.decision\s*\{\s*UpdateRequiredView\(updateURL: updateURL\)\s*\}\s*else\s*\{\s*AppRootView\(\)\s*\}\s*\}\s*else\s*\{\s*ClientKeyBlockedView\(\)\s*\}/,
+    "the window shows the app only for the pass, the Update screen in its place when the build is too old, and the block screen otherwise",
+  );
+  assert.match(
+    app,
+    /\.onChange\(of: scenePhase, initial: true\)\s*\{[^\n]*\n\s*guard [^\n]*ClientKey\.appMayRun\(\)[^\n]*\breturn\b[^\n]*\n\s*Task \{ await updateGate\.refreshIfDue\(\) \}/,
+    "a build without the pass never asks Firebase for the minimum: the refresh follows the pass check",
   );
   const relaunch = app.slice(app.indexOf(".backgroundTask("));
   const check = relaunch.indexOf("ClientKey.appMayRun()");
