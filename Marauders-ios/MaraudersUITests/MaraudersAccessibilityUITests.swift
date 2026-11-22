@@ -301,6 +301,86 @@ final class MaraudersAccessibilityUITests: XCTestCase {
         try audit(app)
     }
 
+    // MARK: - The Update screen
+
+    /// `UITEST_UPDATE_REQUIRED` makes the force-update gate say that this build is too old (docs/adr/012-force-update.md):
+    /// the Update screen takes the app's place, with its title, its text and one button.
+    @MainActor
+    func testTheUpdateScreenShowsTitleTextAndButtonInPlaceOfTheApp() throws {
+        let app = launch(["UITEST_UPDATE_REQUIRED"])
+
+        XCTAssertTrue(app.staticTexts["Update required"].waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(
+            app.staticTexts["This version of Marauders is too old to keep working. Update to continue."].exists,
+            app.debugDescription)
+        let update = app.buttons["Update"]
+        XCTAssertTrue(update.exists, app.debugDescription)
+        XCTAssertTrue(update.isHittable, app.debugDescription)
+        XCTAssertGreaterThanOrEqual(update.frame.height, 44, "the button is smaller than a tap target")
+        XCTAssertFalse(app.otherElements["feed.root"].exists, "the app is behind the screen, not under it")
+    }
+
+    /// The content scrolls, so the button stays reachable when the text takes more than the screen. The button is not
+    /// tapped: it opens Safari.
+    @MainActor
+    func testTheUpdateScreenCanBeReachedAtTheLargestTextSize() throws {
+        let app = launch(["UITEST_UPDATE_REQUIRED"], textSize: Self.largestText)
+
+        XCTAssertTrue(app.staticTexts["Update required"].waitForExistence(timeout: 15), app.debugDescription)
+        let update = app.buttons["Update"]
+        XCTAssertTrue(update.exists, app.debugDescription)
+        if !update.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(waitUntilHittable(update), "the Update button cannot be reached: \(app.debugDescription)")
+    }
+
+    @MainActor
+    func testTheUpdateScreenPassesTheStableAudits() throws {
+        let app = launch(["UITEST_UPDATE_REQUIRED"])
+        XCTAssertTrue(app.staticTexts["Update required"].waitForExistence(timeout: 15), app.debugDescription)
+
+        try audit(app)
+    }
+
+    /// A launch that knows nothing starts as the app. When the fresh answer says this build is too old, the window
+    /// swaps to the Update screen by itself, with no relaunch. `UITEST_UPDATE_REQUIRED_AFTER_REFRESH` makes that answer
+    /// come some seconds after the launch.
+    @MainActor
+    func testTheWindowSwapsToTheUpdateScreenWhenTheFreshAnswerRaisesTheMinimum() throws {
+        let app = launch(["UITEST_UPDATE_REQUIRED_AFTER_REFRESH"])
+        XCTAssertTrue(toFeed(app), "the window must start as the app: \(app.debugDescription)")
+
+        XCTAssertTrue(
+            app.staticTexts["Update required"].waitForExistence(timeout: 30),
+            "the window did not swap to the Update screen: \(app.debugDescription)")
+        XCTAssertTrue(app.buttons["Update"].exists, app.debugDescription)
+        XCTAssertFalse(app.otherElements["feed.root"].exists, "the app is behind the screen, not under it")
+    }
+
+    /// The other way round: a launch that kept "required" starts on the Update screen, and a fresh answer with no gate
+    /// opens the app by itself (`UITEST_UPDATE_LIFTED_AFTER_REFRESH`).
+    @MainActor
+    func testTheWindowOpensTheAppWhenTheFreshAnswerLiftsTheMinimum() throws {
+        let app = launch(["UITEST_UPDATE_LIFTED_AFTER_REFRESH"])
+        XCTAssertTrue(
+            app.staticTexts["Update required"].waitForExistence(timeout: 15),
+            "the window must start on the Update screen: \(app.debugDescription)")
+
+        XCTAssertTrue(toFeed(app), "the window did not open the app: \(app.debugDescription)")
+        XCTAssertFalse(app.staticTexts["Update required"].exists, "the Update screen is still up")
+    }
+
+    /// Under `UITEST` the gate is off unless the flag is passed, so every other UI test sees the app and never the
+    /// screen.
+    @MainActor
+    func testWithoutTheFlagTheUpdateScreenIsNeverShown() throws {
+        let app = launch()
+
+        XCTAssertTrue(toFeed(app), app.debugDescription)
+        XCTAssertFalse(app.staticTexts["Update required"].exists)
+    }
+
     // MARK: - Helpers
 
     @MainActor

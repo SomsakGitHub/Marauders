@@ -15,6 +15,12 @@ Marauders/Shared/Logging/AppLogStore.swift|*  # the lines and the subsystem name
 Marauders/Shared/Configuration/APIBaseURL.swift|API URL not found — check the MARAUDERS_API_BASE_URL build setting  # a configuration mistake
 Marauders/Shared/Configuration/APIBaseURL.swift|API URL must be https:// with no path  # a configuration mistake
 Packages/MaraudersAuth/Sources/MaraudersAuthData/AuthRoute.swift|API URL must be https:// with no path  # a configuration mistake
+Marauders/Data/Repositories/FirebasePlistCheck.swift|GOOGLE_APP_ID is missing or malformed  # a configuration mistake: the reason goes only to the log
+Marauders/Data/Repositories/FirebasePlistCheck.swift|API_KEY is missing or malformed  # a configuration mistake: the reason goes only to the log
+Marauders/Data/Repositories/FirebasePlistCheck.swift|PROJECT_ID is missing  # a configuration mistake: the reason goes only to the log
+Marauders/Data/Repositories/FirebasePlistCheck.swift|GCM_SENDER_ID is missing  # a configuration mistake: the reason goes only to the log
+Marauders/Data/Repositories/RemoteConfigSource.swift|\(seconds / 60) min  # an age in a log line, never shown to a viewer
+Marauders/Data/Repositories/RemoteConfigSource.swift|\(seconds / 3600) h \((seconds % 3600) / 60) min  # an age in a log line, never shown to a viewer
 
 # Not text: bytes of the upload body, names of background tasks.
 Marauders/Data/API/MultipartBodyWriter.swift|Content-Disposition: form-data; name=\"\(escaped(name))\"; filename=\"\(escaped(filename))\"\r\n  # a header line of the multipart body

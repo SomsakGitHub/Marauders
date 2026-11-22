@@ -10,6 +10,8 @@
 		06BC2D373075A7FD0064F635 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D363075A7FD0064F635 /* Lottie */; };
 		06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 06BC2D3B3075A7FD0064F635 /* WhisperKit */; };
 		A17E5E0000000000000000A1 /* MaraudersAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A17E5E0000000000000000A2 /* MaraudersAuth */; };
+		FB0000000000000000000001 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000000000000000000004 /* FirebaseCore */; };
+		FB0000000000000000000002 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000000000000000000005 /* FirebaseRemoteConfig */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +63,8 @@
 				06BC2D373075A7FD0064F635 /* Lottie in Frameworks */,
 				06BC2D3A3075A7FD0064F635 /* WhisperKit in Frameworks */,
 				A17E5E0000000000000000A1 /* MaraudersAuth in Frameworks */,
+				FB0000000000000000000001 /* FirebaseCore in Frameworks */,
+				FB0000000000000000000002 /* FirebaseRemoteConfig in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -127,6 +131,8 @@
 				06BC2D363075A7FD0064F635 /* Lottie */,
 				06BC2D3B3075A7FD0064F635 /* WhisperKit */,
 				A17E5E0000000000000000A2 /* MaraudersAuth */,
+				FB0000000000000000000004 /* FirebaseCore */,
+				FB0000000000000000000005 /* FirebaseRemoteConfig */,
 			);
 			productName = Marauders;
 			productReference = 06BC2C2A3075A7FB0064F635 /* Marauders.app */;
@@ -215,6 +221,7 @@
 				06BC2D383075A7FD0064F635 /* XCRemoteSwiftPackageReference "lottie-spm" */,
 				06BC2D3C3075A7FD0064F635 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				A17E5E0000000000000000A3 /* XCLocalSwiftPackageReference "Packages/MaraudersAuth" */,
+				FB0000000000000000000003 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 06BC2C2B3075A7FB0064F635 /* Products */;
@@ -714,6 +721,14 @@
 				version = 1.1.1;
 			};
 		};
+		FB0000000000000000000003 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.2.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -730,6 +745,16 @@
 		A17E5E0000000000000000A2 /* MaraudersAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MaraudersAuth;
+		};
+		FB0000000000000000000004 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB0000000000000000000003 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		FB0000000000000000000005 /* FirebaseRemoteConfig */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB0000000000000000000003 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseRemoteConfig;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
