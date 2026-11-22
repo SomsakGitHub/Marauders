@@ -124,6 +124,7 @@ cat ~/.jenkins/secrets/initialAdminPassword
 | `asc-issuer-id` | Secret text | Issuer ID |
 | `jfrog-sdk-swift-token` | Secret text | access token ของ JFrog Swift package registry (ใช้ใน stage Resolve Swift packages และ Deploy) |
 | `marauders-client-key` | Secret text | ค่า build-time ที่ Jenkins ฝังเข้าแอป ต้องเป็น `run by pass` เป๊ะๆ (แอปเปิดได้เฉพาะ build ที่ถือค่านี้) ใช้ใน stage Deploy ถ้าไม่มี credential นี้ stage Deploy จะหยุดก่อน build — ดู "ค่าที่ Jenkins ฝังให้ build" |
+| `marauders-firebase-plist` | Secret file | ไฟล์ `GoogleService-Info.plist` ของแอป iOS `com.somsak.Marauders` ที่ดาวน์โหลดจาก Firebase console (ไม่อยู่ใน git เพราะ repo เป็น public) Jenkins ส่งเป็นตัวแปร `FIREBASE_PLIST_PATH` ใน stage Deploy; lane `build` คัดลอกไปไว้ในโฟลเดอร์แอป และ lane `beta` หยุดก่อน build ถ้าไฟล์หาย เป็นของแอปอื่น หรือมีคีย์ที่ SDK เริ่มจากมันไม่ได้ (`GOOGLE_APP_ID`, `API_KEY`, `PROJECT_ID`, `GCM_SENDER_ID`) — ถ้าไม่มี credential นี้ stage Deploy จะหยุดก่อน build — ดู "ไฟล์ที่ Jenkins ใส่ให้ build" |
 
 package `poc-sdk.waypointsdk` อยู่ใน registry ส่วนตัวของ JFrog stage Resolve Swift packages
 จึงรัน `swift package-registry login` ด้วย token นี้ก่อน `xcodebuild -resolvePackageDependencies`
@@ -195,6 +196,20 @@ lane `build` ส่ง `-allowProvisioningUpdates` พร้อม API key (ถ�
 lane `build` อ่าน env `BUILD_NUMBER` (Jenkins ตั้งให้) → ส่ง `CURRENT_PROJECT_VERSION` ตอน archive
 ดังนั้น TestFlight build จะเพิ่มขึ้นอัตโนมัติทุกรอบ (ไม่ต้องแก้โปรเจค)
 
+เลขนี้คือกุญแจของ force update ด้วย: แอปเทียบ `CFBundleVersion` ของตัวเองกับ `minimum_build` ที่ตั้งไว้ใน Firebase Remote Config
+(ดู [ADR-012](adr/012-force-update.md) กับหัวข้อ "ยกระดับ build ขั้นต่ำ" ใน `deployment/README.md`) จึงมีข้อควรรู้:
+
+- เลขต้อง**เพิ่มขึ้นอย่างเดียว** ห้ามรีเซ็ตหรือถอยหลัง (เช่น ย้ายไป Jenkins job ใหม่ที่เริ่มนับจาก 1) เพราะ build ใหม่จะต่ำกว่าค่าขั้นต่ำที่เคยตั้งไว้
+  และผู้ที่ลงรุ่นใหม่จะเจอหน้า "ต้องอัปเดตแอป" ทั้งที่เป็นรุ่นล่าสุด
+- **build 1 คือทุก build ในเครื่อง** (กด Run หรือ Archive จาก Xcode ที่ไม่มี `BUILD_NUMBER`) และ**ถูกบล็อกเหมือน build อื่น**เมื่อ `minimum_build` เกิน 1
+  (เดิม build 1 ได้รับยกเว้น เปลี่ยนเมื่อ 2026-11-22 เพื่อให้ลองหน้าอัปเดตจาก Xcode บนเครื่องจริงได้) มีแต่ build Debug (Run ของ scheme Staging) ที่ไม่ถูกบล็อกเลย
+  ก่อนกด Run scheme Production บนเครื่องเพื่องานอื่น ให้ตั้ง `minimum_build` เป็น `0` หรือใช้ scheme Staging
+- อ่านเลขจาก build ที่ archive ไว้ (ต้องได้จำนวนเต็ม; .ipa อยู่ใน artifacts ของ build ใน Jenkins):
+
+  ```bash
+  unzip -p Marauders.ipa 'Payload/Marauders.app/Info.plist' | plutil -extract CFBundleVersion raw -o - -
+  ```
+
 ## ค่าที่ Jenkins ฝังให้ build (`MARAUDERS_CLIENT_KEY`)
 
 แอปถือค่า build-time หนึ่งค่าชื่อ `MARAUDERS_CLIENT_KEY` (`ClientKey` ใน `Shared/Configuration/`) และ**เปิดได้เฉพาะเมื่อค่านี้คือ `run by pass`
@@ -256,6 +271,46 @@ unzip -p Marauders.ipa 'Payload/Marauders.app/Info.plist' | plutil -extract MARA
   และเพิ่ม guard ที่ล้ม build Production ที่ไม่ได้รับค่า — แต่ค่าที่อบเข้าแอปใครแกะ .ipa ก็อ่านได้เสมอ และ xcconfig ไม่เอาค่าออกจาก log ดิบของ gym
   (Run Script phase ยังพิมพ์ build setting ทั้งหมดอยู่) ความลับจริงจึงต้องไม่อยู่ในแอป และต้องคิดเรื่อง log นี้ด้วย
 
+## ไฟล์ที่ Jenkins ใส่ให้ build (`GoogleService-Info.plist`)
+
+ด่าน force update อ่านเลข build ขั้นต่ำจาก Firebase Remote Config ผ่านไฟล์ `GoogleService-Info.plist` ของแอป ([ADR-012](adr/012-force-update.md))
+repo เป็น public จึง**ไม่เก็บไฟล์นี้ใน git** (`.gitignore` กันไว้ที่ `Marauders-ios/Marauders/GoogleService-Info.plist`) ไฟล์เดินทางแบบนี้:
+
+- **ใน Jenkins:** stage Deploy ผูก credential `marauders-firebase-plist` (Secret file) เข้ากับตัวแปร `FIREBASE_PLIST_PATH` lane `build`
+  คัดลอกไฟล์ไปไว้ที่ `Marauders-ios/Marauders/GoogleService-Info.plist` ก่อน `gym` (target แอปใช้โฟลเดอร์ซิงก์ ไฟล์ที่วางไว้จึงเข้า bundle เอง)
+  ถ้าตัวแปรไม่มี lane ไม่แตะอะไร
+- **lane `beta` ตรวจก่อน build:** `Scripts/check-firebase-plist.sh` หยุดก่อน archive ถ้าไฟล์หาย ไม่ใช่ plist มี `BUNDLE_ID` ที่ไม่ใช่
+  `com.somsak.Marauders` หรือมีคีย์ที่ SDK เริ่มจากมันไม่ได้: `GOOGLE_APP_ID` ไม่ใช่รูป `1:<เลขโปรเจกต์>:ios:<hex>`, `API_KEY` ไม่ใช่ตัว `A`
+  ตามด้วยตัวอักษร ตัวเลข `-` `_` รวม 39 ตัว (ค่า placeholder จึงไม่ผ่าน), `PROJECT_ID` หรือ `GCM_SENDER_ID` ว่างหรือไม่ใช่ข้อความ
+  เพราะ build ที่ไม่มีไฟล์ที่ใช้ได้ยังเปิดแอปได้ แต่ด่านไม่เคยอ่านค่าขั้นต่ำและไม่มีอะไรบอก (แอปเองใช้กฎสี่ข้อเดียวกันก่อนเริ่ม SDK
+  ไฟล์ที่ไม่ผ่านจึงไม่ทำให้แอป crash แต่ทำให้ด่านเปิดอยู่) สคริปต์ไม่พิมพ์ค่าใดในไฟล์ออกมา (log ของ build มีคนอ่านมากกว่าไฟล์)
+- **ในเครื่อง:** กด Run หรือ Archive จาก Xcode โดยไม่มีไฟล์ใช้ได้ตามปกติ (แอปบันทึก log หนึ่งบรรทัดและด่านเปิดอยู่ ไม่ crash)
+  ถ้าวางไฟล์ไว้เอง แอปจะถาม Firebase และบันทึก `config refreshed: minimumBuild=<n>` (หมวด `update`) ตามด้วยที่มาของค่า:
+  `(from Google)` คือ Google เพิ่งตอบ ส่วน `(from the SDK's saved values, Google last asked N min ago)` คือ SDK ตอบจากค่าที่เก็บไว้
+  (ภายในชั่วโมงเดียวกัน SDK ไม่ถาม Google) ลบแอปแล้วติดตั้งใหม่เพื่อให้ถาม Google ทันที
+
+**สร้าง credential (ก่อน Build Now ครั้งถัดไป):** `Manage Jenkins → Credentials → System → Global credentials → Add Credentials`
+ชนิด **Secret file** ID `marauders-firebase-plist` อัปโหลด `GoogleService-Info.plist` ของแอป iOS `com.somsak.Marauders`
+ถ้ายังไม่มี credential นี้ stage Deploy จะหยุดก่อน build ส่วนฝั่ง Firebase console ดูหัวข้อ "ยกระดับ build ขั้นต่ำ" ใน
+[deployment/README.md](../deployment/README.md)
+
+**อ่านไฟล์กลับจาก .ipa ที่ archive ไว้** (.ipa อยู่ใน artifacts ของ build ใน Jenkins) เหมือนค่าของ `MARAUDERS_CLIENT_KEY`:
+
+```bash
+unzip -p Marauders.ipa 'Payload/Marauders.app/GoogleService-Info.plist' | plutil -extract BUNDLE_ID raw -o - -
+```
+
+ต้องได้ `com.somsak.Marauders` ถ้า `unzip` ไม่เจอไฟล์ แปลว่า build นั้นไม่มี plist และด่าน force update ไม่ทำงาน
+อย่าอ่านคีย์อื่นของไฟล์นี้ลงใน log หรือแชต
+
+ข้อควรรู้:
+
+- package `firebase-ios-sdk` ([ADR-012](adr/012-force-update.md)) ถูกดึงจาก GitHub ใน stage Resolve Swift packages (เครื่อง Jenkins ต้องออกไปถึง GitHub ได้)
+  และ build ที่ DerivedData ว่างต้องคอมไพล์ SDK เพิ่ม จึงนานขึ้น
+- ต้องสร้าง credential นี้ก่อน Build Now ครั้งแรกหลังเพิ่มฟีเจอร์ ไม่งั้น stage Deploy หยุดก่อน build (ตั้งใจ: ดีกว่าส่ง build ที่ด่านไม่ทำงาน)
+- ไฟล์นี้ไม่ใช่ความลับระดับรหัสผ่าน (ค่าในไฟล์อยู่ในแอปที่ส่งถึงผู้ใช้อยู่แล้ว) แต่ repo เป็น public จึงไม่ commit และไม่พิมพ์ลง log
+  ส่วนค่าใน Remote Config ใครก็อ่านได้จากแอป อย่าใส่อะไรที่เป็นความลับ
+
 ## รันในเครื่อง (local)
 
 ```bash
@@ -297,7 +352,7 @@ bundle exec fastlane beta
 
 Jenkins ดูแลเฉพาะแอป iOS — ไม่มี stage ใน `Jenkinsfile` ที่แตะ backend ส่วน backend (`backend/`) มีสองเรื่องแยกกัน:
 
-**1. CI รันเทสต์เท่านั้น** — GitHub Actions workflow `.github/workflows/backend.yml` (job `test` บน `ubuntu-latest`) รัน `npm ci` แล้ว `npm test` ใน `backend/` เมื่อ push เข้า `main`, เมื่อมี pull request และสั่งมือได้ (`workflow_dispatch`) เฉพาะเมื่อไฟล์ที่เกี่ยวข้องเปลี่ยน (`backend/**`, ตัว workflow เอง, และไฟล์ iOS ที่เทสต์ความตรงกันของ URL อ่าน: `project.pbxproj`, `Config/Info-Additions.plist`, `APIConfiguration.plist`)
+**1. CI รันเทสต์เท่านั้น** — GitHub Actions workflow `.github/workflows/backend.yml` (job `test` บน `ubuntu-latest`) รัน `npm ci` แล้ว `npm test` ใน `backend/` เมื่อ push เข้า `main`, เมื่อมี pull request และสั่งมือได้ (`workflow_dispatch`) เฉพาะเมื่อไฟล์ที่เกี่ยวข้องเปลี่ยน (`backend/**`, ตัว workflow เอง, ไฟล์ iOS ที่เทสต์ความตรงกันของ URL อ่าน: `project.pbxproj`, `Config/Info-Additions.plist`, `APIConfiguration.plist`, และไฟล์ที่ pin ใน `backend/test/scripts` อ่าน: `Jenkinsfile`, `fastlane/Fastfile`, `.gitignore`, โค้ดของแอปใน `Marauders-ios/Marauders/**` กับเอกสาร `README.md`, `ARCHITECTURE.md`, `deployment/README.md`, `docs/ci-cd.md`, `docs/adr/**`) — ถ้า workflow ไม่ทำงานเมื่อไฟล์เหล่านั้นเปลี่ยน commit ที่ลบขั้นตอนตรวจ plist ออกจาก lane `beta` จะผ่านโดยไม่มีอะไรแดง
 
 - `npm test` = `tsc --noEmit` + เทสต์ของ script และ guard ของ environment (`test:scripts`) + `/health` + เทสต์ของ route ทั้งหมด — ทั้งหมดออฟไลน์ (database เป็นของปลอมในเครื่อง) จึง**ไม่ต้องมี secret ใด ๆ**
 - workflow ตั้ง `permissions: contents: read`, ยกเลิกรอบเก่าที่ซ้อนกัน (`concurrency`), ไม่ใช้ `pull_request_target`, และ pin ทุก action ด้วย commit SHA

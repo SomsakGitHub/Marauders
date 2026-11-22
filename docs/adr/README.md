@@ -15,5 +15,6 @@ Short, durable notes on **why** we chose a design—not only what the code does.
 | [009](009-session-core-package.md) | The session core as a local Swift package |
 | [010](010-environments.md) | Environments: scripts that name their target, one backend for now, staging ready |
 | [011](011-account-deletion.md) | Account deletion: Apple first, then the files, then the rows |
+| [012](012-force-update.md) | Force update: a minimum build read from Firebase Remote Config |
 
 System overview: [ARCHITECTURE.md](../../ARCHITECTURE.md)
