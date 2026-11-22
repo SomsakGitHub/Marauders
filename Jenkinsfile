@@ -78,6 +78,9 @@ pipeline {
           // The build-time value the app carries (docs/ci-cd.md); it must be exactly the pass, `run by pass`.
           // fastlane passes it to xcodebuild as a build setting, which overrides the project's default (the pass).
           string(credentialsId: 'marauders-client-key', variable: 'MARAUDERS_CLIENT_KEY'),
+          // The plist that starts Firebase (docs/ci-cd.md): without it the force-update gate never reads the minimum.
+          // fastlane copies the file into the app's folder and checks that it is this app's before it builds.
+          file(credentialsId: 'marauders-firebase-plist', variable: 'FIREBASE_PLIST_PATH'),
           string(credentialsId: 'jfrog-sdk-swift-token', variable: 'JFROG_SDK_SWIFT_TOKEN')
         ]) {
           dir('Marauders-ios') {
